@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { TeamMeeting, TeamMember } from '../types';
 import { Employee360ProfileView } from './Employee360ProfileView';
+import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 
 export const TeamLeaderDashboardView: React.FC = () => {
   const { 
@@ -804,8 +805,8 @@ export const TeamLeaderDashboardView: React.FC = () => {
                               : isLate 
                               ? 'bg-amber-50 text-amber-700 border border-amber-200/80' 
                               : 'bg-purple-50 text-purple-700 border border-purple-200/80'
-                          } flex items-center justify-center font-display font-black text-xs shadow-2xs group-hover:scale-105 transition-transform`}>
-                            {member.avatar || member.name.substring(0, 2).toUpperCase()}
+                          } flex items-center justify-center font-display font-black text-xs shadow-2xs group-hover:scale-105 transition-transform overflow-hidden`}>
+                            <EmployeeAvatar avatar={member.avatar} name={member.name} className="w-full h-full" fallbackClassName="font-display font-black text-xs" />
                           </div>
                           <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
                             isPresent ? 'bg-emerald-500' : isLate ? 'bg-amber-500' : 'bg-purple-500'

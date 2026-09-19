@@ -82,11 +82,19 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
 
   useListDefault(teamGroup, setTeamGroup, teamGroups, (g) => g.name);
 
-  // The reporting leader is never typed — it is whoever leads the chosen team.
+  // The reporting leader logic: TLs report to Branch Head/Admin, Telecallers report to their TL
   const leaderOfChosenTeam = teamGroups.find((g) => g.name === teamGroup)?.leaderName ?? '';
   useEffect(() => {
-    setTeamLeaderName(leaderOfChosenTeam);
-  }, [leaderOfChosenTeam]);
+    if (role === 'team_leader') {
+      setTeamLeaderName('Branch Head / Operations Director');
+    } else if (role === 'hr') {
+      setTeamLeaderName('Super Admin / Executive Management');
+    } else if (role === 'admin') {
+      setTeamLeaderName('Executive Board');
+    } else {
+      setTeamLeaderName(leaderOfChosenTeam || 'Branch Team Leader');
+    }
+  }, [role, leaderOfChosenTeam]);
 
   if (!isOpen) return null;
 
@@ -421,27 +429,63 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">ASSIGN SQUAD / TEAM</label>
-                <select
-                  value={teamGroup}
-                  onChange={(e) => setTeamGroup(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                >
-                  {teamGroups.map((grp) => (
-                    <option key={grp.id} value={grp.name}>
-                      {grp.name} (TL: {grp.leaderName})
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  {role === 'team_leader' ? 'SQUAD / TEAM NAME TO LEAD *' : 'ASSIGN SQUAD / TEAM *'}
+                </label>
+                {role === 'team_leader' ? (
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      required
+                      value={teamGroup}
+                      onChange={(e) => setTeamGroup(e.target.value)}
+                      placeholder="e.g. Alpha Growth Team"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                    <p className="text-[10px] text-teal-600 font-medium">
+                      ✓ This Team Leader will be assigned as Head of this Squad.
+                    </p>
+                  </div>
+                ) : teamGroups.length > 0 ? (
+                  <select
+                    value={teamGroup}
+                    onChange={(e) => setTeamGroup(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    {teamGroups.map((grp) => (
+                      <option key={grp.id} value={grp.name}>
+                        {grp.name} (TL: {grp.leaderName})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      required
+                      value={teamGroup}
+                      onChange={(e) => setTeamGroup(e.target.value)}
+                      placeholder="e.g. Alpha Growth Squad"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                    <p className="text-[10px] text-amber-600 font-medium">
+                      No squads created yet. Type a squad name to initialize one.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">REPORTING TEAM LEADER</label>
-                <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-600">
-                  {teamLeaderName || 'Set by the team above'}
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  {role === 'team_leader' ? 'REPORTING AUTHORITY' : 'REPORTING TEAM LEADER'}
+                </label>
+                <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700">
+                  {teamLeaderName}
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">
-                  Follows whoever leads the selected team. Change it in People → Teams.
+                  {role === 'team_leader'
+                    ? 'Team Leaders report directly to Executive Operations & Branch Management.'
+                    : 'Follows whoever leads the selected team.'}
                 </p>
               </div>
             </div>

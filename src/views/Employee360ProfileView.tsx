@@ -54,6 +54,10 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
   
   // Day filter for categories matching telecaller options
   const [dayCategoryFilter, setDayCategoryFilter] = useState<'ALL' | 'INTERESTED' | 'CALLBACK' | 'NOT_INTERESTED' | 'CONVERTED' | 'BUSY' | 'CONNECTED'>('ALL');
+  // Date filter for calling history: All, Today, Yesterday, Week, Custom
+  const [callingDateFilter, setCallingDateFilter] = useState<'ALL' | 'TODAY' | 'YESTERDAY' | 'WEEK' | 'CUSTOM'>('ALL');
+  const [customFromDate, setCustomFromDate] = useState<string>('');
+  const [customToDate, setCustomToDate] = useState<string>('');
 
   if (!member) return null;
 
@@ -126,7 +130,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
     return byEmpId || byLeadMatch;
   });
 
-  // 3. Generate 10-Day Calling & Work Ledger from Real Records
+  // 3. Generate Calling & Work Ledger from Real Records (matching memberCallLogs by date)
   const callingLedger10Days = useMemo(() => {
     const records = [];
     const today = new Date();
@@ -137,6 +141,15 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
       const isSunday = d.getDay() === 0;
       const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
       const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+      const dIso = d.toISOString().split('T')[0];
+
+      // Find all call logs on this date
+      const dayCalls = memberCallLogs.filter((c: any) => {
+        if (c.createdAt && typeof c.createdAt === 'string') {
+          return c.createdAt.startsWith(dIso);
+        }
+        return c.timestamp && (c.timestamp.includes(dIso) || c.timestamp.includes(dateStr));
+      });
 
       if (isSunday) {
         records.push({
@@ -152,43 +165,69 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
           revenue: 0,
           isSunday: true,
           leads: [] as AssignedLead[],
+          calls: [] as any[],
+          dateIso: dIso,
         });
       } else if (i === 0) {
-        // Today - Real Values Only
+        // Today - Real Values & Live Leads
+        const calledCount = dayCalls.length > 0 ? dayCalls.length : (member.dialsToday || 0);
+        const interestedCount = dayCalls.length > 0
+          ? dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'INTERESTED').length
+          : (member.interested || 0);
+        const callbackCount = dayCalls.length > 0
+          ? dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'CALLBACK').length
+          : memberLeads.filter(l => l.status === 'CALLBACK').length;
+        const notIntCount = dayCalls.length > 0
+          ? dayCalls.filter((c: any) => ['NOT_INTERESTED', 'LOST', 'REJECTED'].includes((c.outcome || '').toUpperCase())).length
+          : memberLeads.filter(l => (l.status as string) === 'NOT_INTERESTED' || (l.status as string) === 'LOST').length;
+        const convertedCount = dayCalls.length > 0
+          ? dayCalls.filter((c: any) => ['CONVERTED', 'WON', 'DEAL_CLOSED'].includes((c.outcome || '').toUpperCase())).length
+          : memberLeads.filter(l => l.status === 'CONVERTED').length;
+
         records.push({
           index: i,
           dateLabel: `Today (${dateStr})`,
-          assigned: memberLeads.length,
-          called: member.dialsToday || 0,
+          assigned: memberLeads.length || calledCount,
+          called: calledCount,
           target: member.goalCalls || 0,
-          interested: member.interested || 0,
-          callback: memberLeads.filter(l => l.status === 'CALLBACK').length,
-          notInterested: memberLeads.filter(l => (l.status as string) === 'NOT_INTERESTED' || (l.status as string) === 'LOST').length,
-          converted: memberLeads.filter(l => l.status === 'CONVERTED').length,
+          interested: interestedCount,
+          callback: callbackCount,
+          notInterested: notIntCount,
+          converted: convertedCount,
           revenue: member.salesAchieved || 0,
           isSunday: false,
           leads: memberLeads,
+          calls: dayCalls,
+          dateIso: dIso,
         });
       } else {
-        // Past Days
+        // Past Days with Real Call Logs
+        const calledCount = dayCalls.length;
+        const interestedCount = dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'INTERESTED').length;
+        const callbackCount = dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'CALLBACK').length;
+        const notIntCount = dayCalls.filter((c: any) => ['NOT_INTERESTED', 'LOST', 'REJECTED'].includes((c.outcome || '').toUpperCase())).length;
+        const convertedCount = dayCalls.filter((c: any) => ['CONVERTED', 'WON', 'DEAL_CLOSED'].includes((c.outcome || '').toUpperCase())).length;
+
         records.push({
           index: i,
           dateLabel: `${dateStr} (${dayName})`,
-          assigned: 0,
-          called: 0,
+          assigned: calledCount,
+          called: calledCount,
           target: member.goalCalls || 0,
-          interested: 0,
-          callback: 0,
-          notInterested: 0,
-          converted: 0,
+          interested: interestedCount,
+          callback: callbackCount,
+          notInterested: notIntCount,
+          converted: convertedCount,
           revenue: 0,
           isSunday: false,
           leads: [] as AssignedLead[],
+          calls: dayCalls,
+          dateIso: dIso,
         });
       }
     }
     return records;
-  }, [member, memberLeads]);
+  }, [member, memberLeads, memberCallLogs]);
 
   // Helper to parse time string like "09:15 AM" or "11:42 AM" into minutes from midnight
   const parseTimeToMinutes = (timeStr: string): number | null => {
@@ -555,87 +594,208 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
                   Calling History
                 </h3>
                 <p className="text-[10px] text-slate-500">
-                  Daily logged calls, outcomes & verified revenue
+                  Daily logged calls, outcomes & verified revenue • Tap day to inspect
                 </p>
               </div>
             </div>
 
-            {/* Free-Floating Day Cards */}
-            {callingLedger10Days.map((day) => {
-              const isExpanded = expandedDayIndex === day.index;
-
-              if (day.isSunday) {
-                return (
-                  <div key={day.index} className="p-3 bg-white/70 border border-slate-200/60 rounded-2xl text-center text-xs text-slate-400 font-medium">
-                    <span className="font-bold text-slate-500 block">{day.dateLabel}</span>
-                    <span className="text-[10px] italic">Sunday (Weekly Off)</span>
-                  </div>
-                );
-              }
-
-              // Filter leads for this day
-              const filteredDayLeads = day.leads.filter((l) => {
-                if (dayCategoryFilter === 'ALL') return true;
-                const s = (l.status || '').toUpperCase();
-                if (dayCategoryFilter === 'INTERESTED') return s === 'INTERESTED' || s === 'FOLLOW-UP';
-                if (dayCategoryFilter === 'CALLBACK') return s === 'CALLBACK' || s === 'DUE TODAY';
-                if (dayCategoryFilter === 'NOT_INTERESTED') return s === 'NOT_INTERESTED' || s === 'REJECTED';
-                if (dayCategoryFilter === 'CONVERTED') return s === 'CONVERTED' || s === 'DEAL_CLOSED';
-                if (dayCategoryFilter === 'BUSY') return s === 'BUSY';
-                if (dayCategoryFilter === 'CONNECTED') return s === 'CONNECTED' || s === 'PENDING';
-                return true;
-              });
-
-              return (
-                <div 
-                  key={day.index}
-                  className="bg-white border border-slate-200/90 rounded-2xl shadow-xs p-3.5 space-y-2.5 transition-all"
+            {/* Date Filter Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+              {[
+                { id: 'ALL', label: 'All 10 Days' },
+                { id: 'TODAY', label: 'Today' },
+                { id: 'YESTERDAY', label: 'Yesterday' },
+                { id: 'WEEK', label: 'Last 7 Days' },
+                { id: 'CUSTOM', label: 'Custom' },
+              ].map((pill) => (
+                <button
+                  key={pill.id}
+                  onClick={() => setCallingDateFilter(pill.id as any)}
+                  className={`px-3 py-1.5 rounded-xl font-bold text-[11px] whitespace-nowrap transition-all cursor-pointer ${
+                    callingDateFilter === pill.id
+                      ? 'bg-[#0A2540] text-white shadow-2xs'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center font-mono font-bold text-xs text-[#0A2540] shadow-2xs flex-shrink-0">
-                        {day.dateLabel.match(/\d{1,2}/)?.[0].padStart(2, '0') || '01'}
+                  {pill.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Custom Date Range Picker */}
+            {callingDateFilter === 'CUSTOM' && (
+              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center gap-2 text-xs">
+                <div className="flex-1">
+                  <span className="text-[10px] text-slate-400 font-bold block mb-0.5">From</span>
+                  <input
+                    type="date"
+                    value={customFromDate}
+                    onChange={(e) => setCustomFromDate(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs"
+                  />
+                </div>
+                <div className="flex-1">
+                  <span className="text-[10px] text-slate-400 font-bold block mb-0.5">To</span>
+                  <input
+                    type="date"
+                    value={customToDate}
+                    onChange={(e) => setCustomToDate(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Free-Floating Day Cards */}
+            {callingLedger10Days
+              .filter((day) => {
+                if (callingDateFilter === 'TODAY') return day.index === 0;
+                if (callingDateFilter === 'YESTERDAY') return day.index === 1;
+                if (callingDateFilter === 'WEEK') return day.index < 7;
+                if (callingDateFilter === 'CUSTOM') {
+                  if (!customFromDate && !customToDate) return true;
+                  if (customFromDate && day.dateIso && day.dateIso < customFromDate) return false;
+                  if (customToDate && day.dateIso && day.dateIso > customToDate) return false;
+                  return true;
+                }
+                return true;
+              })
+              .map((day) => {
+                const isExpanded = expandedDayIndex === day.index;
+
+                if (day.isSunday) {
+                  return (
+                    <div key={day.index} className="p-3 bg-white/70 border border-slate-200/60 rounded-2xl text-center text-xs text-slate-400 font-medium">
+                      <span className="font-bold text-slate-500 block">{day.dateLabel}</span>
+                      <span className="text-[10px] italic">Sunday (Weekly Off)</span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div 
+                    key={day.index}
+                    onClick={() => setExpandedDayIndex(isExpanded ? null : day.index)}
+                    className={`bg-white border rounded-2xl shadow-xs p-3.5 space-y-2.5 transition-all cursor-pointer ${
+                      isExpanded ? 'border-[#00C9A7] ring-2 ring-[#00C9A7]/20 shadow-md' : 'border-slate-200/90 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center font-mono font-bold text-xs text-[#0A2540] shadow-2xs flex-shrink-0">
+                          {day.dateLabel.match(/\d{1,2}/)?.[0].padStart(2, '0') || '01'}
+                        </div>
+                        <div>
+                          <strong className="text-xs font-bold text-[#0A2540] block">{day.dateLabel}</strong>
+                          <span className="text-[10px] font-mono text-slate-500">
+                            {day.called} / {day.assigned} Calls Made
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <strong className="text-xs font-bold text-[#0A2540] block">{day.dateLabel}</strong>
-                        <span className="text-[10px] font-mono text-slate-500">
-                          {day.called} / {day.assigned} Calls Made
+
+                      <div className="flex items-center gap-2">
+                        <div className="text-right">
+                          <span className="font-mono-nums font-black text-xs text-[#00A88B] block">
+                            {formatInLakhs(day.revenue)}
+                          </span>
+                          <span className="text-[10px] font-bold text-emerald-600">
+                            {day.converted > 0 ? `🏆 ${day.converted} Won` : `${day.interested} Int.`}
+                          </span>
+                        </div>
+                        <span className="text-xs text-slate-400 font-bold ml-1">
+                          {isExpanded ? '▲' : '▼'}
                         </span>
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <span className="font-mono-nums font-black text-xs text-[#00A88B] block">
-                        {formatInLakhs(day.revenue)}
-                      </span>
-                      <span className="text-[10px] font-bold text-emerald-600">
-                        {day.converted > 0 ? `🏆 ${day.converted} Won` : `${day.interested} Int.`}
-                      </span>
+                    {/* 4 Structured Outcome Metric Badges */}
+                    <div className="grid grid-cols-4 gap-1.5 pt-2.5 border-t border-slate-100 text-center">
+                      <div className="bg-emerald-50/80 border border-emerald-200/60 rounded-xl py-1.5 px-1">
+                        <span className="text-[9px] font-bold text-emerald-600 block leading-tight">Interested</span>
+                        <span className="font-mono-nums font-black text-xs text-emerald-800 leading-tight">{day.interested}</span>
+                      </div>
+                      <div className="bg-amber-50/80 border border-amber-200/60 rounded-xl py-1.5 px-1">
+                        <span className="text-[9px] font-bold text-amber-600 block leading-tight">Callback</span>
+                        <span className="font-mono-nums font-black text-xs text-amber-800 leading-tight">{day.callback}</span>
+                      </div>
+                      <div className="bg-rose-50/80 border border-rose-200/60 rounded-xl py-1.5 px-1">
+                        <span className="text-[9px] font-bold text-rose-600 block leading-tight">Not Int.</span>
+                        <span className="font-mono-nums font-black text-xs text-rose-800 leading-tight">{day.notInterested}</span>
+                      </div>
+                      <div className="bg-purple-50/80 border border-purple-200/60 rounded-xl py-1.5 px-1">
+                        <span className="text-[9px] font-bold text-purple-600 block leading-tight">Won</span>
+                        <span className="font-mono-nums font-black text-xs text-purple-800 leading-tight">{day.converted}</span>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* 4 Structured Outcome Metric Badges (Exact match to Image 2 - Locked) */}
-                  <div className="grid grid-cols-4 gap-1.5 pt-2.5 border-t border-slate-100 text-center">
-                    <div className="bg-emerald-50/80 border border-emerald-200/60 rounded-xl py-1.5 px-1">
-                      <span className="text-[9px] font-bold text-emerald-600 block leading-tight">Interested</span>
-                      <span className="font-mono-nums font-black text-xs text-emerald-800 leading-tight">{day.interested}</span>
-                    </div>
-                    <div className="bg-amber-50/80 border border-amber-200/60 rounded-xl py-1.5 px-1">
-                      <span className="text-[9px] font-bold text-amber-600 block leading-tight">Callback</span>
-                      <span className="font-mono-nums font-black text-xs text-amber-800 leading-tight">{day.callback}</span>
-                    </div>
-                    <div className="bg-rose-50/80 border border-rose-200/60 rounded-xl py-1.5 px-1">
-                      <span className="text-[9px] font-bold text-rose-600 block leading-tight">Not Int.</span>
-                      <span className="font-mono-nums font-black text-xs text-rose-800 leading-tight">{day.notInterested}</span>
-                    </div>
-                    <div className="bg-purple-50/80 border border-purple-200/60 rounded-xl py-1.5 px-1">
-                      <span className="text-[9px] font-bold text-purple-600 block leading-tight">Won</span>
-                      <span className="font-mono-nums font-black text-xs text-purple-800 leading-tight">{day.converted}</span>
-                    </div>
+                    {/* EXPANDABLE DAY CALL DETAILS DRAWER */}
+                    {isExpanded && (
+                      <div className="pt-3 border-t border-slate-100 space-y-2 animate-in fade-in duration-200">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
+                          <span>Call Activity &amp; Records ({day.calls?.length || day.leads?.length || 0})</span>
+                          <span className="text-[10px] text-teal-600">Tap card to collapse</span>
+                        </div>
+
+                        {day.calls && day.calls.length > 0 ? (
+                          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                            {day.calls.map((call: any, cIdx: number) => (
+                              <div key={call.id || cIdx} className="bg-slate-50/90 rounded-xl p-2.5 border border-slate-200/80 text-xs space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <strong className="font-bold text-[#0A2540]">{call.clientName}</strong>
+                                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                    call.outcome === 'INTERESTED' ? 'bg-emerald-100 text-emerald-800' :
+                                    call.outcome === 'CALLBACK' ? 'bg-amber-100 text-amber-800' :
+                                    call.outcome === 'CONVERTED' ? 'bg-purple-100 text-purple-800' :
+                                    call.outcome === 'NOT_INTERESTED' ? 'bg-rose-100 text-rose-800' :
+                                    'bg-slate-200 text-slate-700'
+                                  }`}>
+                                    {call.outcome}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                                  <span>📞 {maskPhone(call.phoneNumber)}</span>
+                                  <span>⏱️ {Math.floor((call.durationSec || 0) / 60)}m {(call.durationSec || 0) % 60}s</span>
+                                </div>
+                                {call.notes && (
+                                  <p className="text-[11px] text-slate-600 italic bg-white p-1.5 rounded-lg border border-slate-100">
+                                    "{call.notes}"
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : day.leads && day.leads.length > 0 ? (
+                          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                            {day.leads.map((lead: any, lIdx: number) => (
+                              <div key={lead.id || lIdx} className="bg-slate-50/90 rounded-xl p-2.5 border border-slate-200/80 text-xs space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <strong className="font-bold text-[#0A2540]">{lead.name} {lead.company ? `• ${lead.company}` : ''}</strong>
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
+                                    {lead.status}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                                  <span>📞 {maskPhone(lead.phone)}</span>
+                                  <span>💼 {lead.dealValue ? formatInLakhs(lead.dealValue) : '—'}</span>
+                                </div>
+                                {lead.notes && (
+                                  <p className="text-[11px] text-slate-600 italic bg-white p-1.5 rounded-lg border border-slate-100">
+                                    "{lead.notes}"
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="p-3 bg-slate-50 rounded-xl text-center text-xs text-slate-400 font-medium">
+                            No individual call records logged for this day.
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
 
           {/* DESKTOP-ONLY WIDESCREEN TABLE (Screens >= 768px) */}

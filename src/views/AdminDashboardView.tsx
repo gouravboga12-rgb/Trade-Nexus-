@@ -45,6 +45,7 @@ import { OfficeSettings, TeamGroup, TeamMember, UserRole, LeaveRequest, PaymentV
 import { api } from '../services/api';
 import { Employee360ProfileView } from './Employee360ProfileView';
 import { AdminCalendarConfig } from '../components/common/AdminCalendarConfig';
+import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 
 type AdminTab = 'home' | 'people' | 'attendance' | 'leads' | 'more' | 'approvals' | 'reports';
 
@@ -1115,8 +1116,8 @@ export const AdminDashboardView: React.FC = () => {
                           <div className="flex items-center justify-between pt-0.5">
                             <div className="flex items-center gap-3">
                               <div className="relative flex-shrink-0">
-                                <div className="w-11 h-11 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-display font-black text-sm shadow-xs group-hover:scale-105 transition-transform">
-                                  {member.avatar || member.name.substring(0, 2).toUpperCase()}
+                                <div className="w-11 h-11 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-display font-black text-sm shadow-xs group-hover:scale-105 transition-transform overflow-hidden">
+                                  <EmployeeAvatar avatar={member.avatar} name={member.name} className="w-full h-full" fallbackClassName="font-display font-black text-sm" />
                                 </div>
                                 <span
                                   className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
@@ -1255,8 +1256,8 @@ export const AdminDashboardView: React.FC = () => {
                           <div className="flex items-center justify-between pt-0.5">
                             <div className="flex items-center gap-3">
                               <div className="relative flex-shrink-0">
-                                <div className="w-11 h-11 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-display font-black text-sm shadow-xs group-hover:scale-105 transition-transform">
-                                  {member.avatar || member.name.substring(0, 2).toUpperCase()}
+                                <div className="w-11 h-11 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-display font-black text-sm shadow-xs group-hover:scale-105 transition-transform overflow-hidden">
+                                  <EmployeeAvatar avatar={member.avatar} name={member.name} className="w-full h-full" fallbackClassName="font-display font-black text-sm" />
                                 </div>
                                 <span
                                   className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
@@ -1513,8 +1514,8 @@ export const AdminDashboardView: React.FC = () => {
                                 className="w-12 h-12 rounded-2xl object-cover border border-slate-200 shadow-2xs group-hover:scale-105 transition-transform"
                               />
                             ) : (
-                              <div className={`w-12 h-12 rounded-2xl ${squircleContainerStyle} flex items-center justify-center font-black text-sm shadow-2xs group-hover:scale-105 transition-transform`}>
-                                {member.avatar || member.name.substring(0, 2).toUpperCase()}
+                              <div className={`w-12 h-12 rounded-2xl ${squircleContainerStyle} flex items-center justify-center font-black text-sm shadow-2xs group-hover:scale-105 transition-transform overflow-hidden`}>
+                                <EmployeeAvatar avatar={member.avatar} name={member.name} className="w-full h-full" fallbackClassName="font-black text-sm" />
                               </div>
                             )}
                             {/* Corner micro-indicator */}

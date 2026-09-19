@@ -54,6 +54,7 @@ import { GenerateOfferLetterModal } from '../components/modals/GenerateOfferLett
 import { DigitalIdCardModal } from '../components/modals/DigitalIdCardModal';
 import { FaceRegistrationModal } from '../components/modals/FaceRegistrationModal';
 import { Employee360ProfileView } from './Employee360ProfileView';
+import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 
 const formatInLakhs = (val: number) => {
   if (val >= 100000) {
@@ -761,8 +762,8 @@ export const HrDashboardView: React.FC = () => {
                       <div className="flex items-center gap-3 min-w-0">
                         {/* Image 1 Squircle Container with Live Status Badge */}
                         <div className="relative flex-shrink-0">
-                          <div className={`w-12 h-12 rounded-2xl ${squircleContainerStyle} flex items-center justify-center font-black text-sm shadow-2xs group-hover:scale-105 transition-transform`}>
-                            {member.avatar || member.name.substring(0, 2).toUpperCase()}
+                          <div className={`w-12 h-12 rounded-2xl ${squircleContainerStyle} flex items-center justify-center font-black text-sm shadow-2xs group-hover:scale-105 transition-transform overflow-hidden`}>
+                            <EmployeeAvatar avatar={member.avatar} name={member.name} className="w-full h-full" fallbackClassName="font-black text-sm" />
                           </div>
                           {/* Corner micro-indicator */}
                           <span
@@ -1069,8 +1070,8 @@ export const HrDashboardView: React.FC = () => {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <div className="relative flex-shrink-0">
-                                <div className={`w-11 h-11 rounded-2xl ${squircleStyle} flex items-center justify-center font-display font-black text-xs shadow-2xs group-hover:scale-105 transition-transform`}>
-                                  {member.avatar || member.name.substring(0, 2).toUpperCase()}
+                                <div className={`w-11 h-11 rounded-2xl ${squircleStyle} flex items-center justify-center font-display font-black text-xs shadow-2xs group-hover:scale-105 transition-transform overflow-hidden`}>
+                                  <EmployeeAvatar avatar={member.avatar} name={member.name} className="w-full h-full" fallbackClassName="font-display font-black text-xs" />
                                 </div>
                                 <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
                                   isPresent ? 'bg-emerald-500' : isLate ? 'bg-amber-500' : 'bg-purple-500'
