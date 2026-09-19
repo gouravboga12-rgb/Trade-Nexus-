@@ -68,7 +68,8 @@ import {
   FileSpreadsheet,
   FileText,
   UserPlus,
-  Video
+  Video,
+  DollarSign
 } from 'lucide-react';
 import { NavTab, UserRole } from './types';
 
@@ -195,7 +196,8 @@ export const App: React.FC = () => {
         { id: 'people', label: 'People', icon: Users },
         { id: 'attendance', label: 'Attendance Report', icon: CalendarCheck },
         { id: 'leads', label: 'Lead Allocation', icon: FileSpreadsheet },
-        { id: 'approvals', label: 'Approvals', icon: CheckCircle2, badge: awaitingApproval },
+        { id: 'revenue', label: 'Revenue & Won Deals', icon: DollarSign },
+        { id: 'approvals', label: 'Approvals & Audits', icon: CheckCircle2, badge: awaitingApproval },
         { id: 'reports', label: 'Reports', icon: TrendingUp },
       ];
     }

@@ -25,6 +25,9 @@ import {
   MessageSquare,
   Filter,
   Video,
+  DollarSign,
+  Award,
+  ArrowRight,
 } from 'lucide-react';
 import { OfficeSettings, TeamMember, UserRole } from '../../types';
 import { api } from '../../services/api';
@@ -108,7 +111,8 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
 
   // Approvals subtab & rejection prompt
   const [isScheduleMeetingOpen, setIsScheduleMeetingOpen] = useState(false);
-  const [approvalTab, setApprovalTab] = useState<'PAYMENTS' | 'LEAVES'>('PAYMENTS');
+  const [approvalTab, setApprovalTab] = useState<'PAYMENTS' | 'LEAVES' | 'HISTORY'>('PAYMENTS');
+  const [revenueDealFilter, setRevenueDealFilter] = useState<'ALL' | 'VERIFIED' | 'PENDING' | 'REJECTED'>('ALL');
   const [rejectionTarget, setRejectionTarget] = useState<{
     id: string;
     type: 'PAYMENT' | 'LEAVE';
@@ -1068,18 +1072,386 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     </div>
   );
 
-  const renderApprovals = () => {
-    const pendingLeaves = leaveRequests.filter((l) => l.status === 'PENDING');
-    const totalPending = pendingPayments.length + pendingLeaves.length;
+  const renderRevenue = () => {
+    // 1. Calculate Aggregates
+    const verifiedPayments = paymentVerifications.filter((p) => p.status === 'VERIFIED');
+    const pendingPaymentsList = paymentVerifications.filter((p) => p.status === 'PENDING_HR_AUDIT');
+    const totalVerifiedRevenue = verifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
+    const totalPendingRevenue = pendingPaymentsList.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
+    const teamSalesTotal = teamMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0);
+    const effectiveTotalRevenue = Math.max(totalVerifiedRevenue, teamSalesTotal);
+    const convertedLeadsCount = assignedLeads.filter((l) => l.status === 'CONVERTED').length;
+    const totalWonDeals = Math.max(verifiedPayments.length, convertedLeadsCount);
+    const avgDealValue = totalWonDeals > 0 ? Math.round(effectiveTotalRevenue / totalWonDeals) : 0;
+
+    // Build Rep Leaderboard
+    const leaderboard = teamMembers
+      .map((m) => {
+        const mNameLower = m.name.toLowerCase();
+        const repPayments = paymentVerifications.filter(
+          (p) => (p.telecallerName || '').toLowerCase() === mNameLower
+        );
+        const repVerifiedPayments = repPayments.filter((p) => p.status === 'VERIFIED');
+        const repConvertedLeads = assignedLeads.filter(
+          (l) =>
+            l.status === 'CONVERTED' &&
+            (l.assignedToEmployeeId === m.id ||
+              (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === mNameLower))
+        );
+
+        const dealsCount = Math.max(repVerifiedPayments.length, repConvertedLeads.length);
+        const paymentsRevenue = repVerifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
+        const salesAchieved = Math.max(m.salesAchieved || 0, paymentsRevenue);
+        const target = m.salesTarget || 500000;
+        const targetPercent = Math.min(100, Math.round((salesAchieved / Math.max(1, target)) * 100));
+
+        return {
+          member: m,
+          dials: m.dialsToday || 0,
+          deals: dealsCount,
+          revenue: salesAchieved,
+          target,
+          targetPercent,
+          conversionRate: m.conversionRate || (m.dialsToday > 0 ? Math.round((dealsCount / m.dialsToday) * 100) : 0),
+        };
+      })
+      .sort((a, b) => b.revenue - a.revenue);
+
+    const topCloser = leaderboard.length > 0 && leaderboard[0].revenue > 0 ? leaderboard[0] : null;
+
+    // Filtered Won Deals Ledger
+    const allWonDeals = paymentVerifications.filter((p) => {
+      if (revenueDealFilter === 'VERIFIED') return p.status === 'VERIFIED';
+      if (revenueDealFilter === 'PENDING') return p.status === 'PENDING_HR_AUDIT';
+      if (revenueDealFilter === 'REJECTED') return p.status === 'REJECTED';
+      return true;
+    });
 
     return (
       <div className="space-y-6 max-w-7xl mx-auto">
         <PageHead
-          title="Approvals"
-          blurb={`${totalPending} item${totalPending === 1 ? '' : 's'} waiting for your sign-off.`}
+          title="Revenue & Won Deals"
+          blurb="Executive financial console tracking employee revenue, closed deals, and master transaction audits."
+        >
+          <button
+            onClick={() =>
+              downloadCsv(
+                'Master_Revenue_Ledger',
+                'Client,Company,Closed By,Deal Amount,Payment Mode,UTR Number,Status,Timestamp',
+                paymentVerifications.map(
+                  (p) =>
+                    `"${p.leadName}","${p.companyName}","${p.telecallerName}",${p.dealAmount},"${p.paymentMode}","${p.utrNumber}","${p.status}","${p.timestamp}"`
+                )
+              )
+            }
+            className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-xs"
+          >
+            <Download className="w-4 h-4 text-slate-500" />
+            <span>Export Revenue Report</span>
+          </button>
+        </PageHead>
+
+        {/* 1. Top Executive Financial KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <Card
+            label="Total Verified Revenue"
+            value={inr(effectiveTotalRevenue)}
+            sub={`${totalWonDeals} closed & verified deals`}
+            tone="good"
+          />
+          <Card
+            label="Won Deals Closed"
+            value={String(totalWonDeals)}
+            sub="client subscriptions signed"
+          />
+          <Card
+            label="Average Deal Size"
+            value={inr(avgDealValue)}
+            sub="revenue generated per deal"
+          />
+          <Card
+            label="Pending Financial Audit"
+            value={inr(totalPendingRevenue)}
+            sub={`${pendingPaymentsList.length} deal sign-offs waiting`}
+            tone={pendingPaymentsList.length ? 'warn' : 'plain'}
+          />
+        </div>
+
+        {/* 2. Employee Revenue & Closing Leaderboard */}
+        <div className="nexus-card bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h3 className="font-display font-black text-base text-[#0A2540] flex items-center gap-2">
+                <Award className="w-4 h-4 text-amber-500" />
+                <span>Employee Sales & Revenue Leaderboard</span>
+              </h3>
+              <p className="text-xs text-slate-500">
+                Track dials made, deals closed, and total revenue contributed by each telecaller
+              </p>
+            </div>
+            {topCloser && (
+              <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl">
+                🏆 Top Closer: {topCloser.member.name} ({inr(topCloser.revenue)})
+              </span>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/60">
+                  <th className="py-3 pl-4">Rank & Rep</th>
+                  <th className="py-3">Team Squad</th>
+                  <th className="py-3">Dials Today</th>
+                  <th className="py-3">Deals Won</th>
+                  <th className="py-3">Revenue Closed</th>
+                  <th className="py-3">Target Progress</th>
+                  <th className="py-3">Conv. Rate</th>
+                  <th className="py-3 text-right pr-4">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {leaderboard.map((entry, idx) => {
+                  const m = entry.member;
+                  const rankBadge =
+                    idx === 0 ? '🥇 1st' : idx === 1 ? '🥈 2nd' : idx === 2 ? '🥉 3rd' : `#${idx + 1}`;
+
+                  return (
+                    <tr key={m.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 pl-4">
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`font-display font-black text-xs px-2 py-0.5 rounded-lg ${
+                              idx === 0
+                                ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                : idx === 1
+                                ? 'bg-slate-200 text-slate-800'
+                                : idx === 2
+                                ? 'bg-orange-100 text-orange-900'
+                                : 'text-slate-500'
+                            }`}
+                          >
+                            {rankBadge}
+                          </span>
+                          <div>
+                            <span className="font-bold text-xs text-[#0A2540] block">{m.name}</span>
+                            <span className="text-[10px] font-mono text-slate-400">{m.empCode}</span>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 font-medium text-slate-600">
+                        {m.group || 'General Squad'}
+                      </td>
+
+                      <td className="py-3.5 font-mono font-bold text-slate-700">
+                        {entry.dials} calls
+                      </td>
+
+                      <td className="py-3.5">
+                        <span className="font-mono font-black text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                          {entry.deals} Deals
+                        </span>
+                      </td>
+
+                      <td className="py-3.5">
+                        <span className="font-mono font-black text-sm text-[#00A88B] block">
+                          {inr(entry.revenue)}
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 min-w-[140px]">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                            <span>{entry.targetPercent}%</span>
+                            <span>{inr(entry.target)}</span>
+                          </div>
+                          <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-[#00C9A7] to-emerald-600 transition-all duration-500"
+                              style={{ width: `${entry.targetPercent}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 font-mono font-bold text-slate-700">
+                        {entry.conversionRate}%
+                      </td>
+
+                      <td className="py-3.5 text-right pr-4">
+                        <button
+                          onClick={() => setOpenEmployee(m)}
+                          className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-[#00C9A7] text-slate-700 hover:text-[#0A2540] font-black text-xs inline-flex items-center gap-1.5 transition-all shadow-2xs active:scale-95 cursor-pointer"
+                        >
+                          <span>View 360 Ledger</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* 3. Master Won Deals & Financial Audits Ledger */}
+        <div className="nexus-card bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="font-display font-black text-base text-[#0A2540] flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-[#00A88B]" />
+                <span>Master Won Deals & Audit Ledger</span>
+              </h3>
+              <p className="text-xs text-slate-500">
+                Detailed transaction records with UTR, bank transfer channels, and audit statuses
+              </p>
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1.5">
+              {[
+                { id: 'ALL', label: `All (${paymentVerifications.length})` },
+                { id: 'VERIFIED', label: `Verified (${verifiedPayments.length})` },
+                { id: 'PENDING', label: `Pending Sign-Off (${pendingPaymentsList.length})` },
+                { id: 'REJECTED', label: 'Rejected' },
+              ].map((pill) => (
+                <button
+                  key={pill.id}
+                  onClick={() => setRevenueDealFilter(pill.id as any)}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                    revenueDealFilter === pill.id
+                      ? 'bg-[#0A2540] text-white shadow-2xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {allWonDeals.length === 0 ? (
+            <Empty text="No deals found matching this filter." />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/60">
+                    <th className="py-3 pl-4">Client & Company</th>
+                    <th className="py-3">Closed By</th>
+                    <th className="py-3">Deal Value</th>
+                    <th className="py-3">Payment Channel</th>
+                    <th className="py-3">Bank UTR Number</th>
+                    <th className="py-3">Audit Status</th>
+                    <th className="py-3 text-right pr-4">Sign-Off Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {allWonDeals.map((p) => (
+                    <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 pl-4">
+                        <div className="space-y-0.5">
+                          <strong className="font-bold text-xs text-[#0A2540] block">{p.companyName}</strong>
+                          <span className="text-[11px] text-slate-500 font-medium">Contact: {p.leadName}</span>
+                        </div>
+                      </td>
+
+                      <td className="py-3.5">
+                        <span className="font-bold text-xs text-slate-700 block">{p.telecallerName}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">{p.timestamp}</span>
+                      </td>
+
+                      <td className="py-3.5">
+                        <span className="font-mono font-black text-sm text-[#00A88B] block">
+                          {inr(p.dealAmount)}
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 font-medium text-slate-600">
+                        {p.paymentMode || 'Online Transfer'}
+                      </td>
+
+                      <td className="py-3.5">
+                        <span className="font-mono text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[11px] font-bold">
+                          {p.utrNumber}
+                        </span>
+                      </td>
+
+                      <td className="py-3.5">
+                        <span
+                          className={`text-[10px] font-black px-2.5 py-1 rounded-full ${
+                            p.status === 'VERIFIED'
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                              : p.status === 'REJECTED'
+                              ? 'bg-rose-50 text-rose-800 border border-rose-200'
+                              : 'bg-amber-50 text-amber-800 border border-amber-200'
+                          }`}
+                        >
+                          {p.status === 'VERIFIED'
+                            ? '✓ Verified & Credited'
+                            : p.status === 'REJECTED'
+                            ? '✕ Rejected'
+                            : '⏳ Pending Sign-Off'}
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 text-right pr-4">
+                        {p.status === 'PENDING_HR_AUDIT' ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => {
+                                verifyPayment(p.id, 'VERIFIED');
+                                triggerToast(`✓ Payment of ${inr(p.dealAmount)} approved & credited`);
+                              }}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg shadow-2xs active:scale-95 transition-all"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() =>
+                                setRejectionTarget({
+                                  id: p.id,
+                                  type: 'PAYMENT',
+                                  name: `${inr(p.dealAmount)} from ${p.companyName}`,
+                                })
+                              }
+                              className="px-2.5 py-1 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 font-bold text-[11px] rounded-lg active:scale-95 transition-all"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] font-mono text-slate-400 italic">
+                            Audited
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderApprovals = () => {
+    const pendingLeaves = leaveRequests.filter((l) => l.status === 'PENDING');
+    const totalPending = pendingPayments.length + pendingLeaves.length;
+    const auditedPayments = paymentVerifications.filter((p) => p.status !== 'PENDING_HR_AUDIT');
+
+    return (
+      <div className="space-y-6 max-w-7xl mx-auto">
+        <PageHead
+          title="Approvals & Financial Audits"
+          blurb={`${totalPending} pending item${totalPending === 1 ? '' : 's'} waiting for executive sign-off.`}
         />
 
-        {/* Sub-tabs: Payments vs Leaves */}
+        {/* Sub-tabs: Payments vs Leaves vs Audit History */}
         <div className="flex gap-2">
           <button
             onClick={() => setApprovalTab('PAYMENTS')}
@@ -1089,7 +1461,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
             }`}
           >
-            Payments ({pendingPayments.length})
+            Pending Payments ({pendingPayments.length})
           </button>
           <button
             onClick={() => setApprovalTab('LEAVES')}
@@ -1101,13 +1473,23 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
           >
             Leave Escalations ({pendingLeaves.length})
           </button>
+          <button
+            onClick={() => setApprovalTab('HISTORY')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              approvalTab === 'HISTORY'
+                ? 'bg-[#0A2540] text-white shadow-xs'
+                : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            Audit History Ledger ({auditedPayments.length})
+          </button>
         </div>
 
         {approvalTab === 'PAYMENTS' && (
           <>
             {!pendingPayments.length ? (
               <div className="nexus-card bg-white border border-slate-200 shadow-sm">
-                <Empty text="Nothing waiting. Every payment has been dealt with." />
+                <Empty text="Nothing waiting. Every deal payment has been signed off." />
               </div>
             ) : (
               <div className="space-y-3">
@@ -1127,11 +1509,14 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
 
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <button
-                          onClick={() => verifyPayment(p.id, 'VERIFIED')}
-                          className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all active:scale-95"
+                          onClick={() => {
+                            verifyPayment(p.id, 'VERIFIED');
+                            triggerToast(`✓ Deal payment of ${inr(p.dealAmount)} approved & credited`);
+                          }}
+                          className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all active:scale-95 cursor-pointer shadow-xs"
                         >
                           <CheckCircle2 className="w-4 h-4" />
-                          <span>Approve</span>
+                          <span>Approve & Credit</span>
                         </button>
                         <button
                           onClick={() =>
@@ -1141,7 +1526,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                               name: `${inr(p.dealAmount)} from ${p.companyName}`,
                             })
                           }
-                          className="flex items-center gap-1.5 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 font-bold text-xs px-4 py-2.5 rounded-xl transition-all active:scale-95"
+                          className="flex items-center gap-1.5 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 font-bold text-xs px-4 py-2.5 rounded-xl transition-all active:scale-95 cursor-pointer"
                         >
                           <XCircle className="w-4 h-4" />
                           <span>Reject</span>
@@ -1187,7 +1572,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                             approveLeaveRequest(l.id);
                             triggerToast(`✓ Approved leave for ${l.employeeName}`);
                           }}
-                          className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all active:scale-95"
+                          className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all active:scale-95 cursor-pointer shadow-xs"
                         >
                           <CheckCircle2 className="w-4 h-4" />
                           <span>Approve</span>
@@ -1200,7 +1585,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                               name: `Leave for ${l.employeeName} (${l.totalDays} days)`,
                             })
                           }
-                          className="flex items-center gap-1.5 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 font-bold text-xs px-4 py-2.5 rounded-xl transition-all active:scale-95"
+                          className="flex items-center gap-1.5 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 font-bold text-xs px-4 py-2.5 rounded-xl transition-all active:scale-95 cursor-pointer"
                         >
                           <XCircle className="w-4 h-4" />
                           <span>Reject</span>
@@ -1214,58 +1599,53 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
           </>
         )}
 
-        <div className="nexus-card bg-white border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-slate-100">
-            <h3 className="font-display font-black text-base text-[#0A2540]">Already decided</h3>
-          </div>
-          {paymentVerifications.filter((p) => p.status !== 'PENDING_HR_AUDIT').length === 0 &&
-          leaveRequests.filter((l) => l.status !== 'PENDING').length === 0 ? (
-            <Empty text="No decisions recorded yet." />
-          ) : (
-            <div className="divide-y divide-slate-100">
-              {paymentVerifications
-                .filter((p) => p.status !== 'PENDING_HR_AUDIT')
-                .map((p) => (
-                  <div key={p.id} className="px-5 py-3 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <span className="text-xs font-bold text-[#0A2540] block truncate">
-                        {inr(p.dealAmount)} · {p.companyName}
-                      </span>
-                      <span className="text-[11px] text-slate-500">Closed by {p.telecallerName}</span>
-                    </div>
-                    <span
-                      className={`text-[10px] font-black px-2 py-0.5 rounded-md flex-shrink-0 ${
-                        p.status === 'VERIFIED' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                      }`}
-                    >
-                      {p.status}
-                    </span>
-                  </div>
-                ))}
-              {leaveRequests
-                .filter((l) => l.status !== 'PENDING')
-                .map((l) => (
-                  <div key={l.id} className="px-5 py-3 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <span className="text-xs font-bold text-[#0A2540] block truncate">
-                        Leave: {l.employeeName} ({l.leaveType})
-                      </span>
-                      <span className="text-[11px] text-slate-500">
-                        {l.fromDate} → {l.toDate} · {l.totalDays} day{l.totalDays === 1 ? '' : 's'}
-                      </span>
-                    </div>
-                    <span
-                      className={`text-[10px] font-black px-2 py-0.5 rounded-md flex-shrink-0 ${
-                        l.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                      }`}
-                    >
-                      {l.status}
-                    </span>
-                  </div>
-                ))}
+        {approvalTab === 'HISTORY' && (
+          <div className="nexus-card bg-white border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-display font-black text-base text-[#0A2540]">Audited Transaction Records</h3>
+              <span className="text-xs font-mono text-slate-400">Total {auditedPayments.length} logged</span>
             </div>
-          )}
-        </div>
+
+            {auditedPayments.length === 0 ? (
+              <Empty text="No audited decisions recorded yet." />
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {auditedPayments.map((p) => (
+                  <div key={p.id} className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors">
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono-nums font-black text-sm text-[#0A2540]">
+                          {inr(p.dealAmount)}
+                        </span>
+                        <span className="text-xs font-bold text-slate-700 truncate">
+                          · {p.companyName}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 block">
+                        Closed by {p.telecallerName} · Mode: {p.paymentMode} · UTR: <strong className="font-mono text-slate-700">{p.utrNumber}</strong>
+                      </span>
+                    </div>
+
+                    <div className="text-right flex-shrink-0">
+                      <span
+                        className={`text-[10px] font-black px-2.5 py-1 rounded-full ${
+                          p.status === 'VERIFIED'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-rose-50 text-rose-700 border border-rose-200'
+                        }`}
+                      >
+                        {p.status === 'VERIFIED' ? '✓ Verified & Credited' : '✕ Rejected'}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400 block mt-0.5">
+                        {p.timestamp}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -1416,6 +1796,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
       {activeTab === 'people' && renderPeople()}
       {activeTab === 'attendance' && renderAttendance()}
       {activeTab === 'leads' && renderLeads()}
+      {activeTab === 'revenue' && renderRevenue()}
       {activeTab === 'approvals' && renderApprovals()}
       {activeTab === 'reports' && renderReports()}
 

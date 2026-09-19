@@ -33,6 +33,8 @@ import {
   X,
   Target,
   Video,
+  Award,
+  DollarSign,
 } from 'lucide-react';
 import { ExcelLeadUploadModal } from '../components/modals/ExcelLeadUploadModal';
 import { AddEmployeeModal } from '../components/modals/AddEmployeeModal';
@@ -47,7 +49,7 @@ import { Employee360ProfileView } from './Employee360ProfileView';
 import { AdminCalendarConfig } from '../components/common/AdminCalendarConfig';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 
-type AdminTab = 'home' | 'people' | 'attendance' | 'leads' | 'more' | 'approvals' | 'reports';
+type AdminTab = 'home' | 'people' | 'attendance' | 'leads' | 'revenue' | 'more' | 'approvals' | 'reports';
 
 const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 
@@ -1885,6 +1887,30 @@ export const AdminDashboardView: React.FC = () => {
             </div>
 
             <div className="space-y-2.5">
+              {/* Revenue & Won Deals Option */}
+              <div
+                onClick={() => setTab('revenue')}
+                className="bg-white border border-slate-200/90 hover:border-emerald-400 rounded-2xl p-4 shadow-2xs flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <Award className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-sm text-[#0A2540] group-hover:text-emerald-700 transition-colors">
+                        Revenue & Won Deals
+                      </h4>
+                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-mono">
+                        Financials
+                      </span>
+                    </div>
+                    <span className="text-xs text-slate-500">Sales leaderboard, won deals & deal values</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-emerald-600 transition-colors" />
+              </div>
+
               {/* Approvals Option */}
               <div
                 onClick={() => setTab('approvals')}
@@ -2314,6 +2340,184 @@ export const AdminDashboardView: React.FC = () => {
             )}
           </div>
         )}
+
+        {/* ---------------------------------------------------- Revenue & Won Deals */}
+        {tab === 'revenue' && (() => {
+          const verifiedPayments = paymentVerifications.filter((p) => p.status === 'VERIFIED');
+          const pendingPaymentsList = paymentVerifications.filter((p) => p.status === 'PENDING_HR_AUDIT');
+          const totalVerifiedRevenue = verifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
+          const totalPendingRevenue = pendingPaymentsList.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
+          const teamSalesTotal = teamMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0);
+          const effectiveTotalRevenue = Math.max(totalVerifiedRevenue, teamSalesTotal);
+          const convertedLeadsCount = assignedLeads.filter((l) => l.status === 'CONVERTED').length;
+          const totalWonDeals = Math.max(verifiedPayments.length, convertedLeadsCount);
+          const avgDealValue = totalWonDeals > 0 ? Math.round(effectiveTotalRevenue / totalWonDeals) : 0;
+
+          // Build Leaderboard
+          const leaderboard = teamMembers
+            .map((m) => {
+              const mNameLower = m.name.toLowerCase();
+              const repPayments = paymentVerifications.filter(
+                (p) => (p.telecallerName || '').toLowerCase() === mNameLower
+              );
+              const repVerifiedPayments = repPayments.filter((p) => p.status === 'VERIFIED');
+              const repConvertedLeads = assignedLeads.filter(
+                (l) =>
+                  l.status === 'CONVERTED' &&
+                  (l.assignedToEmployeeId === m.id ||
+                    (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === mNameLower))
+              );
+
+              const dealsCount = Math.max(repVerifiedPayments.length, repConvertedLeads.length);
+              const paymentsRevenue = repVerifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
+              const salesAchieved = Math.max(m.salesAchieved || 0, paymentsRevenue);
+              const target = m.salesTarget || 500000;
+              const targetPercent = Math.min(100, Math.round((salesAchieved / Math.max(1, target)) * 100));
+
+              return {
+                member: m,
+                dials: m.dialsToday || 0,
+                deals: dealsCount,
+                revenue: salesAchieved,
+                target,
+                targetPercent,
+                conversionRate: m.conversionRate || (m.dialsToday > 0 ? Math.round((dealsCount / m.dialsToday) * 100) : 0),
+              };
+            })
+            .sort((a, b) => b.revenue - a.revenue);
+
+          const topCloser = leaderboard.length > 0 && leaderboard[0].revenue > 0 ? leaderboard[0] : null;
+
+          return (
+            <div className="space-y-4 animate-in fade-in duration-150">
+              <button
+                onClick={() => setTab('more')}
+                className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-[#0A2540] transition-colors mb-1 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to More</span>
+              </button>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-display font-black text-2xl text-[#0A2540] tracking-tight">Revenue & Won Deals</h2>
+                  <p className="text-xs text-slate-500 font-medium">Sales leaderboard, closed deals & revenue tracking</p>
+                </div>
+              </div>
+
+              {/* 4 KPI Cards */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">Total Revenue</span>
+                  <span className="font-display font-black text-lg text-[#00A88B] block mt-0.5">{inr(effectiveTotalRevenue)}</span>
+                  <span className="text-[9px] text-slate-400 block truncate">{totalWonDeals} deals closed</span>
+                </div>
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">Won Deals</span>
+                  <span className="font-display font-black text-lg text-purple-700 block mt-0.5">{totalWonDeals}</span>
+                  <span className="text-[9px] text-slate-400 block truncate">Avg {inr(avgDealValue)}</span>
+                </div>
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">Top Closer</span>
+                  <span className="font-display font-black text-sm text-[#0A2540] block truncate mt-0.5">{topCloser ? topCloser.member.name : '—'}</span>
+                  <span className="text-[9px] text-emerald-600 font-bold block truncate">{topCloser ? inr(topCloser.revenue) : 'No deals'}</span>
+                </div>
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">Pending Audit</span>
+                  <span className="font-display font-black text-sm text-amber-600 block mt-0.5">{inr(totalPendingRevenue)}</span>
+                  <span className="text-[9px] text-slate-400 block truncate">{pendingPaymentsList.length} deals waiting</span>
+                </div>
+              </div>
+
+              {/* Sales Rep Leaderboard */}
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h3 className="font-bold text-xs text-[#0A2540] uppercase tracking-wider flex items-center gap-1.5">
+                    <Award className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Employee Leaderboard</span>
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">Ranked by revenue</span>
+                </div>
+
+                <div className="space-y-2">
+                  {leaderboard.map((entry, idx) => (
+                    <div
+                      key={entry.member.id}
+                      onClick={() => setSelectedMemberFor360(entry.member)}
+                      className="p-3 bg-slate-50/80 hover:bg-slate-100/80 rounded-xl border border-slate-200/60 transition-all cursor-pointer space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
+                            idx === 0 ? 'bg-amber-100 text-amber-900 border border-amber-300' :
+                            idx === 1 ? 'bg-slate-200 text-slate-800' :
+                            idx === 2 ? 'bg-orange-100 text-orange-900' :
+                            'bg-slate-100 text-slate-500'
+                          }`}>
+                            #{idx + 1}
+                          </span>
+                          <strong className="text-xs font-bold text-[#0A2540]">{entry.member.name}</strong>
+                          <span className="text-[10px] text-slate-400 font-mono">({entry.member.group})</span>
+                        </div>
+                        <span className="font-mono font-black text-xs text-[#00A88B]">
+                          {inr(entry.revenue)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                        <span>📞 {entry.dials} Dials</span>
+                        <span>🏆 {entry.deals} Deals</span>
+                        <span>🎯 {entry.targetPercent}% of target</span>
+                        <span className="text-teal-600 font-bold">Inspect 360 →</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Master Won Deals Ledger */}
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h3 className="font-bold text-xs text-[#0A2540] uppercase tracking-wider flex items-center gap-1.5">
+                    <Wallet className="w-3.5 h-3.5 text-[#00A88B]" />
+                    <span>Won Deals Ledger ({paymentVerifications.length})</span>
+                  </h3>
+                </div>
+
+                {paymentVerifications.length === 0 ? (
+                  <Empty text="No deals logged yet." />
+                ) : (
+                  <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                    {paymentVerifications.map((p) => (
+                      <div key={p.id} className="p-3 bg-slate-50/70 rounded-xl border border-slate-200/80 space-y-2">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <strong className="text-xs font-bold text-[#0A2540] block">{p.companyName}</strong>
+                            <span className="text-[11px] text-slate-500">Contact: {p.leadName} • Closed by: {p.telecallerName}</span>
+                          </div>
+                          <span className="font-mono font-black text-xs text-[#00A88B]">
+                            {inr(p.dealAmount)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono pt-1 border-t border-slate-200/60">
+                          <span>UTR: {p.utrNumber}</span>
+                          <span className={`px-2 py-0.5 rounded-full font-bold text-[9px] ${
+                            p.status === 'VERIFIED' ? 'bg-emerald-100 text-emerald-800' :
+                            p.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' :
+                            'bg-amber-100 text-amber-800'
+                          }`}>
+                            {p.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ---------------------------------------------------- Reports */}
         {tab === 'reports' && (

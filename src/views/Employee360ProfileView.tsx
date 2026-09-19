@@ -44,6 +44,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
     faceProfiles,
     leaveRequests,
     teamGroups,
+    paymentVerifications,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'CALLING' | 'ATTENDANCE' | 'LEAVES'>('CALLING');
@@ -54,8 +55,8 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
   
   // Day filter for categories matching telecaller options
   const [dayCategoryFilter, setDayCategoryFilter] = useState<'ALL' | 'INTERESTED' | 'CALLBACK' | 'NOT_INTERESTED' | 'CONVERTED' | 'BUSY' | 'CONNECTED'>('ALL');
-  // Date filter for calling history: All, Today, Yesterday, Week, Custom
-  const [callingDateFilter, setCallingDateFilter] = useState<'ALL' | 'TODAY' | 'YESTERDAY' | 'WEEK' | 'CUSTOM'>('ALL');
+  // Date filter for calling history: All, Today, Yesterday, Week, Month, Custom
+  const [callingDateFilter, setCallingDateFilter] = useState<'ALL' | 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'CUSTOM'>('ALL');
   const [customFromDate, setCustomFromDate] = useState<string>('');
   const [customToDate, setCustomToDate] = useState<string>('');
 
@@ -72,6 +73,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
   };
 
   const formatInLakhs = (amount: number) => {
+    if (!amount || amount === 0) return '₹0';
     if (amount >= 100000) {
       const lakhs = (amount / 100000).toFixed(2);
       return `₹${lakhs.replace(/\.00$/, '')} L`;
@@ -130,12 +132,22 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
     return byEmpId || byLeadMatch;
   });
 
-  // 3. Generate Calling & Work Ledger from Real Records (matching memberCallLogs by date)
+  // 3. Match Verified & Pending Payments closed by this telecaller
+  const memberPayments = useMemo(() => {
+    return (paymentVerifications || []).filter((p) => {
+      const pCaller = (p.telecallerName || '').toLowerCase();
+      return pCaller === memberNameLower || pCaller.includes(memberNameLower) || memberNameLower.includes(pCaller);
+    });
+  }, [paymentVerifications, memberNameLower]);
+
+  // 4. Generate Dynamic Calling & Work Ledger from Real Records & Dates
   const callingLedger10Days = useMemo(() => {
     const records = [];
     const today = new Date();
+    // Support up to 30 days of historical depth
+    const maxDays = callingDateFilter === 'MONTH' || callingDateFilter === 'ALL' ? 30 : 10;
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < maxDays; i++) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
       const isSunday = d.getDay() === 0;
@@ -148,8 +160,40 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
         if (c.createdAt && typeof c.createdAt === 'string') {
           return c.createdAt.startsWith(dIso);
         }
+        if (c.date && c.date === dIso) return true;
         return c.timestamp && (c.timestamp.includes(dIso) || c.timestamp.includes(dateStr));
       });
+
+      // Find payments matching this date
+      const dayPayments = memberPayments.filter((p: any) => {
+        if (p.createdAt && typeof p.createdAt === 'string') return p.createdAt.startsWith(dIso);
+        return p.timestamp && (p.timestamp.includes(dIso) || p.timestamp.includes(dateStr));
+      });
+
+      // Find leads called or updated on this date
+      const dayLeads = i === 0 
+        ? memberLeads 
+        : memberLeads.filter(l => {
+            if (l.lastCallTimestamp && (l.lastCallTimestamp.includes(dIso) || l.lastCallTimestamp.includes(dateStr))) return true;
+            if (l.updatedAt && l.updatedAt.startsWith(dIso)) return true;
+            // Also include if a call log on this day was with this lead
+            return dayCalls.some(c => (c.phoneNumber && l.phone && c.phoneNumber.replace(/\s+/g, '') === l.phone.replace(/\s+/g, '')) || (c.clientName && l.name && c.clientName.toLowerCase() === l.name.toLowerCase()));
+          });
+
+      // Calculate revenue from verified/recorded payments on this date
+      const paymentRevenue = dayPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
+      // Also calculate from any converted leads/calls on this date
+      const convertedCallsRevenue = dayCalls
+        .filter((c: any) => ['CONVERTED', 'WON', 'DEAL_CLOSED'].includes((c.outcome || '').toUpperCase()))
+        .reduce((sum: number, c: any) => {
+          const matchingLead = memberLeads.find(l => 
+            (l.phone && c.phoneNumber && l.phone.replace(/\s+/g, '') === c.phoneNumber.replace(/\s+/g, '')) ||
+            (l.name && c.clientName && l.name.toLowerCase() === c.clientName.toLowerCase())
+          );
+          return sum + (matchingLead?.dealValue || 0);
+        }, 0);
+
+      let dayRevenue = paymentRevenue + convertedCallsRevenue;
 
       if (isSunday) {
         records.push({
@@ -166,6 +210,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
           isSunday: true,
           leads: [] as AssignedLead[],
           calls: [] as any[],
+          payments: [] as any[],
           dateIso: dIso,
         });
       } else if (i === 0) {
@@ -184,6 +229,11 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
           ? dayCalls.filter((c: any) => ['CONVERTED', 'WON', 'DEAL_CLOSED'].includes((c.outcome || '').toUpperCase())).length
           : memberLeads.filter(l => l.status === 'CONVERTED').length;
 
+        // If day revenue calculated is 0, fall back to member.salesAchieved for today
+        if (dayRevenue === 0 && (member.salesAchieved || 0) > 0) {
+          dayRevenue = member.salesAchieved;
+        }
+
         records.push({
           index: i,
           dateLabel: `Today (${dateStr})`,
@@ -194,14 +244,15 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
           callback: callbackCount,
           notInterested: notIntCount,
           converted: convertedCount,
-          revenue: member.salesAchieved || 0,
+          revenue: dayRevenue,
           isSunday: false,
           leads: memberLeads,
           calls: dayCalls,
+          payments: dayPayments,
           dateIso: dIso,
         });
       } else {
-        // Past Days with Real Call Logs
+        // Past Days with Real Call Logs, Leads & Payments
         const calledCount = dayCalls.length;
         const interestedCount = dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'INTERESTED').length;
         const callbackCount = dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'CALLBACK').length;
@@ -211,23 +262,24 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
         records.push({
           index: i,
           dateLabel: `${dateStr} (${dayName})`,
-          assigned: calledCount,
+          assigned: Math.max(calledCount, dayLeads.length),
           called: calledCount,
           target: member.goalCalls || 0,
           interested: interestedCount,
           callback: callbackCount,
           notInterested: notIntCount,
           converted: convertedCount,
-          revenue: 0,
+          revenue: dayRevenue,
           isSunday: false,
-          leads: [] as AssignedLead[],
+          leads: dayLeads,
           calls: dayCalls,
+          payments: dayPayments,
           dateIso: dIso,
         });
       }
     }
     return records;
-  }, [member, memberLeads, memberCallLogs]);
+  }, [member, memberLeads, memberCallLogs, memberPayments, callingDateFilter]);
 
   // Helper to parse time string like "09:15 AM" or "11:42 AM" into minutes from midnight
   const parseTimeToMinutes = (timeStr: string): number | null => {
@@ -582,85 +634,124 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
       </div>
 
       {/* TAB 1: DAILY CALLS & TARGETS */}
-      {activeTab === 'CALLING' && (
-        <div className="space-y-3">
-          
-          {/* MOBILE-ONLY VIEW (Screens < 768px): Free, Airy, Direct on Canvas */}
-          <div className="block md:hidden space-y-2.5">
-            {/* Clean Section Header */}
-            <div className="flex items-center justify-between px-1 pt-1 pb-0.5">
-              <div>
-                <h3 className="font-display font-black text-sm text-[#0A2540]">
-                  Calling History
-                </h3>
-                <p className="text-[10px] text-slate-500">
-                  Daily logged calls, outcomes & verified revenue • Tap day to inspect
-                </p>
+      {activeTab === 'CALLING' && (() => {
+        const filteredCallingDays = callingLedger10Days.filter((day) => {
+          if (callingDateFilter === 'TODAY') return day.index === 0;
+          if (callingDateFilter === 'YESTERDAY') return day.index === 1;
+          if (callingDateFilter === 'WEEK') return day.index < 7;
+          if (callingDateFilter === 'MONTH') return day.index < 30;
+          if (callingDateFilter === 'CUSTOM') {
+            if (!customFromDate && !customToDate) return true;
+            if (customFromDate && day.dateIso && day.dateIso < customFromDate) return false;
+            if (customToDate && day.dateIso && day.dateIso > customToDate) return false;
+            return true;
+          }
+          return true;
+        });
+
+        const periodDials = filteredCallingDays.reduce((sum, d) => sum + d.called, 0);
+        const periodInterested = filteredCallingDays.reduce((sum, d) => sum + d.interested, 0);
+        const periodCallbacks = filteredCallingDays.reduce((sum, d) => sum + d.callback, 0);
+        const periodNotInterested = filteredCallingDays.reduce((sum, d) => sum + d.notInterested, 0);
+        const periodWon = filteredCallingDays.reduce((sum, d) => sum + d.converted, 0);
+        const periodRevenue = filteredCallingDays.reduce((sum, d) => sum + d.revenue, 0);
+
+        return (
+          <div className="space-y-3">
+            {/* 1. Universal Date Range Selector Bar */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-2xs space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="font-display font-black text-sm text-[#0A2540] flex items-center gap-1.5">
+                    <Briefcase className="w-4 h-4 text-[#00C9A7]" />
+                    <span>Calling Performance Ledger</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Filter historical call logs, client interactions, and verified closed deals
+                  </p>
+                </div>
+
+                {/* Date Filter Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none text-xs">
+                  {[
+                    { id: 'TODAY', label: 'Today' },
+                    { id: 'YESTERDAY', label: 'Yesterday' },
+                    { id: 'WEEK', label: 'Last 7 Days' },
+                    { id: 'MONTH', label: 'Last 30 Days' },
+                    { id: 'ALL', label: 'All Records' },
+                    { id: 'CUSTOM', label: 'Custom' },
+                  ].map((pill) => (
+                    <button
+                      key={pill.id}
+                      onClick={() => setCallingDateFilter(pill.id as any)}
+                      className={`px-3 py-1.5 rounded-xl font-bold text-[11px] whitespace-nowrap transition-all cursor-pointer ${
+                        callingDateFilter === pill.id
+                          ? 'bg-[#0A2540] text-white shadow-2xs'
+                          : 'bg-slate-50 text-slate-600 border border-slate-200/80 hover:bg-slate-100'
+                      }`}
+                    >
+                      {pill.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Date Range Picker */}
+              {callingDateFilter === 'CUSTOM' && (
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center gap-3 text-xs animate-in slide-in-from-top-1">
+                  <div className="flex-1">
+                    <span className="text-[10px] text-slate-400 font-bold block mb-0.5">From Date</span>
+                    <input
+                      type="date"
+                      value={customFromDate}
+                      onChange={(e) => setCustomFromDate(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-[10px] text-slate-400 font-bold block mb-0.5">To Date</span>
+                    <input
+                      type="date"
+                      value={customToDate}
+                      onChange={(e) => setCustomToDate(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 2. Period Summary KPI Banner */}
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-1 border-t border-slate-100 text-center">
+                <div className="bg-slate-50 rounded-xl p-2 border border-slate-100">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Dials Made</span>
+                  <span className="font-display font-black text-sm text-[#0A2540] block">{periodDials}</span>
+                </div>
+                <div className="bg-emerald-50/70 rounded-xl p-2 border border-emerald-100">
+                  <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider block">Interested</span>
+                  <span className="font-display font-black text-sm text-emerald-800 block">{periodInterested}</span>
+                </div>
+                <div className="bg-amber-50/70 rounded-xl p-2 border border-amber-100">
+                  <span className="text-[9px] font-bold text-amber-600 uppercase tracking-wider block">Callbacks</span>
+                  <span className="font-display font-black text-sm text-amber-800 block">{periodCallbacks}</span>
+                </div>
+                <div className="bg-rose-50/70 rounded-xl p-2 border border-rose-100">
+                  <span className="text-[9px] font-bold text-rose-600 uppercase tracking-wider block">Not Interested</span>
+                  <span className="font-display font-black text-sm text-rose-800 block">{periodNotInterested}</span>
+                </div>
+                <div className="bg-purple-50/70 rounded-xl p-2 border border-purple-100">
+                  <span className="text-[9px] font-bold text-purple-600 uppercase tracking-wider block">Won Deals</span>
+                  <span className="font-display font-black text-sm text-purple-800 block">{periodWon}</span>
+                </div>
+                <div className="bg-teal-50/70 rounded-xl p-2 border border-teal-100">
+                  <span className="text-[9px] font-bold text-[#00A88B] uppercase tracking-wider block">Revenue</span>
+                  <span className="font-display font-black text-sm text-[#00A88B] block">{formatInLakhs(periodRevenue)}</span>
+                </div>
               </div>
             </div>
 
-            {/* Date Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
-              {[
-                { id: 'ALL', label: 'All 10 Days' },
-                { id: 'TODAY', label: 'Today' },
-                { id: 'YESTERDAY', label: 'Yesterday' },
-                { id: 'WEEK', label: 'Last 7 Days' },
-                { id: 'CUSTOM', label: 'Custom' },
-              ].map((pill) => (
-                <button
-                  key={pill.id}
-                  onClick={() => setCallingDateFilter(pill.id as any)}
-                  className={`px-3 py-1.5 rounded-xl font-bold text-[11px] whitespace-nowrap transition-all cursor-pointer ${
-                    callingDateFilter === pill.id
-                      ? 'bg-[#0A2540] text-white shadow-2xs'
-                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  {pill.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Custom Date Range Picker */}
-            {callingDateFilter === 'CUSTOM' && (
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center gap-2 text-xs">
-                <div className="flex-1">
-                  <span className="text-[10px] text-slate-400 font-bold block mb-0.5">From</span>
-                  <input
-                    type="date"
-                    value={customFromDate}
-                    onChange={(e) => setCustomFromDate(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs"
-                  />
-                </div>
-                <div className="flex-1">
-                  <span className="text-[10px] text-slate-400 font-bold block mb-0.5">To</span>
-                  <input
-                    type="date"
-                    value={customToDate}
-                    onChange={(e) => setCustomToDate(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Free-Floating Day Cards */}
-            {callingLedger10Days
-              .filter((day) => {
-                if (callingDateFilter === 'TODAY') return day.index === 0;
-                if (callingDateFilter === 'YESTERDAY') return day.index === 1;
-                if (callingDateFilter === 'WEEK') return day.index < 7;
-                if (callingDateFilter === 'CUSTOM') {
-                  if (!customFromDate && !customToDate) return true;
-                  if (customFromDate && day.dateIso && day.dateIso < customFromDate) return false;
-                  if (customToDate && day.dateIso && day.dateIso > customToDate) return false;
-                  return true;
-                }
-                return true;
-              })
-              .map((day) => {
+            {/* MOBILE-ONLY VIEW (Screens < 768px): Free, Airy, Direct on Canvas */}
+            <div className="block md:hidden space-y-2.5">
+              {filteredCallingDays.map((day) => {
                 const isExpanded = expandedDayIndex === day.index;
 
                 if (day.isSunday) {
@@ -688,7 +779,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
                         <div>
                           <strong className="text-xs font-bold text-[#0A2540] block">{day.dateLabel}</strong>
                           <span className="text-[10px] font-mono text-slate-500">
-                            {day.called} / {day.assigned} Calls Made
+                            {day.called} Calls Logged
                           </span>
                         </div>
                       </div>
@@ -738,31 +829,43 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
 
                         {day.calls && day.calls.length > 0 ? (
                           <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                            {day.calls.map((call: any, cIdx: number) => (
-                              <div key={call.id || cIdx} className="bg-slate-50/90 rounded-xl p-2.5 border border-slate-200/80 text-xs space-y-1">
-                                <div className="flex items-center justify-between">
-                                  <strong className="font-bold text-[#0A2540]">{call.clientName}</strong>
-                                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                                    call.outcome === 'INTERESTED' ? 'bg-emerald-100 text-emerald-800' :
-                                    call.outcome === 'CALLBACK' ? 'bg-amber-100 text-amber-800' :
-                                    call.outcome === 'CONVERTED' ? 'bg-purple-100 text-purple-800' :
-                                    call.outcome === 'NOT_INTERESTED' ? 'bg-rose-100 text-rose-800' :
-                                    'bg-slate-200 text-slate-700'
-                                  }`}>
-                                    {call.outcome}
-                                  </span>
+                            {day.calls.map((call: any, cIdx: number) => {
+                              const matchingLead = memberLeads.find(l => 
+                                (l.phone && call.phoneNumber && l.phone.replace(/\s+/g, '') === call.phoneNumber.replace(/\s+/g, '')) ||
+                                (l.name && call.clientName && l.name.toLowerCase() === call.clientName.toLowerCase())
+                              );
+                              const isWon = ['CONVERTED', 'WON', 'DEAL_CLOSED'].includes((call.outcome || '').toUpperCase());
+                              return (
+                                <div key={call.id || cIdx} className="bg-slate-50/90 rounded-xl p-2.5 border border-slate-200/80 text-xs space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <strong className="font-bold text-[#0A2540]">{call.clientName} {call.companyName ? `• ${call.companyName}` : ''}</strong>
+                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                      call.outcome === 'INTERESTED' ? 'bg-emerald-100 text-emerald-800' :
+                                      call.outcome === 'CALLBACK' ? 'bg-amber-100 text-amber-800' :
+                                      isWon ? 'bg-purple-100 text-purple-800' :
+                                      call.outcome === 'NOT_INTERESTED' ? 'bg-rose-100 text-rose-800' :
+                                      'bg-slate-200 text-slate-700'
+                                    }`}>
+                                      {isWon ? '🏆 WON DEAL' : call.outcome}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                                    <span>📞 {maskPhone(call.phoneNumber)}</span>
+                                    <span>⏱️ {Math.floor((call.durationSec || 0) / 60)}m {(call.durationSec || 0) % 60}s</span>
+                                    {isWon && matchingLead?.dealValue ? (
+                                      <span className="text-[#00A88B] font-bold font-sans">
+                                        {formatInLakhs(matchingLead.dealValue)}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  {call.notes && (
+                                    <p className="text-[11px] text-slate-600 italic bg-white p-1.5 rounded-lg border border-slate-100">
+                                      "{call.notes}"
+                                    </p>
+                                  )}
                                 </div>
-                                <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
-                                  <span>📞 {maskPhone(call.phoneNumber)}</span>
-                                  <span>⏱️ {Math.floor((call.durationSec || 0) / 60)}m {(call.durationSec || 0) % 60}s</span>
-                                </div>
-                                {call.notes && (
-                                  <p className="text-[11px] text-slate-600 italic bg-white p-1.5 rounded-lg border border-slate-100">
-                                    "{call.notes}"
-                                  </p>
-                                )}
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         ) : day.leads && day.leads.length > 0 ? (
                           <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
@@ -796,295 +899,361 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
                   </div>
                 );
               })}
-          </div>
+            </div>
 
-          {/* DESKTOP-ONLY WIDESCREEN TABLE (Screens >= 768px) */}
-          <div className="hidden md:block bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="font-display font-black text-lg text-[#0A2540]">
-                  Daily Calling Performance Record (Last 10 Days)
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Click any day's row to open its complete list of called leads, feedback notes, and conversion status
-                </p>
+            {/* DESKTOP-ONLY WIDESCREEN TABLE (Screens >= 768px) */}
+            <div className="hidden md:block bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="font-display font-black text-lg text-[#0A2540]">
+                    Daily Calling Performance Ledger
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Click any day's row to inspect detailed client call logs, notes, durations, and deal revenues
+                  </p>
+                </div>
+
+                <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-xl">
+                  {filteredCallingDays.length} Days Displayed
+                </span>
               </div>
 
-              <span className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-xl">
-                10-Day Work Ledger
-              </span>
-            </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      <th className="pb-3 pl-2">Date & Day</th>
+                      <th className="pb-3">Calls Assigned</th>
+                      <th className="pb-3">Calls Made</th>
+                      <th className="pb-3">🟢 Interested</th>
+                      <th className="pb-3">⏰ Call Back Later</th>
+                      <th className="pb-3">🛑 Not Interested</th>
+                      <th className="pb-3">🏆 Won Deals</th>
+                      <th className="pb-3">Total Sales Generated</th>
+                      <th className="pb-3 text-right pr-2">Day Work Details</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredCallingDays.map((day) => {
+                      const isExpanded = expandedDayIndex === day.index;
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-200 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    <th className="pb-3 pl-2">Date & Day</th>
-                    <th className="pb-3">Calls Assigned</th>
-                    <th className="pb-3">Calls Made</th>
-                    <th className="pb-3">🟢 Interested</th>
-                    <th className="pb-3">⏰ Call Back Later</th>
-                    <th className="pb-3">🛑 Not Interested</th>
-                    <th className="pb-3">🏆 Won Deals</th>
-                    <th className="pb-3">Total Sales Generated</th>
-                    <th className="pb-3 text-right pr-2">Day Work Details</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {callingLedger10Days.map((day) => {
-                    const isExpanded = expandedDayIndex === day.index;
+                      if (day.isSunday) {
+                        return (
+                          <tr key={day.index} className="bg-slate-50/50 text-slate-400 font-medium">
+                            <td className="py-3 pl-2 font-bold">{day.dateLabel}</td>
+                            <td colSpan={7} className="py-3 text-center italic text-[11px]">
+                              — Sunday (Weekly Off) —
+                            </td>
+                            <td className="py-3 text-right pr-2">—</td>
+                          </tr>
+                        );
+                      }
 
-                    if (day.isSunday) {
+                      // Filter calls and leads for this day based on the selected telecaller outcome category
+                      const filteredDayCalls = (day.calls || []).filter((c: any) => {
+                        if (dayCategoryFilter === 'ALL') return true;
+                        const out = (c.outcome || '').toUpperCase();
+                        if (dayCategoryFilter === 'INTERESTED') return out === 'INTERESTED';
+                        if (dayCategoryFilter === 'CALLBACK') return out === 'CALLBACK';
+                        if (dayCategoryFilter === 'NOT_INTERESTED') return ['NOT_INTERESTED', 'LOST', 'REJECTED'].includes(out);
+                        if (dayCategoryFilter === 'CONVERTED') return ['CONVERTED', 'WON', 'DEAL_CLOSED'].includes(out);
+                        if (dayCategoryFilter === 'BUSY') return ['BUSY', 'NO_ANSWER'].includes(out);
+                        if (dayCategoryFilter === 'CONNECTED') return ['CONNECTED', 'PENDING'].includes(out);
+                        return true;
+                      });
+
+                      const filteredDayLeads = (day.leads || []).filter((l: any) => {
+                        if (dayCategoryFilter === 'ALL') return true;
+                        const s = (l.status || '').toUpperCase();
+                        if (dayCategoryFilter === 'INTERESTED') return s === 'INTERESTED' || s === 'FOLLOW-UP';
+                        if (dayCategoryFilter === 'CALLBACK') return s === 'CALLBACK' || s === 'DUE TODAY';
+                        if (dayCategoryFilter === 'NOT_INTERESTED') return s === 'NOT_INTERESTED' || s === 'REJECTED';
+                        if (dayCategoryFilter === 'CONVERTED') return s === 'CONVERTED' || s === 'DEAL_CLOSED';
+                        if (dayCategoryFilter === 'BUSY') return s === 'BUSY';
+                        if (dayCategoryFilter === 'CONNECTED') return s === 'CONNECTED' || s === 'PENDING';
+                        return true;
+                      });
+
                       return (
-                        <tr key={day.index} className="bg-slate-50/50 text-slate-400 font-medium">
-                          <td className="py-3 pl-2 font-bold">{day.dateLabel}</td>
-                          <td colSpan={7} className="py-3 text-center italic text-[11px]">
-                            — Sunday (Weekly Off) —
-                          </td>
-                          <td className="py-3 text-right pr-2">—</td>
-                        </tr>
-                      );
-                    }
+                        <React.Fragment key={day.index}>
+                          <tr 
+                            onClick={() => setExpandedDayIndex(isExpanded ? null : day.index)}
+                            className={`hover:bg-slate-50/80 transition-colors cursor-pointer ${
+                              isExpanded ? 'bg-emerald-50/40 border-l-4 border-[#00C9A7]' : ''
+                            }`}
+                          >
+                            <td className="py-3.5 pl-2 font-bold text-[#0A2540]">
+                              {day.dateLabel}
+                            </td>
 
-                    // Filter leads for this day based on the selected telecaller outcome category
-                    const filteredDayLeads = day.leads.filter((l) => {
-                      if (dayCategoryFilter === 'ALL') return true;
-                      const s = (l.status || '').toUpperCase();
-                      if (dayCategoryFilter === 'INTERESTED') return s === 'INTERESTED' || s === 'FOLLOW-UP';
-                      if (dayCategoryFilter === 'CALLBACK') return s === 'CALLBACK' || s === 'DUE TODAY';
-                      if (dayCategoryFilter === 'NOT_INTERESTED') return s === 'NOT_INTERESTED' || s === 'REJECTED';
-                      if (dayCategoryFilter === 'CONVERTED') return s === 'CONVERTED' || s === 'DEAL_CLOSED';
-                      if (dayCategoryFilter === 'BUSY') return s === 'BUSY';
-                      if (dayCategoryFilter === 'CONNECTED') return s === 'CONNECTED' || s === 'PENDING';
-                      return true;
-                    });
+                            <td className="py-3.5 font-semibold text-slate-700">
+                              {day.assigned} Leads
+                            </td>
 
-                    return (
-                      <React.Fragment key={day.index}>
-                        <tr 
-                          onClick={() => setExpandedDayIndex(isExpanded ? null : day.index)}
-                          className={`hover:bg-slate-50/80 transition-colors cursor-pointer ${
-                            isExpanded ? 'bg-emerald-50/40 border-l-4 border-[#00C9A7]' : ''
-                          }`}
-                        >
-                          <td className="py-3.5 pl-2 font-bold text-[#0A2540]">
-                            {day.dateLabel}
-                          </td>
-
-                          <td className="py-3.5 font-semibold text-slate-700">
-                            {day.assigned} Leads
-                          </td>
-
-                          <td className="py-3.5">
-                            <span className={`font-mono font-bold ${
-                              day.called < day.assigned ? 'text-amber-700' : 'text-emerald-700'
-                            }`}>
-                              {day.called} / {day.assigned}
-                            </span>
-                            {day.called < day.assigned && (
-                              <span className="text-[10px] text-amber-600 block">
-                                ({day.assigned - day.called} uncalled)
+                            <td className="py-3.5">
+                              <span className={`font-mono font-bold ${
+                                day.called < day.assigned ? 'text-amber-700' : 'text-emerald-700'
+                              }`}>
+                                {day.called} / {day.assigned}
                               </span>
-                            )}
-                          </td>
+                              {day.called < day.assigned && (
+                                <span className="text-[10px] text-amber-600 block">
+                                  ({day.assigned - day.called} uncalled)
+                                </span>
+                              )}
+                            </td>
 
-                          <td className="py-3.5 font-mono font-bold text-emerald-600">
-                            {day.interested} Leads
-                          </td>
+                            <td className="py-3.5 font-mono font-bold text-emerald-600">
+                              {day.interested} Leads
+                            </td>
 
-                          <td className="py-3.5 font-mono font-bold text-amber-600">
-                            {day.callback} Leads
-                          </td>
+                            <td className="py-3.5 font-mono font-bold text-amber-600">
+                              {day.callback} Leads
+                            </td>
 
-                          <td className="py-3.5 font-mono font-bold text-slate-500">
-                            {day.notInterested} Leads
-                          </td>
+                            <td className="py-3.5 font-mono font-bold text-slate-500">
+                              {day.notInterested} Leads
+                            </td>
 
-                          <td className="py-3.5 font-mono font-bold text-purple-700">
-                            {day.converted} Deals
-                          </td>
+                            <td className="py-3.5 font-mono font-bold text-purple-700">
+                              {day.converted} Deals
+                            </td>
 
-                          <td className="py-3.5 font-mono font-bold text-[#00A88B]">
-                            {day.revenue > 0 ? formatInLakhs(day.revenue) : '—'}
-                          </td>
+                            <td className="py-3.5 font-mono font-bold text-[#00A88B]">
+                              {day.revenue > 0 ? formatInLakhs(day.revenue) : '—'}
+                            </td>
 
-                          <td className="py-3.5 text-right pr-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setExpandedDayIndex(isExpanded ? null : day.index);
-                              }}
-                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-[#00C9A7] hover:text-[#0A2540] font-bold text-[11px] inline-flex items-center gap-1 transition-all"
-                            >
-                              <span>{isExpanded ? 'Hide' : 'View Day Work'}</span>
-                              {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                            </button>
-                          </td>
-                        </tr>
-
-                        {/* EXPANDED DAY DETAILS ACCORDION */}
-                        {isExpanded && (
-                          <tr className="bg-slate-50/70">
-                            <td colSpan={9} className="p-4 border-b border-slate-200">
-                              <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs space-y-4">
-                                
-                                {/* Top Header */}
-                                <div className="flex items-center justify-between pb-2 border-b border-slate-100 text-xs">
-                                  <span className="font-bold text-[#0A2540]">
-                                    Calls & Feedback Notes for {day.dateLabel}:
-                                  </span>
-                                </div>
-
-                                {/* FILTER PILLS MATCHING TELECALLER SAVE OPTIONS EXACTLY */}
-                                <div className="space-y-2">
-                                  <div className="flex items-center gap-1.5 text-xs text-slate-500 font-bold">
-                                    <Filter className="w-3.5 h-3.5 text-slate-400" />
-                                    <span>Filter by Call Result:</span>
-                                  </div>
-                                  <div className="flex flex-wrap items-center gap-1.5">
-                                    {[
-                                      { key: 'ALL', label: 'All Results' },
-                                      { key: 'INTERESTED', label: '🟢 Interested' },
-                                      { key: 'CALLBACK', label: '⏰ Call Back Later' },
-                                      { key: 'NOT_INTERESTED', label: '🛑 Not Interested' },
-                                      { key: 'CONVERTED', label: '🏆 Won Deals' },
-                                      { key: 'BUSY', label: '🚫 No Answer / Busy' },
-                                      { key: 'CONNECTED', label: '💬 Spoke / General' },
-                                    ].map((pill) => (
-                                      <button
-                                        key={pill.key}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setDayCategoryFilter(pill.key as typeof dayCategoryFilter);
-                                        }}
-                                        className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all ${
-                                          dayCategoryFilter === pill.key
-                                            ? 'bg-[#0A2540] text-white shadow-xs'
-                                            : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                                        }`}
-                                      >
-                                        {pill.label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                {/* Leads Called on this Day */}
-                                <div className="space-y-2">
-                                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                                    Client Calls & Notes Recorded ({filteredDayLeads.length}):
-                                  </span>
-
-                                  {filteredDayLeads.length === 0 ? (
-                                    <p className="text-xs text-slate-400 italic py-3 text-center bg-slate-50 rounded-xl">
-                                      No client calls found in this category.
-                                    </p>
-                                  ) : (
-                                    <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
-                                      {filteredDayLeads.map((lead) => (
-                                        <div key={lead.id} className="p-3 bg-slate-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50 transition-colors">
-                                          <div className="space-y-1">
-                                            <div className="flex items-center gap-2">
-                                              <span className="font-bold text-xs text-[#0A2540]">{lead.name}</span>
-                                              <span className="text-[10px] font-mono text-slate-400 bg-slate-200/60 px-1.5 py-0.5 rounded">
-                                                {lead.company}
-                                              </span>
-                                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                                                lead.status === 'INTERESTED' ? 'bg-emerald-100 text-emerald-800' :
-                                                lead.status === 'CONVERTED' ? 'bg-purple-100 text-purple-800' :
-                                                lead.status === 'CALLBACK' ? 'bg-amber-100 text-amber-800' :
-                                                lead.status === 'NOT_INTERESTED' ? 'bg-rose-100 text-rose-800' :
-                                                'bg-slate-100 text-slate-700'
-                                              }`}>
-                                                {lead.status === 'CONVERTED' ? '🏆 Won Deal' :
-                                                 lead.status === 'INTERESTED' ? '🟢 Interested' :
-                                                 lead.status === 'CALLBACK' ? '⏰ Call Back Later' :
-                                                 lead.status === 'NOT_INTERESTED' ? '🛑 Not Interested' :
-                                                 lead.status === 'BUSY' ? '🚫 No Answer / Busy' :
-                                                 '💬 Spoke / General'}
-                                              </span>
-                                            </div>
-                                            <p className="text-xs text-slate-600 italic">
-                                              "{lead.notes || 'Spoke with client, follow-up scheduled.'}"
-                                            </p>
-                                          </div>
-
-                                          <div className="flex items-center gap-4 text-xs font-mono">
-                                            <span className="text-slate-500 font-bold">
-                                              Phone: {maskPhone(lead.phone)}
-                                            </span>
-
-                                            {/* WON DEAL AMOUNT PRIVACY: Hidden from Team Leader to protect high-ticket deal pricing, but added in total revenue & targets */}
-                                            {lead.status === 'CONVERTED' ? (
-                                              viewerRole === 'admin' && lead.dealValue ? (
-                                                <span className="text-[#00A88B] font-bold">
-                                                  {formatInLakhs(lead.dealValue)}
-                                                </span>
-                                              ) : (
-                                                <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">
-                                                  ✓ Won Deal Verified
-                                                </span>
-                                              )
-                                            ) : null}
-
-                                            {/* Reassign action: Strictly Admin Only. Hidden from Team Leader to protect lead confidentiality */}
-                                            {viewerRole === 'admin' && (
-                                              reassigningLeadId === lead.id ? (
-                                                <div className="flex items-center gap-1">
-                                                  <select
-                                                    value={targetAssignee}
-                                                    onChange={(e) => setTargetAssignee(e.target.value)}
-                                                    className="text-[11px] p-1 rounded-lg border border-slate-300 bg-white font-bold"
-                                                  >
-                                                    <option value="">Transfer to</option>
-                                                    {teamMembers.filter(m => m.id !== member.id).map(m => (
-                                                      <option key={m.id} value={m.name}>{m.name}</option>
-                                                    ))}
-                                                  </select>
-                                                  <button
-                                                    onClick={() => handleReassign(lead.id)}
-                                                    className="px-2 py-1 bg-[#00C9A7] text-[#0A2540] font-black rounded-lg text-[10px]"
-                                                  >
-                                                    Save
-                                                  </button>
-                                                  <button
-                                                    onClick={() => setReassigningLeadId(null)}
-                                                    className="p-1 text-slate-400 hover:text-slate-600 text-[10px]"
-                                                  >
-                                                    ✕
-                                                  </button>
-                                                </div>
-                                              ) : (
-                                                <button
-                                                  onClick={() => setReassigningLeadId(lead.id)}
-                                                  className="text-[#00A88B] hover:underline font-bold text-[11px] inline-flex items-center gap-1"
-                                                >
-                                                  <ArrowRightLeft className="w-3 h-3" />
-                                                  <span>Reassign</span>
-                                                </button>
-                                              )
-                                            )}
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-
-                              </div>
+                            <td className="py-3.5 text-right pr-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedDayIndex(isExpanded ? null : day.index);
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-[#00C9A7] hover:text-[#0A2540] font-bold text-[11px] inline-flex items-center gap-1 transition-all"
+                              >
+                                <span>{isExpanded ? 'Hide' : 'View Day Work'}</span>
+                                {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                              </button>
                             </td>
                           </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
 
+                          {/* EXPANDED DAY DETAILS ACCORDION */}
+                          {isExpanded && (
+                            <tr className="bg-slate-50/70">
+                              <td colSpan={9} className="p-4 border-b border-slate-200">
+                                <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs space-y-4">
+                                  
+                                  {/* Top Header */}
+                                  <div className="flex items-center justify-between pb-2 border-b border-slate-100 text-xs">
+                                    <span className="font-bold text-[#0A2540]">
+                                      Calls & Feedback Notes for {day.dateLabel}:
+                                    </span>
+                                  </div>
+
+                                  {/* FILTER PILLS MATCHING TELECALLER SAVE OPTIONS EXACTLY */}
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-bold">
+                                      <Filter className="w-3.5 h-3.5 text-slate-400" />
+                                      <span>Filter by Call Result:</span>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      {[
+                                        { key: 'ALL', label: 'All Results' },
+                                        { key: 'INTERESTED', label: '🟢 Interested' },
+                                        { key: 'CALLBACK', label: '⏰ Call Back Later' },
+                                        { key: 'NOT_INTERESTED', label: '🛑 Not Interested' },
+                                        { key: 'CONVERTED', label: '🏆 Won Deals' },
+                                        { key: 'BUSY', label: '🚫 No Answer / Busy' },
+                                        { key: 'CONNECTED', label: '💬 Spoke / General' },
+                                      ].map((pill) => (
+                                        <button
+                                          key={pill.key}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setDayCategoryFilter(pill.key as typeof dayCategoryFilter);
+                                          }}
+                                          className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all ${
+                                            dayCategoryFilter === pill.key
+                                              ? 'bg-[#0A2540] text-white shadow-xs'
+                                              : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                                          }`}
+                                        >
+                                          {pill.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  {/* Calls Logged on this Day */}
+                                  <div className="space-y-2">
+                                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                                      Call Activity Records ({filteredDayCalls.length}):
+                                    </span>
+
+                                    {filteredDayCalls.length === 0 && filteredDayLeads.length === 0 ? (
+                                      <p className="text-xs text-slate-400 italic py-3 text-center bg-slate-50 rounded-xl">
+                                        No client calls or leads recorded in this category.
+                                      </p>
+                                    ) : (
+                                      <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
+                                        {/* 1. Actual Call Logs */}
+                                        {filteredDayCalls.map((call: any, idx: number) => {
+                                          const matchingLead = memberLeads.find(l => 
+                                            (l.phone && call.phoneNumber && l.phone.replace(/\s+/g, '') === call.phoneNumber.replace(/\s+/g, '')) ||
+                                            (l.name && call.clientName && l.name.toLowerCase() === call.clientName.toLowerCase())
+                                          );
+                                          const isWon = ['CONVERTED', 'WON', 'DEAL_CLOSED'].includes((call.outcome || '').toUpperCase());
+
+                                          return (
+                                            <div key={call.id || `call-${idx}`} className="p-3 bg-slate-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50 transition-colors">
+                                              <div className="space-y-1">
+                                                <div className="flex items-center gap-2">
+                                                  <span className="font-bold text-xs text-[#0A2540]">{call.clientName}</span>
+                                                  {call.companyName && (
+                                                    <span className="text-[10px] font-mono text-slate-400 bg-slate-200/60 px-1.5 py-0.5 rounded">
+                                                      {call.companyName}
+                                                    </span>
+                                                  )}
+                                                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                                    isWon ? 'bg-purple-100 text-purple-800' :
+                                                    call.outcome === 'INTERESTED' ? 'bg-emerald-100 text-emerald-800' :
+                                                    call.outcome === 'CALLBACK' ? 'bg-amber-100 text-amber-800' :
+                                                    call.outcome === 'NOT_INTERESTED' ? 'bg-rose-100 text-rose-800' :
+                                                    'bg-slate-100 text-slate-700'
+                                                  }`}>
+                                                    {isWon ? '🏆 WON DEAL' : call.outcome}
+                                                  </span>
+                                                </div>
+                                                <p className="text-xs text-slate-600 italic">
+                                                  "{call.notes || 'Spoke with client.'}"
+                                                </p>
+                                              </div>
+
+                                              <div className="flex items-center gap-4 text-xs font-mono">
+                                                <span className="text-slate-500 font-bold">
+                                                  📞 {maskPhone(call.phoneNumber)}
+                                                </span>
+                                                <span className="text-slate-400">
+                                                  ⏱️ {Math.floor((call.durationSec || 0) / 60)}m {(call.durationSec || 0) % 60}s
+                                                </span>
+                                                {isWon && matchingLead?.dealValue ? (
+                                                  <span className="text-[#00A88B] font-bold font-sans">
+                                                    {formatInLakhs(matchingLead.dealValue)}
+                                                  </span>
+                                                ) : null}
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+
+                                        {/* 2. Client Leads not already represented in call logs */}
+                                        {filteredDayLeads
+                                          .filter(l => !filteredDayCalls.some((c: any) => c.phoneNumber && l.phone && c.phoneNumber.replace(/\s+/g, '') === l.phone.replace(/\s+/g, '')))
+                                          .map((lead) => (
+                                          <div key={lead.id} className="p-3 bg-slate-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50 transition-colors">
+                                            <div className="space-y-1">
+                                              <div className="flex items-center gap-2">
+                                                <span className="font-bold text-xs text-[#0A2540]">{lead.name}</span>
+                                                <span className="text-[10px] font-mono text-slate-400 bg-slate-200/60 px-1.5 py-0.5 rounded">
+                                                  {lead.company}
+                                                </span>
+                                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                                  lead.status === 'INTERESTED' ? 'bg-emerald-100 text-emerald-800' :
+                                                  lead.status === 'CONVERTED' ? 'bg-purple-100 text-purple-800' :
+                                                  lead.status === 'CALLBACK' ? 'bg-amber-100 text-amber-800' :
+                                                  lead.status === 'NOT_INTERESTED' ? 'bg-rose-100 text-rose-800' :
+                                                  'bg-slate-100 text-slate-700'
+                                                }`}>
+                                                  {lead.status === 'CONVERTED' ? '🏆 Won Deal' :
+                                                   lead.status === 'INTERESTED' ? '🟢 Interested' :
+                                                   lead.status === 'CALLBACK' ? '⏰ Call Back Later' :
+                                                   lead.status === 'NOT_INTERESTED' ? '🛑 Not Interested' :
+                                                   lead.status === 'BUSY' ? '🚫 No Answer / Busy' :
+                                                   '💬 Spoke / General'}
+                                                </span>
+                                              </div>
+                                              <p className="text-xs text-slate-600 italic">
+                                                "{lead.notes || 'Spoke with client, follow-up scheduled.'}"
+                                              </p>
+                                            </div>
+
+                                            <div className="flex items-center gap-4 text-xs font-mono">
+                                              <span className="text-slate-500 font-bold">
+                                                Phone: {maskPhone(lead.phone)}
+                                              </span>
+
+                                              {/* WON DEAL AMOUNT PRIVACY: Hidden from Team Leader to protect high-ticket deal pricing */}
+                                              {lead.status === 'CONVERTED' ? (
+                                                viewerRole === 'admin' && lead.dealValue ? (
+                                                  <span className="text-[#00A88B] font-bold">
+                                                    {formatInLakhs(lead.dealValue)}
+                                                  </span>
+                                                ) : (
+                                                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                                                    ✓ Won Deal Verified
+                                                  </span>
+                                                )
+                                              ) : null}
+
+                                              {/* Reassign action: Strictly Admin Only */}
+                                              {viewerRole === 'admin' && (
+                                                reassigningLeadId === lead.id ? (
+                                                  <div className="flex items-center gap-1">
+                                                    <select
+                                                      value={targetAssignee}
+                                                      onChange={(e) => setTargetAssignee(e.target.value)}
+                                                      className="text-[11px] p-1 rounded-lg border border-slate-300 bg-white font-bold"
+                                                    >
+                                                      <option value="">Transfer to</option>
+                                                      {teamMembers.filter(m => m.id !== member.id).map(m => (
+                                                        <option key={m.id} value={m.name}>{m.name}</option>
+                                                      ))}
+                                                    </select>
+                                                    <button
+                                                      onClick={() => handleReassign(lead.id)}
+                                                      className="px-2 py-1 bg-[#00C9A7] text-[#0A2540] font-black rounded-lg text-[10px]"
+                                                    >
+                                                      Save
+                                                    </button>
+                                                    <button
+                                                      onClick={() => setReassigningLeadId(null)}
+                                                      className="p-1 text-slate-400 hover:text-slate-600 text-[10px]"
+                                                    >
+                                                      ✕
+                                                    </button>
+                                                  </div>
+                                                ) : (
+                                                  <button
+                                                    onClick={() => setReassigningLeadId(lead.id)}
+                                                    className="text-[#00A88B] hover:underline font-bold text-[11px] inline-flex items-center gap-1"
+                                                  >
+                                                    <ArrowRightLeft className="w-3 h-3" />
+                                                    <span>Reassign</span>
+                                                  </button>
+                                                )
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* TAB 2: PURE ATTENDANCE HISTORY (NO LEAVE CLUTTER) */}
       {activeTab === 'ATTENDANCE' && (
