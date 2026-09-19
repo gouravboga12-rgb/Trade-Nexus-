@@ -32,3 +32,8 @@ server/db/data/*.sqlite*
 *.db
 *.db-shm
 *.db-wal
+
+# Environment & Keys
+.env
+*.pem
+*.key

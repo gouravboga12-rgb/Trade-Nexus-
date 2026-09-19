@@ -454,6 +454,22 @@ function runMigrations() {
       fullDayThresholdHours REAL NOT NULL DEFAULT 8.0,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    -- Media Files (Relational S3 & CloudFront media storage)
+    CREATE TABLE IF NOT EXISTS media_files (
+      id TEXT PRIMARY KEY,
+      originalName TEXT NOT NULL,
+      s3Key TEXT NOT NULL UNIQUE,
+      s3Url TEXT NOT NULL,
+      cdnUrl TEXT NOT NULL,
+      mimeType TEXT NOT NULL,
+      sizeBytes INTEGER NOT NULL,
+      entityType TEXT DEFAULT 'GENERAL',
+      entityId TEXT,
+      uploadedBy TEXT,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_media_files_entity ON media_files(entityType, entityId);
   `);
 
   const hasCalendarSettings = db.prepare('SELECT COUNT(*) AS c FROM calendar_settings').get() as { c: number };
