@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
+import { requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -36,7 +37,7 @@ router.get('/', (req: Request, res: Response) => {
 });
 
 // POST /api/team-groups
-router.post('/', (req: Request, res: Response) => {
+router.post('/', requireRole('admin'), (req: Request, res: Response) => {
   try {
     const { id, name, description, leaderName, memberCount, monthlyTarget, achieved, color } = req.body;
     const groupId = id || `grp-${Date.now()}`;
@@ -58,7 +59,7 @@ router.post('/', (req: Request, res: Response) => {
 });
 
 // PUT /api/team-groups/:id
-router.put('/:id', (req: Request, res: Response) => {
+router.put('/:id', requireRole('admin', 'team_leader'), (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const existing = db.prepare('SELECT * FROM team_groups WHERE id = ?').get(id) as any;

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
 import { hashPassword, verifyPassword, createToken, verifyToken } from '../db/authUtils.js';
+import { authenticate, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -100,7 +101,7 @@ router.get('/me', (req: Request, res: Response) => {
 });
 
 // POST /api/auth/users (Admin / HR provisioning)
-router.post('/users', (req: Request, res: Response) => {
+router.post('/users', authenticate, requireRole('admin', 'hr'), (req: Request, res: Response) => {
   try {
     const { email, name, role, empCode, employeeId, password } = req.body;
     if (!email || !name) {
@@ -118,7 +119,8 @@ router.post('/users', (req: Request, res: Response) => {
         name = excluded.name,
         role = excluded.role,
         empCode = excluded.empCode,
-        employeeId = excluded.employeeId
+        employeeId = excluded.employeeId,
+        passwordHash = excluded.passwordHash
     `).run(
       userId,
       email.toLowerCase().trim(),
