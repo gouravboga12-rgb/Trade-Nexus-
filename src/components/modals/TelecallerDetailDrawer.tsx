@@ -69,12 +69,11 @@ export const TelecallerDetailDrawer: React.FC<TelecallerDetailDrawerProps> = ({
   const matchedAssigned = assignedLeads.filter((l) => {
     const byId = l.assignedToEmployeeId === member.id || l.assignedToEmployeeId === member.empCode;
     const byName = l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === memberNameLower;
-    const isArjunSpecial = memberNameLower.includes('arjun') && (l.assignedToEmployeeId === 'emp-101' || l.assignedToEmployeeId === 'tm-1');
-    return byId || byName || isArjunSpecial;
+    return byId || byName;
   });
 
   // 2. Also map active CRM pipeline client_leads
-  const pipelineLeads: AssignedLead[] = (memberNameLower.includes('arjun') ? clients : []).map(c => ({
+  const pipelineLeads: AssignedLead[] = clients.filter(c => (c as any).assignedTo === member.id || (c as any).assignedTo === member.name).map(c => ({
     id: c.id,
     name: c.name,
     phone: c.phone,
@@ -135,12 +134,11 @@ export const TelecallerDetailDrawer: React.FC<TelecallerDetailDrawerProps> = ({
     const clientNameLower = (c.clientName || '').toLowerCase();
     const byEmpId = c.employeeId && (c.employeeId === member.id || c.employeeId === member.empCode);
     const byLeadMatch = (cleanPhone && leadPhones.has(cleanPhone)) || (clientNameLower && leadNames.has(clientNameLower));
-    const byArjunFallback = memberNameLower.includes('arjun') && (!c.employeeId || c.employeeId === 'emp-101');
-    return byEmpId || byLeadMatch || byArjunFallback;
+    return byEmpId || byLeadMatch;
   });
 
   // Timing & Late highlights (Reference time: 09:30 AM, Shift Target: 9.0 Hours)
-  const inTime = member.checkInTime || (member.attendanceStatus === 'PRESENT' ? '09:15 AM' : member.attendanceStatus === 'LATE' ? '09:48 AM' : null);
+  const inTime = member.checkInTime || null;
   const isLate = member.attendanceStatus === 'LATE' || (inTime && (() => {
     const parts = inTime.match(/(\d+):(\d+)/);
     if (!parts) return false;

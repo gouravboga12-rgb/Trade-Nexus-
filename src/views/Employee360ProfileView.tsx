@@ -43,6 +43,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
     triggerToast,
     faceProfiles,
     leaveRequests,
+    teamGroups,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'CALLING' | 'ATTENDANCE' | 'LEAVES'>('CALLING');
@@ -80,12 +81,11 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
   const matchedAssigned = assignedLeads.filter((l) => {
     const byId = l.assignedToEmployeeId === member.id || l.assignedToEmployeeId === member.empCode;
     const byName = l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === memberNameLower;
-    const isArjunSpecial = memberNameLower.includes('arjun') && (l.assignedToEmployeeId === 'emp-101' || l.assignedToEmployeeId === 'tm-1');
-    return byId || byName || isArjunSpecial;
+    return byId || byName;
   });
 
   // Client leads from the CRM pipeline
-  const pipelineLeads: AssignedLead[] = (memberNameLower.includes('arjun') ? clients : []).map(c => ({
+  const pipelineLeads: AssignedLead[] = clients.filter(c => (c as any).assignedTo === member.id || (c as any).assignedTo === member.name).map(c => ({
     id: c.id,
     name: c.name,
     phone: c.phone,
@@ -103,9 +103,9 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
       'PENDING'
     ) as AssignedLead['status'],
     notes: c.requirement || 'Direct CRM Client Lead',
-    callCount: 1,
+    callCount: 0,
     lastCallTimestamp: c.lastContacted,
-    dealValue: c.dealValue,
+    dealValue: c.dealValue || 0,
   }));
 
   const existingIds = new Set(matchedAssigned.map(l => l.id));
@@ -123,11 +123,10 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
     const clientNameLower = (c.clientName || '').toLowerCase();
     const byEmpId = c.employeeId && (c.employeeId === member.id || c.employeeId === member.empCode);
     const byLeadMatch = (cleanPhone && leadPhones.has(cleanPhone)) || (clientNameLower && leadNames.has(clientNameLower));
-    const byArjunFallback = memberNameLower.includes('arjun') && (!c.employeeId || c.employeeId === 'emp-101');
-    return byEmpId || byLeadMatch || byArjunFallback;
+    return byEmpId || byLeadMatch;
   });
 
-  // 3. Generate 10-Day Calling & Work Ledger
+  // 3. Generate 10-Day Calling & Work Ledger from Real Records
   const callingLedger10Days = useMemo(() => {
     const records = [];
     const today = new Date();
@@ -145,7 +144,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
           dateLabel: `${dateStr} (${dayName})`,
           assigned: 0,
           called: 0,
-          target: 100,
+          target: member.goalCalls || 0,
           interested: 0,
           callback: 0,
           notInterested: 0,
@@ -155,44 +154,36 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
           leads: [] as AssignedLead[],
         });
       } else if (i === 0) {
-        // Today
+        // Today - Real Values Only
         records.push({
           index: i,
           dateLabel: `Today (${dateStr})`,
-          assigned: memberLeads.length || 44,
-          called: member.dialsToday || 68,
-          target: member.goalCalls || 100,
-          interested: member.interested || 12,
-          callback: 7,
-          notInterested: 8,
-          converted: 2,
-          revenue: member.salesAchieved || 145000,
+          assigned: memberLeads.length,
+          called: member.dialsToday || 0,
+          target: member.goalCalls || 0,
+          interested: member.interested || 0,
+          callback: memberLeads.filter(l => l.status === 'CALLBACK').length,
+          notInterested: memberLeads.filter(l => (l.status as string) === 'NOT_INTERESTED' || (l.status as string) === 'LOST').length,
+          converted: memberLeads.filter(l => l.status === 'CONVERTED').length,
+          revenue: member.salesAchieved || 0,
           isSunday: false,
-          leads: memberLeads.slice(0, 12),
+          leads: memberLeads,
         });
       } else {
-        const daySeed = (member.name.length * 11 + i * 19) % 25;
-        const assigned = 40 + (daySeed * 2);
-        const called = Math.min(assigned, 48 + daySeed);
-        const interested = 6 + (daySeed % 6);
-        const callback = 4 + (daySeed % 5);
-        const notInterested = 10 + (daySeed % 8);
-        const converted = (i % 3 === 0) ? 2 : (i % 2 === 0) ? 1 : 0;
-        const revenue = converted * (45000 + daySeed * 1500);
-
+        // Past Days
         records.push({
           index: i,
           dateLabel: `${dateStr} (${dayName})`,
-          assigned,
-          called,
-          target: 100,
-          interested,
-          callback,
-          notInterested,
-          converted,
-          revenue,
+          assigned: 0,
+          called: 0,
+          target: member.goalCalls || 0,
+          interested: 0,
+          callback: 0,
+          notInterested: 0,
+          converted: 0,
+          revenue: 0,
           isSunday: false,
-          leads: memberLeads.slice(0, 8),
+          leads: [] as AssignedLead[],
         });
       }
     }
@@ -240,7 +231,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
     return `${h}h ${m.toString().padStart(2, '0')}m`;
   };
 
-  // 4. Generate structured attendance history with dynamic time calculation
+  // 4. Generate structured attendance history from actual punch logs
   const attendanceHistory = useMemo(() => {
     const records = [];
     const today = new Date();
@@ -264,66 +255,31 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
           isShort: false,
         });
       } else if (i === 0) {
-        // Today - Dynamically evaluate based on punch-in time against 09:30 AM standard shift
-        const inTime = member.checkInTime || (member.attendanceStatus === 'LATE' ? '09:48 AM' : '09:15 AM');
+        // Today - Dynamically evaluate from real member check-in
+        const inTime = member.checkInTime || '';
         const isLate = isPunchInLate(inTime);
-        const outTime = member.checkOutTime || 'Shift Active';
-        const hours = computeDurationHours(inTime, outTime);
+        const outTime = member.checkOutTime || (inTime ? 'Shift Active' : '—');
+        const hours = inTime ? computeDurationHours(inTime, outTime) : '0h 00m';
 
         records.push({
           date: `${dateStr} (Today)`,
           dayName,
-          inTime,
-          outTime,
+          inTime: inTime || '—',
+          outTime: inTime ? outTime : '—',
           hours,
-          status: isLate ? 'LATE' : 'PRESENT',
+          status: inTime ? (isLate ? 'LATE' : 'PRESENT') : 'ABSENT',
           isLate,
           isShort: false,
         });
-      } else if (i === 4) {
-        // Approved Leave
+      } else {
         records.push({
           date: dateStr,
           dayName,
           inTime: '—',
           outTime: '—',
           hours: '0h 00m',
-          status: 'LEAVE',
+          status: 'ABSENT',
           isLate: false,
-          isShort: false,
-        });
-      } else if (i === 2 || i === 7) {
-        // Late day
-        const inTime = '09:48 AM';
-        const outTime = '06:45 PM';
-        const isLate = isPunchInLate(inTime);
-        const hours = computeDurationHours(inTime, outTime);
-
-        records.push({
-          date: dateStr,
-          dayName,
-          inTime,
-          outTime,
-          hours,
-          status: 'LATE',
-          isLate,
-          isShort: true,
-        });
-      } else {
-        // Regular on-time day
-        const inTime = '09:12 AM';
-        const outTime = '06:30 PM';
-        const isLate = isPunchInLate(inTime);
-        const hours = computeDurationHours(inTime, outTime);
-
-        records.push({
-          date: dateStr,
-          dayName,
-          inTime,
-          outTime,
-          hours,
-          status: 'PRESENT',
-          isLate,
           isShort: false,
         });
       }
@@ -364,37 +320,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
       };
     });
 
-    if (deduplicated.length > 0) return deduplicated;
-
-    // Fallback seed records so that ANY employee opened has realistic Casual & Sick leave records for TL inspection
-    return [
-      {
-        id: `leave-sick-${member.id}`,
-        employeeName: member.name,
-        employeeCode: member.empCode,
-        leaveType: 'Sick Leave',
-        fromDate: '05 Jun 2025',
-        toDate: '06 Jun 2025',
-        totalDays: 2,
-        reason: 'Viral fever and doctor advised rest',
-        status: 'APPROVED',
-        appliedOn: '04 Jun 2025',
-        approvedBy: 'Ramesh Sharma (Team Leader)'
-      },
-      {
-        id: `leave-casual-${member.id}`,
-        employeeName: member.name,
-        employeeCode: member.empCode,
-        leaveType: 'Casual Leave',
-        fromDate: '22 May 2025',
-        toDate: '22 May 2025',
-        totalDays: 1,
-        reason: 'Family personal commitment in hometown',
-        status: 'APPROVED',
-        appliedOn: '20 May 2025',
-        approvedBy: 'Ramesh Sharma (Team Leader)'
-      }
-    ] as any[];
+    return deduplicated;
   }, [leaveRequests, member, memberNameLower]);
 
   // Leave statistics
@@ -517,7 +443,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
               </div>
 
               <p className="text-[10px] text-slate-500 font-medium truncate">
-                <span className="font-bold text-slate-700">{cleanRole}</span> • <span>{member.group || 'HNI Closers'}</span> • <span>TL: Ramesh Sharma</span>
+                <span className="font-bold text-slate-700">{cleanRole}</span> • <span>{member.group || 'General'}</span> • <span>TL: {teamGroups?.find(g => g.name === member.group)?.leaderName || 'Unassigned'}</span>
               </p>
             </div>
           </div>
@@ -537,7 +463,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
         <div className="grid grid-cols-4 gap-1.5 text-center">
           <div className="bg-slate-50/90 rounded-xl py-1 px-1 border border-slate-100">
             <strong className="text-xs font-display font-black text-[#0A2540] block leading-tight">
-              {member.dialsToday} <span className="text-[9px] text-slate-400 font-normal">/{member.goalCalls || 100}</span>
+              {member.dialsToday} <span className="text-[9px] text-slate-400 font-normal">/{member.goalCalls || 0}</span>
             </strong>
             <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block mt-0.5">
               Dials
@@ -555,7 +481,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
 
           <div className="bg-slate-50/90 rounded-xl py-1 px-1 border border-slate-100">
             <strong className="text-xs font-display font-black text-purple-700 block leading-tight">
-              {member.interested || 12}
+              {member.interested || 0}
             </strong>
             <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block mt-0.5">
               Interested

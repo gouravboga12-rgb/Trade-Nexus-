@@ -51,15 +51,22 @@ router.post('/', (req: Request, res: Response) => {
 // POST /api/biometrics/verify (Verify Face & Record Attendance)
 router.post('/verify', (req: Request, res: Response) => {
   try {
-    const { employeeId } = req.body || {};
-    let profile = employeeId 
-      ? db.prepare('SELECT * FROM face_biometric_profiles WHERE employeeId = ?').get(employeeId)
-      : db.prepare('SELECT * FROM face_biometric_profiles LIMIT 1').get();
+    const rawId = req.body?.employeeId || req.user?.employeeId || req.user?.id;
+    if (!rawId) {
+      return res.status(400).json({ error: 'employeeId is required for biometric verification' });
+    }
+
+    // Find employee from team_members or employee_profiles
+    const emp = db.prepare('SELECT * FROM team_members WHERE id = ? OR empCode = ?').get(rawId, rawId) as any
+      || db.prepare('SELECT * FROM employee_profiles WHERE id = ? OR empCode = ?').get(rawId, rawId) as any;
+
+    const targetId = emp?.id || rawId;
+    const targetEmpCode = emp?.empCode || rawId;
+    const empName = emp ? emp.name : 'Employee';
+
+    let profile = db.prepare('SELECT * FROM face_biometric_profiles WHERE employeeId = ? OR employeeName = ?').get(targetId, empName) as any;
 
     if (!profile) {
-      const emp = db.prepare('SELECT * FROM team_members WHERE id = ? OR empCode = ?').get(employeeId, employeeId) as any;
-      const empName = emp ? emp.name : 'Arjun Kumar';
-      const targetId = employeeId || 'emp-101';
       db.prepare(`
         INSERT INTO face_biometric_profiles (employeeId, employeeName, registeredPhoto, registeredAt, status)
         VALUES (?, ?, '', 'Auto-enrolled', 'REGISTERED')
@@ -71,34 +78,44 @@ router.post('/verify', (req: Request, res: Response) => {
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const today = now.toISOString().split('T')[0];
+    const recId = `att-${today}-${targetId}`;
 
-    // Update Profile Status
-    db.prepare(`
-      UPDATE employee_profiles
-      SET faceIdStatus = 'VERIFIED_PRESENT', checkInTime = ?
-    `).run(timeStr);
+    const updateAttendanceAtomic = db.transaction(() => {
+      // 1. Update Profile Status for THIS employee ONLY
+      db.prepare(`
+        UPDATE employee_profiles
+        SET faceIdStatus = 'VERIFIED_PRESENT', checkInTime = ?
+        WHERE id = ? OR empCode = ?
+      `).run(timeStr, targetId, targetEmpCode);
 
-    // Record Attendance
-    db.prepare(`
-      INSERT INTO attendance_records (id, date, dayNumber, status, checkIn, workHours, method)
-      VALUES (?, ?, ?, 'PRESENT', ?, 'In Progress', 'Face ID Biometric')
-      ON CONFLICT(id) DO UPDATE SET
-        status = 'PRESENT',
-        checkIn = excluded.checkIn,
-        method = 'Face ID Biometric'
-    `).run(`att-${today}`, today, now.getDate(), timeStr);
+      // 2. Record Attendance with employeeId composite key
+      db.prepare(`
+        INSERT INTO attendance_records (id, date, dayNumber, status, checkIn, workHours, method, employeeId, employeeName)
+        VALUES (?, ?, ?, 'PRESENT', ?, 'In Progress', 'Face ID Biometric', ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          status = 'PRESENT',
+          checkIn = excluded.checkIn,
+          method = 'Face ID Biometric',
+          employeeId = excluded.employeeId,
+          employeeName = excluded.employeeName
+      `).run(recId, today, now.getDate(), timeStr, targetId, empName);
 
-    // Update Team Member Status
-    db.prepare(`
-      UPDATE team_members
-      SET attendanceStatus = 'PRESENT', checkInTime = ?, checkInMethod = 'Face ID Biometric'
-      WHERE id = 'tm-1' OR id = ?
-    `).run(timeStr, employeeId || 'emp-101');
+      // 3. Update Team Member Status for THIS employee ONLY
+      db.prepare(`
+        UPDATE team_members
+        SET attendanceStatus = 'PRESENT', checkInTime = ?, checkInMethod = 'Face ID Biometric'
+        WHERE id = ? OR empCode = ?
+      `).run(timeStr, targetId, targetEmpCode);
+    });
+
+    updateAttendanceAtomic();
 
     return res.status(200).json({
       verified: !!profile,
       checkInTime: timeStr,
-      status: 'VERIFIED_PRESENT'
+      status: 'VERIFIED_PRESENT',
+      employeeId: targetId,
+      attendanceId: recId
     });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });

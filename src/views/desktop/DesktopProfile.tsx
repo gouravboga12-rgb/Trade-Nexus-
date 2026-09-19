@@ -69,27 +69,27 @@ export const DesktopProfile: React.FC = () => {
           <div className="nexus-card p-6 bg-gradient-to-b from-[#0A2540] to-[#0F3258] text-white shadow-lg space-y-4">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#00C9A7] to-[#38E1B7] p-0.5 shadow-md flex-shrink-0">
-                <div className="w-full h-full rounded-[14px] bg-[#0A2540] flex items-center justify-center font-display font-black text-2xl text-[#00C9A7]">{profile.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}</div>
+                <div className="w-full h-full rounded-[14px] bg-[#0A2540] flex items-center justify-center font-display font-black text-2xl text-[#00C9A7]">{(profile.name || 'Employee').trim().split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase()}</div>
               </div>
               <div>
-                <h3 className="font-display font-black text-xl text-white">{profile.name}</h3>
-                <span className="text-xs font-bold text-[#38E1B7] block mt-0.5">{profile.roleTitle}</span>
-                <span className="text-[11px] font-mono text-slate-300 font-semibold">{profile.empCode}</span>
+                <h3 className="font-display font-black text-xl text-white">{profile.name || 'Employee Profile'}</h3>
+                <span className="text-xs font-bold text-[#38E1B7] block mt-0.5">{profile.roleTitle || 'Sales Executive'}</span>
+                <span className="text-[11px] font-mono text-slate-300 font-semibold">{profile.empCode || '—'}</span>
               </div>
             </div>
 
             <div className="space-y-2 pt-3 border-t border-white/10 text-xs text-slate-300">
               <div className="flex justify-between">
                 <span className="text-slate-400">Department:</span>
-                <span className="font-semibold text-white">{profile.department}</span>
+                <span className="font-semibold text-white">{profile.department || '—'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Reporting To:</span>
-                <span className="font-semibold text-white">{profile.teamLeaderName} (TL)</span>
+                <span className="font-semibold text-white">{profile.teamLeaderName ? `${profile.teamLeaderName} (TL)` : 'Unassigned'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Joining Date:</span>
-                <span className="font-semibold text-white">{profile.joinDate}</span>
+                <span className="font-semibold text-white">{profile.joinDate || '—'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Shift Timings:</span>

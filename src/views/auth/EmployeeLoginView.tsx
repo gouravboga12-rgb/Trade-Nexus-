@@ -24,21 +24,31 @@ export const EmployeeLoginView: React.FC = () => {
   // Standard Email / Mobile & Password Submit -> Enter Portal
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!emailOrPhone.trim() || !password.trim()) {
+      triggerToast('✗ Please enter email and password');
+      return;
+    }
     setIsLoading(true);
     
     try {
-      const authRes = await api.login(emailOrPhone.trim(), password.trim()).catch(() => null);
+      const authRes = await api.login(emailOrPhone.trim(), password.trim());
       if (authRes?.token) {
         setAuthToken(authRes.token);
+        const loginResult = loginEmployee(emailOrPhone.trim(), password.trim());
+        setCurrentRole('telecaller');
+        triggerToast(`✓ Welcome, ${authRes.user?.name || loginResult.member?.name || 'User'}! Access granted.`);
+        setTimeout(() => {
+          setIsLoading(false);
+          setAuthStep('AUTHENTICATED');
+        }, 300);
+      } else {
+        triggerToast('✗ Invalid email or password');
+        setIsLoading(false);
       }
-    } catch {}
-
-    const loginResult = loginEmployee(emailOrPhone.trim(), password.trim());
-    triggerToast(`✓ Welcome, ${loginResult.member?.name || 'User'}! Access granted.`);
-    setTimeout(() => {
+    } catch (err: any) {
+      triggerToast(`✗ ${err.message || 'Invalid email or password'}`);
       setIsLoading(false);
-      setAuthStep('AUTHENTICATED');
-    }, 300);
+    }
   };
 
   return (

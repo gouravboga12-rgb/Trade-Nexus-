@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { initializeDatabaseSchema } from './db/schema.js';
 import { seedInitialDataIfEmpty, resetDatabaseToClean } from './db/seed.js';
+import { authenticate, requireRole } from './middleware/auth.js';
 
 // Route imports
 import profileRoutes from './routes/profile.js';
@@ -59,8 +60,8 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Admin Reset to Clean Database (0 fake leads, 0 fake calls, 0 fake money)
-app.post('/api/admin/reset-to-clean', (req, res) => {
+// Admin Reset to Clean Database (Secured: Admin JWT only)
+app.post('/api/admin/reset-to-clean', authenticate, requireRole('admin'), (req, res) => {
   const result = resetDatabaseToClean();
   if (result.success) {
     res.status(200).json(result);
@@ -69,29 +70,31 @@ app.post('/api/admin/reset-to-clean', (req, res) => {
   }
 });
 
-// API Routes
+// Public Auth Routes (login)
 app.use('/api/auth', authRoutes);
-app.use('/api/profile', profileRoutes);
-app.use('/api/stats', statsRoutes);
-app.use('/api/call-logs', callLogsRoutes);
-app.use('/api/clients', clientsRoutes);
-app.use('/api/attendance', attendanceRoutes);
-app.use('/api/leaves', leavesRoutes);
-app.use('/api/payslips', payslipsRoutes);
-app.use('/api/team-members', teamMembersRoutes);
-app.use('/api/team-groups', teamGroupsRoutes);
-app.use('/api/team-tasks', teamTasksRoutes);
-app.use('/api/team-meetings', teamMeetingsRoutes);
-app.use('/api/interviews', interviewsRoutes);
-app.use('/api/onboarding', onboardingRoutes);
-app.use('/api/exit-employees', exitEmployeesRoutes);
-app.use('/api/assigned-leads', assignedLeadsRoutes);
-app.use('/api/lead-batches', leadBatchesRoutes);
-app.use('/api/biometrics', biometricsRoutes);
-app.use('/api/offer-letters', offerLettersRoutes);
-app.use('/api/payments', paymentsRoutes);
-app.use('/api/employee-documents', employeeDocumentsRoutes);
-app.use('/api/calendar', calendarRoutes);
+
+// Protected Business Routes
+app.use('/api/profile', authenticate, profileRoutes);
+app.use('/api/stats', authenticate, statsRoutes);
+app.use('/api/call-logs', authenticate, callLogsRoutes);
+app.use('/api/clients', authenticate, clientsRoutes);
+app.use('/api/attendance', authenticate, attendanceRoutes);
+app.use('/api/leaves', authenticate, leavesRoutes);
+app.use('/api/payslips', authenticate, payslipsRoutes);
+app.use('/api/team-members', authenticate, teamMembersRoutes);
+app.use('/api/team-groups', authenticate, teamGroupsRoutes);
+app.use('/api/team-tasks', authenticate, teamTasksRoutes);
+app.use('/api/team-meetings', authenticate, teamMeetingsRoutes);
+app.use('/api/interviews', authenticate, interviewsRoutes);
+app.use('/api/onboarding', authenticate, onboardingRoutes);
+app.use('/api/exit-employees', authenticate, exitEmployeesRoutes);
+app.use('/api/assigned-leads', authenticate, assignedLeadsRoutes);
+app.use('/api/lead-batches', authenticate, leadBatchesRoutes);
+app.use('/api/biometrics', authenticate, biometricsRoutes);
+app.use('/api/offer-letters', authenticate, offerLettersRoutes);
+app.use('/api/payments', authenticate, paymentsRoutes);
+app.use('/api/employee-documents', authenticate, employeeDocumentsRoutes);
+app.use('/api/calendar', authenticate, calendarRoutes);
 
 // Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

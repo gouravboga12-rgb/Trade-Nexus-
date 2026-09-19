@@ -21,7 +21,27 @@ const MONTH_ORDER: Record<string, number> = {
 // GET /api/payslips - Sorted chronologically (newest first)
 router.get('/', (req: Request, res: Response) => {
   try {
-    const payslips = db.prepare('SELECT * FROM payslips').all() as any[];
+    const user = req.user;
+    const requestedEmpId = String(req.query.employeeId || '').trim();
+
+    let payslips: any[];
+    if (user && (user.role === 'telecaller' || user.role === 'employee')) {
+      const ownId = user.employeeId || user.id;
+      const ownEmpCode = user.empCode || '';
+      payslips = db.prepare(`
+        SELECT * FROM payslips 
+        WHERE employeeId = ? OR empCode = ?
+        ORDER BY year DESC, createdAt DESC
+      `).all(ownId, ownEmpCode) as any[];
+    } else if (requestedEmpId) {
+      payslips = db.prepare(`
+        SELECT * FROM payslips 
+        WHERE employeeId = ? OR empCode = ?
+        ORDER BY year DESC, createdAt DESC
+      `).all(requestedEmpId, requestedEmpId) as any[];
+    } else {
+      payslips = db.prepare('SELECT * FROM payslips ORDER BY year DESC, createdAt DESC').all() as any[];
+    }
     
     // Sort strictly chronologically: Year DESC, Month Number DESC
     payslips.sort((a, b) => {
@@ -45,14 +65,19 @@ router.get('/', (req: Request, res: Response) => {
 // POST /api/payslips
 router.post('/', (req: Request, res: Response) => {
   try {
-    const { id, month, year, basicSalary, hra, specialAllowance, incentives, pfDeduction, taxDeduction, netPay, generatedDate, status } = req.body;
+    const { 
+      id, employeeId, empCode, employeeName, roleTitle, department,
+      month, year, basicSalary, hra, specialAllowance, incentives, 
+      pfDeduction, taxDeduction, netPay, generatedDate, status 
+    } = req.body;
     const payId = id || `pay-${Date.now()}`;
 
     db.prepare(`
-      INSERT INTO payslips (id, month, year, basicSalary, hra, specialAllowance, incentives, pfDeduction, taxDeduction, netPay, generatedDate, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO payslips (id, employeeId, empCode, employeeName, roleTitle, department, month, year, basicSalary, hra, specialAllowance, incentives, pfDeduction, taxDeduction, netPay, generatedDate, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      payId, month, Number(year) || 2025, Number(basicSalary) || 0, Number(hra) || 0,
+      payId, employeeId || null, empCode || null, employeeName || null, roleTitle || null, department || null,
+      month, Number(year) || new Date().getFullYear(), Number(basicSalary) || 0, Number(hra) || 0,
       Number(specialAllowance) || 0, Number(incentives) || 0, Number(pfDeduction) || 0,
       Number(taxDeduction) || 0, Number(netPay) || 0, generatedDate || 'Today', status || 'PAID'
     );
@@ -68,25 +93,51 @@ router.post('/', (req: Request, res: Response) => {
 router.post('/bulk', (req: Request, res: Response) => {
   try {
     const { month, year } = req.body;
-    const payId = `pay-${year}-${month.toLowerCase()}-${Date.now()}`;
-    const basic = 38000;
-    const hra = 14000;
-    const specialAllowance = 6500;
-    const incentives = 22500;
-    const pfDeduction = 2400;
-    const taxDeduction = 2600;
-    const netPay = (basic + hra + specialAllowance + incentives) - (pfDeduction + taxDeduction);
+    const numericYear = Number(year) || new Date().getFullYear();
+    const monthClean = String(month || 'January').trim();
 
-    db.prepare(`
-      INSERT INTO payslips (id, month, year, basicSalary, hra, specialAllowance, incentives, pfDeduction, taxDeduction, netPay, generatedDate, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      payId, month, Number(year) || 2025, basic, hra, specialAllowance,
-      incentives, pfDeduction, taxDeduction, netPay, `01 ${month} ${year}`, 'PAID'
-    );
+    // Get all active team members
+    const activeMembers = db.prepare('SELECT * FROM team_members WHERE active = 1').all() as any[];
 
-    const created = db.prepare('SELECT * FROM payslips WHERE id = ?').get(payId);
-    return res.status(201).json(created);
+    const generatedPayslips: any[] = [];
+    const insertPayslip = db.prepare(`
+      INSERT INTO payslips (id, employeeId, empCode, employeeName, roleTitle, department, month, year, basicSalary, hra, specialAllowance, incentives, pfDeduction, taxDeduction, netPay, generatedDate, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const generateMany = db.transaction((members: any[]) => {
+      for (const m of members) {
+        const payId = `ps-${numericYear}-${monthClean.toLowerCase()}-${m.id}`;
+        // Compute personalized compensation
+        const totalSalary = m.salary || 40000;
+        const basic = Math.round(totalSalary * 0.5);
+        const hra = Math.round(totalSalary * 0.3);
+        const specialAllowance = Math.round(totalSalary * 0.2);
+        const incentives = m.salesAchieved && m.salesAchieved > 0 ? Math.round(m.salesAchieved * 0.05) : 0;
+        const pfDeduction = Math.min(1800, Math.round(basic * 0.12));
+        const taxDeduction = totalSalary > 50000 ? Math.round(totalSalary * 0.05) : 0;
+        const netPay = (basic + hra + specialAllowance + incentives) - (pfDeduction + taxDeduction);
+
+        // Delete existing payslip for this employee, month, and year
+        db.prepare('DELETE FROM payslips WHERE (employeeId = ? OR empCode = ?) AND LOWER(month) = ? AND year = ?')
+          .run(m.id, m.empCode, monthClean.toLowerCase(), numericYear);
+
+        insertPayslip.run(
+          payId, m.id, m.empCode, m.name, m.role, m.groupName || 'General',
+          monthClean, numericYear, basic, hra, specialAllowance, incentives,
+          pfDeduction, taxDeduction, netPay, `01 ${monthClean} ${numericYear}`, 'PAID'
+        );
+
+        const created = db.prepare('SELECT * FROM payslips WHERE id = ?').get(payId);
+        if (created) generatedPayslips.push(created);
+      }
+    });
+
+    if (activeMembers.length > 0) {
+      generateMany(activeMembers);
+    }
+
+    return res.status(201).json(generatedPayslips);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }

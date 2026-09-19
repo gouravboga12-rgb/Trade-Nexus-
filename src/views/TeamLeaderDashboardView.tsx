@@ -73,17 +73,17 @@ export const TeamLeaderDashboardView: React.FC = () => {
   const lateCount = teamMembers.filter(m => m.attendanceStatus === 'LATE').length;
   const onLeaveCount = teamMembers.filter(m => m.attendanceStatus === 'ON_LEAVE').length;
   const totalActivities = teamMembers.reduce((sum, m) => sum + (m.dialsToday || 0), 0);
-  const totalGoalCalls = teamMembers.reduce((sum, m) => sum + (m.goalCalls || 100), 0);
+  const totalGoalCalls = teamMembers.reduce((sum, m) => sum + (m.goalCalls || 0), 0);
   const totalConnectedCalls = teamMembers.reduce((sum, m) => sum + (m.connected || 0), 0);
   const connectRate = totalActivities > 0 ? Math.round((totalConnectedCalls / totalActivities) * 100) : 0;
   const totalSales = teamMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0);
-  const targetTotal = teamMembers.reduce((sum, m) => sum + (m.salesTarget || 200000), 0);
-  const targetPercentage = Math.min(100, Math.round((totalSales / Math.max(1, targetTotal)) * 100));
+  const targetTotal = teamMembers.reduce((sum, m) => sum + (m.salesTarget || 0), 0);
+  const targetPercentage = targetTotal > 0 ? Math.min(100, Math.round((totalSales / targetTotal) * 100)) : 0;
 
   const totalWonToday = useMemo(() => {
     const fromLeads = (assignedLeads || []).filter(l => l.status === 'CONVERTED').length;
     if (fromLeads > 0) return fromLeads;
-    return teamMembers.filter(m => m.salesAchieved > 0).length || 7;
+    return teamMembers.filter(m => m.salesAchieved > 0).length;
   }, [assignedLeads, teamMembers]);
 
   const pendingLeaves = leaveRequests.filter(r => r.status === 'PENDING');
@@ -180,48 +180,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
       });
     }
 
-    return [
-      {
-        id: 'seed-lead-1',
-        rep: 'Arjun Kumar',
-        client: 'Tata Consultancy Services',
-        contact: 'Rajesh Nair (VP Tech)',
-        type: 'WON_DEAL',
-        amount: '₹1.45 L',
-        time: '12m ago',
-        note: 'Signed annual corporate plan for 25 trading terminals'
-      },
-      {
-        id: 'seed-lead-2',
-        rep: 'Sneha Patil',
-        client: 'Reliance Retail Ventures',
-        contact: 'Anita Desai (Treasury)',
-        type: 'INTERESTED',
-        amount: '₹85,000',
-        time: '26m ago',
-        note: 'Requested commercial invoice, executive demo set for tomorrow'
-      },
-      {
-        id: 'seed-lead-3',
-        rep: 'Rahul Varma',
-        client: 'Infosys BPM Solutions',
-        contact: 'Vikram Joshi (Finance)',
-        type: 'CALLBACK',
-        amount: '₹60,000',
-        time: '42m ago',
-        note: 'Follow-up call confirmed for today at 04:30 PM with VP'
-      },
-      {
-        id: 'seed-lead-4',
-        rep: 'Priya Nair',
-        client: 'Wipro Enterprise Tech',
-        contact: 'Sunil Rao (Director)',
-        type: 'CONNECTED',
-        amount: '—',
-        time: '1h ago',
-        note: 'Completed 14m qualification call, budget clearance in progress'
-      }
-    ];
+    return [];
   }, [assignedLeads]);
 
   const handleCreateMeetingSubmit = (e: React.FormEvent) => {
@@ -1058,7 +1017,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="font-display font-black text-sm text-[#0A2540]">Annual Leave Balance</h4>
-                      <p className="text-[11px] text-slate-500 font-medium">{profile.totalLeaveBalance || 24} Days Available</p>
+                      <p className="text-[11px] text-slate-500 font-medium">{profile.totalLeaveBalance || 0} Days Available</p>
                     </div>
                     <button
                       onClick={() => setIsLeaveModalOpen(true)}

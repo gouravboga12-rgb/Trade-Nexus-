@@ -33,11 +33,11 @@ export const FaceScanAttendanceView: React.FC = () => {
   const [progress, setProgress] = useState(0);
 
   const isLeader = currentRole === 'team_leader';
-  const personName = isLeader ? 'Ramesh Sharma' : profile.name;
-  const personCode = isLeader ? 'TNX-8012' : profile.empCode;
-  const personRole = isLeader ? 'Team Leader / Supervisor' : profile.roleTitle;
-  const personDept = isLeader ? 'Inside Sales & Alpha Squad' : 'Sales & Telecalling';
-  const personTime = isLeader ? '08:45 AM' : '09:12 AM';
+  const personName = profile.name || (isLeader ? 'Team Leader' : 'Employee');
+  const personCode = profile.empCode || '—';
+  const personRole = profile.roleTitle || (isLeader ? 'Team Leader' : 'Sales Executive');
+  const personDept = profile.department || 'Sales';
+  const personTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const isEnrolled = faceProfiles.some(p => 
     p.employeeName.toLowerCase() === personName.toLowerCase() || 

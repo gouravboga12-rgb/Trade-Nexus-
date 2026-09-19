@@ -287,7 +287,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
 
   // Automated version check: Purge old mock/dummy cached data so real pipeline is clean
-  const CURRENT_DATA_VERSION = 'v3_clean_pipeline';
+  const CURRENT_DATA_VERSION = 'v4_pure_zero_slate';
   try {
     if (typeof window !== 'undefined') {
       const savedVer = localStorage.getItem('tnx_data_version');
@@ -538,10 +538,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       department: profile.department || 'Client Acquisition',
       annualCtc: 360000,
       monthlyGross: 30000,
-      joiningDate: profile.joinDate || '12 Jan 2024',
-      reportingManager: profile.teamLeaderName || 'Ramesh Sharma (Team Leader)',
+      joiningDate: profile.joinDate || '',
+      reportingManager: profile.teamLeaderName || 'Team Leader',
       location: 'Bengaluru Corporate HQ',
-      issuedDate: profile.joinDate || '12 Jan 2024',
+      issuedDate: profile.joinDate || '',
     };
     setSelectedOfferLetter(matched);
     setIsOfferLetterModalOpen(true);
@@ -853,23 +853,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         connected: status !== 'NOT_INTERESTED' ? stats.connected + 1 : stats.connected,
         interested: (status === 'INTERESTED' || status === 'CONVERTED') ? stats.interested + 1 : stats.interested,
         rejected: status === 'NOT_INTERESTED' ? stats.rejected + 1 : stats.rejected,
-        monthlySalesAchieved: dealValue ? stats.monthlySalesAchieved + dealValue : stats.monthlySalesAchieved,
       };
       setStats(updatedStats);
 
-      // Update Team Member record for TL and HR live visibility
+      // Update Team Member record for TL and HR live visibility (Revenue recognized upon HR payment audit)
       setTeamMembers(prev => prev.map(m => {
         if (m.name.toLowerCase() === (targetLead?.assignedToEmployeeName ?? '').toLowerCase() || m.id === targetLead?.assignedToEmployeeId) {
           const newDials = m.dialsToday + 1;
           const newConnected = status !== 'NOT_INTERESTED' ? m.connected + 1 : m.connected;
           const newInterested = (status === 'INTERESTED' || status === 'CONVERTED') ? m.interested + 1 : m.interested;
-          const newSales = dealValue ? m.salesAchieved + dealValue : m.salesAchieved;
           const updatedM: TeamMember = {
             ...m,
             dialsToday: newDials,
             connected: newConnected,
             interested: newInterested,
-            salesAchieved: newSales,
             conversionRate: Math.min(100, Math.round((newInterested / Math.max(1, newDials)) * 100)),
           };
           api.updateTeamMember(m.id, updatedM).catch(console.warn);
@@ -962,6 +959,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setProfile(updatedProfile);
 
     const newAttendanceItem: AttendanceRecord = {
+      id: `att-${today}-${targetId}`,
+      employeeId: targetId,
+      employeeName: profile.name,
       date: today,
       dayNumber: now.getDate(),
       status: 'PRESENT',
@@ -1055,15 +1055,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       role: data.roleTitle || (data.role === 'telecaller' ? 'Telecaller Executive' : data.role === 'team_leader' ? 'Team Leader' : data.role.toUpperCase()),
       group: data.teamGroup || 'Alpha Growth Team',
       phone: data.phone,
-      attendanceStatus: 'PRESENT',
-      checkInTime: '09:00 AM',
-      checkInMethod: 'Face ID Biometric',
+      attendanceStatus: 'ABSENT',
+      checkInTime: '',
+      checkInMethod: '',
       dialsToday: 0,
-      goalCalls: 100,
+      goalCalls: 0,
       connected: 0,
       interested: 0,
       salesAchieved: 0,
-      salesTarget: 200000,
+      salesTarget: 0,
       conversionRate: 0,
       portal: data.role,
       email: data.email,
@@ -1101,13 +1101,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       department: data.department || 'Sales & Client Acquisition',
       annualCtc,
       monthlyGross,
-      joiningDate: data.joiningDate || 'Immediate',
-      reportingManager: data.teamLeaderName || 'Ramesh Sharma (Team Leader)',
-      location: data.address || 'Bengaluru Corporate HQ',
+      joiningDate: data.joiningDate || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      reportingManager: data.teamLeaderName || 'Team Leader',
+      location: data.location || 'Bengaluru Corporate HQ',
       issuedDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
     };
     setOfferLetters(prev => [newOfferLetter, ...prev]);
-
+    setSelectedOfferLetter(newOfferLetter);
+    setIsOfferLetterModalOpen(true);
     triggerToast(`✓ Employee ${data.name} (${empCode}) created! Offer Letter generated.`);
 
     // Persist to SQLite
@@ -1126,30 +1127,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const cleanId = (emailOrCode || '').trim().toLowerCase();
     const digitsOnly = cleanId.replace(/[^0-9]/g, '');
 
-    // Match existing onboarded telecaller account if provided, or gracefully fall back
+    // Match existing onboarded team member if present
     const member = teamMembers.find(m => 
       (cleanId && m.email && m.email.toLowerCase() === cleanId) || 
       (cleanId && m.empCode && m.empCode.toLowerCase() === cleanId) ||
-      (digitsOnly.length >= 7 && m.phone && m.phone.replace(/[^0-9]/g, '').includes(digitsOnly)) ||
-      (cleanId === 'arjun@tradenexus.com' && m.name === 'Arjun Kumar')
-    ) || teamMembers[0];
+      (digitsOnly.length >= 7 && m.phone && m.phone.replace(/[^0-9]/g, '').includes(digitsOnly))
+    );
 
-    const targetMember = member || {
-      id: 'emp-101',
-      empCode: 'TNX-101',
-      name: 'Arjun Kumar',
-      role: 'Telecaller Executive',
-      group: 'HNI Closers',
-      phone: '+91 98450 12345',
-      attendanceStatus: 'ABSENT',
-      dialsToday: 0,
-      goalCalls: 100,
-      connected: 0,
-      interested: 0,
-      salesAchieved: 0,
-      salesTarget: 200000,
-      conversionRate: 0
-    } as TeamMember;
+    if (!member) {
+      return { success: false, error: 'Employee not found in roster' };
+    }
+
+    const targetMember: TeamMember = member;
 
     // Set Dynamic Profile for this employee
     setProfile({
@@ -1157,27 +1146,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       id: targetMember.id,
       empCode: targetMember.empCode,
       name: targetMember.name,
-      email: targetMember.email || `${targetMember.name.toLowerCase().replace(/\s+/g, '.')}@tradenexus.com`,
-      roleTitle: targetMember.role || 'Telecaller Executive',
-      department: targetMember.group || 'Sales & Client Acquisition',
-      teamName: targetMember.group || 'Alpha Closers',
-      phone: targetMember.phone || '+91 98450 12345',
-      faceIdStatus: 'VERIFIED_PRESENT',
-      checkInTime: targetMember.checkInTime || '09:00 AM'
+      email: targetMember.email || (cleanId.includes('@') ? cleanId : `${targetMember.name.toLowerCase().replace(/\s+/g, '.')}@tradenexus.com`),
+      roleTitle: targetMember.role || 'Sales Executive',
+      department: targetMember.group || 'Sales',
+      teamName: targetMember.group || 'General',
+      phone: targetMember.phone || '',
+      faceIdStatus: 'NOT_CHECKED_IN',
+      checkInTime: targetMember.checkInTime || ''
     });
 
     setStats({
       ...INITIAL_TELECALLER_STATS,
-      dialsMade: member.dialsToday || 0,
-      todayGoalCalls: member.goalCalls || 100,
-      connected: member.connected || 0,
-      interested: member.interested || 0,
-      monthlySalesAchieved: member.salesAchieved || 0,
-      monthlySalesTarget: member.salesTarget || 200000
+      dialsMade: targetMember.dialsToday || 0,
+      todayGoalCalls: targetMember.goalCalls || 0,
+      connected: targetMember.connected || 0,
+      interested: targetMember.interested || 0,
+      monthlySalesAchieved: targetMember.salesAchieved || 0,
+      monthlySalesTarget: targetMember.salesTarget || 0
     });
 
-    setCurrentRole(member.portal || 'telecaller');
-    return { success: true, member };
+    setCurrentRole(targetMember.portal || 'telecaller');
+    return { success: true, member: targetMember };
   };
 
   const generateOfferLetter = async (data: Omit<OfferLetterData, 'id' | 'issuedDate'>) => {
@@ -1215,7 +1204,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Team Leader & Admin Leave Actions
   const approveLeaveRequest = async (id: string) => {
-    const approverTitle = currentRole === 'admin' ? 'Super Admin' : currentRole === 'hr' ? 'HR Manager' : 'Ramesh Sharma (Team Leader)';
+    const approverTitle = currentRole === 'admin' ? 'Super Admin' : currentRole === 'hr' ? 'HR Manager' : (profile.name ? `${profile.name} (Team Leader)` : 'Team Leader');
     setLeaveRequests(prev => prev.map(req => {
       if (req.id === id) {
         const updated: LeaveRequest = { ...req, status: 'APPROVED', approvedBy: approverTitle };
@@ -1316,17 +1305,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     triggerToast(`✓ ${moving.length} lead${moving.length === 1 ? '' : 's'} moved to ${target.name}`);
 
     try {
-      await Promise.all(
-        moving.map((l) =>
-          api.updateAssignedLead(l.id, {
-            ...l,
-            assignedToEmployeeId: target.id,
-            assignedToEmployeeName: target.name,
-          })
-        )
-      );
+      await api.reassignBatchAssignedLeads({
+        leadIds: Array.from(movingIds),
+        targetEmployeeId: target.id,
+        targetEmployeeName: target.name,
+      });
     } catch (err) {
-      console.warn('Lead reassignment failed:', err);
+      console.warn('Batch lead reassignment failed:', err);
       triggerToast('✗ Some leads could not be moved');
     }
   };
@@ -1573,28 +1558,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const amount = (targetPayment as PaymentVerificationItem).dealAmount || 0;
       const telecallerName = (targetPayment as PaymentVerificationItem).telecallerName;
 
-      if (status === 'REJECTED' && oldStatus !== 'REJECTED') {
-        // Reverse sales achieved
+      if (status === 'VERIFIED' && oldStatus !== 'VERIFIED') {
+        // Credit employee salesAchieved and squad achieved upon HR verification
+        let matchedGroupName = '';
         setTeamMembers(prev => prev.map(m => {
           if (m.name.toLowerCase() === telecallerName.toLowerCase()) {
-            const newSales = Math.max(0, (m.salesAchieved || 0) - amount);
-            const updated = { ...m, salesAchieved: newSales };
-            api.updateTeamMember(m.id, updated).catch(console.warn);
-            return updated;
-          }
-          return m;
-        }));
-
-        setStats(prev => {
-          const newSales = Math.max(0, (prev.monthlySalesAchieved || 0) - amount);
-          const updated = { ...prev, monthlySalesAchieved: newSales };
-          api.updateStats(updated).catch(console.warn);
-          return updated;
-        });
-      } else if (status === 'VERIFIED' && oldStatus === 'REJECTED') {
-        // Re-credit sales achieved
-        setTeamMembers(prev => prev.map(m => {
-          if (m.name.toLowerCase() === telecallerName.toLowerCase()) {
+            matchedGroupName = m.group;
             const newSales = (m.salesAchieved || 0) + amount;
             const updated = { ...m, salesAchieved: newSales };
             api.updateTeamMember(m.id, updated).catch(console.warn);
@@ -1603,12 +1572,60 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           return m;
         }));
 
-        setStats(prev => {
-          const newSales = (prev.monthlySalesAchieved || 0) + amount;
-          const updated = { ...prev, monthlySalesAchieved: newSales };
-          api.updateStats(updated).catch(console.warn);
-          return updated;
-        });
+        if (matchedGroupName) {
+          setTeamGroups(prev => prev.map(g => {
+            if (g.name.toLowerCase() === matchedGroupName.toLowerCase()) {
+              const newAchieved = (g.achieved || 0) + amount;
+              const updated = { ...g, achieved: newAchieved };
+              api.updateTeamGroup(g.id, updated).catch(console.warn);
+              return updated;
+            }
+            return g;
+          }));
+        }
+
+        if (profile.name.toLowerCase() === telecallerName.toLowerCase()) {
+          setStats(prev => {
+            const newSales = (prev.monthlySalesAchieved || 0) + amount;
+            const updated = { ...prev, monthlySalesAchieved: newSales };
+            api.updateStats(updated).catch(console.warn);
+            return updated;
+          });
+        }
+      } else if (status === 'REJECTED' && oldStatus === 'VERIFIED') {
+        // Reverse previously recognized sales from employee and squad
+        let matchedGroupName = '';
+        setTeamMembers(prev => prev.map(m => {
+          if (m.name.toLowerCase() === telecallerName.toLowerCase()) {
+            matchedGroupName = m.group;
+            const newSales = Math.max(0, (m.salesAchieved || 0) - amount);
+            const updated = { ...m, salesAchieved: newSales };
+            api.updateTeamMember(m.id, updated).catch(console.warn);
+            return updated;
+          }
+          return m;
+        }));
+
+        if (matchedGroupName) {
+          setTeamGroups(prev => prev.map(g => {
+            if (g.name.toLowerCase() === matchedGroupName.toLowerCase()) {
+              const newAchieved = Math.max(0, (g.achieved || 0) - amount);
+              const updated = { ...g, achieved: newAchieved };
+              api.updateTeamGroup(g.id, updated).catch(console.warn);
+              return updated;
+            }
+            return g;
+          }));
+        }
+
+        if (profile.name.toLowerCase() === telecallerName.toLowerCase()) {
+          setStats(prev => {
+            const newSales = Math.max(0, (prev.monthlySalesAchieved || 0) - amount);
+            const updated = { ...prev, monthlySalesAchieved: newSales };
+            api.updateStats(updated).catch(console.warn);
+            return updated;
+          });
+        }
       }
     }
 
@@ -1616,43 +1633,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const generateBulkPayslips = async (month: string, year: string) => {
-    const newPayslip: PayslipItem = {
-      id: `ps-${Date.now()}`,
-      month: month,
-      year: parseInt(year, 10) || 2025,
-      basicSalary: 38000,
-      hra: 14000,
-      specialAllowance: 6500,
-      incentives: 22500,
-      pfDeduction: 2400,
-      taxDeduction: 2600,
-      netPay: 76000,
-      generatedDate: `01 ${month} ${year}`,
-      status: 'PAID',
-    };
-    const monthOrder: Record<string, number> = {
-      january: 1, jan: 1, february: 2, feb: 2, march: 3, mar: 3,
-      april: 4, apr: 4, may: 5, june: 6, jun: 6, july: 7, jul: 7,
-      august: 8, aug: 8, september: 9, sep: 9, october: 10, oct: 10,
-      november: 11, nov: 11, december: 12, dec: 12
-    };
-    setPayslips(prev => {
-      const filtered = prev.filter(p => !(p.month.toLowerCase() === month.toLowerCase() && p.year === (parseInt(year, 10) || 2025)));
-      const combined = [newPayslip, ...filtered];
-      combined.sort((a, b) => {
-        if (b.year !== a.year) return b.year - a.year;
-        const aM = monthOrder[a.month.toLowerCase()] || 0;
-        const bM = monthOrder[b.month.toLowerCase()] || 0;
-        return bM - aM;
-      });
-      return combined;
-    });
-    triggerToast(`✓ Generated ${month} ${year} payslips for all active employees!`);
-
     try {
-      await api.generateBulkPayslips(month, year);
-    } catch (err) {
+      const generated = await api.generateBulkPayslips(month, year);
+      const generatedList = Array.isArray(generated) ? generated : [generated];
+      
+      const monthOrder: Record<string, number> = {
+        january: 1, jan: 1, february: 2, feb: 2, march: 3, mar: 3,
+        april: 4, apr: 4, may: 5, june: 6, jun: 6, july: 7, jul: 7,
+        august: 8, aug: 8, september: 9, sep: 9, october: 10, oct: 10,
+        november: 11, nov: 11, december: 12, dec: 12
+      };
+
+      setPayslips(prev => {
+        const generatedIds = new Set(generatedList.map((g: any) => g.id));
+        const filtered = prev.filter(p => !generatedIds.has(p.id));
+        const combined = [...generatedList, ...filtered];
+        combined.sort((a, b) => {
+          if (b.year !== a.year) return b.year - a.year;
+          const aM = monthOrder[a.month?.toLowerCase()] || 0;
+          const bM = monthOrder[b.month?.toLowerCase()] || 0;
+          return bM - aM;
+        });
+        return combined;
+      });
+
+      triggerToast(`✓ Generated ${month} ${year} payslips for ${generatedList.length} active employee${generatedList.length === 1 ? '' : 's'}!`);
+    } catch (err: any) {
       console.warn('API generate bulk payslips error:', err);
+      triggerToast(`✗ Failed to generate payslips: ${err.message || 'Error'}`);
     }
   };
 

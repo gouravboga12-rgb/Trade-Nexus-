@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { api, setAuthToken } from '../../services/api';
 import { 
   Mail, 
   Lock, 
@@ -20,14 +21,31 @@ export const AdminLoginView: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleAdminPasswordSubmit = (e: React.FormEvent) => {
+  const handleAdminPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!emailOrPhone.trim() || !password.trim()) {
+      triggerToast('✗ Please enter email and password');
+      return;
+    }
     setIsLoading(true);
-    triggerToast('✓ Master Admin credentials verified! Entering Console...');
-    setTimeout(() => {
+    try {
+      const authRes = await api.login(emailOrPhone.trim(), password.trim());
+      if (authRes?.token && (authRes.user?.role === 'admin')) {
+        setAuthToken(authRes.token);
+        setCurrentRole('admin');
+        triggerToast('✓ Master Admin credentials verified! Entering Console...');
+        setTimeout(() => {
+          setIsLoading(false);
+          setAuthStep('AUTHENTICATED');
+        }, 300);
+      } else {
+        triggerToast('✗ Access denied: Admin account required');
+        setIsLoading(false);
+      }
+    } catch (err: any) {
+      triggerToast(`✗ ${err.message || 'Invalid admin credentials'}`);
       setIsLoading(false);
-      setAuthStep('AUTHENTICATED');
-    }, 300);
+    }
   };
 
   return (

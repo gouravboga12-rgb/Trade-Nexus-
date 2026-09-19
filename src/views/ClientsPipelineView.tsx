@@ -80,7 +80,7 @@ export const ClientsPipelineView: React.FC = () => {
   // Total Revenue of currently selected date filter
   const totalSelectedRevenue = useMemo(() => {
     return filteredWonLeads.reduce((sum, lead) => {
-      return sum + (lead.dealValue || 25000);
+      return sum + (lead.dealValue || 0);
     }, 0);
   }, [filteredWonLeads]);
 
@@ -200,7 +200,7 @@ export const ClientsPipelineView: React.FC = () => {
                 <div className="text-right">
                   <span className="inline-flex items-center gap-1 text-xs font-mono font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
                     <Award className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>+{inr(lead.dealValue || 25000)}</span>
+                    <span>+{inr(lead.dealValue || 0)}</span>
                   </span>
                 </div>
               </div>
@@ -212,7 +212,7 @@ export const ClientsPipelineView: React.FC = () => {
                   Deal Closed &amp; Verified
                 </span>
                 <span className="text-[10px] font-mono text-slate-400">
-                  Dials: {lead.callCount || 1}
+                  Dials: {lead.callCount || 0}
                 </span>
               </div>
 

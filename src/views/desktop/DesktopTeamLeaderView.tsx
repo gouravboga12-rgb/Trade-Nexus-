@@ -111,10 +111,10 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
   const totalActivities = teamMembers.reduce((sum, m) => sum + (m.dialsToday || 0), 0);
   const totalSales = teamMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0);
   const totalCollections = Math.round(totalSales * 0.85);
-  const targetTotal = teamMembers.reduce((sum, m) => sum + (m.salesTarget || 200000), 0);
-  const targetPercentage = Math.min(100, Math.round((totalSales / Math.max(1, targetTotal)) * 100));
+  const targetTotal = teamMembers.reduce((sum, m) => sum + (m.salesTarget || 0), 0);
+  const targetPercentage = targetTotal > 0 ? Math.min(100, Math.round((totalSales / targetTotal) * 100)) : 0;
 
-  const leaderName = profile?.name?.trim() || 'Ramesh Sharma';
+  const leaderName = profile?.name?.trim() || 'Team Leader';
 
   const pendingLeaves = leaveRequests.filter(r => r.status === 'PENDING');
 
@@ -1134,8 +1134,8 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
                         : (member.goalCalls * 22);
 
                       const achieved = isMonth ? (member.salesAchieved || 0) : Math.round((member.salesAchieved || 0) * tfSalesMultiplier);
-                      const target = isMonth ? (member.salesTarget || 200000) : Math.round((member.salesTarget || 200000) * tfSalesMultiplier);
-                      const pacingPercent = Math.min(100, Math.round((achieved / Math.max(1, target)) * 100));
+                      const target = isMonth ? (member.salesTarget || 0) : Math.round((member.salesTarget || 0) * tfSalesMultiplier);
+                      const pacingPercent = target > 0 ? Math.min(100, Math.round((achieved / target) * 100)) : 0;
 
                       return (
                         <tr key={member.id} className="hover:bg-slate-50/70 transition-colors">

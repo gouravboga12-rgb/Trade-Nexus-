@@ -79,9 +79,29 @@ router.get('/', (_req: Request, res: Response) => {
 router.put('/', (req: Request, res: Response) => {
   try {
     const data = req.body;
-    const current = db.prepare('SELECT * FROM employee_profiles LIMIT 1').get() as any;
+    let current = db.prepare('SELECT * FROM employee_profiles LIMIT 1').get() as any;
     if (!current) {
-      return res.status(404).json({ error: 'Profile not found' });
+      const id = data.id || 'prof-default';
+      db.prepare(`
+        INSERT INTO employee_profiles (id, empCode, name, roleTitle, department, teamName, teamLeaderName, email, phone, joinDate, bloodGroup, faceIdStatus, checkInTime, totalLeaveBalance)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        id,
+        data.empCode || 'EMP-001',
+        data.name || 'Staff Member',
+        data.roleTitle || 'Sales Executive',
+        data.department || 'Sales',
+        data.teamName || 'General',
+        data.teamLeaderName || '',
+        data.email || 'staff@tradenexus.com',
+        data.phone || '',
+        data.joinDate || new Date().toISOString().split('T')[0],
+        data.bloodGroup || 'O+',
+        data.faceIdStatus || 'NOT_CHECKED_IN',
+        data.checkInTime || '',
+        data.totalLeaveBalance ?? 0
+      );
+      current = db.prepare('SELECT * FROM employee_profiles WHERE id = ?').get(id);
     }
 
     const merged = { ...current, ...data };

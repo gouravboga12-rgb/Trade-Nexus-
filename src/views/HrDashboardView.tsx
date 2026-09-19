@@ -139,7 +139,7 @@ export const HrDashboardView: React.FC = () => {
   const [candPhone, setCandPhone] = useState('');
   const [candTime, setCandTime] = useState('Tomorrow • 02:30 PM');
   const [interviewTeamScope, setInterviewTeamScope] = useState('ALL');
-  const [selectedInterviewers, setSelectedInterviewers] = useState<string[]>(['Priya Nair', 'Ramesh Sharma']);
+  const [selectedInterviewers, setSelectedInterviewers] = useState<string[]>([]);
 
   const idCardEmp = teamMembers.find((m) => m.id === selectedIdCardEmpId);
   useListDefault(selectedIdCardEmpId, setSelectedIdCardEmpId, teamMembers, (m) => m.id);
@@ -170,9 +170,9 @@ export const HrDashboardView: React.FC = () => {
   const onLeaveEmployees = useMemo(() => teamMembers.filter((m) => m.attendanceStatus === 'ON_LEAVE'), [teamMembers]);
 
   const totalActivities = teamMembers.reduce((sum, m) => sum + (m.dialsToday || 0), 0);
-  const totalGoalCalls = teamMembers.reduce((sum, m) => sum + (m.goalCalls || 100), 0);
+  const totalGoalCalls = teamMembers.reduce((sum, m) => sum + (m.goalCalls || 0), 0);
   const totalWonToday = useMemo(() => {
-    return teamMembers.filter(m => m.salesAchieved > 0).length || 7;
+    return teamMembers.filter(m => m.salesAchieved > 0).length;
   }, [teamMembers]);
 
   const formatInLakhs = (amount: number) => {
@@ -882,7 +882,7 @@ export const HrDashboardView: React.FC = () => {
                             {selectedTeamGroup.name}
                           </h3>
                           <span className="text-[9px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded-md truncate">
-                            TL: {selectedTeamGroup.leaderName || 'Ramesh Sharma'}
+                            TL: {selectedTeamGroup.leaderName || 'Unassigned'}
                           </span>
                         </div>
                       </div>
@@ -905,7 +905,7 @@ export const HrDashboardView: React.FC = () => {
                   {(() => {
                     const teamEmps = teamMembers.filter(m => m.group === selectedTeamGroup.name);
                     const teamDials = teamEmps.reduce((s, m) => s + (m.dialsToday || 0), 0);
-                    const teamGoals = teamEmps.reduce((s, m) => s + (m.goalCalls || 100), 0);
+                    const teamGoals = teamEmps.reduce((s, m) => s + (m.goalCalls || 0), 0);
                     const teamWon = teamEmps.filter(m => m.salesAchieved > 0).length;
                     const teamRev = teamEmps.reduce((s, m) => s + (m.salesAchieved || 0), 0);
                     const teamPresent = teamEmps.filter(m => m.attendanceStatus === 'PRESENT').length;
@@ -1108,7 +1108,7 @@ export const HrDashboardView: React.FC = () => {
                             </div>
                             <div className="bg-white rounded-lg py-1 px-1 shadow-2xs border border-slate-100/90">
                               <span className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">Interested</span>
-                              <strong className="text-xs font-mono font-black text-slate-700">{member.interested || 12}</strong>
+                              <strong className="text-xs font-mono font-black text-slate-700">{member.interested || 0}</strong>
                             </div>
                           </div>
 
@@ -1116,7 +1116,7 @@ export const HrDashboardView: React.FC = () => {
                           <div className="flex items-center justify-between text-[10px] pt-1.5 border-t border-slate-100">
                             <span className="text-slate-500 font-mono flex items-center gap-1">
                               <Clock className="w-3 h-3 text-slate-400" />
-                              In: {member.checkInTime || '09:12 AM'}
+                              In: {member.checkInTime || 'Not Punched'}
                             </span>
                             <span className="px-2.5 py-1 rounded-xl bg-slate-50 group-hover:bg-[#00C9A7] text-[#0A2540] font-bold transition-colors flex items-center gap-1 shadow-2xs">
                               <span>View Profile</span>
@@ -1243,7 +1243,7 @@ export const HrDashboardView: React.FC = () => {
                                 </span>
                               </div>
                               <span className="text-xs text-slate-400 font-medium block mt-0.5 truncate">
-                                Team Leader: <strong className="text-slate-600 font-bold">{group.leaderName || 'Ramesh Sharma'}</strong>
+                                Team Leader: <strong className="text-slate-600 font-bold">{group.leaderName || 'Unassigned'}</strong>
                               </span>
                             </div>
                           </div>

@@ -50,13 +50,12 @@ export const DailyCallingView: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<DatePeriod>('TODAY');
   const [customDate, setCustomDate] = useState<string>('');
 
-  // Leads allocated to this telecaller
+  // Leads allocated to this telecaller (server already scopes, keep strict client match)
   const myAssignedLeads = assignedLeads.filter((l) => {
     return (
-      !l.assignedToEmployeeId ||
-      l.assignedToEmployeeId === profile.id ||
-      (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === profile.name.toLowerCase()) ||
-      l.assignedToEmployeeId === 'emp-101'
+      (profile.id && l.assignedToEmployeeId === profile.id) ||
+      (profile.empCode && l.assignedToEmployeeId === profile.empCode) ||
+      (l.assignedToEmployeeName && profile.name && l.assignedToEmployeeName.toLowerCase() === profile.name.toLowerCase())
     );
   });
 

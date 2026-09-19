@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { api, setAuthToken } from '../../services/api';
 import { 
   Mail, 
   Smartphone, 
@@ -22,14 +23,31 @@ export const HrLoginView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   // Standard Email / Mobile & Password Submit -> Enter Portal
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!emailOrPhone.trim() || !password.trim()) {
+      triggerToast('✗ Please enter email and password');
+      return;
+    }
     setIsLoading(true);
-    triggerToast('✓ HR Administrator credentials verified! Entering Portal...');
-    setTimeout(() => {
+    try {
+      const authRes = await api.login(emailOrPhone.trim(), password.trim());
+      if (authRes?.token && (authRes.user?.role === 'hr' || authRes.user?.role === 'admin')) {
+        setAuthToken(authRes.token);
+        setCurrentRole('hr');
+        triggerToast('✓ HR Administrator credentials verified! Entering Portal...');
+        setTimeout(() => {
+          setIsLoading(false);
+          setAuthStep('AUTHENTICATED');
+        }, 300);
+      } else {
+        triggerToast('✗ Access denied: HR account required');
+        setIsLoading(false);
+      }
+    } catch (err: any) {
+      triggerToast(`✗ ${err.message || 'Invalid HR credentials'}`);
       setIsLoading(false);
-      setAuthStep('AUTHENTICATED');
-    }, 300);
+    }
   };
 
   return (

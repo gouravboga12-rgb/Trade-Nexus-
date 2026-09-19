@@ -100,7 +100,7 @@ export const QuickCallLogModal: React.FC = () => {
         activeCallingLead.id,
         mappedStatus,
         notes,
-        mappedStatus === 'CONVERTED' ? numericDeal || 25000 : undefined,
+        mappedStatus === 'CONVERTED' ? numericDeal || 0 : undefined,
         mappedStatus === 'CALLBACK' ? followUpDate || 'Tomorrow, 11:00 AM' : undefined
       );
     } else {

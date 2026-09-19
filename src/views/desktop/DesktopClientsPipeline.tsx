@@ -71,7 +71,7 @@ export const DesktopClientsPipeline: React.FC = () => {
   // Calculate dynamic revenue for active filter
   const totalSelectedRevenue = useMemo(() => {
     return filteredWonLeads.reduce((sum, lead) => {
-      return sum + (lead.dealValue || 25000);
+      return sum + (lead.dealValue || 0);
     }, 0);
   }, [filteredWonLeads]);
 
@@ -80,7 +80,7 @@ export const DesktopClientsPipeline: React.FC = () => {
   const handleExportCsv = () => {
     const header = 'Phone,Deal Value,Closed Date,Status,Dials,Notes';
     const rows = filteredWonLeads.map((l) =>
-      `"${l.phone}",${l.dealValue || 25000},"${l.updatedAt ? l.updatedAt.split('T')[0] : 'Today'}","Won Deal",${l.callCount || 1},"${(l.notes || '').replace(/"/g, '""')}"`
+      `"${l.phone}",${l.dealValue || 0},"${l.updatedAt ? l.updatedAt.split('T')[0] : 'Today'}","Won Deal",${l.callCount || 0},"${(l.notes || '').replace(/"/g, '""')}"`
     );
     const csv = `data:text/csv;charset=utf-8,${header}\n${rows.join('\n')}`;
     const link = document.createElement('a');
@@ -270,7 +270,7 @@ export const DesktopClientsPipeline: React.FC = () => {
                     <td className="py-4 px-6">
                       <span className="inline-flex items-center gap-1 font-mono font-black text-sm text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
                         <Award className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>+{inr(lead.dealValue || 25000)}</span>
+                        <span>+{inr(lead.dealValue || 0)}</span>
                       </span>
                     </td>
                     <td className="py-4 px-6 font-medium text-slate-600">
@@ -286,7 +286,7 @@ export const DesktopClientsPipeline: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-4 px-6 font-mono text-slate-500">
-                      {lead.callCount || 1}
+                      {lead.callCount || 0}
                     </td>
                     <td className="py-4 px-6 text-slate-500 italic max-w-xs truncate">
                       {lead.notes && 

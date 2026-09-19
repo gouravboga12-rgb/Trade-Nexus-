@@ -237,6 +237,11 @@ export const api = {
     }),
   updateAssignedLead: (id: string, data: Partial<AssignedLead>) => 
     request<AssignedLead>(`/assigned-leads/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  reassignBatchAssignedLeads: (data: { leadIds: string[]; targetEmployeeId: string; targetEmployeeName: string }) => 
+    request<{ success: boolean; count: number; targetEmployeeId: string; targetEmployeeName: string }>('/assigned-leads/reassign-batch', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 
   // Lead Batches
   getLeadBatches: () => request<LeadBatch[]>('/lead-batches'),

@@ -321,6 +321,7 @@ export interface NewEmployeeInput {
   teamGroup: string;
   teamLeaderName?: string;
   address: string;
+  location?: string;
   employeeType: 'Full Time' | 'Intern' | 'Contract';
   salary: number;
   basicSalary?: number;

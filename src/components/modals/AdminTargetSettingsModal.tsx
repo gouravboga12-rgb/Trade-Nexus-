@@ -34,7 +34,7 @@ export const AdminTargetSettingsModal: React.FC<Props> = ({ isOpen, onClose }) =
     if (isOpen) {
       const initial: Record<string, number> = {};
       activeMembers.forEach((m) => {
-        initial[m.id] = m.salesTarget || 200000;
+        initial[m.id] = m.salesTarget || 0;
       });
       setDraftTargets(initial);
     }
@@ -43,9 +43,9 @@ export const AdminTargetSettingsModal: React.FC<Props> = ({ isOpen, onClose }) =
   if (!isOpen) return null;
 
   // Compute live aggregates based on drafts
-  const totalDraftTarget = activeMembers.reduce((sum, m) => sum + (draftTargets[m.id] ?? m.salesTarget ?? 200000), 0);
+  const totalDraftTarget = activeMembers.reduce((sum, m) => sum + (draftTargets[m.id] ?? m.salesTarget ?? 0), 0);
   const totalAchieved = activeMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0);
-  const percentAchieved = Math.min(100, Math.round((totalAchieved / Math.max(1, totalDraftTarget)) * 100));
+  const percentAchieved = totalDraftTarget > 0 ? Math.min(100, Math.round((totalAchieved / totalDraftTarget) * 100)) : 0;
 
   // Extract squad list for filtering
   const squads = Array.from(new Set(activeMembers.map((m) => m.group || 'General'))).filter(Boolean);
@@ -67,8 +67,8 @@ export const AdminTargetSettingsModal: React.FC<Props> = ({ isOpen, onClose }) =
 
   const handleAdjust = (id: string, delta: number) => {
     setDraftTargets((prev) => {
-      const current = prev[id] || 200000;
-      const next = Math.max(10000, current + delta);
+      const current = prev[id] || 0;
+      const next = Math.max(0, current + delta);
       return { ...prev, [id]: next };
     });
   };
@@ -196,7 +196,7 @@ export const AdminTargetSettingsModal: React.FC<Props> = ({ isOpen, onClose }) =
               </div>
               <button
                 type="button"
-                onClick={() => handleApplyBulk(Number(bulkTargetInput) || 200000)}
+                onClick={() => handleApplyBulk(Number(bulkTargetInput) || 0)}
                 className="bg-[#0A2540] hover:bg-[#123659] text-white font-black text-xs px-3.5 py-2 rounded-xl active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer flex-shrink-0"
               >
                 <RefreshCw className="w-3.5 h-3.5" />

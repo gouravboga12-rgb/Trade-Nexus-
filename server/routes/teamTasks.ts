@@ -6,6 +6,31 @@ const router = Router();
 // GET /api/team-tasks
 router.get('/', (req: Request, res: Response) => {
   try {
+    const user = req.user;
+
+    // Team Leader: Scoped to their assigned squad tasks
+    if (user && user.role === 'team_leader') {
+      const leaderId = user.employeeId || user.id;
+      const leaderEmpCode = user.empCode || '';
+      const leaderName = user.name || '';
+
+      const leaderRow = db.prepare(`
+        SELECT groupName FROM team_members 
+        WHERE id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
+        LIMIT 1
+      `).get(leaderId, leaderEmpCode, leaderName) as any;
+      const groupRow = db.prepare('SELECT name FROM team_groups WHERE LOWER(leaderName) = LOWER(?) LIMIT 1').get(leaderName) as any;
+      const squadName = leaderRow?.groupName || groupRow?.name || '';
+
+      const tasks = db.prepare(`
+        SELECT id, title, assignedTo, groupName as "group", dueDate, priority, status 
+        FROM team_tasks 
+        WHERE LOWER(groupName) = LOWER(?) OR LOWER(assignedTo) = LOWER(?)
+        ORDER BY createdAt DESC
+      `).all(squadName, leaderName);
+      return res.status(200).json(tasks);
+    }
+
     const tasks = db.prepare('SELECT id, title, assignedTo, groupName as "group", dueDate, priority, status FROM team_tasks ORDER BY createdAt DESC').all();
     return res.status(200).json(tasks);
   } catch (error) {
@@ -41,6 +66,23 @@ router.put('/:id', (req: Request, res: Response) => {
     const existing = db.prepare('SELECT id, title, assignedTo, groupName as "group", dueDate, priority, status FROM team_tasks WHERE id = ?').get(id) as any;
     if (!existing) {
       return res.status(404).json({ error: 'Team task not found' });
+    }
+
+    const user = req.user;
+    if (user && user.role === 'team_leader') {
+      const leaderName = user.name || '';
+      const leaderRow = db.prepare(`
+        SELECT groupName FROM team_members 
+        WHERE id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
+        LIMIT 1
+      `).get(user.employeeId || user.id, user.empCode || '', leaderName) as any;
+      const groupRow = db.prepare('SELECT name FROM team_groups WHERE LOWER(leaderName) = LOWER(?) LIMIT 1').get(leaderName) as any;
+      const squadName = leaderRow?.groupName || groupRow?.name || '';
+
+      const taskGroup = existing.group || '';
+      if (squadName && taskGroup.toLowerCase() !== squadName.toLowerCase() && existing.assignedTo.toLowerCase() !== leaderName.toLowerCase()) {
+        return res.status(403).json({ error: 'Forbidden: Team Leader cannot modify tasks outside assigned squad' });
+      }
     }
 
     const merged = { ...existing, ...req.body };

@@ -33,25 +33,11 @@ router.post('/login', (req: Request, res: Response) => {
       LIMIT 1
     `).get(cleanInput, cleanInput) as any;
 
-    if (!user && cleanInput.startsWith('arjun')) {
-      user = db.prepare(`
-        SELECT * FROM users 
-        WHERE LOWER(email) LIKE 'arjun%' OR LOWER(empCode) = 'tnx-8492'
-        LIMIT 1
-      `).get() as any;
-    }
-
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    const isMatch = 
-      verifyPassword(String(password), user.passwordHash) ||
-      ((password === 'telecaller123' || password === 'employee123') && (user.role === 'telecaller' || user.role === 'employee')) ||
-      (password === 'leader123' && user.role === 'team_leader') ||
-      (password === 'hr123' && user.role === 'hr') ||
-      (password === 'admin123' && user.role === 'admin') ||
-      (password === 'password123');
+    const isMatch = verifyPassword(String(password), user.passwordHash);
 
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid email or password' });

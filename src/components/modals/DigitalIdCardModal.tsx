@@ -44,13 +44,13 @@ export const DigitalIdCardModal: React.FC = () => {
 
   // Selected Employee or current user profile
   const matchedEmp = teamMembers.find(m => m.id === selectedEmpId);
-  const empName = matchedEmp?.name || profile.name || 'Arjun Kumar';
+  const empName = matchedEmp?.name || profile.name || 'Employee';
   const empRole = (matchedEmp?.role || profile.roleTitle || 'Sales Executive').toUpperCase();
-  const empCode = matchedEmp?.empCode || profile.empCode || '001';
-  const bloodGroup = (matchedEmp as any)?.bloodGroup || profile.bloodGroup || 'O+ ve';
-  const dob = (matchedEmp as any)?.dob || '05/11/1997';
-  const cellNumber = matchedEmp?.phone || profile.phone || '+91 98450 12345';
-  const initials = empName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  const empCode = matchedEmp?.empCode || profile.empCode || '—';
+  const bloodGroup = (matchedEmp as any)?.bloodGroup || profile.bloodGroup || '—';
+  const dob = (matchedEmp as any)?.dob || '—';
+  const cellNumber = matchedEmp?.phone || profile.phone || '—';
+  const initials = empName.trim() ? empName.trim().split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'EM';
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

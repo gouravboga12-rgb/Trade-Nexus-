@@ -768,7 +768,7 @@ export const AdminDashboardView: React.FC = () => {
                     <div className="px-1">
                       <strong className="text-base font-display font-black text-[#0A2540] block leading-tight">
                         <span className="text-[#00A88B]">{callsToday}</span>
-                        <span className="text-slate-300 font-normal text-xs">/{teamMembers.reduce((s, m) => s + (m.goalCalls || 100), 0)}</span>
+                        <span className="text-slate-300 font-normal text-xs">/{teamMembers.reduce((s, m) => s + (m.goalCalls || 0), 0)}</span>
                       </strong>
                       <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mt-0.5">
                         Calls
@@ -777,7 +777,7 @@ export const AdminDashboardView: React.FC = () => {
 
                     <div className="px-1">
                       <strong className="text-base font-display font-black text-purple-700 block leading-tight">
-                        {teamMembers.filter(m => m.salesAchieved > 0).length || 7}
+                        {teamMembers.filter(m => m.salesAchieved > 0).length}
                       </strong>
                       <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mt-0.5">
                         Won
@@ -815,7 +815,7 @@ export const AdminDashboardView: React.FC = () => {
                     {teamGroups.map((g) => {
                       const squad = teamMembers.filter((m) => m.group === g.name);
                       const squadDials = squad.reduce((s, m) => s + (m.dialsToday || 0), 0);
-                      const squadGoals = squad.reduce((s, m) => s + (m.goalCalls || 100), 0);
+                      const squadGoals = squad.reduce((s, m) => s + (m.goalCalls || 0), 0);
                       const squadWon = squad.filter((m) => m.salesAchieved > 0).length;
                       const squadRev = squad.reduce((s, m) => s + (m.salesAchieved || 0), 0);
                       const squadPresent = squad.filter((m) => m.attendanceStatus === 'PRESENT').length;
@@ -958,7 +958,7 @@ export const AdminDashboardView: React.FC = () => {
                   {(() => {
                     const squad = teamMembers.filter((m) => m.group === selectedAdminTeamGroup.name);
                     const squadDials = squad.reduce((s, m) => s + (m.dialsToday || 0), 0);
-                    const squadGoals = squad.reduce((s, m) => s + (m.goalCalls || 100), 0);
+                    const squadGoals = squad.reduce((s, m) => s + (m.goalCalls || 0), 0);
                     const squadWon = squad.filter((m) => m.salesAchieved > 0).length;
                     const squadRev = squad.reduce((s, m) => s + (m.salesAchieved || 0), 0);
                     const squadPresent = squad.filter((m) => m.attendanceStatus === 'PRESENT').length;

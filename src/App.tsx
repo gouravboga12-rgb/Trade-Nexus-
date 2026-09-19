@@ -214,29 +214,29 @@ export const App: React.FC = () => {
   const getHeaderUserInfo = () => {
     if (currentRole === 'team_leader') {
       return {
-        initials: 'RS',
-        name: 'Ramesh Sharma',
-        roleTitle: 'Team Leader • Alpha Growth'
+        initials: profile.name ? profile.name.trim().split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() : 'TL',
+        name: profile.name || 'Team Leader',
+        roleTitle: 'Team Leader Portal'
       };
     }
     if (currentRole === 'hr') {
       return {
-        initials: 'PV',
-        name: 'Priya Nair',
-        roleTitle: 'Head of People Operations'
+        initials: profile.name ? profile.name.trim().split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() : 'HR',
+        name: profile.name || 'HR Manager',
+        roleTitle: 'People Operations'
       };
     }
     if (currentRole === 'admin') {
       return {
         initials: 'AD',
-        name: 'System Administrator',
+        name: 'Super Admin',
         roleTitle: 'Global Master Controller'
       };
     }
     return {
-      initials: profile.name.substring(0, 2).toUpperCase(),
-      name: profile.name,
-      roleTitle: profile.roleTitle
+      initials: profile.name ? profile.name.trim().split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() : 'EM',
+      name: profile.name || 'Employee',
+      roleTitle: profile.roleTitle || 'Sales Executive'
     };
   };
 
@@ -510,8 +510,8 @@ export const App: React.FC = () => {
 
               {currentRole === 'team_leader' && (() => {
                 const totalSales = teamMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0);
-                const targetTotal = teamMembers.reduce((sum, m) => sum + (m.salesTarget || 200000), 0);
-                const percent = Math.min(100, Math.round((totalSales / Math.max(1, targetTotal)) * 100));
+                const targetTotal = teamMembers.reduce((sum, m) => sum + (m.salesTarget || 0), 0);
+                const percent = targetTotal > 0 ? Math.min(100, Math.round((totalSales / targetTotal) * 100)) : 0;
                 return (
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5">
                     <div className="flex justify-between items-center text-xs">

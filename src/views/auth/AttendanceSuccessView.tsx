@@ -20,10 +20,10 @@ export const AttendanceSuccessView: React.FC = () => {
   const [countdown, setCountdown] = useState(3);
 
   const isLeader = currentRole === 'team_leader';
-  const personName = isLeader ? 'Ramesh Sharma' : profile.name;
-  const checkInTime = isLeader ? '08:45 AM' : profile.checkInTime;
+  const personName = profile.name || (isLeader ? 'Team Leader' : 'Employee');
+  const checkInTime = profile.checkInTime || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const statusLabel = isLeader ? 'ON SUPERVISOR DUTY' : 'ON DUTY';
-  const dashboardLabel = isLeader ? 'Enter Team Leader Dashboard' : 'Enter Telecaller Dashboard';
+  const dashboardLabel = isLeader ? 'Enter Team Leader Dashboard' : 'Enter Sales Dashboard';
 
   useEffect(() => {
     const timer = setInterval(() => {

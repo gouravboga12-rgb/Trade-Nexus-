@@ -46,16 +46,42 @@ router.put('/:id', (req: Request, res: Response) => {
     }
 
     const merged = { ...existing, ...req.body };
-    db.prepare(`
-      UPDATE payment_verifications 
-      SET leadName = ?, companyName = ?, telecallerName = ?, dealAmount = ?, 
-          utrNumber = ?, paymentMode = ?, timestamp = ?, status = ?, receiptUrl = ?
-      WHERE id = ?
-    `).run(
-      merged.leadName, merged.companyName, merged.telecallerName, merged.dealAmount,
-      merged.utrNumber, merged.paymentMode, merged.timestamp, merged.status,
-      merged.receiptUrl, id
-    );
+    const amount = Number(merged.dealAmount) || 0;
+    const telecallerName = merged.telecallerName || existing.telecallerName;
+
+    const syncTransaction = db.transaction(() => {
+      db.prepare(`
+        UPDATE payment_verifications 
+        SET leadName = ?, companyName = ?, telecallerName = ?, dealAmount = ?, 
+            utrNumber = ?, paymentMode = ?, timestamp = ?, status = ?, receiptUrl = ?
+        WHERE id = ?
+      `).run(
+        merged.leadName, merged.companyName, merged.telecallerName, merged.dealAmount,
+        merged.utrNumber, merged.paymentMode, merged.timestamp, merged.status,
+        merged.receiptUrl, id
+      );
+
+      // Attribution Sync: propagate verified payment to employee and squad
+      if (merged.status === 'VERIFIED' && existing.status !== 'VERIFIED') {
+        const member = db.prepare('SELECT id, groupName FROM team_members WHERE LOWER(name) = LOWER(?) LIMIT 1').get(telecallerName) as any;
+        if (member) {
+          db.prepare('UPDATE team_members SET salesAchieved = salesAchieved + ? WHERE id = ?').run(amount, member.id);
+          if (member.groupName) {
+            db.prepare('UPDATE team_groups SET achieved = achieved + ? WHERE LOWER(name) = LOWER(?)').run(amount, member.groupName);
+          }
+        }
+      } else if (merged.status === 'REJECTED' && existing.status === 'VERIFIED') {
+        const member = db.prepare('SELECT id, groupName FROM team_members WHERE LOWER(name) = LOWER(?) LIMIT 1').get(telecallerName) as any;
+        if (member) {
+          db.prepare('UPDATE team_members SET salesAchieved = MAX(0, salesAchieved - ?) WHERE id = ?').run(amount, member.id);
+          if (member.groupName) {
+            db.prepare('UPDATE team_groups SET achieved = MAX(0, achieved - ?) WHERE LOWER(name) = LOWER(?)').run(amount, member.groupName);
+          }
+        }
+      }
+    });
+
+    syncTransaction();
 
     const updated = db.prepare('SELECT * FROM payment_verifications WHERE id = ?').get(id);
     return res.status(200).json(updated);

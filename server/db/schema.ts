@@ -335,6 +335,16 @@ function runMigrations() {
   addColumnIfMissing('leave_requests', 'employeeName', 'TEXT');
   addColumnIfMissing('leave_requests', 'employeeCode', 'TEXT');
 
+  // Payslips per employee
+  addColumnIfMissing('payslips', 'employeeId', 'TEXT');
+  addColumnIfMissing('payslips', 'empCode', 'TEXT');
+  addColumnIfMissing('payslips', 'employeeName', 'TEXT');
+  addColumnIfMissing('payslips', 'roleTitle', 'TEXT');
+  addColumnIfMissing('payslips', 'department', 'TEXT');
+  try {
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_payslips_employee ON payslips(employeeId);`);
+  } catch {}
+
   // An employee who has left is deactivated, never deleted — their attendance,
   // calls and payslips must stay on record.
   addColumnIfMissing('team_members', 'active', 'INTEGER NOT NULL DEFAULT 1');

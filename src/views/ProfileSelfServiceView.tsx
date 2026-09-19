@@ -109,32 +109,32 @@ export const ProfileSelfServiceView: React.FC = () => {
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-[#D4F6ED] flex items-center justify-center text-[#0A2540] font-display font-black text-lg flex-shrink-0 shadow-2xs">
-              {profile.name ? profile.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : 'AK'}
+              {profile.name ? profile.name.trim().split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() : 'EM'}
             </div>
             <div>
               <h2 className="font-display font-black text-base text-[#0A2540] tracking-tight">
-                {profile.name || 'Arjun Kumar'}
+                {profile.name || 'Employee Profile'}
               </h2>
               <p className="text-xs font-bold text-[#00A88B]">
                 {profile.roleTitle ? profile.roleTitle.replace(/telecaller/gi, 'Sales Executive') : 'Sales Executive'}
               </p>
               <p className="text-[10px] text-slate-400 font-medium">
-                {profile.department || 'Sales & Client Acquisition'}
+                {profile.department || 'Sales'}
               </p>
             </div>
           </div>
 
           <span className="font-mono text-[10px] font-bold bg-[#E8FAF5] text-[#00A88B] border border-[#BCEFE3] px-2 py-0.5 rounded-lg">
-            {profile.empCode || 'TNX-8492'}
+            {profile.empCode || '—'}
           </span>
         </div>
 
         {/* Bottom Status Pill Strip */}
         <div className="bg-[#F1FAF7] rounded-xl py-1.5 px-2.5 flex items-center justify-between text-[11px] font-semibold text-slate-700 border border-[#E0F5EE]/80">
           <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isCheckedIn ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
             <span className="text-[10px] font-medium text-slate-700">
-              {isCheckedIn ? `On Duty (${profile.checkInTime})` : isShiftEnded ? 'Shift Completed' : 'On Duty (00:37)'}
+              {isCheckedIn ? `On Duty (${profile.checkInTime})` : isShiftEnded ? 'Shift Completed' : 'Shift Inactive'}
             </span>
           </div>
 
@@ -143,7 +143,7 @@ export const ProfileSelfServiceView: React.FC = () => {
           <div className="flex items-center gap-1 text-slate-600">
             <User className="w-3 h-3 text-[#00A88B] flex-shrink-0" />
             <span className="text-[10px] text-slate-600">
-              Team Leader: <strong className="text-slate-800 font-bold">{profile.teamLeaderName || 'Nikhil Pareshan'}</strong>
+              Team Leader: <strong className="text-slate-800 font-bold">{profile.teamLeaderName || 'Unassigned'}</strong>
             </span>
           </div>
         </div>

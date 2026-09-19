@@ -375,13 +375,13 @@ export const AdminCalendarConfig: React.FC = () => {
       {activeTab === 'CALENDAR' && (
         <div className="space-y-4 animate-in fade-in duration-150">
           {/* Calendar Header & Month Navigation */}
-          <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-slate-50 via-white to-slate-50 p-3.5 rounded-2xl border border-slate-200/90">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/90">
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={prevMonth}
                 title="Previous Month"
-                className="w-8 h-8 rounded-xl border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-colors cursor-pointer shadow-2xs active:scale-95"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -392,14 +392,14 @@ export const AdminCalendarConfig: React.FC = () => {
                 type="button"
                 onClick={nextMonth}
                 title="Next Month"
-                className="w-8 h-8 rounded-xl border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-colors cursor-pointer shadow-2xs active:scale-95"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
               <button
                 type="button"
                 onClick={goToToday}
-                className="text-[11px] font-bold text-slate-600 bg-white hover:bg-slate-100 px-3 py-1 rounded-xl border border-slate-200 ml-1 cursor-pointer transition-colors"
+                className="text-[11px] font-bold text-slate-600 bg-white hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 ml-1 cursor-pointer transition-colors shadow-2xs"
               >
                 Today
               </button>
@@ -407,40 +407,43 @@ export const AdminCalendarConfig: React.FC = () => {
 
             {/* Month Stats Pill Strip */}
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
+              <span className="inline-flex items-center gap-1.5 font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200/80">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 {monthMetrics.workingDays} Working Days
               </span>
-              <span className="inline-flex items-center gap-1 font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200">
-                <span className="w-2 h-2 rounded-full bg-slate-500" />
+              <span className="inline-flex items-center gap-1.5 font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200/80">
+                <span className="w-2 h-2 rounded-full bg-slate-400" />
                 {monthMetrics.weeklyOffs} Weekly Offs
               </span>
-              <span className="inline-flex items-center gap-1 font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-xl border border-purple-200">
+              <span className="inline-flex items-center gap-1.5 font-bold text-purple-800 bg-purple-50 px-2.5 py-1 rounded-xl border border-purple-200/80">
                 <span className="w-2 h-2 rounded-full bg-purple-500" />
-                {monthMetrics.holidays} Holidays
+                {monthMetrics.holidays} Holiday{monthMetrics.holidays === 1 ? '' : 's'}
               </span>
             </div>
           </div>
 
-          {/* 7-Column Calendar Grid */}
-          <div className="bg-slate-50/70 p-3 rounded-2xl border border-slate-200/80">
+          {/* 7-Column Calendar Grid Container */}
+          <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-xs">
             {/* Day of Week Headers */}
-            <div className="grid grid-cols-7 gap-1 text-center pb-2 border-b border-slate-200">
+            <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center pb-2.5 border-b border-slate-200 text-xs font-black uppercase tracking-wider">
               {dayNames.map((d) => (
-                <div key={d.index} className="text-[11px] font-extrabold uppercase text-slate-500">
-                  <span className="block">{d.label}</span>
+                <div 
+                  key={d.index} 
+                  className={d.index === 0 || d.index === 6 ? 'text-slate-400' : 'text-slate-600'}
+                >
+                  <span>{d.label}</span>
                 </div>
               ))}
             </div>
 
             {/* Day Cells Grid */}
-            <div className="grid grid-cols-7 gap-1.5 pt-2">
+            <div className="grid grid-cols-7 gap-1 sm:gap-2 pt-2.5">
               {calendarGrid.map((item, idx) => {
                 if (!item.isCurrentMonth) {
                   return (
                     <div
                       key={`empty-${idx}`}
-                      className="min-h-16 rounded-xl bg-slate-100/40 border border-dashed border-slate-200/50"
+                      className="aspect-square sm:aspect-auto sm:min-h-[64px] md:min-h-[76px] rounded-xl bg-slate-50/40 border border-dashed border-slate-200/50"
                     />
                   );
                 }
@@ -455,62 +458,100 @@ export const AdminCalendarConfig: React.FC = () => {
                     key={item.dateStr}
                     type="button"
                     onClick={() => setSelectedDayStr(item.dateStr)}
-                    className={`min-h-20 p-1.5 rounded-2xl border text-left flex flex-col justify-between transition-all cursor-pointer relative group ${
+                    className={`aspect-square sm:aspect-auto sm:min-h-[64px] md:min-h-[76px] p-1.5 sm:p-2 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer relative group ${
                       isSelected
-                        ? 'border-[#00C9A7] ring-2 ring-[#00C9A7]/40 bg-white shadow-sm scale-[1.02] z-10'
+                        ? 'border-[#00C9A7] ring-2 ring-[#00C9A7] bg-white shadow-md z-10 scale-[1.01]'
                         : holiday
-                        ? 'bg-purple-50/70 border-purple-200 hover:border-purple-300'
+                        ? 'bg-purple-50/70 border-purple-200/80 hover:border-purple-300 hover:bg-purple-50'
                         : isWeeklyOff
-                        ? 'bg-slate-900 text-white border-slate-800 hover:bg-slate-800'
-                        : 'bg-white border-slate-200/90 hover:border-slate-300 hover:shadow-2xs'
+                        ? 'bg-slate-100/70 text-slate-500 border-slate-200/80 hover:bg-slate-100'
+                        : 'bg-white border-slate-200/90 hover:border-[#00C9A7]/60 hover:shadow-xs'
                     }`}
                   >
-                    {/* Top Row: Date & Status Badge */}
+                    {/* Top Row: Date Number & Compact Status Chip */}
                     <div className="flex items-center justify-between w-full">
                       <span
-                        className={`text-xs font-mono font-black ${
-                          isWeeklyOff
-                            ? 'text-white'
-                            : isToday
-                            ? 'w-5 h-5 rounded-full bg-[#00C9A7] text-[#0A2540] flex items-center justify-center font-extrabold'
-                            : 'text-slate-800'
+                        className={`text-xs font-mono font-bold flex items-center justify-center ${
+                          isToday
+                            ? 'w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#00C9A7] text-[#0A2540] font-black shadow-2xs'
+                            : holiday
+                            ? 'text-purple-900 font-black'
+                            : isWeeklyOff
+                            ? 'text-slate-500'
+                            : 'text-slate-800 group-hover:text-[#0A2540]'
                         }`}
                       >
                         {item.dayNumber}
                       </span>
 
+                      {/* Status Badges */}
                       {holiday ? (
-                        <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-purple-600 text-white truncate max-w-[50px]">
-                          {holiday.type === 'NATIONAL' ? '🇮🇳 Nat' : '✨ Fest'}
+                        <span className="inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-800 border border-purple-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-pulse" />
+                          <span className="hidden md:inline">{holiday.type === 'NATIONAL' ? 'National' : 'Festival'}</span>
                         </span>
                       ) : isWeeklyOff ? (
-                        <span className="text-[8px] font-mono font-black px-1 py-0.2 rounded bg-[#00C9A7]/20 text-[#00C9A7]">
+                        <span className="text-[9px] font-mono font-bold text-slate-500 bg-slate-200/80 px-1 py-0.5 rounded">
                           OFF
                         </span>
                       ) : (
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 hidden sm:block" />
                       )}
                     </div>
 
-                    {/* Bottom Row: Holiday Title or Work Tag */}
-                    <div className="w-full mt-1 min-h-6">
+                    {/* Bottom: Desktop Holiday Title or Mobile Indicator Dot */}
+                    <div className="w-full mt-auto">
                       {holiday ? (
-                        <p className="text-[9px] font-extrabold text-purple-900 leading-tight line-clamp-2">
-                          {holiday.name}
-                        </p>
+                        <>
+                          {/* Desktop Title Banner */}
+                          <div className="hidden md:block pt-1">
+                            <span 
+                              className="text-[10px] font-extrabold text-purple-800 bg-purple-100/80 px-1.5 py-0.5 rounded block truncate" 
+                              title={holiday.name}
+                            >
+                              {holiday.name}
+                            </span>
+                          </div>
+                          {/* Mobile / Compact Dot */}
+                          <div className="block md:hidden text-center pt-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-purple-600 inline-block" />
+                          </div>
+                        </>
                       ) : isWeeklyOff ? (
-                        <span className="text-[9px] font-bold text-slate-400 block leading-tight">
-                          Weekly Off
-                        </span>
-                      ) : (
-                        <span className="text-[9px] font-medium text-slate-400 block leading-tight">
-                          Work Day
-                        </span>
-                      )}
+                        <div className="hidden md:block pt-1">
+                          <span className="text-[10px] font-medium text-slate-400 block">Weekly Off</span>
+                        </div>
+                      ) : null}
                     </div>
                   </button>
                 );
               })}
+            </div>
+
+            {/* Calendar Legend Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3.5 mt-3 border-t border-slate-100 text-xs text-slate-500 font-medium">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-[11px]">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-white border border-slate-300 shadow-2xs" />
+                  <span>Working Day</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-200 border border-slate-300" />
+                  <span>Weekly Off</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+                  <span>Official Holiday</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#00C9A7]" />
+                  <span>Today</span>
+                </span>
+              </div>
+
+              <span className="text-[11px] text-slate-400 italic hidden sm:inline">
+                Click any day to inspect details or manage schedule
+              </span>
             </div>
           </div>
 

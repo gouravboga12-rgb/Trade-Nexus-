@@ -9,11 +9,11 @@ export const DeviceSwitcher: React.FC = () => {
   const handleRoleChange = (role: UserRole) => {
     setCurrentRole(role);
     const roleLabels: Record<UserRole, string> = {
-      telecaller: 'Arjun Kumar (Sales Executive)',
-      employee: 'Arjun Kumar (Sales Executive)',
-      team_leader: 'Ramesh Sharma (Team Leader)',
-      hr: 'Priya Verma (HR Operations)',
-      admin: 'Rajesh Singhal (Managing Director / Admin)'
+      telecaller: 'Sales Portal',
+      employee: 'Employee Portal',
+      team_leader: 'Team Leader Portal',
+      hr: 'HR Management Console',
+      admin: 'Super Admin Control Center'
     };
     triggerToast(`Switched view to: ${roleLabels[role]}`);
   };

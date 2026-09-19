@@ -81,7 +81,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
   const [candEmail, setCandEmail] = useState('');
   const [candPhone, setCandPhone] = useState('');
   const [candTime, setCandTime] = useState('Tomorrow • 02:30 PM');
-  const [candInterviewer, setCandInterviewer] = useState('Ramesh Sharma (Team Leader)');
+  const [candInterviewer, setCandInterviewer] = useState('Select Interviewer');
 
   const [payrollMonth, setPayrollMonth] = useState('May');
   const [payrollYear, setPayrollYear] = useState('2025');
@@ -94,9 +94,9 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
   const pendingLeaves = leaveRequests.filter(r => r.status === 'PENDING');
   const pendingPayments = paymentVerifications.filter(p => p.status === 'PENDING_HR_AUDIT');
   const pendingApprovalsCount = pendingLeaves.length + pendingPayments.length;
-  const attendancePercent = Math.round((presentCount / Math.max(1, totalEmployees)) * 100);
+  const attendancePercent = totalEmployees > 0 ? Math.round((presentCount / totalEmployees) * 100) : 0;
 
-  const hrName = profile?.name?.trim() || 'Priya (HR Head)';
+  const hrName = profile?.name?.trim() || 'HR Head';
 
   const handleScheduleInterviewSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,7 +106,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
       roleApplied: candRole,
       experience: candExp,
       email: candEmail || `${candName.toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
-      phone: candPhone || '+91 98450 11223',
+      phone: candPhone || '',
       interviewTime: candTime,
       interviewer: candInterviewer,
     });

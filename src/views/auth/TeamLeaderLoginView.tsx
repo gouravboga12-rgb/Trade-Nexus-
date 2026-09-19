@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { api, setAuthToken } from '../../services/api';
 import { 
   Mail, 
   Smartphone, 
@@ -23,14 +24,31 @@ export const TeamLeaderLoginView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   // Standard Email / Mobile & Password Submit -> Enter Dashboard
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!emailOrPhone.trim() || !password.trim()) {
+      triggerToast('✗ Please enter email and password');
+      return;
+    }
     setIsLoading(true);
-    triggerToast('✓ Team Leader credentials verified! Entering Dashboard...');
-    setTimeout(() => {
+    try {
+      const authRes = await api.login(emailOrPhone.trim(), password.trim());
+      if (authRes?.token && (authRes.user?.role === 'team_leader' || authRes.user?.role === 'admin')) {
+        setAuthToken(authRes.token);
+        setCurrentRole('team_leader');
+        triggerToast('✓ Team Leader credentials verified! Entering Dashboard...');
+        setTimeout(() => {
+          setIsLoading(false);
+          setAuthStep('AUTHENTICATED');
+        }, 300);
+      } else {
+        triggerToast('✗ Access denied: Team Leader account required');
+        setIsLoading(false);
+      }
+    } catch (err: any) {
+      triggerToast(`✗ ${err.message || 'Invalid Team Leader credentials'}`);
       setIsLoading(false);
-      setAuthStep('AUTHENTICATED');
-    }, 300);
+    }
   };
 
   return (

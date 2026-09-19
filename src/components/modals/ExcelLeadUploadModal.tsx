@@ -26,6 +26,7 @@ export const ExcelLeadUploadModal: React.FC = () => {
   const [fileName, setFileName] = useState('');
   const [pastedData, setPastedData] = useState('');
   const [parseError, setParseError] = useState<string | null>(null);
+  const [skippedCount, setSkippedCount] = useState<number>(0);
 
   // Populated only from a file the user picks or rows they paste
   const [parsedLeads, setParsedLeads] = useState<Array<{ name: string; phone: string; company: string; city: string; email: string }>>([]);
@@ -35,9 +36,9 @@ export const ExcelLeadUploadModal: React.FC = () => {
   if (!isExcelUploadModalOpen) return null;
 
   // Rows are name, phone, company, city, email — separated by comma, tab or pipe.
-  const parseRows = (text: string) => {
+  const parseRows = (text: string): { validRows: Array<{ name: string; phone: string; company: string; city: string; email: string }>; skipped: number } => {
     const lines = text.trim().split(/\r?\n/).filter((l) => l.trim());
-    if (!lines.length) return [];
+    if (!lines.length) return { validRows: [], skipped: 0 };
 
     // Drop a header row if the first cell is clearly a column name
     const firstCell = lines[0].split(/[,\t|]/)[0].trim().toLowerCase().replace(/["']/g, '');
@@ -45,20 +46,33 @@ export const ExcelLeadUploadModal: React.FC = () => {
       ? lines.slice(1)
       : lines;
 
-    return rows
-      .map((line) => {
-        const cleaned = line.replace(/^"|"$/g, '');
-        const parts = cleaned.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)|\t|\|/).map((p) => p.trim().replace(/^"|"$/g, ''));
-        const [name, phone, company, city, email] = parts;
-        return { 
-          name: name || '', 
-          phone: phone || '+91 98765 43210', 
-          company: company || 'Enterprise Client', 
-          city: city || 'India', 
-          email: email || `${(name || 'lead').toLowerCase().replace(/\s+/g, '.')}@gmail.com` 
-        };
-      })
-      .filter((r) => r.name);
+    const validRows: Array<{ name: string; phone: string; company: string; city: string; email: string }> = [];
+    let skipped = 0;
+
+    for (const line of rows) {
+      const cleaned = line.replace(/^"|"$/g, '');
+      const parts = cleaned.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)|\t|\|/).map((p) => p.trim().replace(/^"|"$/g, ''));
+      const [name, phone, company, city, email] = parts;
+
+      const trimmedName = (name || '').trim();
+      const trimmedPhone = (phone || '').trim();
+
+      // Safely reject incomplete rows: a lead must have a valid customer name and phone
+      if (!trimmedName || !trimmedPhone) {
+        skipped++;
+        continue;
+      }
+
+      validRows.push({
+        name: trimmedName,
+        phone: trimmedPhone,
+        company: (company || '').trim(),
+        city: (city || '').trim(),
+        email: (email || '').trim(),
+      });
+    }
+
+    return { validRows, skipped };
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,12 +84,14 @@ export const ExcelLeadUploadModal: React.FC = () => {
 
     const reader = new FileReader();
     reader.onload = () => {
-      const rows = parseRows(String(reader.result ?? ''));
-      setParsedLeads(rows);
-      if (!rows.length) {
-        setParseError('No usable rows found. Expected format: Name, Phone, Company, City, Email');
+      const { validRows, skipped } = parseRows(String(reader.result ?? ''));
+      setParsedLeads(validRows);
+      setSkippedCount(skipped);
+      if (!validRows.length) {
+        setParseError(`No valid leads found. Expected format: Name, Phone, Company, City, Email.${skipped > 0 ? ` (${skipped} incomplete rows skipped)` : ''}`);
       } else {
-        triggerToast(`✓ Loaded ${rows.length} leads from ${file.name}`);
+        const skipInfo = skipped > 0 ? ` (${skipped} incomplete rows skipped)` : '';
+        triggerToast(`✓ Loaded ${validRows.length} leads${skipInfo} from ${file.name}`);
       }
     };
     reader.onerror = () => setParseError('Could not read that file.');
@@ -84,16 +100,18 @@ export const ExcelLeadUploadModal: React.FC = () => {
 
   const handleParseCustomText = () => {
     if (!pastedData.trim()) return;
-    const records = parseRows(pastedData);
-    if (!records.length) {
-      setParseError('No usable rows found. Expected format: Name, Phone, Company, City, Email');
+    const { validRows, skipped } = parseRows(pastedData);
+    setSkippedCount(skipped);
+    if (!validRows.length) {
+      setParseError(`No valid leads found. Expected format: Name, Phone, Company, City, Email.${skipped > 0 ? ` (${skipped} incomplete rows skipped)` : ''}`);
       return;
     }
-    setParsedLeads(records);
-    setFileName(`Pasted_${records.length}_Leads.csv`);
+    setParsedLeads(validRows);
+    setFileName(`Pasted_${validRows.length}_Leads.csv`);
     setPastedData('');
     setParseError(null);
-    triggerToast(`✓ Parsed ${records.length} pasted leads!`);
+    const skipInfo = skipped > 0 ? ` (${skipped} incomplete rows skipped)` : '';
+    triggerToast(`✓ Parsed ${validRows.length} pasted leads${skipInfo}!`);
   };
 
   const targetEmp = teamMembers.find((m) => m.id === selectedEmployeeId);
@@ -209,6 +227,14 @@ export const ExcelLeadUploadModal: React.FC = () => {
             <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-3 flex items-start gap-2 text-xs animate-in fade-in">
               <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <span>{parseError}</span>
+            </div>
+          )}
+
+          {/* Skipped Rows Notification */}
+          {skippedCount > 0 && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 flex items-start gap-2 text-xs animate-in fade-in">
+              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <span>Skipped <strong>{skippedCount}</strong> invalid/incomplete row{skippedCount === 1 ? '' : 's'} (missing customer Name or Phone Number). Valid rows preserved below.</span>
             </div>
           )}
 
