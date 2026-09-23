@@ -28,6 +28,7 @@ import {
 import { CandidateInterview, OnboardingEmployee, ExitEmployee, PaymentVerificationItem, TeamMember } from '../../types';
 import { AddEmployeeModal } from '../../components/modals/AddEmployeeModal';
 import { Employee360ProfileView } from '../Employee360ProfileView';
+import { EmployeeAvatar } from '../../components/common/EmployeeAvatar';
 
 interface DesktopHrViewProps {
   currentTab?: string;
@@ -578,8 +579,13 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                     >
                       <td className="py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-black text-xs">
-                            {emp.avatar || emp.name.substring(0, 2).toUpperCase()}
+                          <div className="w-8 h-8 rounded-xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-black text-xs overflow-hidden flex-shrink-0">
+                            <EmployeeAvatar
+                              avatar={emp.avatar}
+                              name={emp.name}
+                              className="w-full h-full rounded-xl"
+                              fallbackClassName="font-black text-xs"
+                            />
                           </div>
                           <div>
                             <span className="font-bold text-[#0A2540] block group-hover:text-[#00A88B] transition-colors">{emp.name}</span>

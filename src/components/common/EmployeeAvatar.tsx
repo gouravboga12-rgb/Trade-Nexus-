@@ -16,27 +16,31 @@ export const EmployeeAvatar: React.FC<EmployeeAvatarProps> = ({
   const [imageError, setImageError] = useState(false);
 
   const isUrl =
-    avatar &&
-    typeof avatar === 'string' &&
-    (avatar.startsWith('http://') ||
-      avatar.startsWith('https://') ||
-      avatar.startsWith('/') ||
-      avatar.startsWith('data:image'));
+    Boolean(
+      avatar &&
+      typeof avatar === 'string' &&
+      (avatar.startsWith('http://') ||
+        avatar.startsWith('https://') ||
+        avatar.startsWith('/') ||
+        avatar.startsWith('data:image'))
+    );
 
+  const cleanName = (name || 'TM').trim();
   const initials =
-    avatar && typeof avatar === 'string' && avatar.length <= 3 && !avatar.startsWith('/')
-      ? avatar
-      : (name || 'TM')
-          .split(' ')
+    avatar && typeof avatar === 'string' && avatar.trim().length <= 3 && !avatar.includes('/')
+      ? avatar.trim().toUpperCase()
+      : cleanName
+          .split(/\s+/)
+          .filter(Boolean)
           .map((part) => part[0])
           .slice(0, 2)
           .join('')
-          .toUpperCase() || name.substring(0, 2).toUpperCase();
+          .toUpperCase() || cleanName.substring(0, 2).toUpperCase() || 'TM';
 
   if (isUrl && !imageError) {
     return (
       <img
-        src={avatar}
+        src={avatar!}
         alt={name}
         onError={() => setImageError(true)}
         className={`${className} object-cover`}
