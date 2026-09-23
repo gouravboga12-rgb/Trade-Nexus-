@@ -287,7 +287,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
 
   // Automated version check: Purge old mock/dummy cached data so real pipeline is clean
-  const CURRENT_DATA_VERSION = 'v4_pure_zero_slate';
+  const CURRENT_DATA_VERSION = 'v5_pure_zero_slate';
   try {
     if (typeof window !== 'undefined') {
       const savedVer = localStorage.getItem('tnx_data_version');

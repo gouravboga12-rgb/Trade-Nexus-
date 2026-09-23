@@ -1,0 +1,212 @@
+[
+  {
+    "id": "TC-ADM-01",
+    "workflow": "Admin Login",
+    "steps": "POST /api/auth/login with admin credentials (admin@tradenexus.com)",
+    "expected": "Status 200, JWT token returned, role is admin",
+    "actual": "Status 200, received token, user.role: admin",
+    "status": "PASS",
+    "evidence": "{\"user\":{\"id\":\"usr-4\",\"email\":\"admin@tradenexus.com\",\"name\":\"Super Admin\",\"role\":\"admin\",\"empCode\":\"TNX-AD01\",\"employeeId\":\"emp-ad-1\"}}",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-ADM-02",
+    "workflow": "Create 2 Team Leaders",
+    "steps": "POST /api/team-members for TL Alice (Squad Alpha) and TL Bob (Squad Beta) with portal=team_leader",
+    "expected": "Status 201 for both, records created in team_members and users tables",
+    "actual": "Status 201 for both TLs. Alice ID: tm-tl-alice-1789811931274, Bob ID: tm-tl-bob-1789811931274",
+    "status": "PASS",
+    "evidence": "{\"alice\":{\"id\":\"tm-tl-alice-1789811931274\",\"empCode\":\"TNX-TL-A1274\",\"name\":\"TL Alice\",\"avatar\":\"TM\",\"role\":\"Team Leader\",\"group\":\"Squad Alpha\",\"phone\":\"9876543210\",\"attendanceStatus\":\"ABSENT\",\"checkInTime\":null,\"checkInMethod\":\"\",\"dialsToday\":0,\"goalCalls\":0,\"connected\":0,\"interested\":0,\"salesAchieved\":0,\"salesTarget\":0,\"conversionRate\":0,\"portal\":\"team_leader\",\"email\":\"tl_alice_1789811931274@tradenexus.com\",\"active\":1,\"deactivatedOn\":null},\"bob\":{\"id\":\"tm-tl-bob-1789811931274\",\"empCode\":\"TNX-TL-B1274\",\"name\":\"TL Bob\",\"avatar\":\"TM\",\"role\":\"Team Leader\",\"group\":\"Squad Beta\",\"phone\":\"9876543211\",\"attendanceStatus\":\"ABSENT\",\"checkInTime\":null,\"checkInMethod\":\"\",\"dialsToday\":0,\"goalCalls\":0,\"connected\":0,\"interested\":0,\"salesAchieved\":0,\"salesTarget\":0,\"conversionRate\":0,\"portal\":\"team_leader\",\"email\":\"tl_bob_1789811931274@tradenexus.com\",\"active\":1,\"deactivatedOn\":null}}",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-ADM-03",
+    "workflow": "Create 4 Employees under Squads",
+    "steps": "POST /api/team-members for 4 employees (A1, A2 in Squad Alpha; B1, B2 in Squad Beta)",
+    "expected": "Status 201 for all 4 employees with assigned squads",
+    "actual": "All 4 employees created with status 201 and correct group assignments",
+    "status": "PASS",
+    "evidence": "{\"a1\":{\"id\":\"tm-emp-a1-1789811931274\",\"group\":\"Squad Alpha\"},\"a2\":{\"id\":\"tm-emp-a2-1789811931274\",\"group\":\"Squad Alpha\"},\"b1\":{\"id\":\"tm-emp-b1-1789811931274\",\"group\":\"Squad Beta\"},\"b2\":{\"id\":\"tm-emp-b2-1789811931274\",\"group\":\"Squad Beta\"}}",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-ADM-04",
+    "workflow": "Verify Login and Roles for All 6 Accounts",
+    "steps": "POST /api/auth/login for each of 2 TLs and 4 Employees",
+    "expected": "Status 200, JWT returned, role matches expected role",
+    "actual": "All 6 accounts logged in successfully with correct roles (2 team_leader, 4 telecaller)",
+    "status": "PASS",
+    "evidence": "[{\"name\":\"TL Alice\",\"role\":\"team_leader\",\"status\":\"OK\"},{\"name\":\"TL Bob\",\"role\":\"team_leader\",\"status\":\"OK\"},{\"name\":\"Emp A1\",\"role\":\"telecaller\",\"status\":\"OK\"},{\"name\":\"Emp A2\",\"role\":\"telecaller\",\"status\":\"OK\"},{\"name\":\"Emp B1\",\"role\":\"telecaller\",\"status\":\"OK\"},{\"name\":\"Emp B2\",\"role\":\"telecaller\",\"status\":\"OK\"}]",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-LEAD-01",
+    "workflow": "Lead Assigned to 2 Employees (Dual Assignment)",
+    "steps": "Create lead with assignedToEmployeeId=\"tm-emp-a1,tm-emp-a2\" and query leads as Emp A1 and Emp A2",
+    "expected": "Both employees can see and access the dual-assigned lead",
+    "actual": "Schema / backend uses exact match (= ? OR = ?) so comma-separated IDs fail scoping: empA1SeesDual=false, empA2SeesDual=false. To assign 1 lead to 2 employees, either duplicate lead records or relational junction table (lead_assignments) is required.",
+    "status": "FAIL",
+    "evidence": "assignedToEmployeeId is single string column in assigned_leads. Queried WHERE assignedToEmployeeId = user.id. String 'tm-emp-a1,tm-emp-a2' != 'tm-emp-a1'.",
+    "severity": "HIGH"
+  },
+  {
+    "id": "TC-LEAD-02",
+    "workflow": "Lead Assignment DB Persistence",
+    "steps": "Query /api/assigned-leads from backend after creation",
+    "expected": "Assigned lead record exists in SQLite database with correct assignedToEmployeeId",
+    "actual": "Lead persisted in DB. Found ID: lead-a1-1789811933606, assignedToEmployeeId: tm-emp-a1-1789811931274",
+    "status": "PASS",
+    "evidence": "{\"id\":\"lead-a1-1789811933606\",\"name\":\"Client Alpha One\",\"phone\":\"9123456781\",\"email\":\"alpha1@client.com\",\"company\":\"Alpha Corp\",\"city\":\"Delhi\",\"assignedToEmployeeId\":\"tm-emp-a1-1789811931274\",\"assignedToEmployeeName\":\"Emp A1\",\"batchId\":\"batch-default\",\"assignedDate\":\"Today\",\"status\":\"PENDING\",\"notes\":\"\",\"callCount\":0,\"lastCallTimestamp\":null,\"dealValue\":80000,\"followUpDate\":null,\"createdAt\":\"2026-09-19 09:58:53\"}",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-LEAD-03",
+    "workflow": "Employee Isolated Lead Visibility",
+    "steps": "Fetch /api/assigned-leads using Emp A1 token",
+    "expected": "Emp A1 sees only their own assigned leads, cannot see Emp A2, B1, or B2 leads",
+    "actual": "Emp A1 sees only own lead. a1SeesOwn=true, a1SeesA2=false, a1SeesB1=false, a1SeesB2=false",
+    "status": "PASS",
+    "evidence": "Total leads visible to Emp A1: 7",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-LEAD-04",
+    "workflow": "Team Leader Squad Lead Scoping",
+    "steps": "Fetch /api/assigned-leads using TL Alice token (Squad Alpha)",
+    "expected": "TL Alice sees all leads in Squad Alpha (A1, A2), but zero leads from Squad Beta (B1, B2)",
+    "actual": "TL Alice correctly scoped: sees A1=true, A2=true, B1=false, B2=false",
+    "status": "PASS",
+    "evidence": "Total leads visible to TL Alice: 12",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-LEAD-05",
+    "workflow": "Admin Complete Lead Visibility",
+    "steps": "Fetch /api/assigned-leads using Admin token",
+    "expected": "Admin sees complete lead data across all squads",
+    "actual": "Admin sees all leads. A1=true, A2=true, B1=true, B2=true",
+    "status": "PASS",
+    "evidence": "Total leads visible to Admin: 27",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-EMP-01",
+    "workflow": "Employee Call Workflow & Status Update (Non-Won)",
+    "steps": "Log CALLBACK call, update lead status to CALLBACK, re-login as Emp A1, and verify lead state",
+    "expected": "Status 200, lead status=CALLBACK, callCount=1, followUpDate=2026-09-20 persisted after re-login",
+    "actual": "Lead persisted: status=CALLBACK, callCount=1, followUpDate=2026-09-20",
+    "status": "PASS",
+    "evidence": "{\"id\":\"lead-a1-1789811933606\",\"name\":\"Client Alpha One\",\"phone\":\"9123456781\",\"email\":\"alpha1@client.com\",\"company\":\"Alpha Corp\",\"city\":\"Delhi\",\"assignedToEmployeeId\":\"tm-emp-a1-1789811931274\",\"assignedToEmployeeName\":\"Emp A1\",\"batchId\":\"batch-default\",\"assignedDate\":\"Today\",\"status\":\"CALLBACK\",\"notes\":\"Customer in meeting, asked to call back tomorrow at 3 PM\",\"callCount\":1,\"lastCallTimestamp\":\"Just now\",\"dealValue\":80000,\"followUpDate\":\"2026-09-20\",\"createdAt\":\"2026-09-19 09:58:53\"}",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-WON-01",
+    "workflow": "Won Deal Visibility & Scoping",
+    "steps": "Mark lead CONVERTED by Emp A1. Check visibility in Emp A1, TL Alice, Admin, Emp A2, Emp B1, TL Bob",
+    "expected": "Won deal visible to Emp A1, TL Alice, and Admin. NOT visible to Emp A2, Emp B1, or TL Bob",
+    "actual": "Won deal correctly scoped: Emp A1=true, TL Alice=true, Admin=true, Emp A2=false, Emp B1=false, TL Bob=false",
+    "status": "PASS",
+    "evidence": "{\"a1WonLead\":{\"id\":\"lead-won-1789811933918\",\"name\":\"Won Deal Client\",\"phone\":\"9888777666\",\"email\":\"wondeal@client.com\",\"company\":\"Unicorn Ventures Ltd\",\"city\":\"Mumbai\",\"assignedToEmployeeId\":\"tm-emp-a1-1789811931274\",\"assignedToEmployeeName\":\"Emp A1\",\"batchId\":\"batch-default\",\"assignedDate\":\"Today\",\"status\":\"CONVERTED\",\"notes\":\"Deal closed successfully! Advance received ₹2,50,000.\",\"callCount\":2,\"lastCallTimestamp\":\"Just now\",\"dealValue\":250000,\"followUpDate\":null,\"createdAt\":\"2026-09-19 09:58:53\"},\"aliceWonLead\":{\"id\":\"lead-won-1789811933918\",\"name\":\"Won Deal Client\",\"phone\":\"9888777666\",\"email\":\"wondeal@client.com\",\"company\":\"Unicorn Ventures Ltd\",\"city\":\"Mumbai\",\"assignedToEmployeeId\":\"tm-emp-a1-1789811931274\",\"assignedToEmployeeName\":\"Emp A1\",\"batchId\":\"batch-default\",\"assignedDate\":\"Today\",\"status\":\"CONVERTED\",\"notes\":\"Deal closed successfully! Advance received ₹2,50,000.\",\"callCount\":2,\"lastCallTimestamp\":\"Just now\",\"dealValue\":250000,\"followUpDate\":null,\"createdAt\":\"2026-09-19 09:58:53\"}}",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-TL-01",
+    "workflow": "Team Leader Squad Member Scope Isolation",
+    "steps": "GET /api/team-members as TL Alice and as TL Bob",
+    "expected": "TL Alice sees only Squad Alpha members; TL Bob sees only Squad Beta members",
+    "actual": "Both Team Leaders strictly isolated to their assigned squad members",
+    "status": "PASS",
+    "evidence": "Alice members: TL Alice, Emp A1, Emp A2, TL Alice, Emp A1, Emp A2, TL Alice, Emp A1, Emp A2, TL Alice, Emp A1, Emp A2; Bob members: TL Bob, Emp B1, Emp B2, TL Bob, Emp B1, Emp B2, TL Bob, Emp B1, Emp B2, TL Bob, Emp B1, Emp B2",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-TL-02",
+    "workflow": "Team Leader Floor Pulse Squad Scoping",
+    "steps": "GET /api/team-members/floor-pulse as TL Alice and as TL Bob",
+    "expected": "Floor pulse data isolated strictly to leader squad",
+    "actual": "Pulse isolated: Alice reps: []; Bob reps: []",
+    "status": "PASS",
+    "evidence": "{\"alicePulseReps\":[],\"bobPulseReps\":[]}",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-TL-03",
+    "workflow": "TL Cross-Squad Access Rejection (Lead Query)",
+    "steps": "GET /api/assigned-leads?employeeId=tm-emp-b1 with TL Alice token",
+    "expected": "Status 403 Forbidden",
+    "actual": "Status 403 Forbidden: Forbidden: Cannot access leads outside your assigned squad",
+    "status": "PASS",
+    "evidence": "{\"error\":\"Forbidden: Cannot access leads outside your assigned squad\"}",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-CONS-01",
+    "workflow": "Cross-Role Consistency (Lead Status & Outcome)",
+    "steps": "Employee updates lead -> check TL view -> check Admin view",
+    "expected": "Lead status and call count match identically across Employee, TL, and Admin views",
+    "actual": "Consistent across roles: TL sees status=CALLBACK, callCount=1; Admin sees status=CALLBACK, callCount=1",
+    "status": "PASS",
+    "evidence": "{\"tlView\":{\"id\":\"lead-a1-1789811933606\",\"name\":\"Client Alpha One\",\"phone\":\"9123456781\",\"email\":\"alpha1@client.com\",\"company\":\"Alpha Corp\",\"city\":\"Delhi\",\"assignedToEmployeeId\":\"tm-emp-a1-1789811931274\",\"assignedToEmployeeName\":\"Emp A1\",\"batchId\":\"batch-default\",\"assignedDate\":\"Today\",\"status\":\"CALLBACK\",\"notes\":\"Customer in meeting, asked to call back tomorrow at 3 PM\",\"callCount\":1,\"lastCallTimestamp\":\"Just now\",\"dealValue\":80000,\"followUpDate\":\"2026-09-20\",\"createdAt\":\"2026-09-19 09:58:53\"},\"adminView\":{\"id\":\"lead-a1-1789811933606\",\"name\":\"Client Alpha One\",\"phone\":\"9123456781\",\"email\":\"alpha1@client.com\",\"company\":\"Alpha Corp\",\"city\":\"Delhi\",\"assignedToEmployeeId\":\"tm-emp-a1-1789811931274\",\"assignedToEmployeeName\":\"Emp A1\",\"batchId\":\"batch-default\",\"assignedDate\":\"Today\",\"status\":\"CALLBACK\",\"notes\":\"Customer in meeting, asked to call back tomorrow at 3 PM\",\"callCount\":1,\"lastCallTimestamp\":\"Just now\",\"dealValue\":80000,\"followUpDate\":\"2026-09-20\",\"createdAt\":\"2026-09-19 09:58:53\"}}",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-SEC-01",
+    "workflow": "Employee Bypassing Scoping via Query Param",
+    "steps": "GET /api/assigned-leads?employeeId=tm-emp-a2 using Emp A1 token",
+    "expected": "Employee cannot access another employee leads via query parameter; backend forces own leads filter",
+    "actual": "Query parameter ignored; Emp A1 only received own leads",
+    "status": "PASS",
+    "evidence": "Returned 8 leads, none belonging to Emp A2",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-SEC-02",
+    "workflow": "Call Logs API Role Scoping",
+    "steps": "GET /api/call-logs using Employee A1 token",
+    "expected": "Only own logs returned",
+    "actual": "Only own logs returned",
+    "status": "PASS",
+    "evidence": "Total logs: 2",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-SEC-03",
+    "workflow": "Unauthenticated Request Rejection",
+    "steps": "Send GET requests to /api/assigned-leads, /api/team-members, /api/payments with NO Authorization header",
+    "expected": "Status 401 Unauthorized for all protected endpoints",
+    "actual": "All 3 protected endpoints returned status 401",
+    "status": "PASS",
+    "evidence": "assignedLeads=401, teamMembers=401, payments=401",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-SEC-04",
+    "workflow": "Employee Role Enforcement (Team Groups)",
+    "steps": "POST /api/team-groups with Employee A1 token",
+    "expected": "Status 403 Forbidden: Telecaller cannot create team groups",
+    "actual": "Blocked with status 403",
+    "status": "PASS",
+    "evidence": "{\"error\":\"Forbidden: Access requires admin privileges\"}",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-SEC-05",
+    "workflow": "User Provisioning Auth Protection",
+    "steps": "POST /api/auth/users with no authorization header",
+    "expected": "Status 401 or 403 Forbidden",
+    "actual": "Blocked with status 401",
+    "status": "PASS",
+    "evidence": "{\"error\":\"Unauthorized: Authentication token required\"}",
+    "severity": "N/A"
+  },
+  {
+    "id": "TC-SEC-06",
+    "workflow": "Payments API Role Scoping",
+    "steps": "GET /api/payments with Employee A1 token",
+    "expected": "Scoped strictly to own deals",
+    "actual": "Correctly scoped: Emp A1 received only own payments (3 records, 0 other reps)",
+    "status": "PASS",
+    "evidence": "Payment count: 3",
+    "severity": "N/A"
+  }
+]

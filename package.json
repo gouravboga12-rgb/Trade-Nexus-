@@ -10,7 +10,9 @@
     "test:api": "tsx server/tests/api.test.ts",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test:screens": "tsx src/tests/emptyState.test.tsx"
+    "test:screens": "tsx src/tests/emptyState.test.tsx",
+    "db:clean": "node scripts/clean-database.cjs",
+    "db:clean:aws": "node scripts/clean-aws-database.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1136.0",
