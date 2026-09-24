@@ -43,6 +43,7 @@ import {
 import { TeamMeeting, TeamMember } from '../../types';
 import { TelecallerDetailDrawer } from '../../components/modals/TelecallerDetailDrawer';
 import { Employee360ProfileView } from '../Employee360ProfileView';
+import { EmployeeAvatar } from '../../components/common/EmployeeAvatar';
 
 interface DesktopTeamLeaderViewProps {
   currentTab?: string;
@@ -242,21 +243,14 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
   };
 
   const renderMemberAvatar = (member: { avatar?: string; name: string }) => {
-    if (member.avatar && member.avatar.startsWith('http')) {
-      return (
-        <img
-          src={member.avatar}
-          alt={member.name}
-          className="w-8 h-8 rounded-xl object-cover border border-slate-200 flex-shrink-0"
-        />
-      );
-    }
-    const initials = (member.avatar && member.avatar.length <= 3)
-      ? member.avatar
-      : member.name.substring(0, 2).toUpperCase();
     return (
-      <div className="w-8 h-8 rounded-xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-black text-xs shadow-2xs flex-shrink-0">
-        {initials}
+      <div className="w-8 h-8 rounded-xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-black text-xs shadow-2xs flex-shrink-0 overflow-hidden">
+        <EmployeeAvatar
+          avatar={member.avatar}
+          name={member.name}
+          className="w-full h-full object-cover"
+          fallbackClassName="font-black text-xs"
+        />
       </div>
     );
   };

@@ -579,11 +579,11 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                     >
                       <td className="py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-black text-xs overflow-hidden flex-shrink-0">
+                          <div className="w-8 h-8 rounded-xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-black text-xs overflow-hidden shrink-0">
                             <EmployeeAvatar
                               avatar={emp.avatar}
                               name={emp.name}
-                              className="w-full h-full rounded-xl"
+                              className="w-full h-full"
                               fallbackClassName="font-black text-xs"
                             />
                           </div>

@@ -400,7 +400,12 @@ export const AdminScheduleMeetingModal: React.FC<AdminScheduleMeetingModalProps>
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <div className="w-7 h-7 rounded-lg bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-bold text-[10px] flex-shrink-0 overflow-hidden">
-                              <EmployeeAvatar avatar={emp.avatar} name={emp.name} className="w-full h-full rounded-lg" fallbackClassName="font-bold text-[10px]" />
+                              <EmployeeAvatar
+                                avatar={emp.avatar}
+                                name={emp.name}
+                                className="w-full h-full"
+                                fallbackClassName="font-bold text-[10px]"
+                              />
                             </div>
                             <div className="min-w-0">
                               <span className="font-bold text-xs text-[#0A2540] block truncate">

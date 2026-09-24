@@ -527,7 +527,12 @@ export const HrDashboardView: React.FC = () => {
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs flex-shrink-0 overflow-hidden">
-                            <EmployeeAvatar avatar={emp.avatar} name={emp.name} className="w-full h-full rounded-xl" fallbackClassName="font-bold text-xs" />
+                            <EmployeeAvatar
+                              avatar={emp.avatar}
+                              name={emp.name}
+                              className="w-full h-full"
+                              fallbackClassName="font-bold text-xs"
+                            />
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
@@ -563,7 +568,12 @@ export const HrDashboardView: React.FC = () => {
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-bold text-xs flex-shrink-0 overflow-hidden">
-                            <EmployeeAvatar avatar={emp.avatar} name={emp.name} className="w-full h-full rounded-xl" fallbackClassName="font-bold text-xs" />
+                            <EmployeeAvatar
+                              avatar={emp.avatar}
+                              name={emp.name}
+                              className="w-full h-full"
+                              fallbackClassName="font-bold text-xs"
+                            />
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
@@ -1403,7 +1413,12 @@ export const HrDashboardView: React.FC = () => {
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-center gap-3 min-w-0">
                               <div className={`w-10 h-10 rounded-full ${avatarGradient} text-white font-black text-xs flex items-center justify-center shadow-2xs flex-shrink-0 overflow-hidden`}>
-                                <EmployeeAvatar avatar={emp?.avatar} name={req.employeeName || 'Employee'} className="w-full h-full rounded-full" fallbackClassName="font-black text-xs" />
+                                <EmployeeAvatar
+                                  avatar={emp?.avatar}
+                                  name={req.employeeName || 'Employee'}
+                                  className="w-full h-full rounded-full"
+                                  fallbackClassName="font-black text-xs"
+                                />
                               </div>
                               <div className="min-w-0">
                                 <h4 className="text-sm font-bold text-[#0A2540] truncate">
@@ -1542,7 +1557,12 @@ export const HrDashboardView: React.FC = () => {
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-center gap-3 min-w-0">
                               <div className="w-10 h-10 rounded-full bg-slate-100 text-[#0A2540] font-bold text-xs flex items-center justify-center border border-slate-200/60 flex-shrink-0 overflow-hidden">
-                                <EmployeeAvatar avatar={emp?.avatar} name={req.employeeName || 'Employee'} className="w-full h-full rounded-full" fallbackClassName="font-bold text-xs" />
+                                <EmployeeAvatar
+                                  avatar={emp?.avatar}
+                                  name={req.employeeName || 'Employee'}
+                                  className="w-full h-full rounded-full"
+                                  fallbackClassName="font-bold text-xs"
+                                />
                               </div>
                               <div className="min-w-0">
                                 <h4 className="text-sm font-bold text-[#0A2540] truncate">
