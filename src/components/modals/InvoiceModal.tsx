@@ -197,7 +197,7 @@ export const InvoiceModal: React.FC = () => {
           {/* Printable Invoice Sheet matching Template 5 (5.png) */}
           <div 
             id="printable-invoice"
-            className="w-full max-w-[720px] bg-white text-slate-800 shadow-xl rounded-xl sm:rounded-2xl overflow-hidden relative border border-slate-200 font-sans print:shadow-none print:border-none print:m-0 print:p-0 print:rounded-none"
+            className="printable-document-sheet w-full max-w-[720px] bg-white text-slate-800 shadow-xl rounded-xl sm:rounded-2xl overflow-hidden relative border border-slate-200 font-sans print:shadow-none print:border-none print:m-0 print:p-0 print:rounded-none"
             style={{ 
               minHeight: '940px',
               WebkitPrintColorAdjust: 'exact',

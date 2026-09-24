@@ -205,7 +205,7 @@ export const OfferLetterModal: React.FC = () => {
           {/* Printable Letter Sheet (Exact Template matching 1.png) */}
           <div 
             id="offer-letter-sheet"
-            className="w-full bg-white text-slate-800 shadow-md rounded-xl sm:rounded-2xl overflow-hidden relative border border-slate-200 flex flex-col justify-between"
+            className="printable-document-sheet w-full bg-white text-slate-800 shadow-md rounded-xl sm:rounded-2xl overflow-hidden relative border border-slate-200 flex flex-col justify-between"
             style={{ 
               minHeight: '780px',
               WebkitPrintColorAdjust: 'exact',

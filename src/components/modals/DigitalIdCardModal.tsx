@@ -232,7 +232,7 @@ export const DigitalIdCardModal: React.FC = () => {
           
           <div 
             id="digital-id-card-sheet"
-            className="w-[340px] text-white rounded-[32px] overflow-hidden shadow-2xl relative flex flex-col justify-between"
+            className="printable-id-badge-sheet w-[340px] text-white rounded-[32px] overflow-hidden shadow-2xl relative flex flex-col justify-between"
             style={{ 
               backgroundColor: '#051326',
               minHeight: '580px',

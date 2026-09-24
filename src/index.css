@@ -115,24 +115,131 @@
   font-family: 'Caveat', 'Great Vibes', 'Dancing Script', cursive;
 }
 
-/* Print Styles: Force full color background & graphic printing */
+/* Print Styles: Pure White A4 Sheets & Clean Badge Isolation */
 @media print {
-  body, html {
+  @page {
+    size: A4 portrait;
+    margin: 0mm;
+  }
+
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
     background: #FFFFFF !important;
+    background-color: #FFFFFF !important;
+    color: #0F172A !important;
+    width: 100% !important;
+    min-height: 100% !important;
+    overflow: visible !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
   }
-  
+
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
   }
 
-  @page {
-    size: A4 portrait;
-    margin: 0;
+  /* Hide all non-essential page wrappers and elements */
+  header, 
+  nav, 
+  aside, 
+  footer, 
+  button, 
+  .print\:hidden,
+  .print-hidden,
+  [role="navigation"], 
+  .bottom-nav,
+  .fixed.top-0,
+  .fixed.bottom-20 {
+    display: none !important;
+  }
+
+  /* Completely neutralize modal fixed overlays & dark backdrop layers */
+  .fixed.inset-0,
+  .fixed,
+  [role="dialog"],
+  .modal-overlay {
+    position: static !important;
+    display: block !important;
+    background: #FFFFFF !important;
+    background-color: #FFFFFF !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+  }
+
+  /* Neutralize modal inner dialog boxes & scroll views */
+  .fixed.inset-0 > div,
+  .fixed.inset-0 > div > div,
+  .overflow-y-auto {
+    background: #FFFFFF !important;
+    background-color: #FFFFFF !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Full A4 Printable Document Sheets (Offer Letter, Experience Cert, Relieving Letter, Invoice, Payslip) */
+  .printable-document-sheet,
+  #offer-letter-sheet,
+  #experience-certificate-sheet,
+  #relieving-letter-sheet,
+  #printable-invoice,
+  #invoice-sheet,
+  #payslip-sheet {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    max-width: 210mm !important;
+    min-height: 297mm !important;
+    height: auto !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: #FFFFFF !important;
+    background-color: #FFFFFF !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+    overflow: hidden !important;
+  }
+
+  /* Clean ID Card Badge Sheet (Centered on pure white A4 sheet with 0 dark backdrop) */
+  .printable-id-badge-sheet,
+  #digital-id-card-sheet {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    width: 340px !important;
+    min-height: 580px !important;
+    margin: 30mm auto !important;
+    box-shadow: none !important;
+    border: 1px solid rgba(0, 201, 167, 0.4) !important;
+    border-radius: 28px !important;
+    background-color: #051326 !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+    overflow: hidden !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }
 

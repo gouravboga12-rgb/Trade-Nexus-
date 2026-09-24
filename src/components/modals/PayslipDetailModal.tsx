@@ -99,7 +99,7 @@ export const PayslipDetailModal: React.FC<PayslipDetailModalProps> = ({ payslip,
           {/* Printable Payslip Sheet matching 4.png */}
           <div 
             id="payslip-sheet"
-            className="w-full bg-white text-slate-800 shadow-xl rounded-xl sm:rounded-2xl overflow-hidden relative border border-slate-200 flex flex-col justify-between"
+            className="printable-document-sheet w-full bg-white text-slate-800 shadow-xl rounded-xl sm:rounded-2xl overflow-hidden relative border border-slate-200 flex flex-col justify-between"
             style={{ 
               minHeight: '780px',
               WebkitPrintColorAdjust: 'exact',
