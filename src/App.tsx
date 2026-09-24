@@ -18,6 +18,9 @@ import { QuickCallLogModal } from './components/modals/QuickCallLogModal';
 import { ApplyLeaveModal } from './components/modals/ApplyLeaveModal';
 import { DigitalIdCardModal } from './components/modals/DigitalIdCardModal';
 import { OfferLetterModal } from './components/modals/OfferLetterModal';
+import { ExperienceCertModal } from './components/modals/ExperienceCertModal';
+import { RelievingLetterModal } from './components/modals/RelievingLetterModal';
+import { InvoiceModal } from './components/modals/InvoiceModal';
 import { PayslipDetailModal } from './components/modals/PayslipDetailModal';
 import { RecentPayslipsModal } from './components/modals/RecentPayslipsModal';
 import { DevSettingsModal } from './components/common/DevSettingsModal';
@@ -185,6 +188,7 @@ export const App: React.FC = () => {
         { id: 'home', label: 'HR Overview', icon: Home },
         { id: 'employees', label: 'Employee Directory', icon: Users },
         { id: 'interviews', label: 'Interviews & Hiring', icon: UserCheck },
+        { id: 'documents', label: 'Documents Studio', icon: Award },
         { id: 'payroll', label: 'Payroll & Payslips', icon: FileText },
         { id: 'clearances', label: 'Clearances & Approvals', icon: ShieldCheck, badge: pendingLeaves + pendingPays },
       ];
@@ -684,6 +688,9 @@ export const App: React.FC = () => {
       <ApplyLeaveModal />
       <DigitalIdCardModal />
       <OfferLetterModal />
+      <ExperienceCertModal />
+      <RelievingLetterModal />
+      <InvoiceModal />
       <PayslipDetailModal
         payslip={selectedPayslip}
         isOpen={isPayslipModalOpen}

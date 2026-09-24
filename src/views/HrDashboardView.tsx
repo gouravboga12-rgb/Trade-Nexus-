@@ -53,9 +53,6 @@ import { OfferLetterModal } from '../components/modals/OfferLetterModal';
 import { GenerateOfferLetterModal } from '../components/modals/GenerateOfferLetterModal';
 import { DigitalIdCardModal } from '../components/modals/DigitalIdCardModal';
 import { FaceRegistrationModal } from '../components/modals/FaceRegistrationModal';
-import { ExperienceCertModal } from '../components/modals/ExperienceCertModal';
-import { RelievingLetterModal } from '../components/modals/RelievingLetterModal';
-import { InvoiceModal } from '../components/modals/InvoiceModal';
 import { Employee360ProfileView } from './Employee360ProfileView';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 
@@ -83,6 +80,13 @@ export const HrDashboardView: React.FC = () => {
     offerLetters,
     setSelectedOfferLetter,
     setIsOfferLetterModalOpen,
+    openOfferLetterModal,
+    experienceCerts,
+    openExperienceCertModal,
+    relievingLetters,
+    openRelievingLetterModal,
+    invoices,
+    openInvoiceModal,
     setIsIdCardModalOpen,
     selectedIdCardEmpId,
     setSelectedIdCardEmpId,
@@ -99,16 +103,7 @@ export const HrDashboardView: React.FC = () => {
     approveLeaveRequest,
     rejectLeaveRequest,
     verifyPayment,
-    triggerToast,
-    experienceCertificates,
-    setSelectedExperienceCert,
-    setIsExperienceCertModalOpen,
-    relievingLetters,
-    setSelectedRelievingLetter,
-    setIsRelievingLetterModalOpen,
-    invoices,
-    setSelectedInvoice,
-    setIsInvoiceModalOpen,
+    triggerToast 
   } = useApp();
 
   useScreenData('hrDashboard');
@@ -565,6 +560,48 @@ export const HrDashboardView: React.FC = () => {
                   <div>
                     <strong className="text-xs font-bold text-[#0A2540] block">ID Card Generation</strong>
                     <span className="text-[10px] text-slate-500">Print &amp; QR badge</span>
+                  </div>
+                </button>
+
+                {/* Action 5: Experience Certificate */}
+                <button
+                  onClick={() => openExperienceCertModal()}
+                  className="bg-white border border-slate-200 hover:border-[#00C9A7] rounded-2xl p-3.5 shadow-xs flex items-center gap-3 text-left transition-all active:scale-95 cursor-pointer group"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <Award className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <strong className="text-xs font-bold text-[#0A2540] block">Experience Cert</strong>
+                    <span className="text-[10px] text-slate-500">Tenure verification</span>
+                  </div>
+                </button>
+
+                {/* Action 6: Relieving Letter */}
+                <button
+                  onClick={() => openRelievingLetterModal()}
+                  className="bg-white border border-slate-200 hover:border-[#00C9A7] rounded-2xl p-3.5 shadow-xs flex items-center gap-3 text-left transition-all active:scale-95 cursor-pointer group"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-teal-50 text-[#00A88B] flex items-center justify-center font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <Briefcase className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <strong className="text-xs font-bold text-[#0A2540] block">Relieving Letter</strong>
+                    <span className="text-[10px] text-slate-500">Exit &amp; seal badge</span>
+                  </div>
+                </button>
+
+                {/* Action 7: Invoice Generator */}
+                <button
+                  onClick={() => openInvoiceModal()}
+                  className="bg-white border border-slate-200 hover:border-[#00C9A7] rounded-2xl p-3.5 shadow-xs flex items-center gap-3 text-left transition-all active:scale-95 cursor-pointer group"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-700 flex items-center justify-center font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <Receipt className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <strong className="text-xs font-bold text-[#0A2540] block">Tax Invoice</strong>
+                    <span className="text-[10px] text-slate-500">B2B client invoice</span>
                   </div>
                 </button>
 
@@ -2354,45 +2391,6 @@ export const HrDashboardView: React.FC = () => {
                   </div>
 
                   <div className="pt-1 flex flex-col gap-2">
-
-                    {/* Document Generation Buttons */}
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pt-1">Generate Documents</p>
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (experienceCertificates.length > 0) setSelectedExperienceCert(experienceCertificates[0]);
-                          setIsExperienceCertModalOpen(true);
-                        }}
-                        className="py-2 px-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] border border-emerald-200 flex flex-col items-center gap-1 transition-all active:scale-95"
-                      >
-                        <FileText className="w-4 h-4 text-emerald-600" />
-                        <span>Exp Cert</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (relievingLetters.length > 0) setSelectedRelievingLetter(relievingLetters[0]);
-                          setIsRelievingLetterModalOpen(true);
-                        }}
-                        className="py-2 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 font-bold text-[10px] border border-rose-200 flex flex-col items-center gap-1 transition-all active:scale-95"
-                      >
-                        <FileText className="w-4 h-4 text-rose-600" />
-                        <span>Relieving</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (invoices.length > 0) setSelectedInvoice(invoices[0]);
-                          setIsInvoiceModalOpen(true);
-                        }}
-                        className="py-2 px-2 rounded-xl bg-violet-50 hover:bg-violet-100 text-violet-800 font-bold text-[10px] border border-violet-200 flex flex-col items-center gap-1 transition-all active:scale-95"
-                      >
-                        <Receipt className="w-4 h-4 text-violet-600" />
-                        <span>Invoice</span>
-                      </button>
-                    </div>
-
                     <button
                       type="button"
                       onClick={() => {
@@ -2582,15 +2580,6 @@ export const HrDashboardView: React.FC = () => {
 
       {/* 3. Face Registration Modal */}
       <FaceRegistrationModal />
-
-      {/* 4. Experience Certificate Modal */}
-      <ExperienceCertModal />
-
-      {/* 5. Relieving Letter Modal */}
-      <RelievingLetterModal />
-
-      {/* 6. Invoice Modal */}
-      <InvoiceModal />
 
       {/* 6. Payslip Generator Modal */}
       {isPayslipGenModalOpen && (

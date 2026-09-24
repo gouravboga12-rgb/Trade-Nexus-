@@ -370,33 +370,34 @@ export interface OfficeSettings {
   radiusMeters: number;
 }
 
-export interface ExperienceCertificateData {
+export interface ExperienceCertData {
   id: string;
-  refNumber: string;
-  issueDate: string;
   employeeName: string;
-  fatherName?: string;
+  empCode: string;
+  guardianName?: string;
   designation: string;
-  companyName: string;
+  department: string;
   startDate: string;
   endDate: string;
-  responsibilities?: string;
+  refNumber: string;
+  issuedDate: string;
+  conductRemarks?: string;
   signatoryName: string;
   signatoryRole: string;
 }
 
 export interface RelievingLetterData {
   id: string;
-  issueDate: string;
   employeeName: string;
+  empCode: string;
   designation: string;
   department: string;
   employeeType: string;
-  empCode: string;
-  address: string;
+  employeeAddress: string;
   resignationDate: string;
   lastWorkingDate: string;
   joiningDate: string;
+  issuedDate: string;
   signatoryName: string;
   signatoryRole: string;
 }
@@ -404,8 +405,8 @@ export interface RelievingLetterData {
 export interface InvoiceItem {
   id: string;
   description: string;
-  qty: number;
-  price: number;
+  quantity: number;
+  unitPrice: number;
   total: number;
 }
 
@@ -413,24 +414,31 @@ export interface InvoiceData {
   id: string;
   invoiceNumber: string;
   date: string;
-  billTo: {
-    name: string;
-    phone: string;
-    address: string;
-  };
-  from: {
-    name: string;
-    phone: string;
-    address: string;
-  };
+  dueDate?: string;
+  // Bill To
+  clientName: string;
+  clientCompany?: string;
+  clientPhone: string;
+  clientEmail?: string;
+  clientAddress: string;
+  // From
+  fromName: string;
+  fromRole?: string;
+  fromPhone: string;
+  fromEmail: string;
+  fromAddress: string;
+  // Items & Summary
   items: InvoiceItem[];
   subTotal: number;
-  total: number;
-  notes?: string;
-  paymentInfo: {
-    bankName: string;
-    accountNumber: string;
-    email: string;
-  };
+  taxRate?: number;
+  taxAmount?: number;
+  grandTotal: number;
+  note?: string;
+  // Payment Info
+  bankName: string;
+  accountNumber: string;
+  ifscCode?: string;
+  paymentEmail: string;
+  status: 'PAID' | 'PENDING' | 'OVERDUE';
 }
 

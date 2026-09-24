@@ -23,7 +23,16 @@ import {
   ArrowUpRight,
   ShieldCheck,
   MoreHorizontal,
-  Video
+  Video,
+  Award,
+  Printer,
+  Receipt,
+  Sparkles,
+  Briefcase,
+  Eye,
+  ExternalLink,
+  QrCode,
+  Layers
 } from 'lucide-react';
 import { CandidateInterview, OnboardingEmployee, ExitEmployee, PaymentVerificationItem, TeamMember } from '../../types';
 import { AddEmployeeModal } from '../../components/modals/AddEmployeeModal';
@@ -61,7 +70,18 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
     teamMeetings,
     joinMeeting,
     triggerToast,
-    setIsFaceIdModalOpen 
+    setIsFaceIdModalOpen,
+    openOfferLetterModal,
+    openExperienceCertModal,
+    openRelievingLetterModal,
+    openInvoiceModal,
+    openPayslipModal,
+    setIsIdCardModalOpen,
+    setSelectedIdCardEmpId,
+    offerLetters,
+    experienceCerts,
+    relievingLetters,
+    invoices
   } = useApp();
 
   useScreenData('hrDashboard');
@@ -69,6 +89,9 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<string>(currentTab);
   const activeTab = onTabChange ? currentTab : activeSubTab;
   const setTab = onTabChange || setActiveSubTab;
+
+  const [documentsSubTab, setDocumentsSubTab] = useState<'all' | 'id_cards' | 'offers' | 'experience' | 'relieving' | 'payslips' | 'invoices'>('all');
+  const [docSearchQuery, setDocSearchQuery] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddEmployeeModalOpen, setIsAddEmployeeModalOpen] = useState(false);
@@ -176,6 +199,14 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
             >
               <Download className="w-4 h-4 text-slate-500" />
               <span>Export Audit</span>
+            </button>
+
+            <button
+              onClick={() => setTab('documents')}
+              className="flex items-center gap-2 bg-[#06152B] border border-slate-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl hover:bg-slate-800 transition-all shadow-xs"
+            >
+              <Award className="w-4 h-4 text-[#00C9A7]" />
+              <span>Documents Studio</span>
             </button>
 
             <button
@@ -721,6 +752,505 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* --- TAB: DOCUMENTS & LETTERS STUDIO --- */}
+      {activeTab === 'documents' && (
+        <div className="space-y-6 animate-in fade-in duration-150">
+          {/* Studio Hero Banner */}
+          <div className="bg-gradient-to-br from-[#06152B] via-[#0A2540] to-[#06152B] rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden border border-slate-800 shadow-xl">
+            <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-[#00C9A7]/15 to-transparent pointer-events-none" />
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00C9A7]/20 border border-[#00C9A7]/40 text-[#00C9A7] text-xs font-bold mb-3">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Official Corporate Document Suite</span>
+                </div>
+                <h2 className="font-display font-black text-2xl sm:text-3xl tracking-tight text-white">
+                  HR Documents & Letters Studio
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-300 mt-1.5 max-w-xl leading-relaxed">
+                  Generate, preview, customize, and print high-fidelity official Trade Nexus documents matching company design templates with digital verification and executive signatures.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => openInvoiceModal()}
+                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center gap-2 border border-white/10 transition-all"
+                >
+                  <Receipt className="w-4 h-4 text-[#00C9A7]" />
+                  <span>New Invoice</span>
+                </button>
+
+                <button
+                  onClick={() => openOfferLetterModal()}
+                  className="px-4 py-2.5 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs flex items-center gap-2 shadow-lg shadow-[#00C9A7]/20 transition-all active:scale-95"
+                >
+                  <Plus className="w-4 h-4 stroke-[3]" />
+                  <span>Generate Document</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Stat Badges */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-white/10">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">ID Cards Ready</span>
+                <span className="font-display font-black text-lg text-[#00C9A7]">{teamMembers.length} Employees</span>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Job / Offer Letters</span>
+                <span className="font-display font-black text-lg text-white">{offerLetters.length + candidates.length} Issued</span>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Experience & Relieving</span>
+                <span className="font-display font-black text-lg text-white">{experienceCerts.length + relievingLetters.length} Records</span>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Invoices & Payslips</span>
+                <span className="font-display font-black text-lg text-[#00C9A7]">{invoices.length + payslips.length} Total</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Subtabs Filter Navigation */}
+          <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-2.5 rounded-2xl border border-slate-200 shadow-xs">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { id: 'all', label: 'All Templates (6)', icon: Layers },
+                { id: 'id_cards', label: 'ID Cards', icon: QrCode },
+                { id: 'offers', label: 'Job Letters', icon: FileText },
+                { id: 'experience', label: 'Experience Certs', icon: Award },
+                { id: 'relieving', label: 'Relieving Letters', icon: Briefcase },
+                { id: 'payslips', label: 'Payroll Slips', icon: CreditCard },
+                { id: 'invoices', label: 'Invoices', icon: Receipt },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const active = documentsSubTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setDocumentsSubTab(tab.id as any)}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                      active
+                        ? 'bg-[#06152B] text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Icon className={`w-3.5 h-3.5 ${active ? 'text-[#00C9A7]' : 'text-slate-400'}`} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="relative min-w-[220px]">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={docSearchQuery}
+                onChange={(e) => setDocSearchQuery(e.target.value)}
+                placeholder="Search documents..."
+                className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#00C9A7]"
+              />
+            </div>
+          </div>
+
+          {/* 6 Studio Template Action Cards Grid */}
+          {(documentsSubTab === 'all' || docSearchQuery) && (
+            <div>
+              <div className="flex items-center justify-between mb-3 px-1">
+                <h3 className="font-display font-black text-sm text-[#0A2540] uppercase tracking-wider">
+                  Official Template Catalog & Direct Generators
+                </h3>
+                <span className="text-xs text-slate-400">Select any template to launch live interactive editor</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                
+                {/* 1. ID Card Card */}
+                <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs hover:border-[#00C9A7] transition-all group flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="px-2.5 py-1 rounded-lg bg-[#06152B] text-white text-[10px] font-mono font-bold">
+                        TEMPLATE 1 • tradenexus-id.png
+                      </span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    </div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-12 h-12 rounded-2xl bg-[#06152B] text-[#00C9A7] flex items-center justify-center border border-[#00C9A7]/30">
+                        <QrCode className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-display font-black text-base text-[#0A2540]">Employee ID Card</h4>
+                        <p className="text-xs text-slate-400">Biometric Vertical Badge with QR</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                      Dual-sided format with curved teal wave, employee photo circle, matrix metadata table, corporate seal and CEO signature.
+                    </p>
+                  </div>
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#00A88B]">{teamMembers.length} Staff Enrolled</span>
+                    <button
+                      onClick={() => {
+                        const first = teamMembers[0]?.id || '';
+                        setSelectedIdCardEmpId(first);
+                        setIsIdCardModalOpen(true);
+                      }}
+                      className="px-4 py-2 rounded-xl bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs transition-all flex items-center gap-1.5"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Generate / View</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Job Letter Card */}
+                <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs hover:border-[#00C9A7] transition-all group flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="px-2.5 py-1 rounded-lg bg-[#06152B] text-white text-[10px] font-mono font-bold">
+                        TEMPLATE 2 • 1.png
+                      </span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    </div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-[#5B3DF5] flex items-center justify-center border border-indigo-100">
+                        <FileText className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-display font-black text-base text-[#0A2540]">Job Offer & Appointment</h4>
+                        <p className="text-xs text-slate-400">Formal Employment Offer Letter</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                      Official letterhead with angled header, candidate details, designation, remuneration terms, reporting details and CEO signature.
+                    </p>
+                  </div>
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#5B3DF5]">Recruitment Ready</span>
+                    <button
+                      onClick={() => openOfferLetterModal()}
+                      className="px-4 py-2 rounded-xl bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs transition-all flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Draft Job Letter</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. Experience Certificate Card */}
+                <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs hover:border-[#00C9A7] transition-all group flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="px-2.5 py-1 rounded-lg bg-[#06152B] text-white text-[10px] font-mono font-bold">
+                        TEMPLATE 3 • 2.png
+                      </span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    </div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100">
+                        <Award className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-display font-black text-base text-[#0A2540]">Experience Certificate</h4>
+                        <p className="text-xs text-slate-400">Employment Verification Letter</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                      Official certificate stating tenure dates, designation, satisfactory conduct clause, ref numbering, and CEO signature.
+                    </p>
+                  </div>
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-600">Verification Studio</span>
+                    <button
+                      onClick={() => openExperienceCertModal()}
+                      className="px-4 py-2 rounded-xl bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs transition-all flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Issue Certificate</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4. Relieving Letter Card */}
+                <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs hover:border-[#00C9A7] transition-all group flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="px-2.5 py-1 rounded-lg bg-[#06152B] text-white text-[10px] font-mono font-bold">
+                        TEMPLATE 4 • 3.png
+                      </span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    </div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-12 h-12 rounded-2xl bg-teal-50 text-[#00A88B] flex items-center justify-center border border-teal-100">
+                        <Briefcase className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-display font-black text-base text-[#0A2540]">Relieving Letter</h4>
+                        <p className="text-xs text-slate-400">Clearance & Separation Document</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                      Formal discharge with resignation acceptance, last working day, official circular Trade Nexus stamp badge & CEO signature.
+                    </p>
+                  </div>
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#00A88B]">Exit & Settlement</span>
+                    <button
+                      onClick={() => openRelievingLetterModal()}
+                      className="px-4 py-2 rounded-xl bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs transition-all flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Generate Letter</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 5. Payroll Slip Card */}
+                <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs hover:border-[#00C9A7] transition-all group flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="px-2.5 py-1 rounded-lg bg-[#06152B] text-white text-[10px] font-mono font-bold">
+                        TEMPLATE 5 • 4.png
+                      </span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    </div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
+                        <CreditCard className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-display font-black text-base text-[#0A2540]">Corporate Payroll Slip</h4>
+                        <p className="text-xs text-slate-400">Monthly Compensation Ledger</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                      Two-column metadata layout, earnings breakdown, statutory deductions, net pay callout & Finance Manager sign-off.
+                    </p>
+                  </div>
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-600">{payslips.length} Slips Generated</span>
+                    <button
+                      onClick={() => {
+                        const first = payslips[0];
+                        if (first) openPayslipModal(first);
+                      }}
+                      className="px-4 py-2 rounded-xl bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs transition-all flex items-center gap-1.5"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>View / Print</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 6. Invoice Card */}
+                <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs hover:border-[#00C9A7] transition-all group flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="px-2.5 py-1 rounded-lg bg-[#06152B] text-white text-[10px] font-mono font-bold">
+                        TEMPLATE 6 • 5.png
+                      </span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    </div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-12 h-12 rounded-2xl bg-cyan-50 text-cyan-700 flex items-center justify-center border border-cyan-100">
+                        <Receipt className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-display font-black text-base text-[#0A2540]">Commercial Tax Invoice</h4>
+                        <p className="text-xs text-slate-400">B2B Billing & Client Invoice</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                      Dark navy geometric header, itemized line items, automated subtotal/GST math, banking coordinates, and cursive sign-off.
+                    </p>
+                  </div>
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-xs font-bold text-cyan-700">{invoices.length} Invoices Active</span>
+                    <button
+                      onClick={() => openInvoiceModal()}
+                      className="px-4 py-2 rounded-xl bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs transition-all flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Create Invoice</span>
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* Specific Active Tab Documents Registries */}
+          {(documentsSubTab === 'experience' || documentsSubTab === 'all') && (
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="font-display font-black text-base text-[#0A2540]">Experience Certificates Registry</h3>
+                  <p className="text-xs text-slate-400">Issued service verification letters for employees</p>
+                </div>
+                <button
+                  onClick={() => openExperienceCertModal()}
+                  className="px-3.5 py-1.5 bg-[#00C9A7] text-[#0A2540] font-bold text-xs rounded-xl flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                  <span>New Certificate</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      <th className="pb-3">Employee</th>
+                      <th className="pb-3">Ref Number</th>
+                      <th className="pb-3">Designation</th>
+                      <th className="pb-3">Tenure Period</th>
+                      <th className="pb-3">Issued Date</th>
+                      <th className="pb-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {experienceCerts.map((cert) => (
+                      <tr key={cert.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 font-bold text-[#0A2540]">{cert.employeeName} ({cert.empCode})</td>
+                        <td className="py-3 font-mono text-slate-600">{cert.refNumber}</td>
+                        <td className="py-3 text-slate-700">{cert.designation}</td>
+                        <td className="py-3 font-medium text-slate-600">{cert.startDate} to {cert.endDate}</td>
+                        <td className="py-3 text-slate-500">{cert.issuedDate}</td>
+                        <td className="py-3 text-right">
+                          <button
+                            onClick={() => openExperienceCertModal(cert)}
+                            className="px-3 py-1 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-lg transition-all"
+                          >
+                            Open / Print
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {(documentsSubTab === 'relieving' || documentsSubTab === 'all') && (
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="font-display font-black text-base text-[#0A2540]">Relieving Letters Registry</h3>
+                  <p className="text-xs text-slate-400">Formal separation & settlement records</p>
+                </div>
+                <button
+                  onClick={() => openRelievingLetterModal()}
+                  className="px-3.5 py-1.5 bg-[#00C9A7] text-[#0A2540] font-bold text-xs rounded-xl flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                  <span>New Relieving Letter</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      <th className="pb-3">Employee</th>
+                      <th className="pb-3">Designation</th>
+                      <th className="pb-3">Resignation Date</th>
+                      <th className="pb-3">Last Working Day</th>
+                      <th className="pb-3">Issued Date</th>
+                      <th className="pb-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {relievingLetters.map((letter) => (
+                      <tr key={letter.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 font-bold text-[#0A2540]">{letter.employeeName} ({letter.empCode})</td>
+                        <td className="py-3 text-slate-700">{letter.designation}</td>
+                        <td className="py-3 font-medium text-slate-600">{letter.resignationDate}</td>
+                        <td className="py-3 font-medium text-slate-600">{letter.lastWorkingDate}</td>
+                        <td className="py-3 text-slate-500">{letter.issuedDate}</td>
+                        <td className="py-3 text-right">
+                          <button
+                            onClick={() => openRelievingLetterModal(letter)}
+                            className="px-3 py-1 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-lg transition-all"
+                          >
+                            Open / Print
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {(documentsSubTab === 'invoices' || documentsSubTab === 'all') && (
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="font-display font-black text-base text-[#0A2540]">Commercial Invoices Registry</h3>
+                  <p className="text-xs text-slate-400">B2B client invoices and billing settlements</p>
+                </div>
+                <button
+                  onClick={() => openInvoiceModal()}
+                  className="px-3.5 py-1.5 bg-[#00C9A7] text-[#0A2540] font-bold text-xs rounded-xl flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                  <span>Create Invoice</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      <th className="pb-3">Invoice No</th>
+                      <th className="pb-3">Client / Organization</th>
+                      <th className="pb-3">Date</th>
+                      <th className="pb-3">Amount</th>
+                      <th className="pb-3">Status</th>
+                      <th className="pb-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {invoices.map((inv) => (
+                      <tr key={inv.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 font-mono font-bold text-[#0A2540]">{inv.invoiceNumber}</td>
+                        <td className="py-3 font-medium text-slate-800">
+                          {inv.clientName}
+                          {inv.clientCompany && <span className="text-slate-400 block text-[10px]">{inv.clientCompany}</span>}
+                        </td>
+                        <td className="py-3 text-slate-600">{inv.date}</td>
+                        <td className="py-3 font-mono font-bold text-[#00A88B]">₹{Number(inv.grandTotal).toLocaleString('en-IN')}</td>
+                        <td className="py-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
+                            inv.status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {inv.status}
+                          </span>
+                        </td>
+                        <td className="py-3 text-right">
+                          <button
+                            onClick={() => openInvoiceModal(inv)}
+                            className="px-3 py-1 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-lg transition-all"
+                          >
+                            Open / Print
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
         </div>
       )}
 
