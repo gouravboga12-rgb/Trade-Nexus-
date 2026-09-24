@@ -31,6 +31,7 @@ export const DigitalIdCardModal: React.FC = () => {
 
   const [selectedEmpId, setSelectedEmpId] = useState<string>(selectedIdCardEmpId || profile.id || 'emp-101');
   const [customPhotoUrl, setCustomPhotoUrl] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'card' | 'template'>('card');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -119,17 +120,44 @@ export const DigitalIdCardModal: React.FC = () => {
           />
 
           <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
             className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-300 hover:border-[#00C9A7] text-slate-700 font-bold flex items-center gap-1.5 shadow-2xs transition-all flex-shrink-0"
           >
             <Upload className="w-3.5 h-3.5 text-[#00A88B]" />
-            <span>Upload Photo</span>
+            <span>Photo</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setViewMode(prev => prev === 'card' ? 'template' : 'card')}
+            className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 flex-shrink-0 ${
+              viewMode === 'template'
+                ? 'bg-[#00C9A7] text-[#0A2540] border-[#00C9A7]'
+                : 'bg-white border-slate-300 text-slate-700 hover:border-[#00C9A7]'
+            }`}
+          >
+            <span>{viewMode === 'template' ? 'Dynamic Badge' : 'Official Template'}</span>
           </button>
         </div>
 
         {/* Vertical Printable ID Card (Exact Image 1 Pixel-Perfect Template) */}
         <div className="p-4 sm:p-6 overflow-y-auto bg-slate-100 flex justify-center items-center">
           
+          {viewMode === 'template' ? (
+            <div className="flex flex-col items-center animate-in fade-in duration-200">
+              <div className="w-[320px] rounded-[28px] overflow-hidden shadow-2xl border-2 border-[#00C9A7]/40 bg-white">
+                <img 
+                  src="/templates/id_card_template.png" 
+                  alt="Official Trade Nexus ID Card Template" 
+                  className="w-full h-auto object-contain"
+                />
+              </div>
+              <p className="text-[11px] text-slate-500 font-bold mt-2.5 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-2xs">
+                Official Company Master Template: tradenexus-id.png
+              </p>
+            </div>
+          ) : (
           <div 
             id="digital-id-card-sheet"
             className="w-[320px] bg-[#06172E] text-white rounded-[28px] overflow-hidden shadow-2xl relative border-2 border-[#00C9A7]/40 flex flex-col justify-between"
@@ -195,62 +223,84 @@ export const DigitalIdCardModal: React.FC = () => {
               <div className="grid grid-cols-12 gap-1">
                 <span className="col-span-5 text-slate-300 font-semibold">Emp. ID</span>
                 <span className="col-span-1 text-slate-400">:</span>
-                <span className="col-span-6 font-mono font-bold text-white">{empCode}</span>
+                <span className="col-span-6 font-mono font-bold text-white">{empCode || '001'}</span>
+              </div>
+              <div className="grid grid-cols-12 gap-1">
+                <span className="col-span-5 text-slate-300 font-semibold">Emp. Type</span>
+                <span className="col-span-1 text-slate-400">:</span>
+                <span className="col-span-6 font-mono font-bold text-white">Full - Time</span>
               </div>
               <div className="grid grid-cols-12 gap-1">
                 <span className="col-span-5 text-slate-300 font-semibold">Blood Group</span>
                 <span className="col-span-1 text-slate-400">:</span>
-                <span className="col-span-6 font-mono font-bold text-white">{bloodGroup}</span>
+                <span className="col-span-6 font-mono font-bold text-white">{bloodGroup || 'O+ ve'}</span>
               </div>
               <div className="grid grid-cols-12 gap-1">
                 <span className="col-span-5 text-slate-300 font-semibold">D.O.B.</span>
                 <span className="col-span-1 text-slate-400">:</span>
-                <span className="col-span-6 font-mono font-bold text-white">{dob}</span>
+                <span className="col-span-6 font-mono font-bold text-white">{dob || '05/11/1997'}</span>
               </div>
               <div className="grid grid-cols-12 gap-1">
                 <span className="col-span-5 text-slate-300 font-semibold">Cell</span>
                 <span className="col-span-1 text-slate-400">:</span>
-                <span className="col-span-6 font-mono font-bold text-white truncate">{cellNumber}</span>
+                <span className="col-span-6 font-mono font-bold text-white truncate">{cellNumber || '0000XXXX97'}</span>
               </div>
             </div>
 
-            {/* Bottom Curved Wave with Corporate Details (Exact Image 1) */}
-            <div className="relative bg-white text-[#0A2540] px-5 py-4 rounded-t-[36px] mt-2 border-t-4 border-[#00C9A7] shadow-lg">
+            {/* Bottom Curved Wave with Corporate Details (Exact Image 1 pixel-perfect) */}
+            <div className="relative bg-white text-[#0A2540] px-4 py-3.5 rounded-t-[36px] mt-2 border-t-4 border-[#00C9A7] shadow-lg">
               
-              {/* Watermark in bottom right */}
-              <div className="absolute right-2 bottom-2 opacity-10 pointer-events-none">
-                <TrendingUp className="w-20 h-20 text-[#00C9A7]" />
+              <div className="flex items-end justify-between gap-2 relative z-10">
+                {/* Left contact icons */}
+                <div className="space-y-1 text-[8.5px] font-semibold text-slate-700 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-4 h-4 rounded-full bg-[#0A2540] text-[#00C9A7] flex items-center justify-center flex-shrink-0">
+                      <MapPin className="w-2.5 h-2.5" />
+                    </div>
+                    <span className="truncate max-w-[130px]">123 Business Avenue, Financial Dist.</span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-4 h-4 rounded-full bg-[#0A2540] text-[#00C9A7] flex items-center justify-center flex-shrink-0">
+                      <Mail className="w-2.5 h-2.5" />
+                    </div>
+                    <span className="truncate">info@tradenexus.com</span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-4 h-4 rounded-full bg-[#0A2540] text-[#00C9A7] flex items-center justify-center flex-shrink-0">
+                      <Globe className="w-2.5 h-2.5" />
+                    </div>
+                    <span className="truncate">www.tradenexus.com</span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-4 h-4 rounded-full bg-[#0A2540] text-[#00C9A7] flex items-center justify-center flex-shrink-0">
+                      <Phone className="w-2.5 h-2.5" />
+                    </div>
+                    <span className="truncate">+91 98765 43210</span>
+                  </div>
+                </div>
+
+                {/* Right CEO Signature & Watermark (Matching tradenexus-id.png) */}
+                <div className="text-right flex-shrink-0 relative">
+                  <div className="absolute -top-3 right-0 opacity-15 pointer-events-none">
+                    <TrendingUp className="w-14 h-14 text-[#00C9A7]" />
+                  </div>
+                  <div className="relative z-10 space-y-0.5 pt-1">
+                    <div className="font-serif italic text-sm text-[#0A2540] leading-none transform -rotate-2 select-none">
+                      T. Vidhya sagar
+                    </div>
+                    <div className="text-[8.5px] font-bold text-[#0A2540] tracking-tight leading-tight">
+                      T.Vidhya Sagar
+                    </div>
+                    <div className="text-[7.5px] font-semibold text-slate-500 tracking-tight leading-none">
+                      Chief executive Officer
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-1.5 text-[9px] relative z-10 font-semibold text-slate-700">
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full bg-[#0A2540] text-[#00C9A7] flex items-center justify-center flex-shrink-0">
-                    <MapPin className="w-3 h-3" />
-                  </div>
-                  <span className="truncate">123 Business Avenue, Financial District, 500001</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full bg-[#0A2540] text-[#00C9A7] flex items-center justify-center flex-shrink-0">
-                    <Mail className="w-3 h-3" />
-                  </div>
-                  <span className="truncate">info@tradenexus.com</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full bg-[#0A2540] text-[#00C9A7] flex items-center justify-center flex-shrink-0">
-                    <Globe className="w-3 h-3" />
-                  </div>
-                  <span className="truncate">www.tradenexus.com</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full bg-[#0A2540] text-[#00C9A7] flex items-center justify-center flex-shrink-0">
-                    <Phone className="w-3 h-3" />
-                  </div>
-                  <span className="truncate">+91 98765 43210</span>
-                </div>
-              </div>
             </div>
 
           </div>

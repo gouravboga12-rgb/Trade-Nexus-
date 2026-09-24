@@ -53,6 +53,9 @@ import { OfferLetterModal } from '../components/modals/OfferLetterModal';
 import { GenerateOfferLetterModal } from '../components/modals/GenerateOfferLetterModal';
 import { DigitalIdCardModal } from '../components/modals/DigitalIdCardModal';
 import { FaceRegistrationModal } from '../components/modals/FaceRegistrationModal';
+import { ExperienceCertModal } from '../components/modals/ExperienceCertModal';
+import { RelievingLetterModal } from '../components/modals/RelievingLetterModal';
+import { InvoiceModal } from '../components/modals/InvoiceModal';
 import { Employee360ProfileView } from './Employee360ProfileView';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 
@@ -96,7 +99,16 @@ export const HrDashboardView: React.FC = () => {
     approveLeaveRequest,
     rejectLeaveRequest,
     verifyPayment,
-    triggerToast 
+    triggerToast,
+    experienceCertificates,
+    setSelectedExperienceCert,
+    setIsExperienceCertModalOpen,
+    relievingLetters,
+    setSelectedRelievingLetter,
+    setIsRelievingLetterModalOpen,
+    invoices,
+    setSelectedInvoice,
+    setIsInvoiceModalOpen,
   } = useApp();
 
   useScreenData('hrDashboard');
@@ -2342,6 +2354,45 @@ export const HrDashboardView: React.FC = () => {
                   </div>
 
                   <div className="pt-1 flex flex-col gap-2">
+
+                    {/* Document Generation Buttons */}
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pt-1">Generate Documents</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (experienceCertificates.length > 0) setSelectedExperienceCert(experienceCertificates[0]);
+                          setIsExperienceCertModalOpen(true);
+                        }}
+                        className="py-2 px-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] border border-emerald-200 flex flex-col items-center gap-1 transition-all active:scale-95"
+                      >
+                        <FileText className="w-4 h-4 text-emerald-600" />
+                        <span>Exp Cert</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (relievingLetters.length > 0) setSelectedRelievingLetter(relievingLetters[0]);
+                          setIsRelievingLetterModalOpen(true);
+                        }}
+                        className="py-2 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 font-bold text-[10px] border border-rose-200 flex flex-col items-center gap-1 transition-all active:scale-95"
+                      >
+                        <FileText className="w-4 h-4 text-rose-600" />
+                        <span>Relieving</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (invoices.length > 0) setSelectedInvoice(invoices[0]);
+                          setIsInvoiceModalOpen(true);
+                        }}
+                        className="py-2 px-2 rounded-xl bg-violet-50 hover:bg-violet-100 text-violet-800 font-bold text-[10px] border border-violet-200 flex flex-col items-center gap-1 transition-all active:scale-95"
+                      >
+                        <Receipt className="w-4 h-4 text-violet-600" />
+                        <span>Invoice</span>
+                      </button>
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => {
@@ -2531,6 +2582,15 @@ export const HrDashboardView: React.FC = () => {
 
       {/* 3. Face Registration Modal */}
       <FaceRegistrationModal />
+
+      {/* 4. Experience Certificate Modal */}
+      <ExperienceCertModal />
+
+      {/* 5. Relieving Letter Modal */}
+      <RelievingLetterModal />
+
+      {/* 6. Invoice Modal */}
+      <InvoiceModal />
 
       {/* 6. Payslip Generator Modal */}
       {isPayslipGenModalOpen && (

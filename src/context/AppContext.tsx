@@ -23,6 +23,9 @@ import {
   LeadBatch,
   FaceBiometricProfile,
   OfferLetterData,
+  ExperienceCertificateData,
+  RelievingLetterData,
+  InvoiceData,
   NewEmployeeInput,
   CompanyHoliday,
   CalendarSettings,
@@ -117,6 +120,30 @@ interface AppContextType {
   /** Switch an employee off without deleting their history, or switch them back on. */
   setEmployeeActive: (id: string, active: boolean) => Promise<void>;
   generateOfferLetter: (data: Omit<OfferLetterData, 'id' | 'issuedDate'>) => void;
+
+  // Experience Certificate
+  experienceCertificates: ExperienceCertificateData[];
+  selectedExperienceCert: ExperienceCertificateData | null;
+  setSelectedExperienceCert: (cert: ExperienceCertificateData | null) => void;
+  isExperienceCertModalOpen: boolean;
+  setIsExperienceCertModalOpen: (open: boolean) => void;
+  generateExperienceCert: (data: Omit<ExperienceCertificateData, 'id'>) => void;
+
+  // Relieving Letter
+  relievingLetters: RelievingLetterData[];
+  selectedRelievingLetter: RelievingLetterData | null;
+  setSelectedRelievingLetter: (letter: RelievingLetterData | null) => void;
+  isRelievingLetterModalOpen: boolean;
+  setIsRelievingLetterModalOpen: (open: boolean) => void;
+  generateRelievingLetter: (data: Omit<RelievingLetterData, 'id'>) => void;
+
+  // Invoices
+  invoices: InvoiceData[];
+  selectedInvoice: InvoiceData | null;
+  setSelectedInvoice: (invoice: InvoiceData | null) => void;
+  isInvoiceModalOpen: boolean;
+  setIsInvoiceModalOpen: (open: boolean) => void;
+  generateInvoice: (data: Omit<InvoiceData, 'id'>) => void;
 
   // Team Leader Module State
   teamMembers: TeamMember[];
@@ -410,6 +437,87 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [selectedOfferLetter, setSelectedOfferLetter] = useState<OfferLetterData | null>(null);
   const [isOfferLetterModalOpen, setIsOfferLetterModalOpen] = useState(false);
 
+  // Experience Certificates State
+  const [experienceCertificates, setExperienceCertificates] = useState<ExperienceCertificateData[]>(() => 
+    getStoredState('experienceCertificates', [
+      {
+        id: 'exp-101',
+        refNumber: 'TNX/EXP/2026/042',
+        issueDate: '24-09-2026',
+        employeeName: 'Amitabh Singh',
+        fatherName: 'Sh. Heera Singh',
+        designation: 'Senior Trading Strategist',
+        companyName: 'Trade Nexus',
+        startDate: '15th May 2023',
+        endDate: '10th September 2026',
+        responsibilities: 'supervising proprietary trading desk operations, executing high-frequency volume arbitrage, ensuring stringent risk management, and coordinating with desk quantitative analysts',
+        signatoryName: 'T. Vidhya Sagar',
+        signatoryRole: 'Chief Executive Officer',
+      }
+    ])
+  );
+  const [selectedExperienceCert, setSelectedExperienceCert] = useState<ExperienceCertificateData | null>(null);
+  const [isExperienceCertModalOpen, setIsExperienceCertModalOpen] = useState(false);
+
+  // Relieving Letters State
+  const [relievingLetters, setRelievingLetters] = useState<RelievingLetterData[]>(() => 
+    getStoredState('relievingLetters', [
+      {
+        id: 'rel-101',
+        issueDate: '24/09/2026',
+        employeeName: 'Rahul Verma',
+        designation: 'Business Development Executive',
+        department: 'Client Acquisition',
+        employeeType: 'Full - Time',
+        empCode: 'TNX-204',
+        address: 'Flat 402, Highline Residency, Financial District, Hyderabad',
+        resignationDate: '15th August 2026',
+        lastWorkingDate: '20th September 2026',
+        joiningDate: '01st June 2024',
+        signatoryName: 'T. Vidhya Sagar',
+        signatoryRole: 'Chief Executive Officer',
+      }
+    ])
+  );
+  const [selectedRelievingLetter, setSelectedRelievingLetter] = useState<RelievingLetterData | null>(null);
+  const [isRelievingLetterModalOpen, setIsRelievingLetterModalOpen] = useState(false);
+
+  // Invoices State
+  const [invoices, setInvoices] = useState<InvoiceData[]>(() => 
+    getStoredState('invoices', [
+      {
+        id: 'inv-101',
+        invoiceNumber: 'TNX-INV-2026-88',
+        date: '24 September 2026',
+        billTo: {
+          name: 'Estelle Darcy',
+          phone: '+91 98451 22340',
+          address: 'Suite 404, Cyber Towers, Hitec City, Hyderabad',
+        },
+        from: {
+          name: 'Trade Nexus Corporate Billing',
+          phone: '+91 98765 43210',
+          address: '123 Business Avenue, Financial District, 500001',
+        },
+        items: [
+          { id: 'item-1', description: 'Enterprise Algorithmic Trading Terminal License (Q3)', qty: 1, price: 45000, total: 45000 },
+          { id: 'item-2', description: 'Real-time WebSocket Market Feed & Colocation Access', qty: 1, price: 15000, total: 15000 },
+          { id: 'item-3', description: 'Quantitative Strategy Calibration & Dedicated Support', qty: 2, price: 10000, total: 20000 },
+        ],
+        subTotal: 80000,
+        total: 80000,
+        notes: 'Payment is due within 15 days of invoice date. Remittance via Bank Transfer or UPI.',
+        paymentInfo: {
+          bankName: 'HDFC Bank - Corporate Banking',
+          accountNumber: '50200049281729',
+          email: 'billing@tradenexus.com',
+        },
+      }
+    ])
+  );
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+
   // Team Leader Module State
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() => getStoredState('teamMembers', INITIAL_TEAM_MEMBERS));
   const [teamGroups, setTeamGroups] = useState<TeamGroup[]>(() => getStoredState('teamGroups', INITIAL_TEAM_GROUPS));
@@ -609,6 +717,56 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSelectedOfferLetter(matched);
     setIsOfferLetterModalOpen(true);
   };
+  const generateOfferLetter = (data: Omit<OfferLetterData, 'id' | 'issuedDate'>) => {
+    const newLetter: OfferLetterData = {
+      ...data,
+      id: `off-${Date.now()}`,
+      issuedDate: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }),
+    };
+    setOfferLetters(prev => [newLetter, ...prev]);
+    try { localStorage.setItem('tnx_offerLetters', JSON.stringify([newLetter, ...offerLetters])); } catch {}
+    triggerToast(`✓ Offer Letter generated for ${data.candidateName}`);
+  };
+
+  const generateExperienceCert = (data: Omit<ExperienceCertificateData, 'id'>) => {
+    const newCert: ExperienceCertificateData = {
+      ...data,
+      id: `exp-${Date.now()}`,
+    };
+    setExperienceCertificates(prev => {
+      const updated = [newCert, ...prev];
+      try { localStorage.setItem('tnx_experienceCertificates', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    triggerToast(`✓ Experience Certificate generated for ${data.employeeName}`);
+  };
+
+  const generateRelievingLetter = (data: Omit<RelievingLetterData, 'id'>) => {
+    const newLetter: RelievingLetterData = {
+      ...data,
+      id: `rel-${Date.now()}`,
+    };
+    setRelievingLetters(prev => {
+      const updated = [newLetter, ...prev];
+      try { localStorage.setItem('tnx_relievingLetters', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    triggerToast(`✓ Relieving Letter generated for ${data.employeeName}`);
+  };
+
+  const generateInvoice = (data: Omit<InvoiceData, 'id'>) => {
+    const newInvoice: InvoiceData = {
+      ...data,
+      id: `inv-${Date.now()}`,
+    };
+    setInvoices(prev => {
+      const updated = [newInvoice, ...prev];
+      try { localStorage.setItem('tnx_invoices', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    triggerToast(`✓ Invoice ${data.invoiceNumber} generated`);
+  };
+
   const [activeToast, setActiveToast] = useState<string | null>(null);
 
   // --- On-demand resource loading -----------------------------------------
@@ -1257,6 +1415,51 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch (err) {
       console.warn('API create offer letter error:', err);
     }
+  };
+
+  const generateExperienceCert = (data: Omit<ExperienceCertificateData, 'id'>) => {
+    const newCert: ExperienceCertificateData = {
+      ...data,
+      id: `exp-${Date.now()}`,
+    };
+    setExperienceCertificates(prev => {
+      const updated = [newCert, ...prev];
+      try { localStorage.setItem('tnx_experienceCertificates', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    setSelectedExperienceCert(newCert);
+    setIsExperienceCertModalOpen(true);
+    triggerToast(`✓ Experience Certificate generated for ${data.employeeName}`);
+  };
+
+  const generateRelievingLetter = (data: Omit<RelievingLetterData, 'id'>) => {
+    const newLetter: RelievingLetterData = {
+      ...data,
+      id: `rel-${Date.now()}`,
+    };
+    setRelievingLetters(prev => {
+      const updated = [newLetter, ...prev];
+      try { localStorage.setItem('tnx_relievingLetters', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    setSelectedRelievingLetter(newLetter);
+    setIsRelievingLetterModalOpen(true);
+    triggerToast(`✓ Relieving Letter generated for ${data.employeeName}`);
+  };
+
+  const generateInvoice = (data: Omit<InvoiceData, 'id'>) => {
+    const newInvoice: InvoiceData = {
+      ...data,
+      id: `inv-${Date.now()}`,
+    };
+    setInvoices(prev => {
+      const updated = [newInvoice, ...prev];
+      try { localStorage.setItem('tnx_invoices', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    setSelectedInvoice(newInvoice);
+    setIsInvoiceModalOpen(true);
+    triggerToast(`✓ Invoice #${data.invoiceNumber} created successfully!`);
   };
 
   // Team Leader Assignment
@@ -1995,6 +2198,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updateEmployee,
         setEmployeeActive,
         generateOfferLetter,
+        experienceCertificates,
+        selectedExperienceCert,
+        setSelectedExperienceCert,
+        isExperienceCertModalOpen,
+        setIsExperienceCertModalOpen,
+        generateExperienceCert,
+        relievingLetters,
+        selectedRelievingLetter,
+        setSelectedRelievingLetter,
+        isRelievingLetterModalOpen,
+        setIsRelievingLetterModalOpen,
+        generateRelievingLetter,
+        invoices,
+        selectedInvoice,
+        setSelectedInvoice,
+        isInvoiceModalOpen,
+        setIsInvoiceModalOpen,
+        generateInvoice,
         teamMembers,
         teamGroups,
         teamTasks,

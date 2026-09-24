@@ -369,3 +369,68 @@ export interface OfficeSettings {
   longitude: number | null;
   radiusMeters: number;
 }
+
+export interface ExperienceCertificateData {
+  id: string;
+  refNumber: string;
+  issueDate: string;
+  employeeName: string;
+  fatherName?: string;
+  designation: string;
+  companyName: string;
+  startDate: string;
+  endDate: string;
+  responsibilities?: string;
+  signatoryName: string;
+  signatoryRole: string;
+}
+
+export interface RelievingLetterData {
+  id: string;
+  issueDate: string;
+  employeeName: string;
+  designation: string;
+  department: string;
+  employeeType: string;
+  empCode: string;
+  address: string;
+  resignationDate: string;
+  lastWorkingDate: string;
+  joiningDate: string;
+  signatoryName: string;
+  signatoryRole: string;
+}
+
+export interface InvoiceItem {
+  id: string;
+  description: string;
+  qty: number;
+  price: number;
+  total: number;
+}
+
+export interface InvoiceData {
+  id: string;
+  invoiceNumber: string;
+  date: string;
+  billTo: {
+    name: string;
+    phone: string;
+    address: string;
+  };
+  from: {
+    name: string;
+    phone: string;
+    address: string;
+  };
+  items: InvoiceItem[];
+  subTotal: number;
+  total: number;
+  notes?: string;
+  paymentInfo: {
+    bankName: string;
+    accountNumber: string;
+    email: string;
+  };
+}
+

@@ -18,7 +18,10 @@ import {
   LeadBatch, 
   FaceBiometricProfile, 
   OfferLetterData, 
-  CompanyHoliday 
+  CompanyHoliday,
+  ExperienceCertificateData,
+  RelievingLetterData,
+  InvoiceData
 } from '../types';
 
 export const INITIAL_COMPANY_HOLIDAYS: CompanyHoliday[] = [];
@@ -86,3 +89,9 @@ export const INITIAL_FACE_PROFILES: FaceBiometricProfile[] = [];
 export const INITIAL_OFFER_LETTERS: OfferLetterData[] = [];
 
 export const INITIAL_PAYMENT_VERIFICATIONS: PaymentVerificationItem[] = [];
+
+export const INITIAL_EXPERIENCE_CERTS: ExperienceCertificateData[] = [];
+
+export const INITIAL_RELIEVING_LETTERS: RelievingLetterData[] = [];
+
+export const INITIAL_INVOICES: InvoiceData[] = [];
