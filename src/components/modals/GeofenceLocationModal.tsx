@@ -285,15 +285,15 @@ export const GeofenceLocationModal: React.FC<GeofenceLocationModalProps> = ({
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <h3 className="font-display font-black text-sm sm:text-base text-[#0A2540] truncate">
-                      Geofence & Location
+                    <h3 className="font-display font-black text-sm sm:text-base text-[#0A2540]">
+                      Geofence & Office Location
                     </h3>
                     <span className="text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      Strict
+                      Strict Perimeter
                     </span>
                   </div>
-                  <p className="text-[11px] sm:text-xs text-slate-500 font-medium truncate mt-0.5">
-                    Set office coordinates & punch-in boundary
+                  <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5">
+                    Set office coordinates, verify live GPS & punch-in boundary
                   </p>
                 </div>
               </div>
