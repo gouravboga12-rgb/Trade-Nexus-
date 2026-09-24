@@ -158,18 +158,33 @@ router.post('/', (req: Request, res: Response) => {
     // One record per employee per day
     const recId = id || `att-${recDate}-${employeeId || 'self'}`;
 
-    // Judge the location against the office, if both are known
+    // Judge the location against the office perimeter
     let distance: number | null = null;
     let locationStatus = 'NOT_SHARED';
 
-    if (latitude != null && longitude != null) {
-      const office = db.prepare('SELECT * FROM office_settings LIMIT 1').get() as OfficeRow | undefined;
-      if (office?.latitude != null && office?.longitude != null) {
-        distance = metresBetween(latitude, longitude, office.latitude, office.longitude);
-        locationStatus = distance <= office.radiusMeters ? 'AT_OFFICE' : 'AWAY';
-      } else {
-        locationStatus = 'OFFICE_NOT_SET';
+    const office = db.prepare('SELECT * FROM office_settings LIMIT 1').get() as OfficeRow | undefined;
+    const isOfficeConfigured = office?.latitude != null && office?.longitude != null;
+
+    if (isOfficeConfigured) {
+      if (latitude == null || longitude == null) {
+        return res.status(400).json({
+          error: 'Location permission is required to verify you are at the office before punching in.',
+          code: 'LOCATION_REQUIRED'
+        });
       }
+      distance = metresBetween(latitude, longitude, office.latitude, office.longitude);
+      if (distance > office.radiusMeters) {
+        const distStr = distance >= 1000 ? `${(distance / 1000).toFixed(1)} km` : `${distance}m`;
+        return res.status(403).json({
+          error: `You are outside the office perimeter (${distStr} away). Punch-in is restricted to within ${office.radiusMeters}m of the office.`,
+          distance,
+          radiusMeters: office.radiusMeters,
+          code: 'GEOFENCE_OUT_OF_BOUNDS'
+        });
+      }
+      locationStatus = 'AT_OFFICE';
+    } else if (latitude != null && longitude != null) {
+      locationStatus = 'OFFICE_NOT_SET';
     }
 
     db.prepare(`

@@ -40,6 +40,8 @@ export const TeamLeaderDashboardView: React.FC = () => {
     joinMeeting,
     attendanceLogs,
     setIsLeaveModalOpen,
+    openPunchIn,
+    openPunchOut,
     triggerToast 
   } = useApp();
 
@@ -354,6 +356,44 @@ export const TeamLeaderDashboardView: React.FC = () => {
                 </button>
               </div>
             )}
+
+            {/* Team Leader Attendance Punch Lifecycle Card */}
+            <div className="bg-white border border-[#00C9A7]/40 shadow-xs rounded-2xl p-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#00C9A7]/15 text-[#00A88B] flex items-center justify-center flex-shrink-0">
+                  <UserCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-display font-bold text-xs text-[#0A2540]">My Attendance (TL Punch)</h4>
+                  <p className="text-[10px] text-slate-500 font-mono">
+                    {profile.checkInTime ? `Punched in: ${profile.checkInTime}` : 'Face scan required to check in'}
+                  </p>
+                </div>
+              </div>
+
+              {profile.checkInTime && profile.faceIdStatus === 'VERIFIED_PRESENT' ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    ✓ Present
+                  </span>
+                  <button
+                    type="button"
+                    onClick={openPunchOut}
+                    className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs border border-rose-200 transition-all active:scale-95 cursor-pointer"
+                  >
+                    Punch Out
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openPunchIn}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs transition-all shadow-xs active:scale-95 cursor-pointer"
+                >
+                  Punch In (Face ID)
+                </button>
+              )}
+            </div>
 
             {/* Team Overview Section (Today's Summary) */}
             <div className="space-y-2">

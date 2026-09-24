@@ -20,7 +20,9 @@ export const AttendanceLeavesView: React.FC = () => {
     setIsLeaveModalOpen, 
     profile,
     weeklyOffDays,
-    companyHolidays 
+    companyHolidays,
+    openPunchIn,
+    openPunchOut
   } = useApp();
 
   useScreenData('attendanceLeaves');
@@ -84,20 +86,42 @@ export const AttendanceLeavesView: React.FC = () => {
 
       {activeSubTab === 'attendance' ? (
         <div className="space-y-4">
-          {/* Biometric Card (Verify button removed as requested) */}
+          {/* Biometric Face ID Punch In / Out Lifecycle Card */}
           <div className="nexus-card p-3.5 bg-gradient-to-r from-[#E6FAF6]/90 via-white to-white border border-[#00C9A7]/30 flex items-center justify-between shadow-xs">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-[#00C9A7]/15 text-[#00A88B] flex items-center justify-center flex-shrink-0">
                 <UserCheck className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-display font-bold text-sm text-[#0A2540]">Face Recognition Status</h4>
-                <p className="text-[11px] text-slate-500 font-mono">Today: {profile.checkInTime} (Present)</p>
+                <h4 className="font-display font-bold text-sm text-[#0A2540]">Face Recognition Punch</h4>
+                <p className="text-[11px] text-slate-500 font-mono">
+                  {profile.checkInTime ? `Punched in: ${profile.checkInTime}` : 'Not checked in today'}
+                </p>
               </div>
             </div>
-            <span className="text-[11px] font-bold font-mono px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
-              ✓ Verified
-            </span>
+
+            {profile.checkInTime && profile.faceIdStatus === 'VERIFIED_PRESENT' ? (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  ✓ Present
+                </span>
+                <button
+                  type="button"
+                  onClick={openPunchOut}
+                  className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold text-xs transition-all active:scale-95 cursor-pointer"
+                >
+                  Punch Out
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={openPunchIn}
+                className="px-4 py-2 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5"
+              >
+                <span>Punch In (Face ID)</span>
+              </button>
+            )}
           </div>
 
           {/* Monthly Calendar View Card */}

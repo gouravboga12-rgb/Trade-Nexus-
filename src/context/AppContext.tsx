@@ -1762,36 +1762,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const today = now.toISOString().split('T')[0];
 
-    const updatedProfile: EmployeeProfile = {
-      ...profile,
-      faceIdStatus: 'VERIFIED_PRESENT',
-      checkInTime: timeStr,
-    };
-    setProfile(updatedProfile);
-
-    setAttendanceLogs((prev) => [
-      {
-        id: `att-${today}-${profile.id}`,
-        employeeId: profile.id,
-        employeeName: profile.name,
-        date: today,
-        dayNumber: now.getDate(),
-        status: 'PRESENT',
-        checkIn: timeStr,
-        workHours: 'In Progress',
-        method: 'Face ID Biometric',
-        checkInPhoto: data.photo ?? undefined,
-        checkInLat: data.latitude ?? undefined,
-        checkInLng: data.longitude ?? undefined,
-        locationStatus: data.latitude == null ? 'NOT_SHARED' : undefined,
-      },
-      ...prev.filter((item) => item.dayNumber !== now.getDate()),
-    ]);
-
-    triggerToast(`\u2713 Checked in at ${timeStr}`);
-
     try {
-      await api.recordAttendance({
+      const rec = await api.recordAttendance({
         id: `att-${today}-${profile.id}`,
         employeeId: profile.id,
         employeeName: profile.name,
@@ -1805,9 +1777,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         latitude: data.latitude,
         longitude: data.longitude,
       } as any);
-      await api.updateProfile(updatedProfile);
-    } catch (err) {
-      console.warn('Check-in save failed:', err);
+
+      const updatedProfile: EmployeeProfile = {
+        ...profile,
+        faceIdStatus: 'VERIFIED_PRESENT',
+        checkInTime: timeStr,
+      };
+      setProfile(updatedProfile);
+
+      setAttendanceLogs((prev) => [
+        {
+          id: `att-${today}-${profile.id}`,
+          employeeId: profile.id,
+          employeeName: profile.name,
+          date: today,
+          dayNumber: now.getDate(),
+          status: 'PRESENT',
+          checkIn: timeStr,
+          workHours: 'In Progress',
+          method: 'Face ID Biometric',
+          checkInPhoto: data.photo ?? undefined,
+          checkInLat: data.latitude ?? undefined,
+          checkInLng: data.longitude ?? undefined,
+          locationStatus: (rec as any)?.locationStatus || (data.latitude == null ? 'NOT_SHARED' : 'AT_OFFICE'),
+        },
+        ...prev.filter((item) => item.dayNumber !== now.getDate()),
+      ]);
+
+      triggerToast(`✓ Checked in at ${timeStr}`);
+      await api.updateProfile(updatedProfile).catch(() => {});
+    } catch (err: any) {
+      const msg = err.message || 'Check-in failed';
+      triggerToast(`✗ ${msg}`);
+      throw err;
     }
   };
 

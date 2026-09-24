@@ -43,6 +43,7 @@ import { CreateTeamModal } from '../components/modals/CreateTeamModal';
 import { ManageTeamMembersModal } from '../components/modals/ManageTeamMembersModal';
 import { AdminTargetSettingsModal } from '../components/modals/AdminTargetSettingsModal';
 import { AdminScheduleMeetingModal } from '../components/modals/AdminScheduleMeetingModal';
+import { GeofenceLocationModal } from '../components/modals/GeofenceLocationModal';
 import { OfficeSettings, TeamGroup, TeamMember, UserRole, LeaveRequest, PaymentVerificationItem } from '../types';
 import { api } from '../services/api';
 import { Employee360ProfileView } from './Employee360ProfileView';
@@ -2001,10 +2002,7 @@ export const AdminDashboardView: React.FC = () => {
 
               {/* Geofence Office Editor */}
               <div
-                onClick={() => {
-                  setTab('attendance');
-                  setShowOfficeEditor(true);
-                }}
+                onClick={() => setShowOfficeEditor(true)}
                 className="bg-white border border-slate-200/90 hover:border-sky-400 rounded-2xl p-4 shadow-2xs flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
               >
                 <div className="flex items-center gap-3.5">
@@ -2799,6 +2797,13 @@ export const AdminDashboardView: React.FC = () => {
       <AdminScheduleMeetingModal
         isOpen={isScheduleMeetingOpen}
         onClose={() => setIsScheduleMeetingOpen(false)}
+      />
+
+      {/* Geofence & Office Location Modal */}
+      <GeofenceLocationModal
+        isOpen={showOfficeEditor}
+        onClose={() => setShowOfficeEditor(false)}
+        onSaved={(saved) => setOffice(saved)}
       />
     </div>
   );
