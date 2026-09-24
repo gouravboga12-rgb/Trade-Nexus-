@@ -142,12 +142,40 @@
     color-adjust: exact !important;
   }
 
-  /* Hide all non-essential page wrappers and elements */
+  /* Universal hide for all web page elements by default */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Neutralize all container, layout, backdrop, and modal layers */
+  #root,
+  #root > *,
+  .fixed,
+  .fixed.inset-0,
+  [role="dialog"],
+  .modal-overlay,
+  .overflow-y-auto,
+  main,
+  div {
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Explicitly hide interactive controls, buttons, headers, bottom bars */
   header, 
   nav, 
   aside, 
   footer, 
   button, 
+  input,
+  select,
   .print\:hidden,
   .print-hidden,
   [role="navigation"], 
@@ -155,44 +183,15 @@
   .fixed.top-0,
   .fixed.bottom-20 {
     display: none !important;
+    visibility: hidden !important;
   }
 
-  /* Completely neutralize modal fixed overlays & dark backdrop layers */
-  .fixed.inset-0,
-  .fixed,
-  [role="dialog"],
-  .modal-overlay {
-    position: static !important;
-    display: block !important;
-    background: #FFFFFF !important;
-    background-color: #FFFFFF !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-height: 0 !important;
-    box-shadow: none !important;
-    border: none !important;
-    overflow: visible !important;
-  }
-
-  /* Neutralize modal inner dialog boxes & scroll views */
-  .fixed.inset-0 > div,
-  .fixed.inset-0 > div > div,
-  .overflow-y-auto {
-    background: #FFFFFF !important;
-    background-color: #FFFFFF !important;
-    box-shadow: none !important;
-    border: none !important;
-    border-radius: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    max-height: none !important;
-    overflow: visible !important;
+  /* Make ONLY the printable document or badge sheet and its children visible */
+  .printable-document-sheet,
+  .printable-document-sheet *,
+  .printable-id-badge-sheet,
+  .printable-id-badge-sheet * {
+    visibility: visible !important;
   }
 
   /* Full A4 Printable Document Sheets (Offer Letter, Experience Cert, Relieving Letter, Invoice, Payslip) */
@@ -206,11 +205,15 @@
     display: flex !important;
     flex-direction: column !important;
     justify-content: space-between !important;
-    width: 100% !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 210mm !important;
+    min-width: 210mm !important;
     max-width: 210mm !important;
     min-height: 297mm !important;
-    height: auto !important;
-    margin: 0 auto !important;
+    height: 297mm !important;
+    margin: 0 !important;
     padding: 0 !important;
     background: #FFFFFF !important;
     background-color: #FFFFFF !important;
@@ -219,7 +222,13 @@
     border-radius: 0 !important;
     page-break-after: avoid !important;
     page-break-inside: avoid !important;
+    page-break-before: avoid !important;
+    break-inside: avoid !important;
+    break-after: avoid !important;
     overflow: hidden !important;
+    z-index: 999999 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   /* Clean ID Card Badge Sheet (Centered on pure white A4 sheet with 0 dark backdrop) */
@@ -228,16 +237,23 @@
     display: flex !important;
     flex-direction: column !important;
     justify-content: space-between !important;
+    position: absolute !important;
+    left: 50% !important;
+    top: 40mm !important;
+    transform: translateX(-50%) !important;
     width: 340px !important;
     min-height: 580px !important;
-    margin: 30mm auto !important;
+    height: auto !important;
+    margin: 0 !important;
     box-shadow: none !important;
     border: 1px solid rgba(0, 201, 167, 0.4) !important;
     border-radius: 28px !important;
     background-color: #051326 !important;
     page-break-after: avoid !important;
     page-break-inside: avoid !important;
+    break-inside: avoid !important;
     overflow: hidden !important;
+    z-index: 999999 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
