@@ -205,7 +205,15 @@ export const InvoiceModal: React.FC = () => {
             }}
           >
             {/* Top Navy/Teal Geometric Header matching 5.png */}
-            <div className="relative bg-[#06152B] text-white p-6 sm:p-8 pb-10 overflow-hidden">
+            <div 
+              className="doc-printable-header relative text-white p-6 sm:p-8 pb-10 overflow-hidden flex-shrink-0"
+              style={{
+                backgroundColor: '#06152B',
+                WebkitPrintColorAdjust: 'exact',
+                printColorAdjust: 'exact',
+                colorAdjust: 'exact'
+              }}
+            >
               {/* Decorative background polygon */}
               <div 
                 className="absolute right-0 top-0 bottom-0 w-2/5 bg-gradient-to-l from-[#00C9A7]/20 to-transparent pointer-events-none" 
@@ -505,7 +513,18 @@ export const InvoiceModal: React.FC = () => {
             </div>
 
             {/* Bottom Navy Wave and Contact Footer Bar matching Template 5 */}
-            <div className="mt-8 bg-[#06152B] text-white px-6 py-4 flex flex-wrap items-center justify-between gap-3 text-[10px] border-t-2 border-[#00C9A7]">
+            <div 
+              className="doc-printable-footer mt-8 text-white px-6 py-4 flex flex-wrap items-center justify-between gap-3 text-[10px] flex-shrink-0"
+              style={{
+                backgroundColor: '#06152B',
+                borderTop: '3px solid #00C9A7',
+                borderTopLeftRadius: '24px',
+                borderTopRightRadius: '24px',
+                WebkitPrintColorAdjust: 'exact',
+                printColorAdjust: 'exact',
+                colorAdjust: 'exact'
+              }}
+            >
               <div className="flex items-center gap-1.5 text-slate-300">
                 <MapPin className="w-3.5 h-3.5 text-[#00C9A7]" />
                 <span>Level 12, Nexus Cyber Tower, HITEC City, Hyderabad</span>
@@ -513,15 +532,15 @@ export const InvoiceModal: React.FC = () => {
               <div className="flex items-center gap-4 text-slate-300">
                 <div className="flex items-center gap-1">
                   <Phone className="w-3.5 h-3.5 text-[#00C9A7]" />
-                  <span>+91 40 4829 1000</span>
+                  <span>+91 98765 43210</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Mail className="w-3.5 h-3.5 text-[#00C9A7]" />
-                  <span>billing@tradenexus.live</span>
+                  <span>info@tradenexus.com</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Globe className="w-3.5 h-3.5 text-[#00C9A7]" />
-                  <span>www.tradenexus.live</span>
+                  <span>www.tradenexus.com</span>
                 </div>
               </div>
             </div>

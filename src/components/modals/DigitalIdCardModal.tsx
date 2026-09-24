@@ -373,13 +373,15 @@ export const DigitalIdCardModal: React.FC = () => {
 
             {/* Bottom Curved Wave Container with Corporate Info & Signature (Exact tradenexus-id.png) */}
             <div 
-              className="relative bg-white text-[#0A2540] px-5 pt-5 pb-4 mt-2 border-t-4 shadow-xl"
+              className="relative bg-white text-[#0A2540] px-5 pt-5 pb-4 mt-2 border-t-4 shadow-xl flex-shrink-0"
               style={{ 
+                backgroundColor: '#FFFFFF',
                 borderTopColor: '#00C9A7',
                 borderTopLeftRadius: '36px',
                 borderTopRightRadius: '36px',
                 WebkitPrintColorAdjust: 'exact',
-                printColorAdjust: 'exact'
+                printColorAdjust: 'exact',
+                colorAdjust: 'exact'
               }}
             >
               

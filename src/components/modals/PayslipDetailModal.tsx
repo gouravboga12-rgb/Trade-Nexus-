@@ -109,11 +109,12 @@ export const PayslipDetailModal: React.FC<PayslipDetailModalProps> = ({ payslip,
             
             {/* Top Navy Header Banner with Diagonal Teal Accent (Matching 4.png) */}
             <div 
-              className="relative text-white px-5 sm:px-7 pt-5 sm:pt-6 pb-4 sm:pb-5 overflow-hidden flex-shrink-0"
+              className="doc-printable-header relative text-white px-5 sm:px-8 pt-5 sm:pt-6 pb-4 sm:pb-5 overflow-hidden flex-shrink-0"
               style={{ 
                 backgroundColor: '#06152B',
                 WebkitPrintColorAdjust: 'exact',
-                printColorAdjust: 'exact'
+                printColorAdjust: 'exact',
+                colorAdjust: 'exact'
               }}
             >
               {/* Teal Accent Lines */}
@@ -383,11 +384,15 @@ export const PayslipDetailModal: React.FC<PayslipDetailModalProps> = ({ payslip,
 
             {/* Bottom Footer Bar (Matching 4.png) */}
             <div 
-              className="text-white px-4 sm:px-6 py-2.5 sm:py-3 border-t-2 border-[#00A88B] flex items-center justify-between text-[9px] sm:text-[11px] gap-2 font-medium flex-shrink-0"
+              className="doc-printable-footer text-white px-5 sm:px-8 py-3 sm:py-3.5 flex items-center justify-between text-[10px] sm:text-[11px] gap-2 font-medium flex-shrink-0"
               style={{ 
                 backgroundColor: '#06152B',
+                borderTop: '3px solid #00C9A7',
+                borderTopLeftRadius: '24px',
+                borderTopRightRadius: '24px',
                 WebkitPrintColorAdjust: 'exact',
-                printColorAdjust: 'exact'
+                printColorAdjust: 'exact',
+                colorAdjust: 'exact'
               }}
             >
               <span className="flex items-center gap-1.5 text-slate-200">
