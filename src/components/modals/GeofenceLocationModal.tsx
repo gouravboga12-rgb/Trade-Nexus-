@@ -272,62 +272,69 @@ export const GeofenceLocationModal: React.FC<GeofenceLocationModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
-        <div className="bg-white rounded-3xl w-full max-w-xl max-h-[92vh] my-auto shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-2 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+        <div className="bg-white rounded-2xl sm:rounded-3xl w-full max-w-xl max-h-[94vh] sm:max-h-[92vh] my-auto shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
           
-          {/* 1. Header (Includes prominent "Open Map in App" button exactly where circled by admin) */}
-          <div className="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/90 flex-shrink-0">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0 shadow-2xs mt-0.5">
-                  <MapPin className="w-5 h-5" />
+          {/* 1. Header (Mobile-optimized layout: no word breaks, clear touch-friendly action banner) */}
+          <div className="p-3.5 sm:p-5 border-b border-slate-100 bg-slate-50/95 flex-shrink-0">
+            {/* Top row: Icon + Title + Strict Pill + Close Button */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0 shadow-2xs">
+                  <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-display font-black text-base text-[#0A2540]">
-                      Geofence & Office Location
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h3 className="font-display font-black text-sm sm:text-base text-[#0A2540] truncate">
+                      Geofence & Location
                     </h3>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      Strict Perimeter
+                    <span className="text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Strict
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Set office coordinates, verify live GPS, & define punch-in boundary
+                  <p className="text-[11px] sm:text-xs text-slate-500 font-medium truncate mt-0.5">
+                    Set office coordinates & punch-in boundary
                   </p>
                 </div>
               </div>
 
-              {/* Header Right Actions: Prominent "Open Map in App" + Close */}
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowInAppLiveMap(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer whitespace-nowrap"
-                  title="Open live point location on full in-app interactive map"
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Open Map in App</span>
-                </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors shadow-2xs cursor-pointer flex-shrink-0"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors shadow-2xs cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+            {/* High-visibility Action Banner: "Open Map in App" (Full-width, thumb-friendly touch target) */}
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => setShowInAppLiveMap(true)}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-600 to-[#0A2540] hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs shadow-sm transition-all active:scale-[0.99] cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-emerald-200 animate-pulse" />
+                  <span className="tracking-wide">Open Map in App (Live Point Location)</span>
+                </div>
+                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-md font-mono flex items-center gap-1">
+                  <span>View Live Map</span>
+                  <span>→</span>
+                </span>
+              </button>
             </div>
           </div>
 
           {/* 2. Scrollable Body */}
-          <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs flex-1">
+          <div className="p-3.5 sm:p-6 overflow-y-auto space-y-3.5 sm:space-y-4 text-xs flex-1">
 
             {/* Distance & Device Verification Bar */}
-            <div className="bg-[#E6FAF6] border border-[#00C9A7]/40 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
-              <div className="flex items-center gap-2 text-[#00A88B]">
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-600" />
-                <span className="font-bold text-[11px]">
+            <div className="bg-[#E6FAF6] border border-[#00C9A7]/40 rounded-2xl p-2.5 sm:p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 shadow-2xs">
+              <div className="flex items-center gap-2 text-[#00A88B] min-w-0">
+                <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 text-emerald-600" />
+                <span className="font-bold text-[10px] sm:text-[11px] truncate">
                   {latitude != null && longitude != null
                     ? `Configured Geofence: Within ${radiusMeters}m of office`
                     : 'Office location not yet configured'}
@@ -356,13 +363,13 @@ export const GeofenceLocationModal: React.FC<GeofenceLocationModalProps> = ({
             </div>
 
             {/* Instant Live GPS Auto-Detection */}
-            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-[#0A2540] text-white p-4 rounded-2xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-1.5 text-[#00C9A7] font-bold text-[11px] uppercase tracking-wider">
-                  <Compass className="w-3.5 h-3.5" />
+            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-[#0A2540] text-white p-3 sm:p-4 rounded-2xl shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+              <div className="space-y-0.5 min-w-0">
+                <div className="flex items-center gap-1.5 text-[#00C9A7] font-bold text-[10px] sm:text-[11px] uppercase tracking-wider">
+                  <Compass className="w-3.5 h-3.5 flex-shrink-0" />
                   <span>Instant Live GPS Auto-Detection</span>
                 </div>
-                <p className="text-xs text-slate-200 font-medium">
+                <p className="text-[11px] sm:text-xs text-slate-200 font-medium leading-snug">
                   {locatingStatus || 'Click to capture current GPS coordinates and auto-fill address.'}
                 </p>
               </div>
@@ -371,7 +378,7 @@ export const GeofenceLocationModal: React.FC<GeofenceLocationModalProps> = ({
                 type="button"
                 onClick={handleFetchLiveLocation}
                 disabled={locating}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#00C9A7] hover:bg-[#00B4D8] disabled:opacity-50 text-[#0A2540] font-black text-xs px-5 py-2.5 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#00C9A7] hover:bg-[#00B4D8] disabled:opacity-50 text-[#0A2540] font-black text-xs px-4 py-2.5 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap flex-shrink-0"
               >
                 <Crosshair className={`w-4 h-4 ${locating ? 'animate-spin' : ''}`} />
                 <span>{locating ? 'Acquiring GPS…' : 'Fetch Live Location'}</span>
@@ -380,29 +387,20 @@ export const GeofenceLocationModal: React.FC<GeofenceLocationModalProps> = ({
 
             {/* Interactive Map Preview & Geofence Boundary */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-1 flex-wrap">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5 text-[#00A88B]" />
-                  <span>Interactive Map & Geofence Boundary</span>
+                  <span>Map Preview & Geofence</span>
                 </label>
 
                 {latitude != null && longitude != null && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
                       type="button"
                       onClick={() => setMapStyle(mapStyle === 'streets-v12' ? 'satellite-streets-v12' : 'streets-v12')}
                       className="text-[10px] font-bold text-slate-600 hover:text-[#0A2540] underline cursor-pointer"
                     >
-                      Switch to {mapStyle === 'streets-v12' ? 'Satellite' : 'Street'} View
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setShowInAppLiveMap(true)}
-                      className="text-[10px] font-bold text-[#00A88B] hover:text-[#0A2540] flex items-center gap-1 cursor-pointer bg-[#E6FAF6] px-2 py-0.5 rounded-lg border border-[#00C9A7]/30"
-                    >
-                      <Layers className="w-3 h-3" />
-                      <span>Open in App</span>
+                      {mapStyle === 'streets-v12' ? 'Satellite' : 'Street'}
                     </button>
 
                     <a
@@ -418,41 +416,42 @@ export const GeofenceLocationModal: React.FC<GeofenceLocationModalProps> = ({
                 )}
               </div>
 
-              {/* Map Preview Box with Radar Radius Ring Overlay Simulation (Clicking opens in-app live map) */}
+              {/* Map Preview Box (Clickable, opens in-app live map) */}
               <div 
                 onClick={() => setShowInAppLiveMap(true)}
-                className="relative aspect-[21/9] sm:h-52 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shadow-inner group cursor-pointer"
-                title="Click to open full in-app live interactive map"
+                className="relative aspect-[16/9] sm:aspect-[21/9] rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shadow-inner group cursor-pointer"
+                title="Tap to open full in-app live interactive map"
               >
                 {mapUrl ? (
                   <>
                     <img
                       src={mapUrl}
-                      alt="Office Mapbox Geofence"
+                      alt="Office Geofence Preview"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      loading="lazy"
                     />
                     {/* Radar Radius Ring Overlay Simulation */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                       <div className="relative flex items-center justify-center">
-                        <div className="w-24 h-24 rounded-full border-2 border-[#00C9A7] bg-[#00C9A7]/15 animate-ping" />
-                        <div className="absolute w-20 h-20 rounded-full border-2 border-dashed border-[#00C9A7]/80 bg-[#00C9A7]/20 flex items-center justify-center">
-                          <span className="text-[9px] font-mono font-bold text-[#0A2540] bg-white/90 px-1.5 py-0.5 rounded shadow-xs">
-                            {radiusMeters}m Radius
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-[#00C9A7] bg-[#00C9A7]/15 animate-ping" />
+                        <div className="absolute w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-dashed border-[#00C9A7]/80 bg-[#00C9A7]/20 flex items-center justify-center">
+                          <span className="text-[9px] font-mono font-bold text-[#0A2540] bg-white/95 px-1.5 py-0.5 rounded shadow-xs">
+                            {radiusMeters}m
                           </span>
                         </div>
                       </div>
                     </div>
-                    {/* In-App live map badge */}
-                    <div className="absolute bottom-2 right-2 bg-slate-900/85 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity shadow-md">
+                    {/* Mobile-friendly tap badge */}
+                    <div className="absolute bottom-2 right-2 bg-slate-900/85 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5 shadow-md">
                       <Layers className="w-3.5 h-3.5 text-[#00C9A7]" />
-                      <span>Click to Open In-App Live Map</span>
+                      <span>Tap for In-App Live Map</span>
                     </div>
                   </>
                 ) : (
-                  <div className="text-center p-4 text-slate-400 space-y-1">
-                    <MapPin className="w-8 h-8 mx-auto text-slate-300" />
+                  <div className="text-center p-3 text-slate-400 space-y-1">
+                    <MapPin className="w-6 h-6 sm:w-8 sm:h-8 mx-auto text-slate-300" />
                     <p className="font-semibold text-xs text-slate-500">No coordinates selected</p>
-                    <p className="text-[10px]">Fetch your live location or enter coordinates below to load the map preview.</p>
+                    <p className="text-[10px]">Fetch live location or search below to load map preview.</p>
                   </div>
                 )}
               </div>
@@ -462,23 +461,23 @@ export const GeofenceLocationModal: React.FC<GeofenceLocationModalProps> = ({
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
                 <Search className="w-3 h-3 text-[#00A88B]" />
-                <span>Search Office Location / Landmark</span>
+                <span>Search Location / Landmark</span>
               </label>
-              <form onSubmit={handleSearchAddress} className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <form onSubmit={handleSearchAddress} className="flex gap-1.5">
+                <div className="relative flex-1 min-w-0">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="e.g. Meerpet, TRR College, Hyderabad"
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                    placeholder="e.g. Meerpet, Uppal, Hyderabad"
+                    className="w-full pl-8 pr-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:border-[#00C9A7]"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={isSearching || !searchQuery.trim()}
-                  className="px-4 py-2 bg-[#0A2540] hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+                  className="px-3.5 py-2 bg-[#0A2540] hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1 flex-shrink-0"
                 >
                   {isSearching ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <span>Search</span>}
                 </button>
@@ -486,14 +485,14 @@ export const GeofenceLocationModal: React.FC<GeofenceLocationModalProps> = ({
 
               {/* Search Suggestions Dropdown */}
               {searchResults.length > 0 && (
-                <div className="bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 space-y-1 max-h-48 overflow-y-auto animate-in fade-in z-20">
+                <div className="bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 space-y-1 max-h-40 overflow-y-auto animate-in fade-in z-20">
                   {searchResults.map((item, idx) => (
                     <div
                       key={idx}
                       onClick={() => handleSelectSearchResult(item)}
                       className="p-2 hover:bg-[#E6FAF6] rounded-lg cursor-pointer transition-colors text-left flex items-start gap-2 text-xs"
                     >
-                      <MapPin className="w-4 h-4 text-[#00A88B] mt-0.5 flex-shrink-0" />
+                      <MapPin className="w-3.5 h-3.5 text-[#00A88B] mt-0.5 flex-shrink-0" />
                       <div className="min-w-0">
                         <strong className="block text-slate-800 font-semibold leading-tight truncate">
                           {item.display_name.split(',').slice(0, 2).join(',')}
@@ -514,19 +513,19 @@ export const GeofenceLocationModal: React.FC<GeofenceLocationModalProps> = ({
                 Office Name / Street Address
               </label>
               <div className="relative">
-                <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
+                <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                <textarea
+                  rows={2}
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
                   placeholder="e.g. Trade Nexus HQ, Financial District, Hyderabad"
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7] resize-none leading-relaxed"
                 />
               </div>
             </div>
 
             {/* Latitude & Longitude Inputs */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                   Latitude (GPS)
@@ -537,7 +536,7 @@ export const GeofenceLocationModal: React.FC<GeofenceLocationModalProps> = ({
                   value={latitude ?? ''}
                   onChange={(e) => setLatitude(e.target.value ? Number(e.target.value) : null)}
                   placeholder="17.314000"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                  className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
                 />
               </div>
               <div>
@@ -550,7 +549,7 @@ export const GeofenceLocationModal: React.FC<GeofenceLocationModalProps> = ({
                   value={longitude ?? ''}
                   onChange={(e) => setLongitude(e.target.value ? Number(e.target.value) : null)}
                   placeholder="78.529000"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                  className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
                 />
               </div>
             </div>
@@ -559,21 +558,21 @@ export const GeofenceLocationModal: React.FC<GeofenceLocationModalProps> = ({
             <div className="space-y-2 pt-1 border-t border-slate-100">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                  Allowed Punch-In Perimeter Radius
+                  Allowed Punch-In Perimeter
                 </label>
-                <span className="font-mono font-black text-sm text-[#00A88B]">
+                <span className="font-mono font-black text-xs sm:text-sm text-[#00A88B]">
                   {radiusMeters} meters
                 </span>
               </div>
 
-              {/* Presets */}
-              <div className="flex items-center gap-1.5">
+              {/* 5 Presets grid: strictly 5 equal columns */}
+              <div className="grid grid-cols-5 gap-1 sm:gap-1.5">
                 {[50, 100, 200, 300, 500].map((preset) => (
                   <button
                     key={preset}
                     type="button"
                     onClick={() => setRadiusMeters(preset)}
-                    className={`flex-1 py-1.5 rounded-xl font-mono text-[10px] font-bold transition-all cursor-pointer ${
+                    className={`py-1.5 sm:py-2 rounded-xl font-mono text-[10px] sm:text-xs font-bold transition-all cursor-pointer text-center ${
                       radiusMeters === preset
                         ? 'bg-[#0A2540] text-[#00C9A7] shadow-xs'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -592,30 +591,32 @@ export const GeofenceLocationModal: React.FC<GeofenceLocationModalProps> = ({
                 step={25}
                 value={radiusMeters}
                 onChange={(e) => setRadiusMeters(Number(e.target.value))}
-                className="w-full accent-[#00C9A7] cursor-pointer"
+                className="w-full accent-[#00C9A7] cursor-pointer h-2"
               />
               <div className="flex justify-between text-[9px] text-slate-400 font-mono">
                 <span>Strict (50m)</span>
-                <span>Recommended (100m - 300m)</span>
+                <span>Recommended (100m-300m)</span>
                 <span>Relaxed (1500m)</span>
               </div>
             </div>
 
           </div>
 
-          {/* 3. Footer Actions */}
-          <div className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-3 flex-shrink-0">
-            <div className="text-[11px] text-slate-500 truncate max-w-[180px] sm:max-w-md">
-              {office?.latitude != null && (
-                <span>Last saved: <strong>{office.label}</strong> ({office.radiusMeters}m)</span>
+          {/* 3. Sticky Responsive Footer */}
+          <div className="p-3 sm:p-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 flex-shrink-0">
+            <div className="text-[10px] sm:text-[11px] text-slate-500 truncate">
+              {office?.latitude != null ? (
+                <span>Saved: <strong>{office.label}</strong> ({office.radiusMeters}m)</span>
+              ) : (
+                <span>Not configured yet</span>
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="grid grid-cols-2 sm:flex items-center gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-100 font-bold text-xs transition-all cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-100 font-bold text-xs transition-all cursor-pointer text-center"
               >
                 Cancel
               </button>
@@ -624,7 +625,7 @@ export const GeofenceLocationModal: React.FC<GeofenceLocationModalProps> = ({
                 type="button"
                 onClick={handleSave}
                 disabled={saving || latitude == null || longitude == null}
-                className="flex items-center gap-2 bg-[#00C9A7] hover:bg-[#00B4D8] disabled:opacity-50 text-[#0A2540] font-black text-xs px-5 py-2.5 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-[#00C9A7] hover:bg-[#00B4D8] disabled:opacity-50 text-[#0A2540] font-black text-xs px-5 py-2.5 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap"
               >
                 <Save className="w-4 h-4" />
                 <span>{saving ? 'Saving…' : 'Save Office Location'}</span>
