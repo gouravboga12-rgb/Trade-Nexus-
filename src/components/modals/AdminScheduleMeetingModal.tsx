@@ -46,7 +46,7 @@ export const AdminScheduleMeetingModal: React.FC<AdminScheduleMeetingModalProps>
   const [dateOption, setDateOption] = useState<'today' | 'tomorrow' | 'custom'>('today');
   const [customDate, setCustomDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState('11:00 AM');
-  const [locationType, setLocationType] = useState<'ZOOM' | 'IN_APP' | 'BOARDROOM' | 'EXTERNAL'>('ZOOM');
+  const [locationType, setLocationType] = useState<'IN_APP' | 'BOARDROOM' | 'EXTERNAL'>('IN_APP');
   const [externalLink, setExternalLink] = useState('');
   const [priority, setPriority] = useState<'NORMAL' | 'HIGH' | 'MANDATORY'>('MANDATORY');
   const [agenda, setAgenda] = useState('');
@@ -112,17 +112,13 @@ export const AdminScheduleMeetingModal: React.FC<AdminScheduleMeetingModalProps>
 
     const formattedDateTime = `${resolvedDate}, ${time}`;
 
-    let resolvedLocation = 'Zoom Video Room';
+    let resolvedLocation = 'In-App Digital Video Room';
     let resolvedLink = '';
 
-    if (locationType === 'ZOOM') {
-      resolvedLocation = 'Zoom Cloud Video Room';
-    } else if (locationType === 'IN_APP') {
-      resolvedLocation = 'In-App Digital Video Room';
-    } else if (locationType === 'BOARDROOM') {
+    if (locationType === 'BOARDROOM') {
       resolvedLocation = 'Executive Boardroom (HQ Level 4)';
     } else if (locationType === 'EXTERNAL') {
-      resolvedLocation = externalLink.trim() || 'Custom Meeting Link';
+      resolvedLocation = externalLink.trim() || 'Google Meet / Zoom';
       resolvedLink = externalLink.trim();
     }
 
@@ -136,7 +132,6 @@ export const AdminScheduleMeetingModal: React.FC<AdminScheduleMeetingModalProps>
       agenda: agenda.trim() || `Executive directive from Super Admin for ${getScopeLabel()}.`,
       status: 'UPCOMING',
       meetingLink: resolvedLink || undefined,
-      createZoom: locationType === 'ZOOM' || locationType === 'IN_APP',
       invitedMemberName: audienceScope === 'INDIVIDUAL' ? selectedMember?.name : undefined,
       attendeesCount: attendees,
       targetAudience: audienceScope,
@@ -503,25 +498,14 @@ export const AdminScheduleMeetingModal: React.FC<AdminScheduleMeetingModalProps>
             <label className="font-black text-slate-700 block mb-1 flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5 text-slate-400" /> Meeting Room / Platform
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <button
-                type="button"
-                onClick={() => setLocationType('ZOOM')}
-                className={`p-2.5 rounded-xl border text-center font-bold text-xs transition-all cursor-pointer ${
-                  locationType === 'ZOOM'
-                    ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-xs'
-                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                🔵 Zoom API Room
-              </button>
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => setLocationType('IN_APP')}
                 className={`p-2.5 rounded-xl border text-center font-bold text-xs transition-all cursor-pointer ${
                   locationType === 'IN_APP'
-                    ? 'bg-teal-50 border-[#00C9A7] text-[#00A88B] shadow-xs'
-                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    ? 'bg-teal-50 border-[#00C9A7] text-[#00A88B]'
+                    : 'bg-slate-50 border-slate-200 text-slate-600'
                 }`}
               >
                 🎥 Built-in Room
@@ -531,8 +515,8 @@ export const AdminScheduleMeetingModal: React.FC<AdminScheduleMeetingModalProps>
                 onClick={() => setLocationType('BOARDROOM')}
                 className={`p-2.5 rounded-xl border text-center font-bold text-xs transition-all cursor-pointer ${
                   locationType === 'BOARDROOM'
-                    ? 'bg-teal-50 border-[#00C9A7] text-[#00A88B] shadow-xs'
-                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    ? 'bg-teal-50 border-[#00C9A7] text-[#00A88B]'
+                    : 'bg-slate-50 border-slate-200 text-slate-600'
                 }`}
               >
                 🏢 HQ Boardroom
@@ -542,25 +526,13 @@ export const AdminScheduleMeetingModal: React.FC<AdminScheduleMeetingModalProps>
                 onClick={() => setLocationType('EXTERNAL')}
                 className={`p-2.5 rounded-xl border text-center font-bold text-xs transition-all cursor-pointer ${
                   locationType === 'EXTERNAL'
-                    ? 'bg-teal-50 border-[#00C9A7] text-[#00A88B] shadow-xs'
-                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    ? 'bg-teal-50 border-[#00C9A7] text-[#00A88B]'
+                    : 'bg-slate-50 border-slate-200 text-slate-600'
                 }`}
               >
-                🌐 Custom URL
+                🌐 External URL
               </button>
             </div>
-
-            {locationType === 'ZOOM' && (
-              <div className="mt-2 p-2.5 bg-blue-50/70 border border-blue-200 rounded-xl flex items-center justify-between text-xs text-blue-800">
-                <span className="font-semibold flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-                  Live Zoom Meeting & Passcode will be generated via Zoom Server API
-                </span>
-                <span className="text-[10px] font-mono font-bold bg-blue-200 text-blue-900 px-2 py-0.5 rounded-md">
-                  OAuth Ready
-                </span>
-              </div>
-            )}
 
             {locationType === 'EXTERNAL' && (
               <input

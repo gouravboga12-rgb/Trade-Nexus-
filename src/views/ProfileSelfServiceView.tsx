@@ -15,11 +15,9 @@ import {
   Calendar,
   CheckSquare,
   QrCode,
-  Briefcase,
-  CreditCard,
   Award,
-  Video,
-  ExternalLink
+  Briefcase,
+  CreditCard
 } from 'lucide-react';
 
 export const ProfileSelfServiceView: React.FC = () => {
@@ -28,7 +26,6 @@ export const ProfileSelfServiceView: React.FC = () => {
     payslips, 
     teamTasks,
     teamMeetings,
-    joinMeeting,
     toggleTaskStatus,
     setIsIdCardModalOpen,
     setSelectedIdCardEmpId, 
@@ -490,62 +487,27 @@ export const ProfileSelfServiceView: React.FC = () => {
 
         {/* Team Meetings */}
         {teamMeetings.length > 0 && (
-          <div className="space-y-2 pt-1">
+          <div className="space-y-1.5 pt-1">
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">
-              Upcoming Team Standups & Zoom Meetings
+              Upcoming Team Standups
             </span>
-            {teamMeetings.slice(0, 3).map((mtg) => (
+            {teamMeetings.slice(0, 2).map((mtg) => (
               <div 
                 key={mtg.id}
-                className="rounded-2xl p-3.5 bg-[#F8FAFB] border border-slate-100/90 space-y-2"
+                className="rounded-2xl p-3 bg-[#F8FAFB] border border-slate-100/90 flex items-center justify-between"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center flex-shrink-0">
-                      <Calendar className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h5 className="font-display font-bold text-xs text-[#0A2540]">{mtg.title}</h5>
-                      <p className="text-[10px] text-slate-400 font-medium">{mtg.dateTime} • {mtg.location}</p>
-                    </div>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center flex-shrink-0">
+                    <Calendar className="w-4 h-4" />
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="text-[10px] font-bold bg-sky-100/80 text-sky-800 px-2 py-0.5 rounded-md">
-                      {mtg.type}
-                    </span>
-                    {mtg.zoomMeetingId && (
-                      <span className="text-[9px] font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">
-                        Zoom API
-                      </span>
-                    )}
+                  <div>
+                    <h5 className="font-display font-bold text-xs text-[#0A2540]">{mtg.title}</h5>
+                    <p className="text-[10px] text-slate-400 font-medium">{mtg.dateTime} • {mtg.location}</p>
                   </div>
                 </div>
-
-                {mtg.zoomMeetingId && (
-                  <div className="p-2 bg-blue-50/60 rounded-xl border border-blue-100 text-[10px] font-mono text-blue-900 flex items-center justify-between">
-                    <span>ID: <strong>{mtg.zoomMeetingId}</strong></span>
-                    {mtg.zoomPassword && <span>Pass: <strong className="text-blue-700">{mtg.zoomPassword}</strong></span>}
-                  </div>
-                )}
-
-                <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
-                  {mtg.zoomJoinUrl && (
-                    <a
-                      href={mtg.zoomJoinUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-bold text-[10px] flex items-center gap-1"
-                    >
-                      <ExternalLink className="w-3 h-3" /> Zoom App
-                    </a>
-                  )}
-                  <button
-                    onClick={() => joinMeeting(mtg)}
-                    className="px-2.5 py-1 rounded-lg bg-[#0A2540] text-[#00C9A7] font-bold text-[10px] flex items-center gap-1"
-                  >
-                    <Video className="w-3 h-3" /> In-App Room
-                  </button>
-                </div>
+                <span className="text-[10px] font-bold bg-sky-100/80 text-sky-800 px-2 py-0.5 rounded-md">
+                  {mtg.type}
+                </span>
               </div>
             ))}
           </div>

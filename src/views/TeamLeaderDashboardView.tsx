@@ -20,9 +20,7 @@ import {
   Radio,
   UserCheck,
   Check,
-  X,
-  ExternalLink,
-  ShieldCheck
+  X
 } from 'lucide-react';
 import { TeamMeeting, TeamMember } from '../types';
 import { Employee360ProfileView } from './Employee360ProfileView';
@@ -39,7 +37,6 @@ export const TeamLeaderDashboardView: React.FC = () => {
     approveLeaveRequest, 
     rejectLeaveRequest,
     scheduleTeamMeeting,
-    startInstantZoomMeeting,
     deleteTeamMeeting,
     joinMeeting,
     attendanceLogs,
@@ -219,7 +216,19 @@ export const TeamLeaderDashboardView: React.FC = () => {
   };
 
   const startInstantMeeting = (type: string = 'Team Discussion') => {
-    startInstantZoomMeeting(`Live Team Meeting • ${profile?.teamName || 'Alpha Growth'}`);
+    const meetingId = `meet-${Date.now()}`;
+    const newMtg: TeamMeeting = {
+      id: meetingId,
+      title: `Instant Team Meeting • ${profile?.teamName || 'Alpha Growth'}`,
+      dateTime: 'Live Now',
+      type: type || 'Team Discussion',
+      location: 'In-App Video Room',
+      attendeesCount: teamMembers.length,
+      agenda: 'Instant team coordination and discussion',
+      status: 'LIVE',
+      meetingLink: `https://meet.tradenexus.io/room/${meetingId}`,
+    };
+    joinMeeting(newMtg);
   };
 
   const copyMeetingLink = (link?: string) => {
@@ -1312,15 +1321,10 @@ export const TeamLeaderDashboardView: React.FC = () => {
                   <div key={mtg.id} className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-xs space-y-2.5">
                     <div className="flex justify-between items-start">
                       <div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
+                        <div className="flex items-center gap-2">
                           <span className="text-[10px] font-extrabold text-[#00A88B] bg-[#E6FAF6] px-2 py-0.5 rounded-md uppercase">
                             {mtg.type}
                           </span>
-                          {mtg.zoomMeetingId && (
-                            <span className="text-[9px] font-mono font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md flex items-center gap-1">
-                              <ShieldCheck className="w-2.5 h-2.5 text-blue-600" /> Zoom
-                            </span>
-                          )}
                           {mtg.status === 'LIVE' && (
                             <span className="text-[9px] font-black text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
                               <Radio className="w-2.5 h-2.5 text-rose-600" /> LIVE NOW
@@ -1332,50 +1336,31 @@ export const TeamLeaderDashboardView: React.FC = () => {
                       <span className="text-[11px] font-mono text-slate-400 font-bold">{mtg.dateTime}</span>
                     </div>
 
-                    {mtg.zoomMeetingId && (
-                      <div className="p-2 bg-blue-50/80 rounded-xl border border-blue-100 text-[10px] font-mono text-blue-900 flex items-center justify-between flex-wrap gap-1">
-                        <span>ID: <strong>{mtg.zoomMeetingId}</strong></span>
-                        {mtg.zoomPassword && <span>Pass: <strong className="text-blue-700">{mtg.zoomPassword}</strong></span>}
-                      </div>
-                    )}
-
                     {mtg.agenda && (
                       <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-xl italic">
                         "{mtg.agenda}"
                       </p>
                     )}
 
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 gap-2 flex-wrap">
-                      <div className="flex items-center gap-2">
-                        {mtg.zoomJoinUrl && (
-                          <a
-                            href={mtg.zoomJoinUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[11px] font-bold text-blue-600 flex items-center gap-1 hover:text-blue-800"
-                          >
-                            <ExternalLink className="w-3 h-3" /> Zoom App
-                          </a>
-                        )}
-                        <button
-                          onClick={() => copyMeetingLink(mtg.zoomJoinUrl || mtg.meetingLink)}
-                          className="text-[11px] font-bold text-slate-500 flex items-center gap-1 hover:text-slate-800 cursor-pointer"
-                        >
-                          <Copy className="w-3.5 h-3.5" /> Copy
-                        </button>
-                      </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                      <button
+                        onClick={() => copyMeetingLink(mtg.meetingLink)}
+                        className="text-[11px] font-bold text-slate-500 flex items-center gap-1 hover:text-slate-800"
+                      >
+                        <Copy className="w-3.5 h-3.5" /> Copy Link
+                      </button>
 
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => deleteTeamMeeting(mtg.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 text-xs cursor-pointer"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 text-xs"
                           title="Delete"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => joinMeeting(mtg)}
-                          className={`px-3 py-1.5 rounded-xl font-black text-xs flex items-center gap-1 transition-all cursor-pointer ${
+                          className={`px-3 py-1.5 rounded-xl font-black text-xs flex items-center gap-1 transition-all ${
                             mtg.status === 'LIVE' 
                               ? 'bg-[#00C9A7] text-[#0A2540]' 
                               : 'bg-[#0A2540] text-[#00C9A7]'

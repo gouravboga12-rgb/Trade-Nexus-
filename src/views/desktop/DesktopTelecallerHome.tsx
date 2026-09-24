@@ -21,8 +21,7 @@ import {
   Video,
   Users,
   Award,
-  ArrowRight,
-  ExternalLink
+  ArrowRight
 } from 'lucide-react';
 
 export const DesktopTelecallerHome: React.FC = () => {
@@ -163,42 +162,24 @@ export const DesktopTelecallerHome: React.FC = () => {
                 <span className="text-[10px] font-black bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full uppercase tracking-wider">
                   🔴 Live Team Meeting
                 </span>
-                {liveMeeting.zoomMeetingId && (
-                  <span className="text-[10px] font-mono bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <ShieldCheck className="w-3 h-3 text-blue-600" /> Zoom API Room
-                  </span>
-                )}
-                <span className="text-xs font-mono text-emerald-800 font-bold">Conducted by {liveMeeting.createdByRole || 'Team Leader'}</span>
+                <span className="text-xs font-mono text-emerald-800 font-bold">Conducted by Team Leader</span>
               </div>
               <h4 className="font-display font-black text-base text-[#0A2540] mt-0.5">
                 {liveMeeting.title}
               </h4>
               <p className="text-xs text-slate-500 font-medium">
-                {liveMeeting.invitedMemberName ? `Invited: ${liveMeeting.invitedMemberName}` : 'All team employees invited'} • Click Join to enter live session
+                {liveMeeting.invitedMemberName ? `Invited: ${liveMeeting.invitedMemberName}` : 'All team employees invited'} • Click Join to enter live video session
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {liveMeeting.zoomJoinUrl && (
-              <a
-                href={liveMeeting.zoomJoinUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md shadow-blue-600/20 transition-all active:scale-95"
-              >
-                <ExternalLink className="w-4 h-4" />
-                <span>Open in Zoom App</span>
-              </a>
-            )}
-            <button
-              onClick={() => joinMeeting(liveMeeting)}
-              className="px-6 py-2.5 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs rounded-xl flex items-center gap-2 shadow-md shadow-[#00C9A7]/30 transition-all active:scale-95"
-            >
-              <Video className="w-4 h-4" />
-              <span>Join Video Call</span>
-            </button>
-          </div>
+          <button
+            onClick={() => joinMeeting(liveMeeting)}
+            className="px-6 py-2.5 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs rounded-xl flex items-center gap-2 shadow-md shadow-[#00C9A7]/30 transition-all active:scale-95"
+          >
+            <Video className="w-4 h-4" />
+            <span>Join Video Call</span>
+          </button>
         </div>
       )}
 
