@@ -13,7 +13,9 @@ import {
   Phone,
   CheckCircle2,
   Clock,
-  Award
+  Award,
+  Video,
+  ExternalLink
 } from 'lucide-react';
 
 export const DesktopProfile: React.FC = () => {
@@ -22,6 +24,7 @@ export const DesktopProfile: React.FC = () => {
     payslips, 
     teamTasks, 
     teamMeetings, 
+    joinMeeting,
     toggleTaskStatus, 
     setIsIdCardModalOpen,
     setSelectedIdCardEmpId, 
@@ -360,14 +363,47 @@ export const DesktopProfile: React.FC = () => {
                 <h5 className="font-display font-bold text-xs text-slate-500">Upcoming Team Meetings & Coaching</h5>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {teamMeetings.map((mtg) => (
-                    <div key={mtg.id} className="p-3 rounded-xl bg-sky-50/60 border border-sky-100 flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Calendar className="w-4 h-4" />
+                    <div key={mtg.id} className="p-3.5 rounded-2xl bg-sky-50/60 border border-sky-100 flex flex-col justify-between gap-2.5">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Calendar className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h6 className="font-display font-bold text-xs text-[#0A2540] truncate">{mtg.title}</h6>
+                            {mtg.zoomMeetingId && (
+                              <span className="text-[9px] font-mono font-bold bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">
+                                Zoom API
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-0.5">{mtg.dateTime}</p>
+                          <p className="text-[10px] text-sky-700 font-semibold">{mtg.location}</p>
+                          {mtg.zoomMeetingId && (
+                            <p className="text-[10px] font-mono text-blue-800 mt-1">
+                              ID: <strong>{mtg.zoomMeetingId}</strong> {mtg.zoomPassword ? `• Pass: ${mtg.zoomPassword}` : ''}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <h6 className="font-display font-bold text-xs text-[#0A2540] truncate">{mtg.title}</h6>
-                        <p className="text-[10px] text-slate-500 mt-0.5">{mtg.dateTime}</p>
-                        <p className="text-[10px] text-sky-700 font-semibold">{mtg.location}</p>
+
+                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-sky-100/60">
+                        {mtg.zoomJoinUrl && (
+                          <a
+                            href={mtg.zoomJoinUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px] flex items-center gap-1 transition-all"
+                          >
+                            <ExternalLink className="w-3 h-3" /> Zoom App
+                          </a>
+                        )}
+                        <button
+                          onClick={() => joinMeeting(mtg)}
+                          className="px-3 py-1 rounded-lg bg-[#0A2540] hover:bg-slate-800 text-[#00C9A7] font-bold text-[11px] flex items-center gap-1 transition-all cursor-pointer"
+                        >
+                          <Video className="w-3 h-3" /> In-App Room
+                        </button>
                       </div>
                     </div>
                   ))}

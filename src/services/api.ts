@@ -263,6 +263,8 @@ export const api = {
   getTeamMeetings: () => request<TeamMeeting[]>('/team-meetings'),
   createTeamMeeting: (data: Omit<TeamMeeting, 'id'> & { id?: string }) => 
     request<TeamMeeting>('/team-meetings', { method: 'POST', body: JSON.stringify(data) }),
+  createInstantMeeting: (data: { title?: string; hostRole?: string; hostName?: string; agenda?: string; targetAudience?: string; targetTeam?: string }) =>
+    request<TeamMeeting>('/team-meetings/instant', { method: 'POST', body: JSON.stringify(data) }),
   updateTeamMeeting: (id: string, data: Partial<TeamMeeting>) => 
     request<TeamMeeting>(`/team-meetings/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteTeamMeeting: (id: string) => 

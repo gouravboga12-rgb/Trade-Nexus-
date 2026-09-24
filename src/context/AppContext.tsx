@@ -147,7 +147,13 @@ interface AppContextType {
     targetEmployeeId?: string;
     createdByRole?: string;
     priority?: 'NORMAL' | 'HIGH' | 'MANDATORY';
+    createZoom?: boolean;
+    zoomMeetingId?: string;
+    zoomJoinUrl?: string;
+    zoomStartUrl?: string;
+    zoomPassword?: string;
   }) => void;
+  startInstantZoomMeeting: (title?: string) => Promise<TeamMeeting | undefined>;
   updateTeamMeeting: (id: string, updates: Partial<TeamMeeting>) => void;
   deleteTeamMeeting: (id: string) => void;
   isLiveRoomOpen: boolean;
@@ -1708,6 +1714,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     targetEmployeeId?: string;
     createdByRole?: string;
     priority?: 'NORMAL' | 'HIGH' | 'MANDATORY';
+    createZoom?: boolean;
+    zoomMeetingId?: string;
+    zoomJoinUrl?: string;
+    zoomStartUrl?: string;
+    zoomPassword?: string;
   }) => {
     const meetingId = `mtg-${Date.now()}`;
     const newMtg: TeamMeeting = {
@@ -1715,25 +1726,52 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       title: data.title,
       dateTime: data.dateTime || 'Today',
       type: data.type || 'Team Discussion',
-      location: data.location || 'In-App Video Room',
+      location: data.location || 'Zoom Video Room',
       attendeesCount: data.attendeesCount ?? (data.invitedMemberName ? 2 : teamMembers.length),
       agenda: data.agenda || '',
       status: data.status || 'UPCOMING',
-      meetingLink: data.meetingLink || `https://meet.tradenexus.io/room/${meetingId}`,
+      meetingLink: data.meetingLink || data.zoomJoinUrl || `https://meet.tradenexus.io/room/${meetingId}`,
       invitedMemberName: data.invitedMemberName,
       targetAudience: data.targetAudience || (data.invitedMemberName ? 'INDIVIDUAL' : 'ALL'),
       targetTeam: data.targetTeam,
       targetEmployeeId: data.targetEmployeeId,
       createdByRole: data.createdByRole || currentRole,
       priority: data.priority || 'NORMAL',
+      createZoom: data.createZoom !== false,
+      zoomMeetingId: data.zoomMeetingId,
+      zoomJoinUrl: data.zoomJoinUrl,
+      zoomStartUrl: data.zoomStartUrl,
+      zoomPassword: data.zoomPassword,
     };
     setTeamMeetings(prev => [newMtg, ...prev]);
     triggerToast(`✓ Meeting "${data.title}" scheduled`);
 
     try {
-      await api.createTeamMeeting(newMtg);
+      const res = await api.createTeamMeeting(newMtg);
+      if (res && res.id) {
+        setTeamMeetings(prev => prev.map(m => m.id === meetingId ? { ...newMtg, ...res } : m));
+      }
     } catch (err) {
       console.warn('API create meeting error:', err);
+    }
+  };
+
+  const startInstantZoomMeeting = async (title?: string) => {
+    try {
+      const res = await api.createInstantMeeting({
+        title: title || `Live Huddle: ${profile.name || 'Team Sync'}`,
+        hostRole: currentRole,
+        hostName: profile.name,
+        agenda: 'Instant live Zoom collaboration room',
+      });
+      if (res && res.id) {
+        setTeamMeetings(prev => [res, ...prev.filter(m => m.id !== res.id)]);
+        joinMeeting(res);
+        triggerToast('✓ Instant Zoom meeting launched!');
+        return res;
+      }
+    } catch (err) {
+      console.error('Failed to start instant zoom meeting:', err);
     }
   };
 
@@ -2233,6 +2271,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         createTeamTask,
         toggleTaskStatus,
         scheduleTeamMeeting,
+        startInstantZoomMeeting,
         updateTeamMeeting,
         deleteTeamMeeting,
         isLiveRoomOpen,

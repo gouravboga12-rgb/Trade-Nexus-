@@ -167,6 +167,19 @@ export function initializeDatabaseSchema() {
       location TEXT NOT NULL,
       attendeesCount INTEGER NOT NULL DEFAULT 0,
       agenda TEXT DEFAULT '',
+      status TEXT DEFAULT 'UPCOMING',
+      meetingLink TEXT DEFAULT '',
+      invitedMemberName TEXT DEFAULT '',
+      targetAudience TEXT DEFAULT 'ALL',
+      targetTeam TEXT DEFAULT '',
+      targetEmployeeId TEXT DEFAULT '',
+      createdByRole TEXT DEFAULT '',
+      priority TEXT DEFAULT 'NORMAL',
+      zoomMeetingId TEXT DEFAULT '',
+      zoomJoinUrl TEXT DEFAULT '',
+      zoomStartUrl TEXT DEFAULT '',
+      zoomPassword TEXT DEFAULT '',
+      zoomHostEmail TEXT DEFAULT '',
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -334,6 +347,21 @@ function runMigrations() {
 
   addColumnIfMissing('leave_requests', 'employeeName', 'TEXT');
   addColumnIfMissing('leave_requests', 'employeeCode', 'TEXT');
+
+  // Team meetings zoom & broadcast attributes
+  addColumnIfMissing('team_meetings', 'status', "TEXT NOT NULL DEFAULT 'UPCOMING'");
+  addColumnIfMissing('team_meetings', 'meetingLink', 'TEXT');
+  addColumnIfMissing('team_meetings', 'invitedMemberName', 'TEXT');
+  addColumnIfMissing('team_meetings', 'targetAudience', "TEXT DEFAULT 'ALL'");
+  addColumnIfMissing('team_meetings', 'targetTeam', 'TEXT');
+  addColumnIfMissing('team_meetings', 'targetEmployeeId', 'TEXT');
+  addColumnIfMissing('team_meetings', 'createdByRole', 'TEXT');
+  addColumnIfMissing('team_meetings', 'priority', "TEXT DEFAULT 'NORMAL'");
+  addColumnIfMissing('team_meetings', 'zoomMeetingId', 'TEXT');
+  addColumnIfMissing('team_meetings', 'zoomJoinUrl', 'TEXT');
+  addColumnIfMissing('team_meetings', 'zoomStartUrl', 'TEXT');
+  addColumnIfMissing('team_meetings', 'zoomPassword', 'TEXT');
+  addColumnIfMissing('team_meetings', 'zoomHostEmail', 'TEXT');
 
   // Payslips per employee
   addColumnIfMissing('payslips', 'employeeId', 'TEXT');

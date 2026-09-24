@@ -256,7 +256,12 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                   <span className="text-[10px] font-black bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full uppercase tracking-wider">
                     🔴 Live Team Meeting in Progress
                   </span>
-                  <span className="text-xs font-mono text-emerald-800 font-bold">Conducted by Team Leader</span>
+                  {liveMeeting.zoomMeetingId && (
+                    <span className="text-[10px] font-mono bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-blue-600" /> Zoom API Room
+                    </span>
+                  )}
+                  <span className="text-xs font-mono text-emerald-800 font-bold">Conducted by {liveMeeting.createdByRole || 'Team Leader'}</span>
                 </div>
                 <h4 className="font-display font-black text-base text-[#0A2540] mt-0.5">
                   {liveMeeting.title}
@@ -267,13 +272,26 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={() => joinMeeting(liveMeeting)}
-              className="px-5 py-2.5 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs rounded-xl flex items-center gap-2 shadow-md shadow-[#00C9A7]/30 transition-all active:scale-95"
-            >
-              <Video className="w-4 h-4" />
-              <span>Join Video Session</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {liveMeeting.zoomJoinUrl && (
+                <a
+                  href={liveMeeting.zoomJoinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md shadow-blue-600/20 transition-all active:scale-95"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Open Zoom App</span>
+                </a>
+              )}
+              <button
+                onClick={() => joinMeeting(liveMeeting)}
+                className="px-5 py-2.5 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs rounded-xl flex items-center gap-2 shadow-md shadow-[#00C9A7]/30 transition-all active:scale-95"
+              >
+                <Video className="w-4 h-4" />
+                <span>Join Video Session</span>
+              </button>
+            </div>
           </div>
         );
       })()}

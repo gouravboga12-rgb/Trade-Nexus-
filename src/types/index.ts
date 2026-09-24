@@ -215,6 +215,12 @@ export interface TeamMeeting {
   targetEmployeeId?: string;
   createdByRole?: string;
   priority?: 'NORMAL' | 'HIGH' | 'MANDATORY';
+  zoomMeetingId?: string;
+  zoomJoinUrl?: string;
+  zoomStartUrl?: string;
+  zoomPassword?: string;
+  zoomHostEmail?: string;
+  createZoom?: boolean;
 }
 
 export interface CandidateInterview {
