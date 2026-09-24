@@ -47,6 +47,7 @@ import { ManageTeamMembersModal } from '../components/modals/ManageTeamMembersMo
 import { AdminTargetSettingsModal } from '../components/modals/AdminTargetSettingsModal';
 import { AdminScheduleMeetingModal } from '../components/modals/AdminScheduleMeetingModal';
 import { GeofenceLocationModal } from '../components/modals/GeofenceLocationModal';
+import { InAppLiveMapModal } from '../components/modals/InAppLiveMapModal';
 import { OfficeSettings, TeamGroup, TeamMember, UserRole, LeaveRequest, PaymentVerificationItem } from '../types';
 import { api } from '../services/api';
 import { Employee360ProfileView } from './Employee360ProfileView';
@@ -131,6 +132,7 @@ export const AdminDashboardView: React.FC = () => {
   const [adminDeviceLocation, setAdminDeviceLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [adminDistanceToOffice, setAdminDistanceToOffice] = useState<number | null>(null);
   const [isVerifyingAdminLocation, setIsVerifyingAdminLocation] = useState(false);
+  const [showInAppLiveMap, setShowInAppLiveMap] = useState(false);
 
   useEffect(() => {
     api.getOffice().then(setOffice).catch(() => setOffice(null));
@@ -2075,114 +2077,47 @@ export const AdminDashboardView: React.FC = () => {
                 <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-[#00C9A7] transition-colors" />
               </div>
 
-              {/* Geofence & Office Location Management with Expand & Verify */}
-              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3 transition-all">
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div className="flex items-start gap-3.5 min-w-0">
-                    <div className="w-10 h-10 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-2xs">
-                      <MapPin className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="font-bold text-sm text-[#0A2540] truncate max-w-xs sm:max-w-md">
-                          {office?.label || 'Geofence & Office Location'}
-                        </h4>
-                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          {office?.radiusMeters || 300}m Strict Geofence
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-0.5 truncate">
-                        {office?.latitude != null && office?.longitude != null
-                          ? `GPS: ${office.latitude.toFixed(6)}, ${office.longitude.toFixed(6)} • Strict check-in perimeter`
-                          : 'Office coordinates & punch-in boundary for all employees'}
-                      </p>
-                    </div>
+              {/* Geofence & Office Location */}
+              <div
+                onClick={() => setShowOfficeEditor(true)}
+                className="bg-white border border-slate-200/90 hover:border-sky-400 rounded-2xl p-4 shadow-2xs flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+              >
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-10 h-10 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
+                    <MapPin className="w-5 h-5" />
                   </div>
-
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => setIsAdminMapExpanded(!isAdminMapExpanded)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:text-[#00A88B] hover:border-[#00C9A7] transition-all cursor-pointer shadow-2xs bg-white"
-                    >
-                      {isAdminMapExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-                      <span>{isAdminMapExpanded ? 'Collapse Map' : 'Expand & Verify Live Location'}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setShowOfficeEditor(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0A2540] hover:bg-slate-800 text-white text-xs font-bold transition-all cursor-pointer shadow-2xs"
-                    >
-                      <Building2 className="w-3.5 h-3.5" />
-                      <span>Configure Office</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Device Verification Status Bar */}
-                <div className="bg-[#E6FAF6] border border-[#00C9A7]/40 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2.5 h-2.5 rounded-full ${
-                      adminDistanceToOffice != null
-                        ? adminDistanceToOffice <= (office?.radiusMeters || 300)
-                          ? 'bg-emerald-500 animate-pulse'
-                          : 'bg-amber-500'
-                        : 'bg-slate-400'
-                    }`} />
-                    <span className="text-xs font-bold text-[#0A2540]">
-                      {adminDistanceToOffice != null ? (
-                        adminDistanceToOffice <= (office?.radiusMeters || 300) ? (
-                          <span className="text-emerald-800">
-                            ✓ Your device is inside perimeter ({adminDistanceToOffice}m away) — Punch-in active
-                          </span>
-                        ) : (
-                          <span className="text-amber-800">
-                            ⚠ Your device is outside perimeter ({adminDistanceToOffice >= 1000 ? `${(adminDistanceToOffice / 1000).toFixed(1)} km` : `${adminDistanceToOffice}m`} away) — Punch-in restricted
-                          </span>
-                        )
-                      ) : (
-                        <span className="text-slate-600">
-                          Admin device location not yet verified
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-bold text-sm text-[#0A2540] group-hover:text-sky-600 transition-colors truncate">
+                        Geofence & Location
+                      </h4>
+                      {office?.radiusMeters && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          {office.radiusMeters}m Active
                         </span>
                       )}
+                    </div>
+                    <span className="text-xs text-slate-500 truncate block mt-0.5">
+                      {office?.label ? `${office.label} • Strict perimeter` : 'Office coordinates & punch-in boundary'}
                     </span>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={verifyAdminLiveLocation}
-                    disabled={isVerifyingAdminLocation}
-                    className="flex items-center justify-center gap-1.5 bg-white hover:bg-slate-50 border border-[#00C9A7] text-[#00A88B] font-bold text-xs px-3 py-1.5 rounded-xl shadow-2xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
-                  >
-                    <Crosshair className={`w-3.5 h-3.5 ${isVerifyingAdminLocation ? 'animate-spin' : ''}`} />
-                    <span>{isVerifyingAdminLocation ? 'Verifying GPS…' : 'Verify My Live Location'}</span>
-                  </button>
                 </div>
 
-                {/* Inline Expandable Leaflet Map */}
-                {isAdminMapExpanded && (
-                  <div className="pt-2 animate-in fade-in duration-200">
-                    <LeafletGeofenceMap
-                      latitude={office?.latitude ?? null}
-                      longitude={office?.longitude ?? null}
-                      radiusMeters={office?.radiusMeters ?? 300}
-                      deviceLocation={adminDeviceLocation}
-                      isEditable={false}
-                      height="380px"
-                    />
-                    <div className="flex items-center justify-between mt-2 text-[10px] text-slate-500 flex-wrap gap-2">
-                      <span>Pulsing green circle shows the {office?.radiusMeters || 300}m boundary. Blue pin shows your current device.</span>
-                      <button
-                        type="button"
-                        onClick={() => setShowOfficeEditor(true)}
-                        className="font-bold text-[#00A88B] hover:underline cursor-pointer"
-                      >
-                        Change Office Coordinates / Radius →
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowInAppLiveMap(true);
+                    }}
+                    className="flex items-center gap-1.5 text-xs font-bold text-[#00A88B] bg-[#E6FAF6] hover:bg-[#00C9A7] hover:text-[#0A2540] px-3 py-1.5 rounded-xl border border-[#00C9A7]/40 transition-all cursor-pointer shadow-2xs whitespace-nowrap"
+                    title="Open live point location on full in-app map"
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>Open Map in App</span>
+                  </button>
+                  <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-sky-600 transition-colors" />
+                </div>
               </div>
 
               {/* Lead Import Modal */}
@@ -2969,6 +2904,14 @@ export const AdminDashboardView: React.FC = () => {
       <GeofenceLocationModal
         isOpen={showOfficeEditor}
         onClose={() => setShowOfficeEditor(false)}
+        onSaved={(saved) => setOffice(saved)}
+      />
+
+      {/* Dedicated In-App Live Map Viewer Modal */}
+      <InAppLiveMapModal
+        isOpen={showInAppLiveMap}
+        onClose={() => setShowInAppLiveMap(false)}
+        office={office}
         onSaved={(saved) => setOffice(saved)}
       />
     </div>

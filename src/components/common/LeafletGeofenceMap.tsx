@@ -72,26 +72,36 @@ export const LeafletGeofenceMap: React.FC<LeafletGeofenceMapProps> = ({
   // 1. Initialize Leaflet Map
   useEffect(() => {
     if (!mapContainerRef.current) return;
+    if (mapInstanceRef.current) return;
 
-    if (mapInstanceRef.current) {
-      try {
-        mapInstanceRef.current.remove();
-      } catch {}
-      mapInstanceRef.current = null;
-    }
-
+    // Remove any leftover leaflet id to prevent "Map container is already initialized" error
     if ((mapContainerRef.current as any)._leaflet_id) {
-      delete (mapContainerRef.current as any)._leaflet_id;
+      try {
+        delete (mapContainerRef.current as any)._leaflet_id;
+      } catch (e) {}
     }
 
     const defaultLat = latitude ?? 17.314;
     const defaultLng = longitude ?? 78.529;
 
-    const map = L.map(mapContainerRef.current, {
-      center: [defaultLat, defaultLng],
-      zoom: 16,
-      zoomControl: false,
-    });
+    let map: L.Map;
+    try {
+      map = L.map(mapContainerRef.current, {
+        center: [defaultLat, defaultLng],
+        zoom: 16,
+        zoomControl: false,
+      });
+    } catch (err) {
+      console.warn('Leaflet initialization retry:', err);
+      if ((mapContainerRef.current as any)._leaflet_id) {
+        delete (mapContainerRef.current as any)._leaflet_id;
+      }
+      map = L.map(mapContainerRef.current, {
+        center: [defaultLat, defaultLng],
+        zoom: 16,
+        zoomControl: false,
+      });
+    }
 
     const streetUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
     const streetLayer = L.tileLayer(streetUrl, {
@@ -111,18 +121,18 @@ export const LeafletGeofenceMap: React.FC<LeafletGeofenceMapProps> = ({
       });
     }
 
-    // Force size calculation after render at staggered intervals
-    const t1 = setTimeout(() => map.invalidateSize(), 100);
-    const t2 = setTimeout(() => map.invalidateSize(), 350);
-    const t3 = setTimeout(() => map.invalidateSize(), 700);
+    // Force size calculation after render
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 500);
 
     return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
       try {
         map.remove();
-      } catch {}
+      } catch (e) {}
       mapInstanceRef.current = null;
     };
   }, []);
@@ -269,7 +279,7 @@ export const LeafletGeofenceMap: React.FC<LeafletGeofenceMapProps> = ({
       style={{ height, minHeight: height }}
     >
       {/* Map DOM Container */}
-      <div ref={mapContainerRef} className="w-full h-full z-0" style={{ width: '100%', height: '100%', minHeight: height }} />
+      <div ref={mapContainerRef} className="w-full h-full z-0" style={{ height: '100%', minHeight: height }} />
 
       {/* Floating Controls Overlay */}
       <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-2 pointer-events-auto">
