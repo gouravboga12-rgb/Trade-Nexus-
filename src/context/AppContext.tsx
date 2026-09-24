@@ -717,55 +717,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSelectedOfferLetter(matched);
     setIsOfferLetterModalOpen(true);
   };
-  const generateOfferLetter = (data: Omit<OfferLetterData, 'id' | 'issuedDate'>) => {
-    const newLetter: OfferLetterData = {
-      ...data,
-      id: `off-${Date.now()}`,
-      issuedDate: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }),
-    };
-    setOfferLetters(prev => [newLetter, ...prev]);
-    try { localStorage.setItem('tnx_offerLetters', JSON.stringify([newLetter, ...offerLetters])); } catch {}
-    triggerToast(`✓ Offer Letter generated for ${data.candidateName}`);
-  };
-
-  const generateExperienceCert = (data: Omit<ExperienceCertificateData, 'id'>) => {
-    const newCert: ExperienceCertificateData = {
-      ...data,
-      id: `exp-${Date.now()}`,
-    };
-    setExperienceCertificates(prev => {
-      const updated = [newCert, ...prev];
-      try { localStorage.setItem('tnx_experienceCertificates', JSON.stringify(updated)); } catch {}
-      return updated;
-    });
-    triggerToast(`✓ Experience Certificate generated for ${data.employeeName}`);
-  };
-
-  const generateRelievingLetter = (data: Omit<RelievingLetterData, 'id'>) => {
-    const newLetter: RelievingLetterData = {
-      ...data,
-      id: `rel-${Date.now()}`,
-    };
-    setRelievingLetters(prev => {
-      const updated = [newLetter, ...prev];
-      try { localStorage.setItem('tnx_relievingLetters', JSON.stringify(updated)); } catch {}
-      return updated;
-    });
-    triggerToast(`✓ Relieving Letter generated for ${data.employeeName}`);
-  };
-
-  const generateInvoice = (data: Omit<InvoiceData, 'id'>) => {
-    const newInvoice: InvoiceData = {
-      ...data,
-      id: `inv-${Date.now()}`,
-    };
-    setInvoices(prev => {
-      const updated = [newInvoice, ...prev];
-      try { localStorage.setItem('tnx_invoices', JSON.stringify(updated)); } catch {}
-      return updated;
-    });
-    triggerToast(`✓ Invoice ${data.invoiceNumber} generated`);
-  };
 
   const [activeToast, setActiveToast] = useState<string | null>(null);
 

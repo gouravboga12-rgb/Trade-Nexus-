@@ -304,6 +304,7 @@ export const DigitalIdCardModal: React.FC = () => {
             </div>
 
           </div>
+          )}
 
         </div>
 
