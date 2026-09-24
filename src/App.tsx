@@ -21,6 +21,10 @@ import { OfferLetterModal } from './components/modals/OfferLetterModal';
 import { ExperienceCertModal } from './components/modals/ExperienceCertModal';
 import { RelievingLetterModal } from './components/modals/RelievingLetterModal';
 import { InvoiceModal } from './components/modals/InvoiceModal';
+import { GenerateOfferLetterModal } from './components/modals/GenerateOfferLetterModal';
+import { GenerateExperienceCertModal } from './components/modals/GenerateExperienceCertModal';
+import { GenerateRelievingLetterModal } from './components/modals/GenerateRelievingLetterModal';
+import { GenerateInvoiceModal } from './components/modals/GenerateInvoiceModal';
 import { PayslipDetailModal } from './components/modals/PayslipDetailModal';
 import { RecentPayslipsModal } from './components/modals/RecentPayslipsModal';
 import { DevSettingsModal } from './components/common/DevSettingsModal';
@@ -89,6 +93,14 @@ export const App: React.FC = () => {
     selectedPayslip,
     isPayslipModalOpen,
     setIsPayslipModalOpen, 
+    isGenerateOfferLetterModalOpen,
+    setIsGenerateOfferLetterModalOpen,
+    isGenerateExperienceCertModalOpen,
+    setIsGenerateExperienceCertModalOpen,
+    isGenerateRelievingLetterModalOpen,
+    setIsGenerateRelievingLetterModalOpen,
+    isGenerateInvoiceModalOpen,
+    setIsGenerateInvoiceModalOpen,
     profile, 
     stats, 
     clients,
@@ -691,6 +703,22 @@ export const App: React.FC = () => {
       <ExperienceCertModal />
       <RelievingLetterModal />
       <InvoiceModal />
+      <GenerateOfferLetterModal 
+        isOpen={isGenerateOfferLetterModalOpen} 
+        onClose={() => setIsGenerateOfferLetterModalOpen(false)} 
+      />
+      <GenerateExperienceCertModal 
+        isOpen={isGenerateExperienceCertModalOpen} 
+        onClose={() => setIsGenerateExperienceCertModalOpen(false)} 
+      />
+      <GenerateRelievingLetterModal 
+        isOpen={isGenerateRelievingLetterModalOpen} 
+        onClose={() => setIsGenerateRelievingLetterModalOpen(false)} 
+      />
+      <GenerateInvoiceModal 
+        isOpen={isGenerateInvoiceModalOpen} 
+        onClose={() => setIsGenerateInvoiceModalOpen(false)} 
+      />
       <PayslipDetailModal
         payslip={selectedPayslip}
         isOpen={isPayslipModalOpen}

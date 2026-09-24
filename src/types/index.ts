@@ -147,6 +147,7 @@ export interface EmployeeProfile {
   faceIdStatus: 'VERIFIED_PRESENT' | 'ON_BREAK' | 'NOT_CHECKED_IN';
   checkInTime: string;
   checkOutTime?: string;
+  avatar?: string;
   totalLeaveBalance: number;
 }
 

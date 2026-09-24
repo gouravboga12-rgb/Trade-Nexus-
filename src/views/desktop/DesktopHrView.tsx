@@ -75,6 +75,10 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
     openExperienceCertModal,
     openRelievingLetterModal,
     openInvoiceModal,
+    openGenerateOfferLetterModal,
+    openGenerateExperienceCertModal,
+    openGenerateRelievingLetterModal,
+    openGenerateInvoiceModal,
     openPayslipModal,
     setIsIdCardModalOpen,
     setSelectedIdCardEmpId,
@@ -933,7 +937,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                     <span className="text-xs font-bold text-[#5B3DF5]">Recruitment Ready</span>
                     <button
-                      onClick={() => openOfferLetterModal()}
+                      onClick={() => openGenerateOfferLetterModal()}
                       className="px-4 py-2 rounded-xl bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs transition-all flex items-center gap-1.5"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -967,7 +971,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                     <span className="text-xs font-bold text-amber-600">Verification Studio</span>
                     <button
-                      onClick={() => openExperienceCertModal()}
+                      onClick={() => openGenerateExperienceCertModal()}
                       className="px-4 py-2 rounded-xl bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs transition-all flex items-center gap-1.5"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -1001,7 +1005,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                     <span className="text-xs font-bold text-[#00A88B]">Exit & Settlement</span>
                     <button
-                      onClick={() => openRelievingLetterModal()}
+                      onClick={() => openGenerateRelievingLetterModal()}
                       className="px-4 py-2 rounded-xl bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs transition-all flex items-center gap-1.5"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -1072,7 +1076,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                     <span className="text-xs font-bold text-cyan-700">{invoices.length} Invoices Active</span>
                     <button
-                      onClick={() => openInvoiceModal()}
+                      onClick={() => openGenerateInvoiceModal()}
                       className="px-4 py-2 rounded-xl bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs transition-all flex items-center gap-1.5"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -1094,7 +1098,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                   <p className="text-xs text-slate-400">Issued service verification letters for employees</p>
                 </div>
                 <button
-                  onClick={() => openExperienceCertModal()}
+                  onClick={() => openGenerateExperienceCertModal()}
                   className="px-3.5 py-1.5 bg-[#00C9A7] text-[#0A2540] font-bold text-xs rounded-xl flex items-center gap-1.5"
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[3]" />
@@ -1146,7 +1150,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                   <p className="text-xs text-slate-400">Formal separation & settlement records</p>
                 </div>
                 <button
-                  onClick={() => openRelievingLetterModal()}
+                  onClick={() => openGenerateRelievingLetterModal()}
                   className="px-3.5 py-1.5 bg-[#00C9A7] text-[#0A2540] font-bold text-xs rounded-xl flex items-center gap-1.5"
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[3]" />
@@ -1198,7 +1202,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                   <p className="text-xs text-slate-400">B2B client invoices and billing settlements</p>
                 </div>
                 <button
-                  onClick={() => openInvoiceModal()}
+                  onClick={() => openGenerateInvoiceModal()}
                   className="px-3.5 py-1.5 bg-[#00C9A7] text-[#0A2540] font-bold text-xs rounded-xl flex items-center gap-1.5"
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[3]" />

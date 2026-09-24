@@ -22,7 +22,8 @@ export const DigitalIdCardModal: React.FC = () => {
     profile, 
     teamMembers, 
     triggerToast,
-    selectedIdCardEmpId 
+    selectedIdCardEmpId,
+    updateEmployeeAvatar
   } = useApp();
 
   const [selectedEmpId, setSelectedEmpId] = useState<string>(selectedIdCardEmpId || profile.id || 'emp-101');
@@ -46,7 +47,7 @@ export const DigitalIdCardModal: React.FC = () => {
   }, [selectedIdCardEmpId, isIdCardModalOpen]);
 
   useEffect(() => {
-    const matched = teamMembers.find(m => m.id === selectedEmpId);
+    const matched = teamMembers.find(m => m.id === selectedEmpId || m.empCode === selectedEmpId);
     if (matched) {
       setCustomName(matched.name);
       setCustomRole(matched.role);
@@ -55,7 +56,7 @@ export const DigitalIdCardModal: React.FC = () => {
       setCustomBloodGroup((matched as any).bloodGroup || 'O+ ve');
       setCustomDob((matched as any).dob || '05/11/1997');
       setCustomPhone(matched.phone || '9876543210');
-      setCustomPhotoUrl(matched.avatar?.startsWith('http') ? matched.avatar : null);
+      setCustomPhotoUrl(matched.avatar ? matched.avatar : null);
     } else if (profile) {
       setCustomName(profile.name || 'Employee');
       setCustomRole(profile.roleTitle || 'Sales Executive');
@@ -64,7 +65,7 @@ export const DigitalIdCardModal: React.FC = () => {
       setCustomBloodGroup(profile.bloodGroup || 'O+ ve');
       setCustomDob('05/11/1997');
       setCustomPhone(profile.phone || '9876543210');
-      setCustomPhotoUrl(null);
+      setCustomPhotoUrl(profile.avatar || null);
     }
   }, [selectedEmpId, teamMembers, profile, isIdCardModalOpen]);
 
@@ -79,8 +80,12 @@ export const DigitalIdCardModal: React.FC = () => {
     if (file) {
       const reader = new FileReader();
       reader.onload = (uploadEvent) => {
-        setCustomPhotoUrl(uploadEvent.target?.result as string);
-        triggerToast(`✓ Photo updated for ${customName}'s ID card`);
+        const dataUrl = uploadEvent.target?.result as string;
+        setCustomPhotoUrl(dataUrl);
+        if (selectedEmpId) {
+          updateEmployeeAvatar(selectedEmpId, dataUrl);
+        }
+        triggerToast(`✓ Photo updated & saved for ${customName}'s ID card`);
       };
       reader.readAsDataURL(file);
     }
@@ -280,17 +285,19 @@ export const DigitalIdCardModal: React.FC = () => {
               </div>
             </div>
 
-            {/* Circular Photo with Concentric Cyan Glowing Ring */}
+            {/* Circular Photo with Concentric Cyan Glowing Ring & Click-to-Upload */}
             <div className="flex justify-center my-2.5 relative z-10">
               <div 
-                className="w-28 h-28 rounded-full p-1 shadow-2xl flex items-center justify-center"
+                onClick={() => fileInputRef.current?.click()}
+                title="Click to change or upload employee photo"
+                className="w-28 h-28 rounded-full p-1 shadow-2xl flex items-center justify-center cursor-pointer group relative"
                 style={{ 
                   background: 'linear-gradient(135deg, #00C9A7 0%, #2CD5B5 50%, #0A2540 100%)',
                   boxShadow: '0 8px 24px rgba(0, 201, 167, 0.35)'
                 }}
               >
                 <div 
-                  className="w-full h-full rounded-full overflow-hidden flex items-center justify-center"
+                  className="w-full h-full rounded-full overflow-hidden flex items-center justify-center relative"
                   style={{ backgroundColor: '#0A2540', border: '3px solid #051326' }}
                 >
                   {customPhotoUrl ? (
@@ -306,6 +313,12 @@ export const DigitalIdCardModal: React.FC = () => {
                       {initials}
                     </div>
                   )}
+
+                  {/* Hover Upload Overlay */}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[9px] font-bold">
+                    <Upload className="w-4 h-4 text-[#00C9A7] mb-0.5" />
+                    <span>Change</span>
+                  </div>
                 </div>
               </div>
             </div>

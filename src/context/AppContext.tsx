@@ -110,37 +110,6 @@ interface AppContextType {
   registerFaceBiometric: (employeeId: string, employeeName: string, photoDataUrl: string) => void;
   verifyFaceAttendance: (employeeId?: string) => boolean;
 
-  // Employee Management & Documents
-  offerLetters: OfferLetterData[];
-  selectedOfferLetter: OfferLetterData | null;
-  setSelectedOfferLetter: (letter: OfferLetterData | null) => void;
-  isOfferLetterModalOpen: boolean;
-  setIsOfferLetterModalOpen: (open: boolean) => void;
-  generateOfferLetter: (data: Omit<OfferLetterData, 'id' | 'issuedDate'>) => void;
-
-  experienceCerts: ExperienceCertData[];
-  selectedExperienceCert: ExperienceCertData | null;
-  setSelectedExperienceCert: (cert: ExperienceCertData | null) => void;
-  isExperienceCertModalOpen: boolean;
-  setIsExperienceCertModalOpen: (open: boolean) => void;
-  generateExperienceCert: (data: Omit<ExperienceCertData, 'id' | 'issuedDate'>) => void;
-  openExperienceCertModal: (cert?: ExperienceCertData) => void;
-
-  relievingLetters: RelievingLetterData[];
-  selectedRelievingLetter: RelievingLetterData | null;
-  setSelectedRelievingLetter: (letter: RelievingLetterData | null) => void;
-  isRelievingLetterModalOpen: boolean;
-  setIsRelievingLetterModalOpen: (open: boolean) => void;
-  generateRelievingLetter: (data: Omit<RelievingLetterData, 'id' | 'issuedDate'>) => void;
-  openRelievingLetterModal: (letter?: RelievingLetterData) => void;
-
-  invoices: InvoiceData[];
-  selectedInvoice: InvoiceData | null;
-  setSelectedInvoice: (invoice: InvoiceData | null) => void;
-  isInvoiceModalOpen: boolean;
-  setIsInvoiceModalOpen: (open: boolean) => void;
-  generateInvoice: (data: Omit<InvoiceData, 'id'>) => void;
-  openInvoiceModal: (invoice?: InvoiceData) => void;
 
   createNewEmployee: (data: NewEmployeeInput) => void;
   loginEmployee: (emailOrCode: string, passwordInput: string) => { success: boolean; member?: TeamMember; error?: string };
@@ -247,7 +216,53 @@ interface AppContextType {
   isRecentPayslipsModalOpen: boolean;
   setIsRecentPayslipsModalOpen: (open: boolean) => void;
   openPayslipModal: (payslip: PayslipItem) => void;
-  openOfferLetterModal: () => void;
+  
+  // Documents & Certificates
+  offerLetters: OfferLetterData[];
+  selectedOfferLetter: OfferLetterData | null;
+  setSelectedOfferLetter: (letter: OfferLetterData | null) => void;
+  isOfferLetterModalOpen: boolean;
+  setIsOfferLetterModalOpen: (open: boolean) => void;
+  isGenerateOfferLetterModalOpen: boolean;
+  setIsGenerateOfferLetterModalOpen: (open: boolean) => void;
+  generateOfferLetter: (data: Omit<OfferLetterData, 'id' | 'issuedDate'>) => Promise<void>;
+  openOfferLetterModal: (letter?: OfferLetterData) => void;
+  openGenerateOfferLetterModal: () => void;
+
+  experienceCerts: ExperienceCertData[];
+  selectedExperienceCert: ExperienceCertData | null;
+  setSelectedExperienceCert: (cert: ExperienceCertData | null) => void;
+  isExperienceCertModalOpen: boolean;
+  setIsExperienceCertModalOpen: (open: boolean) => void;
+  isGenerateExperienceCertModalOpen: boolean;
+  setIsGenerateExperienceCertModalOpen: (open: boolean) => void;
+  generateExperienceCert: (data: Omit<ExperienceCertData, 'id' | 'issuedDate'> & { issuedDate?: string }) => void;
+  openExperienceCertModal: (cert?: ExperienceCertData) => void;
+  openGenerateExperienceCertModal: (empId?: string) => void;
+
+  relievingLetters: RelievingLetterData[];
+  selectedRelievingLetter: RelievingLetterData | null;
+  setSelectedRelievingLetter: (letter: RelievingLetterData | null) => void;
+  isRelievingLetterModalOpen: boolean;
+  setIsRelievingLetterModalOpen: (open: boolean) => void;
+  isGenerateRelievingLetterModalOpen: boolean;
+  setIsGenerateRelievingLetterModalOpen: (open: boolean) => void;
+  generateRelievingLetter: (data: Omit<RelievingLetterData, 'id' | 'issuedDate'> & { issuedDate?: string }) => void;
+  openRelievingLetterModal: (letter?: RelievingLetterData) => void;
+  openGenerateRelievingLetterModal: (empId?: string) => void;
+
+  invoices: InvoiceData[];
+  selectedInvoice: InvoiceData | null;
+  setSelectedInvoice: (invoice: InvoiceData | null) => void;
+  isInvoiceModalOpen: boolean;
+  setIsInvoiceModalOpen: (open: boolean) => void;
+  isGenerateInvoiceModalOpen: boolean;
+  setIsGenerateInvoiceModalOpen: (open: boolean) => void;
+  generateInvoice: (data: Omit<InvoiceData, 'id'>) => void;
+  openInvoiceModal: (invoice?: InvoiceData) => void;
+  openGenerateInvoiceModal: () => void;
+
+  updateEmployeeAvatar: (empId: string, photoDataUrl: string) => void;
   
   // Backend connection status & on-demand loading
   isDataLoading: boolean;
@@ -637,22 +652,67 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setIsPayslipModalOpen(true);
   };
 
-  const openOfferLetterModal = () => {
-    const matched = offerLetters.find(o => o.candidateName.toLowerCase() === profile.name.toLowerCase()) || {
-      id: `off-${profile.empCode}`,
-      candidateName: profile.name,
-      candidateEmail: profile.email || `${profile.name.toLowerCase().replace(' ', '.')}@tradenexus.com`,
-      candidatePhone: profile.phone || '+91 98765 43210',
-      roleTitle: profile.roleTitle || 'Telecaller Executive',
-      department: profile.department || 'Client Acquisition',
-      annualCtc: 360000,
-      monthlyGross: 30000,
-      joiningDate: profile.joinDate || '',
-      reportingManager: profile.teamLeaderName || 'Team Leader',
-      location: 'Bengaluru Corporate HQ',
-      issuedDate: profile.joinDate || '',
-    };
-    setSelectedOfferLetter(matched);
+  const [isGenerateOfferLetterModalOpen, setIsGenerateOfferLetterModalOpen] = useState(false);
+  const [isGenerateExperienceCertModalOpen, setIsGenerateExperienceCertModalOpen] = useState(false);
+  const [isGenerateRelievingLetterModalOpen, setIsGenerateRelievingLetterModalOpen] = useState(false);
+  const [isGenerateInvoiceModalOpen, setIsGenerateInvoiceModalOpen] = useState(false);
+
+  const openGenerateOfferLetterModal = () => setIsGenerateOfferLetterModalOpen(true);
+  const openGenerateExperienceCertModal = (empId?: string) => {
+    if (empId) setSelectedIdCardEmpId(empId);
+    setIsGenerateExperienceCertModalOpen(true);
+  };
+  const openGenerateRelievingLetterModal = (empId?: string) => {
+    if (empId) setSelectedIdCardEmpId(empId);
+    setIsGenerateRelievingLetterModalOpen(true);
+  };
+  const openGenerateInvoiceModal = () => setIsGenerateInvoiceModalOpen(true);
+
+  const updateEmployeeAvatar = (empId: string, photoDataUrl: string) => {
+    setTeamMembers(prev => {
+      const updated = prev.map(m => (m.id === empId || m.empCode === empId) ? { ...m, avatar: photoDataUrl } : m);
+      try {
+        localStorage.setItem('tnx_team_members', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    if (profile.id === empId || profile.empCode === empId) {
+      setProfile(prev => {
+        const updated = { ...prev, avatar: photoDataUrl };
+        try {
+          localStorage.setItem('tnx_profile', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+    }
+    try {
+      const customAvatars = JSON.parse(localStorage.getItem('tnx_custom_avatars') || '{}');
+      customAvatars[empId] = photoDataUrl;
+      localStorage.setItem('tnx_custom_avatars', JSON.stringify(customAvatars));
+    } catch {}
+    triggerToast('✓ Employee photo updated & saved');
+  };
+
+  const openOfferLetterModal = (letter?: OfferLetterData) => {
+    if (letter) {
+      setSelectedOfferLetter(letter);
+    } else {
+      const matched = offerLetters.find(o => o.candidateName.toLowerCase() === profile.name.toLowerCase()) || {
+        id: `off-${profile.empCode}`,
+        candidateName: profile.name,
+        candidateEmail: profile.email || `${profile.name.toLowerCase().replace(' ', '.')}@tradenexus.com`,
+        candidatePhone: profile.phone || '+91 98765 43210',
+        roleTitle: profile.roleTitle || 'Telecaller Executive',
+        department: profile.department || 'Client Acquisition',
+        annualCtc: 360000,
+        monthlyGross: 30000,
+        joiningDate: profile.joinDate || '',
+        reportingManager: profile.teamLeaderName || 'Team Leader',
+        location: 'Bengaluru Corporate HQ',
+        issuedDate: profile.joinDate || '',
+      };
+      setSelectedOfferLetter(matched);
+    }
     setIsOfferLetterModalOpen(true);
   };
 
@@ -2152,34 +2212,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         faceProfiles,
         registerFaceBiometric,
         verifyFaceAttendance,
-        offerLetters,
-        selectedOfferLetter,
-        setSelectedOfferLetter,
-        isOfferLetterModalOpen,
-        setIsOfferLetterModalOpen,
-        generateOfferLetter,
-        openOfferLetterModal,
-        experienceCerts,
-        selectedExperienceCert,
-        setSelectedExperienceCert,
-        isExperienceCertModalOpen,
-        setIsExperienceCertModalOpen,
-        generateExperienceCert,
-        openExperienceCertModal,
-        relievingLetters,
-        selectedRelievingLetter,
-        setSelectedRelievingLetter,
-        isRelievingLetterModalOpen,
-        setIsRelievingLetterModalOpen,
-        generateRelievingLetter,
-        openRelievingLetterModal,
-        invoices,
-        selectedInvoice,
-        setSelectedInvoice,
-        isInvoiceModalOpen,
-        setIsInvoiceModalOpen,
-        generateInvoice,
-        openInvoiceModal,
         createNewEmployee,
         loginEmployee,
         updateEmployee,
@@ -2260,6 +2292,47 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         isRecentPayslipsModalOpen,
         setIsRecentPayslipsModalOpen,
         openPayslipModal,
+        offerLetters,
+        selectedOfferLetter,
+        setSelectedOfferLetter,
+        isOfferLetterModalOpen,
+        setIsOfferLetterModalOpen,
+        isGenerateOfferLetterModalOpen,
+        setIsGenerateOfferLetterModalOpen,
+        generateOfferLetter,
+        openOfferLetterModal,
+        openGenerateOfferLetterModal,
+        experienceCerts,
+        selectedExperienceCert,
+        setSelectedExperienceCert,
+        isExperienceCertModalOpen,
+        setIsExperienceCertModalOpen,
+        isGenerateExperienceCertModalOpen,
+        setIsGenerateExperienceCertModalOpen,
+        generateExperienceCert,
+        openExperienceCertModal,
+        openGenerateExperienceCertModal,
+        relievingLetters,
+        selectedRelievingLetter,
+        setSelectedRelievingLetter,
+        isRelievingLetterModalOpen,
+        setIsRelievingLetterModalOpen,
+        isGenerateRelievingLetterModalOpen,
+        setIsGenerateRelievingLetterModalOpen,
+        generateRelievingLetter,
+        openRelievingLetterModal,
+        openGenerateRelievingLetterModal,
+        invoices,
+        selectedInvoice,
+        setSelectedInvoice,
+        isInvoiceModalOpen,
+        setIsInvoiceModalOpen,
+        isGenerateInvoiceModalOpen,
+        setIsGenerateInvoiceModalOpen,
+        generateInvoice,
+        openInvoiceModal,
+        openGenerateInvoiceModal,
+        updateEmployeeAvatar,
         isDataLoading,
         backendError,
         resourceStatus,

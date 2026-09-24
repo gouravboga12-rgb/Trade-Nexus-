@@ -13,7 +13,11 @@ import {
   Clock, 
   LogOut,
   Calendar,
-  CheckSquare
+  CheckSquare,
+  QrCode,
+  Award,
+  Briefcase,
+  CreditCard
 } from 'lucide-react';
 
 export const ProfileSelfServiceView: React.FC = () => {
@@ -23,14 +27,35 @@ export const ProfileSelfServiceView: React.FC = () => {
     teamTasks,
     teamMeetings,
     toggleTaskStatus,
-    setIsIdCardModalOpen, 
+    setIsIdCardModalOpen,
+    setSelectedIdCardEmpId, 
     openPayslipModal, 
-    openOfferLetterModal, 
+    openOfferLetterModal,
+    openExperienceCertModal,
+    openRelievingLetterModal,
+    offerLetters,
+    experienceCerts,
+    relievingLetters, 
     setIsRecentPayslipsModalOpen,
     setActiveTab,
     logout, 
     triggerToast 
   } = useApp();
+
+  const myOfferLetter = offerLetters.find(o => 
+    (o.candidateName && o.candidateName.toLowerCase() === profile.name.toLowerCase()) ||
+    (o.candidateEmail && o.candidateEmail.toLowerCase() === (profile.email || '').toLowerCase())
+  );
+
+  const myExperienceCert = experienceCerts.find(c => 
+    (c.empCode && c.empCode.toLowerCase() === profile.empCode.toLowerCase()) || 
+    (c.employeeName && c.employeeName.toLowerCase() === profile.name.toLowerCase())
+  );
+
+  const myRelievingLetter = relievingLetters.find(r => 
+    (r.empCode && r.empCode.toLowerCase() === profile.empCode.toLowerCase()) || 
+    (r.employeeName && r.employeeName.toLowerCase() === profile.name.toLowerCase())
+  );
 
   useScreenData('profileSelfService');
 
@@ -255,47 +280,141 @@ export const ProfileSelfServiceView: React.FC = () => {
         )}
       </div>
 
-      {/* 5. Section: Official Documents */}
-      <div className="space-y-2">
+      {/* 5. Section: Official Documents & Vault */}
+      <div className="space-y-2.5">
         <div className="flex items-center justify-between px-1">
           <span className="font-display font-bold text-sm text-[#0A2540]">
-            Official Documents
+            Official Documents & Vault
           </span>
-          <button 
-            onClick={openOfferLetterModal}
-            className="text-xs font-bold text-[#00A88B] hover:underline"
-          >
-            View All
-          </button>
+          <span className="text-[11px] font-bold text-slate-400">
+            Verified Records
+          </span>
         </div>
 
-        <div 
-          onClick={openOfferLetterModal}
-          className="rounded-3xl p-3.5 px-4 bg-white border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center justify-between cursor-pointer hover:border-slate-200 transition-all group active:scale-[0.99]"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#E8FAF5] text-[#00A88B] border border-[#C6F2E7]/80 flex items-center justify-center flex-shrink-0">
-              <FileText className="w-4.5 h-4.5" />
+        <div className="space-y-2">
+          {/* Card 1: Digital ID Card */}
+          <div 
+            onClick={() => {
+              setSelectedIdCardEmpId(profile.id || profile.empCode);
+              setIsIdCardModalOpen(true);
+            }}
+            className="rounded-3xl p-3.5 px-4 bg-white border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center justify-between cursor-pointer hover:border-slate-200 transition-all group active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#06152B] text-[#00C9A7] border border-[#00C9A7]/30 flex items-center justify-center flex-shrink-0">
+                <QrCode className="w-4.5 h-4.5" />
+              </div>
+              <div>
+                <h4 className="font-display font-bold text-sm text-[#0A2540]">
+                  Official Digital ID Card
+                </h4>
+                <p className="text-[11px] text-slate-400 font-medium">
+                  Badge: {profile.empCode} • Dual-Sided QR
+                </p>
+              </div>
             </div>
-            <div>
-              <h4 className="font-display font-bold text-sm text-[#0A2540]">
-                Offer Letter
-              </h4>
-              <p className="text-[11px] text-slate-400 font-medium">
-                Uploaded on 12 May 2025
-              </p>
-            </div>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedIdCardEmpId(profile.id || profile.empCode);
+                setIsIdCardModalOpen(true);
+              }}
+              className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-600 flex items-center justify-center transition-all shadow-2xs"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </button>
           </div>
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              openOfferLetterModal();
-            }}
-            className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-600 flex items-center justify-center transition-all shadow-2xs"
+          {/* Card 2: Offer & Appointment Letter */}
+          <div 
+            onClick={() => openOfferLetterModal(myOfferLetter)}
+            className="rounded-3xl p-3.5 px-4 bg-white border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center justify-between cursor-pointer hover:border-slate-200 transition-all group active:scale-[0.99]"
           >
-            <Download className="w-3.5 h-3.5" />
-          </button>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-[#5B3DF5] border border-indigo-100 flex items-center justify-center flex-shrink-0">
+                <FileText className="w-4.5 h-4.5" />
+              </div>
+              <div>
+                <h4 className="font-display font-bold text-sm text-[#0A2540]">
+                  Job Offer & Contract
+                </h4>
+                <p className="text-[11px] text-slate-400 font-medium">
+                  {myOfferLetter ? `Issued: ${myOfferLetter.issuedDate}` : 'Official Appointment Letter'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openOfferLetterModal(myOfferLetter);
+              }}
+              className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-600 flex items-center justify-center transition-all shadow-2xs"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Card 3: Experience Certificate */}
+          <div 
+            onClick={() => openExperienceCertModal(myExperienceCert)}
+            className="rounded-3xl p-3.5 px-4 bg-white border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center justify-between cursor-pointer hover:border-slate-200 transition-all group active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center flex-shrink-0">
+                <Award className="w-4.5 h-4.5" />
+              </div>
+              <div>
+                <h4 className="font-display font-bold text-sm text-[#0A2540]">
+                  Experience Certificate
+                </h4>
+                <p className="text-[11px] text-slate-400 font-medium">
+                  {myExperienceCert ? `Ref: ${myExperienceCert.refNumber}` : 'Service Verification Record'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openExperienceCertModal(myExperienceCert);
+              }}
+              className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-600 flex items-center justify-center transition-all shadow-2xs"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Card 4: Relieving Letter (If issued or on-demand) */}
+          <div 
+            onClick={() => openRelievingLetterModal(myRelievingLetter)}
+            className="rounded-3xl p-3.5 px-4 bg-white border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center justify-between cursor-pointer hover:border-slate-200 transition-all group active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-teal-50 text-[#00A88B] border border-teal-100 flex items-center justify-center flex-shrink-0">
+                <Briefcase className="w-4.5 h-4.5" />
+              </div>
+              <div>
+                <h4 className="font-display font-bold text-sm text-[#0A2540]">
+                  Relieving Letter
+                </h4>
+                <p className="text-[11px] text-slate-400 font-medium">
+                  {myRelievingLetter ? `LWD: ${myRelievingLetter.lastWorkingDate}` : 'Exit Clearance & Seal'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openRelievingLetterModal(myRelievingLetter);
+              }}
+              className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-600 flex items-center justify-center transition-all shadow-2xs"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 

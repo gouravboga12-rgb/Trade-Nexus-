@@ -81,12 +81,16 @@ export const HrDashboardView: React.FC = () => {
     setSelectedOfferLetter,
     setIsOfferLetterModalOpen,
     openOfferLetterModal,
+    openGenerateOfferLetterModal,
     experienceCerts,
     openExperienceCertModal,
+    openGenerateExperienceCertModal,
     relievingLetters,
     openRelievingLetterModal,
+    openGenerateRelievingLetterModal,
     invoices,
     openInvoiceModal,
+    openGenerateInvoiceModal,
     setIsIdCardModalOpen,
     selectedIdCardEmpId,
     setSelectedIdCardEmpId,
@@ -518,7 +522,7 @@ export const HrDashboardView: React.FC = () => {
 
                 {/* Action 2: Generate Offer Letter */}
                 <button
-                  onClick={() => setIsGenerateOfferLetterModalOpen(true)}
+                  onClick={() => openGenerateOfferLetterModal()}
                   className="bg-white border border-slate-200 hover:border-[#00C9A7] rounded-2xl p-3.5 shadow-xs flex items-center gap-3 text-left transition-all active:scale-95"
                 >
                   <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold flex-shrink-0">
@@ -565,7 +569,7 @@ export const HrDashboardView: React.FC = () => {
 
                 {/* Action 5: Experience Certificate */}
                 <button
-                  onClick={() => openExperienceCertModal()}
+                  onClick={() => openGenerateExperienceCertModal()}
                   className="bg-white border border-slate-200 hover:border-[#00C9A7] rounded-2xl p-3.5 shadow-xs flex items-center gap-3 text-left transition-all active:scale-95 cursor-pointer group"
                 >
                   <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
@@ -573,13 +577,13 @@ export const HrDashboardView: React.FC = () => {
                   </div>
                   <div>
                     <strong className="text-xs font-bold text-[#0A2540] block">Experience Cert</strong>
-                    <span className="text-[10px] text-slate-500">Tenure verification</span>
+                    <span className="text-[10px] text-slate-500">Generate &amp; Issue</span>
                   </div>
                 </button>
 
                 {/* Action 6: Relieving Letter */}
                 <button
-                  onClick={() => openRelievingLetterModal()}
+                  onClick={() => openGenerateRelievingLetterModal()}
                   className="bg-white border border-slate-200 hover:border-[#00C9A7] rounded-2xl p-3.5 shadow-xs flex items-center gap-3 text-left transition-all active:scale-95 cursor-pointer group"
                 >
                   <div className="w-9 h-9 rounded-xl bg-teal-50 text-[#00A88B] flex items-center justify-center font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
@@ -587,13 +591,13 @@ export const HrDashboardView: React.FC = () => {
                   </div>
                   <div>
                     <strong className="text-xs font-bold text-[#0A2540] block">Relieving Letter</strong>
-                    <span className="text-[10px] text-slate-500">Exit &amp; seal badge</span>
+                    <span className="text-[10px] text-slate-500">Generate &amp; Seal</span>
                   </div>
                 </button>
 
                 {/* Action 7: Invoice Generator */}
                 <button
-                  onClick={() => openInvoiceModal()}
+                  onClick={() => openGenerateInvoiceModal()}
                   className="bg-white border border-slate-200 hover:border-[#00C9A7] rounded-2xl p-3.5 shadow-xs flex items-center gap-3 text-left transition-all active:scale-95 cursor-pointer group"
                 >
                   <div className="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-700 flex items-center justify-center font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
@@ -601,7 +605,7 @@ export const HrDashboardView: React.FC = () => {
                   </div>
                   <div>
                     <strong className="text-xs font-bold text-[#0A2540] block">Tax Invoice</strong>
-                    <span className="text-[10px] text-slate-500">B2B client invoice</span>
+                    <span className="text-[10px] text-slate-500">Create &amp; Download</span>
                   </div>
                 </button>
 

@@ -12,7 +12,8 @@ import {
   Mail, 
   Phone,
   CheckCircle2,
-  Clock
+  Clock,
+  Award
 } from 'lucide-react';
 
 export const DesktopProfile: React.FC = () => {
@@ -22,10 +23,31 @@ export const DesktopProfile: React.FC = () => {
     teamTasks, 
     teamMeetings, 
     toggleTaskStatus, 
-    setIsIdCardModalOpen, 
+    setIsIdCardModalOpen,
+    setSelectedIdCardEmpId, 
     openPayslipModal, 
-    openOfferLetterModal 
+    openOfferLetterModal,
+    openExperienceCertModal,
+    openRelievingLetterModal,
+    offerLetters,
+    experienceCerts,
+    relievingLetters
   } = useApp();
+
+  const myOfferLetter = offerLetters.find(o => 
+    (o.candidateName && o.candidateName.toLowerCase() === profile.name.toLowerCase()) ||
+    (o.candidateEmail && o.candidateEmail.toLowerCase() === (profile.email || '').toLowerCase())
+  );
+
+  const myExperienceCert = experienceCerts.find(c => 
+    (c.empCode && c.empCode.toLowerCase() === profile.empCode.toLowerCase()) || 
+    (c.employeeName && c.employeeName.toLowerCase() === profile.name.toLowerCase())
+  );
+
+  const myRelievingLetter = relievingLetters.find(r => 
+    (r.empCode && r.empCode.toLowerCase() === profile.empCode.toLowerCase()) || 
+    (r.employeeName && r.employeeName.toLowerCase() === profile.name.toLowerCase())
+  );
 
   useScreenData('profileSelfService');
 
@@ -167,27 +189,97 @@ export const DesktopProfile: React.FC = () => {
           </div>
 
           {/* Compliance & Document Vault */}
-          <div className="nexus-card bg-white border border-slate-200 shadow-sm p-6 space-y-3">
-            <h4 className="font-display font-black text-base text-[#0A2540]">Compliance & Onboarding Documents</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+          <div className="nexus-card bg-white border border-slate-200 shadow-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-display font-black text-base text-[#0A2540]">Official Employee Document Vault</h4>
+                <p className="text-xs text-slate-500">Official verified credentials, contracts, and HR certificates</p>
+              </div>
+              <span className="text-xs font-bold text-[#00A88B] bg-[#E6FAF6] px-3 py-1 rounded-lg border border-[#00C9A7]/30">
+                Verified Records
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-1">
+              {/* Card 1: ID Card */}
+              <div 
+                onClick={() => {
+                  setSelectedIdCardEmpId(profile.id || profile.empCode);
+                  setIsIdCardModalOpen(true);
+                }}
+                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 flex flex-col justify-between cursor-pointer transition-all group"
+              >
                 <div>
-                  <span className="font-bold text-xs text-[#0A2540] block">Employment Offer & Contract</span>
-                  <span className="text-[10px] text-slate-400 font-mono">Issued by HR • Official Verified</span>
+                  <div className="w-10 h-10 rounded-xl bg-[#06152B] text-[#00C9A7] border border-[#00C9A7]/30 flex items-center justify-center mb-3">
+                    <QrCode className="w-5 h-5" />
+                  </div>
+                  <span className="font-bold text-xs text-[#0A2540] block">Digital ID Card</span>
+                  <span className="text-[10px] text-slate-400 font-mono">Badge: {profile.empCode} • Dual-Sided QR</span>
                 </div>
-                <button onClick={openOfferLetterModal} className="text-xs font-extrabold text-[#00A88B] hover:underline">
-                  View Offer Letter
-                </button>
+                <div className="pt-3 mt-3 border-t border-slate-200/60 flex items-center justify-between">
+                  <span className="text-[11px] font-extrabold text-[#00A88B] group-hover:underline">View ID Card</span>
+                  <Download className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#0A2540]" />
+                </div>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+              {/* Card 2: Offer Letter */}
+              <div 
+                onClick={() => openOfferLetterModal(myOfferLetter)}
+                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 flex flex-col justify-between cursor-pointer transition-all group"
+              >
                 <div>
-                  <span className="font-bold text-xs text-[#0A2540] block">Identity Proof (Aadhaar / PAN)</span>
-                  <span className="text-[10px] text-emerald-600 font-bold">✓ Verified by HR Compliance</span>
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 text-[#5B3DF5] border border-indigo-100 flex items-center justify-center mb-3">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <span className="font-bold text-xs text-[#0A2540] block">Job Offer Letter</span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {myOfferLetter ? `Issued: ${myOfferLetter.issuedDate}` : 'Official Appointment'}
+                  </span>
                 </div>
-                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                  Verified
-                </span>
+                <div className="pt-3 mt-3 border-t border-slate-200/60 flex items-center justify-between">
+                  <span className="text-[11px] font-extrabold text-[#5B3DF5] group-hover:underline">View Letter</span>
+                  <Download className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#0A2540]" />
+                </div>
+              </div>
+
+              {/* Card 3: Experience Certificate */}
+              <div 
+                onClick={() => openExperienceCertModal(myExperienceCert)}
+                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 flex flex-col justify-between cursor-pointer transition-all group"
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center mb-3">
+                    <Award className="w-5 h-5" />
+                  </div>
+                  <span className="font-bold text-xs text-[#0A2540] block">Experience Certificate</span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {myExperienceCert ? `Ref: ${myExperienceCert.refNumber}` : 'Service Verification'}
+                  </span>
+                </div>
+                <div className="pt-3 mt-3 border-t border-slate-200/60 flex items-center justify-between">
+                  <span className="text-[11px] font-extrabold text-amber-600 group-hover:underline">View Certificate</span>
+                  <Download className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#0A2540]" />
+                </div>
+              </div>
+
+              {/* Card 4: Relieving Letter */}
+              <div 
+                onClick={() => openRelievingLetterModal(myRelievingLetter)}
+                className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 flex flex-col justify-between cursor-pointer transition-all group"
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-xl bg-teal-50 text-[#00A88B] border border-teal-100 flex items-center justify-center mb-3">
+                    <Briefcase className="w-5 h-5" />
+                  </div>
+                  <span className="font-bold text-xs text-[#0A2540] block">Relieving Letter</span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {myRelievingLetter ? `LWD: ${myRelievingLetter.lastWorkingDate}` : 'Exit Clearance & Seal'}
+                  </span>
+                </div>
+                <div className="pt-3 mt-3 border-t border-slate-200/60 flex items-center justify-between">
+                  <span className="text-[11px] font-extrabold text-[#00A88B] group-hover:underline">View Relieving</span>
+                  <Download className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#0A2540]" />
+                </div>
               </div>
             </div>
           </div>
