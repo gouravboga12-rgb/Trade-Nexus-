@@ -232,7 +232,7 @@ export const DigitalIdCardModal: React.FC = () => {
           
           <div 
             id="digital-id-card-sheet"
-            className="printable-id-badge-sheet w-[340px] text-white rounded-[32px] overflow-hidden shadow-2xl relative flex flex-col justify-between"
+            className="w-[340px] text-white rounded-[32px] overflow-hidden shadow-2xl relative flex flex-col justify-between"
             style={{ 
               backgroundColor: '#051326',
               minHeight: '580px',
@@ -373,15 +373,13 @@ export const DigitalIdCardModal: React.FC = () => {
 
             {/* Bottom Curved Wave Container with Corporate Info & Signature (Exact tradenexus-id.png) */}
             <div 
-              className="relative bg-white text-[#0A2540] px-5 pt-5 pb-4 mt-2 border-t-4 shadow-xl flex-shrink-0"
+              className="relative bg-white text-[#0A2540] px-5 pt-5 pb-4 mt-2 border-t-4 shadow-xl"
               style={{ 
-                backgroundColor: '#FFFFFF',
                 borderTopColor: '#00C9A7',
                 borderTopLeftRadius: '36px',
                 borderTopRightRadius: '36px',
                 WebkitPrintColorAdjust: 'exact',
-                printColorAdjust: 'exact',
-                colorAdjust: 'exact'
+                printColorAdjust: 'exact'
               }}
             >
               

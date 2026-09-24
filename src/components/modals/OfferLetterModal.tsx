@@ -205,7 +205,7 @@ export const OfferLetterModal: React.FC = () => {
           {/* Printable Letter Sheet (Exact Template matching 1.png) */}
           <div 
             id="offer-letter-sheet"
-            className="printable-document-sheet w-full bg-white text-slate-800 shadow-md rounded-xl sm:rounded-2xl overflow-hidden relative border border-slate-200 flex flex-col justify-between"
+            className="w-full bg-white text-slate-800 shadow-md rounded-xl sm:rounded-2xl overflow-hidden relative border border-slate-200 flex flex-col justify-between"
             style={{ 
               minHeight: '780px',
               WebkitPrintColorAdjust: 'exact',
@@ -215,16 +215,15 @@ export const OfferLetterModal: React.FC = () => {
             
             {/* Top Navy Header Banner with Diagonal Teal Wedge (Matching 1.png) */}
             <div 
-              className="doc-printable-header relative text-white px-5 sm:px-8 pt-5 sm:pt-6 pb-4 sm:pb-5 overflow-hidden flex-shrink-0"
+              className="relative text-white px-4 sm:px-7 pt-5 sm:pt-6 pb-4 sm:pb-5 overflow-hidden flex-shrink-0"
               style={{ 
                 backgroundColor: '#06152B',
                 WebkitPrintColorAdjust: 'exact',
-                printColorAdjust: 'exact',
-                colorAdjust: 'exact'
+                printColorAdjust: 'exact'
               }}
             >
               
-              {/* Teal angled bottom line accent matching 1.png */}
+              {/* Teal angled bottom line accent */}
               <div 
                 className="absolute -bottom-1 left-0 right-0 h-2.5" 
                 style={{ backgroundColor: '#00A88B', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
@@ -237,17 +236,10 @@ export const OfferLetterModal: React.FC = () => {
               <div className="flex items-center justify-between gap-2 relative z-10">
                 {/* Left: Brand Logo & Title */}
                 <div className="flex items-center gap-2 sm:gap-3">
-                  <div 
-                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-full p-0.5 shadow-md flex items-center justify-center flex-shrink-0"
-                    style={{
-                      background: 'linear-gradient(135deg, #00C9A7 0%, #00897B 100%)',
-                      WebkitPrintColorAdjust: 'exact',
-                      printColorAdjust: 'exact'
-                    }}
-                  >
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-tr from-[#00C9A7] to-[#0A2540] p-0.5 shadow-md flex items-center justify-center flex-shrink-0">
                     <div 
                       className="w-full h-full rounded-full flex items-center justify-center text-[#00C9A7]"
-                      style={{ backgroundColor: '#06152B', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
+                      style={{ backgroundColor: '#06152B' }}
                     >
                       <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
                     </div>
@@ -257,11 +249,11 @@ export const OfferLetterModal: React.FC = () => {
                       TRADE NEXUS
                     </h1>
                     <div className="flex items-center gap-1 mt-0.5 sm:mt-1">
-                      <span className="h-px w-3 sm:w-4" style={{ backgroundColor: '#00C9A7' }} />
-                      <span className="text-[7px] sm:text-[9px] font-extrabold tracking-[0.2em]" style={{ color: '#00C9A7' }}>
+                      <span className="h-px w-3 sm:w-4 bg-[#00C9A7]" />
+                      <span className="text-[7px] sm:text-[9px] font-extrabold tracking-[0.2em] text-[#00C9A7]">
                         TRADE SMART
                       </span>
-                      <span className="h-px w-3 sm:w-4" style={{ backgroundColor: '#00C9A7' }} />
+                      <span className="h-px w-3 sm:w-4 bg-[#00C9A7]" />
                     </div>
                   </div>
                 </div>
@@ -271,7 +263,7 @@ export const OfferLetterModal: React.FC = () => {
                   <h2 className="font-display font-black text-xs sm:text-lg text-white tracking-wider uppercase">
                     JOB OFFER LETTER
                   </h2>
-                  <div className="h-0.5 w-full mt-0.5" style={{ backgroundColor: '#00C9A7' }} />
+                  <div className="h-0.5 w-full bg-[#00C9A7] mt-0.5" />
                 </div>
               </div>
             </div>
@@ -408,29 +400,25 @@ export const OfferLetterModal: React.FC = () => {
 
             {/* Bottom Navy Bar with Contact Links (Matching 1.png) */}
             <div 
-              className="doc-printable-footer text-white px-5 sm:px-8 py-3 sm:py-3.5 flex items-center justify-between text-[10px] sm:text-[11px] gap-2 font-medium flex-shrink-0"
+              className="text-white px-4 sm:px-6 py-2.5 sm:py-3 border-t-2 border-[#00A88B] flex items-center justify-between text-[9px] sm:text-[11px] gap-2 font-medium flex-shrink-0"
               style={{ 
                 backgroundColor: '#06152B',
-                borderTop: '3px solid #00C9A7',
-                borderTopLeftRadius: '24px',
-                borderTopRightRadius: '24px',
                 WebkitPrintColorAdjust: 'exact',
-                printColorAdjust: 'exact',
-                colorAdjust: 'exact'
+                printColorAdjust: 'exact'
               }}
             >
-              <span className="flex items-center gap-1.5 text-slate-200">
-                <Phone className="w-3.5 h-3.5 text-[#00C9A7]" />
+              <span className="flex items-center gap-1 text-slate-200">
+                <Phone className="w-3 h-3 text-[#00C9A7]" />
                 +91 98765 43210
               </span>
               <span className="text-slate-600">|</span>
-              <span className="flex items-center gap-1.5 text-slate-200">
-                <Mail className="w-3.5 h-3.5 text-[#00C9A7]" />
+              <span className="flex items-center gap-1 text-slate-200">
+                <Mail className="w-3 h-3 text-[#00C9A7]" />
                 info@tradenexus.com
               </span>
               <span className="text-slate-600">|</span>
-              <span className="flex items-center gap-1.5 text-slate-200 truncate">
-                <Globe className="w-3.5 h-3.5 text-[#00C9A7]" />
+              <span className="flex items-center gap-1 text-slate-200 truncate">
+                <Globe className="w-3 h-3 text-[#00C9A7]" />
                 www.tradenexus.com
               </span>
             </div>
