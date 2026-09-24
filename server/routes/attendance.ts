@@ -110,6 +110,74 @@ router.get('/today', (req: Request, res: Response) => {
   }
 });
 
+// GET /api/attendance/geocode/reverse?lat=...&lon=...
+router.get('/geocode/reverse', async (req: Request, res: Response) => {
+  try {
+    const lat = req.query.lat;
+    const lon = req.query.lon || req.query.lng;
+    if (!lat || !lon) {
+      return res.status(400).json({ error: 'lat and lon are required' });
+    }
+
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lon))}&format=json`,
+      {
+        headers: {
+          'User-Agent': 'TradeNexus-Attendance/1.0 (admin@tradenexus.in)'
+        }
+      }
+    );
+
+    if (response.ok) {
+      const data = (await response.json()) as any;
+      return res.status(200).json({
+        displayName: data.display_name || '',
+        address: data.address || {},
+        raw: data
+      });
+    }
+
+    // Fallback to BigDataCloud
+    const bdcRes = await fetch(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
+    );
+    if (bdcRes.ok) {
+      const bdc = (await bdcRes.json()) as any;
+      const displayName = [bdc.locality, bdc.city, bdc.principalSubdivision, bdc.postcode, bdc.countryName].filter(Boolean).join(', ');
+      return res.status(200).json({ displayName, raw: bdc });
+    }
+    return res.status(502).json({ error: 'Reverse geocode service unavailable' });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// GET /api/attendance/geocode/search?q=...
+router.get('/geocode/search', async (req: Request, res: Response) => {
+  try {
+    const q = req.query.q;
+    if (!q) return res.status(400).json({ error: 'Query q is required' });
+
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(String(q))}&format=json&limit=5`,
+      {
+        headers: {
+          'User-Agent': 'TradeNexus-Attendance/1.0 (admin@tradenexus.in)'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Search failed' });
+    }
+
+    const data = await response.json();
+    return res.status(200).json(data);
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 // GET /api/attendance/office — where the office is
 router.get('/office', (_req: Request, res: Response) => {
   try {

@@ -158,6 +158,54 @@ export const api = {
   getOffice: () => request<OfficeSettings>('/attendance/office'),
   updateOffice: (data: Partial<OfficeSettings>) =>
     request<OfficeSettings>('/attendance/office', { method: 'PUT', body: JSON.stringify(data) }),
+  reverseGeocode: async (lat: number, lng: number): Promise<string | null> => {
+    // 1. Try backend geocode reverse proxy (with JWT token)
+    try {
+      const data = await request<{ displayName: string }>(`/attendance/geocode/reverse?lat=${lat}&lon=${lng}`);
+      if (data?.displayName) return data.displayName;
+    } catch {
+      // Fallback
+    }
+
+    // 2. Client-side fallback via BigDataCloud (CORS-friendly, no keys)
+    try {
+      const bdcRes = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
+      );
+      if (bdcRes.ok) {
+        const bdc = (await bdcRes.json()) as any;
+        const parts = [
+          bdc.locality || bdc.city,
+          bdc.principalSubdivision,
+          bdc.postcode,
+          bdc.countryName
+        ].filter(Boolean);
+        if (parts.length > 0) return parts.join(', ');
+      }
+    } catch {
+      // Fallback
+    }
+
+    return null;
+  },
+  searchAddress: async (query: string): Promise<Array<{ display_name: string; lat: string; lon: string }>> => {
+    // 1. Try backend geocode search proxy (with JWT token)
+    try {
+      const data = await request<Array<{ display_name: string; lat: string; lon: string }>>(
+        `/attendance/geocode/search?q=${encodeURIComponent(query.trim())}`
+      );
+      if (Array.isArray(data) && data.length > 0) {
+        return data.map((item: any) => ({
+          display_name: item.display_name,
+          lat: String(item.lat),
+          lon: String(item.lon)
+        }));
+      }
+    } catch {
+      // Fallback
+    }
+    return [];
+  },
   recordAttendance: (data: AttendanceRecord) => 
     request<AttendanceRecord>('/attendance', { method: 'POST', body: JSON.stringify(data) }),
   updateAttendance: (id: string, data: Partial<AttendanceRecord>) => 

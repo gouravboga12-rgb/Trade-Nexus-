@@ -35,6 +35,9 @@ import {
   Video,
   Award,
   DollarSign,
+  Maximize2,
+  Minimize2,
+  Building2,
 } from 'lucide-react';
 import { ExcelLeadUploadModal } from '../components/modals/ExcelLeadUploadModal';
 import { AddEmployeeModal } from '../components/modals/AddEmployeeModal';
@@ -49,6 +52,7 @@ import { api } from '../services/api';
 import { Employee360ProfileView } from './Employee360ProfileView';
 import { AdminCalendarConfig } from '../components/common/AdminCalendarConfig';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
+import { LeafletGeofenceMap } from '../components/common/LeafletGeofenceMap';
 
 type AdminTab = 'home' | 'people' | 'attendance' | 'leads' | 'revenue' | 'more' | 'approvals' | 'reports';
 
@@ -117,16 +121,87 @@ export const AdminDashboardView: React.FC = () => {
   const [inspectingPayment, setInspectingPayment] = useState<PaymentVerificationItem | null>(null);
   const [isDistributing, setIsDistributing] = useState(false);
 
-  // Office location — same setting as the desktop panel
+  // Office location & Live Verification
   const [office, setOffice] = useState<OfficeSettings | null>(null);
   const [officeDraft, setOfficeDraft] = useState<Partial<OfficeSettings>>({});
   const [locating, setLocating] = useState(false);
   const [showOfficeEditor, setShowOfficeEditor] = useState(false);
   const [showCalendarConfig, setShowCalendarConfig] = useState(false);
+  const [isAdminMapExpanded, setIsAdminMapExpanded] = useState(false);
+  const [adminDeviceLocation, setAdminDeviceLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [adminDistanceToOffice, setAdminDistanceToOffice] = useState<number | null>(null);
+  const [isVerifyingAdminLocation, setIsVerifyingAdminLocation] = useState(false);
 
   useEffect(() => {
     api.getOffice().then(setOffice).catch(() => setOffice(null));
+
+    // Initial silent check of admin device location
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setAdminDeviceLocation({
+            lat: Number(pos.coords.latitude.toFixed(6)),
+            lng: Number(pos.coords.longitude.toFixed(6)),
+          });
+        },
+        () => {},
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
+      );
+    }
   }, []);
+
+  // Real-time calculation of distance between admin device and office
+  useEffect(() => {
+    if (adminDeviceLocation && office?.latitude != null && office?.longitude != null) {
+      const R = 6371000;
+      const toRad = (deg: number) => (deg * Math.PI) / 180;
+      const dLat = toRad(office.latitude - adminDeviceLocation.lat);
+      const dLng = toRad(office.longitude - adminDeviceLocation.lng);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(adminDeviceLocation.lat)) * Math.cos(toRad(office.latitude)) * Math.sin(dLng / 2) ** 2;
+      const d = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+      setAdminDistanceToOffice(d);
+    } else {
+      setAdminDistanceToOffice(null);
+    }
+  }, [adminDeviceLocation, office]);
+
+  const verifyAdminLiveLocation = () => {
+    setIsVerifyingAdminLocation(true);
+    if (!navigator.geolocation) {
+      triggerToast('Geolocation is not supported by your browser.');
+      setIsVerifyingAdminLocation(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = Number(pos.coords.latitude.toFixed(6));
+        const lng = Number(pos.coords.longitude.toFixed(6));
+        setAdminDeviceLocation({ lat, lng });
+        setIsVerifyingAdminLocation(false);
+        triggerToast(`✓ Live device coordinates verified! (±${Math.round(pos.coords.accuracy)}m)`);
+      },
+      () => {
+        navigator.geolocation.getCurrentPosition(
+          (pos2) => {
+            const lat = Number(pos2.coords.latitude.toFixed(6));
+            const lng = Number(pos2.coords.longitude.toFixed(6));
+            setAdminDeviceLocation({ lat, lng });
+            setIsVerifyingAdminLocation(false);
+            triggerToast('✓ Live device coordinates verified via network');
+          },
+          (err) => {
+            setIsVerifyingAdminLocation(false);
+            triggerToast(`✗ Could not read location: ${err.message || 'Permission denied'}`);
+          },
+          { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 }
+        );
+      },
+      { enableHighAccuracy: true, timeout: 4000, maximumAge: 0 }
+    );
+  };
 
   const officeField = <K extends keyof OfficeSettings>(k: K) =>
     (officeDraft[k] !== undefined ? officeDraft[k] : office?.[k]) as OfficeSettings[K];
@@ -1368,6 +1443,117 @@ export const AdminDashboardView: React.FC = () => {
                 <Download className="w-3.5 h-3.5" />
                 <span>Export</span>
               </button>
+            </div>
+
+            {/* Office Geofence & Live Location Verification Card */}
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-2xs">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-sm text-[#0A2540] truncate max-w-sm sm:max-w-md">
+                        {office?.label || 'Trade Nexus Corporate HQ'}
+                      </h3>
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        {office?.radiusMeters || 300}m Strict Geofence
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5 truncate">
+                      {office?.latitude != null && office?.longitude != null
+                        ? `GPS: ${office.latitude.toFixed(6)}, ${office.longitude.toFixed(6)} • Strict check-in perimeter`
+                        : 'Office coordinates not configured yet'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Top Action Buttons */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setIsAdminMapExpanded(!isAdminMapExpanded)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:text-[#00A88B] hover:border-[#00C9A7] transition-all cursor-pointer shadow-2xs bg-white"
+                  >
+                    {isAdminMapExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                    <span>{isAdminMapExpanded ? 'Collapse Map' : 'Expand & Verify Live Location'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowOfficeEditor(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0A2540] hover:bg-slate-800 text-white text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                  >
+                    <Building2 className="w-3.5 h-3.5" />
+                    <span>Configure Office</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Live Device Status Verification Banner */}
+              <div className="bg-[#E6FAF6] border border-[#00C9A7]/40 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2.5 h-2.5 rounded-full ${
+                    adminDistanceToOffice != null
+                      ? adminDistanceToOffice <= (office?.radiusMeters || 300)
+                        ? 'bg-emerald-500 animate-pulse'
+                        : 'bg-amber-500'
+                      : 'bg-slate-400'
+                  }`} />
+                  <span className="text-xs font-bold text-[#0A2540]">
+                    {adminDistanceToOffice != null ? (
+                      adminDistanceToOffice <= (office?.radiusMeters || 300) ? (
+                        <span className="text-emerald-800">
+                          ✓ Your device is inside perimeter ({adminDistanceToOffice}m away) — Punch-in active
+                        </span>
+                      ) : (
+                        <span className="text-amber-800">
+                          ⚠ Your device is outside perimeter ({adminDistanceToOffice >= 1000 ? `${(adminDistanceToOffice / 1000).toFixed(1)} km` : `${adminDistanceToOffice}m`} away) — Punch-in restricted
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-slate-600">
+                        Admin device location not yet verified
+                      </span>
+                    )}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={verifyAdminLiveLocation}
+                  disabled={isVerifyingAdminLocation}
+                  className="flex items-center justify-center gap-1.5 bg-white hover:bg-slate-50 border border-[#00C9A7] text-[#00A88B] font-bold text-xs px-3 py-1.5 rounded-xl shadow-2xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                >
+                  <Crosshair className={`w-3.5 h-3.5 ${isVerifyingAdminLocation ? 'animate-spin' : ''}`} />
+                  <span>{isVerifyingAdminLocation ? 'Verifying GPS…' : 'Verify My Live Location'}</span>
+                </button>
+              </div>
+
+              {/* Inline Expandable Leaflet Map */}
+              {isAdminMapExpanded && (
+                <div className="pt-2 animate-in fade-in duration-200">
+                  <LeafletGeofenceMap
+                    latitude={office?.latitude ?? null}
+                    longitude={office?.longitude ?? null}
+                    radiusMeters={office?.radiusMeters ?? 300}
+                    deviceLocation={adminDeviceLocation}
+                    isEditable={false}
+                    height="360px"
+                  />
+                  <div className="flex items-center justify-between mt-2 text-[10px] text-slate-500 flex-wrap gap-2">
+                    <span>Pulsing green circle shows the {office?.radiusMeters || 300}m boundary. Blue pin shows your current device.</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowOfficeEditor(true)}
+                      className="font-bold text-[#00A88B] hover:underline cursor-pointer"
+                    >
+                      Change Office Coordinates / Radius →
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Compact 2x2 Attendance Action Filter Buttons (Just Name & Numbers, No Icons) */}

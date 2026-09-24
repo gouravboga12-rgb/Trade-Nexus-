@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1136.0",
+    "@types/leaflet": "^1.9.22",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^13.0.3",
     "canvas-confetti": "^1.9.4",
@@ -24,6 +25,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
+    "leaflet": "^1.9.4",
     "lucide-react": "^1.16.0",
     "multer": "^2.4.0",
     "react": "^19.0.0",
