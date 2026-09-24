@@ -23,7 +23,10 @@ import {
   CalendarSettings,
 } from '../types';
 
-const API_BASE = (typeof window !== 'undefined' && window.location.hostname === 'localhost') 
+const envApiUrl = (import.meta as any).env?.VITE_API_URL;
+const API_BASE = envApiUrl
+  ? `${String(envApiUrl).replace(/\/$/, '')}/api`
+  : (typeof window !== 'undefined' && window.location.hostname === 'localhost') 
   ? 'http://localhost:5001/api' 
   : '/api';
 
