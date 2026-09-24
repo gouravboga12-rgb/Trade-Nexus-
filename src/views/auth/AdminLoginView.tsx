@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 export const AdminLoginView: React.FC = () => {
-  const { setAuthStep, triggerToast, currentRole, setCurrentRole } = useApp();
+  const { setAuthStep, triggerToast, setCurrentUser, invalidateAll, currentRole, setCurrentRole } = useApp();
   
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -32,8 +32,10 @@ export const AdminLoginView: React.FC = () => {
       const authRes = await api.login(emailOrPhone.trim(), password.trim());
       if (authRes?.token && (authRes.user?.role === 'admin')) {
         setAuthToken(authRes.token);
+        setCurrentUser(authRes.user);
+        invalidateAll();
         setCurrentRole('admin');
-        triggerToast('✓ Master Admin credentials verified! Entering Console...');
+        triggerToast(`✓ Welcome, ${authRes.user?.name || 'Master Admin'}! Entering Console...`);
         setTimeout(() => {
           setIsLoading(false);
           setAuthStep('AUTHENTICATED');

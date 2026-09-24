@@ -28,6 +28,7 @@ import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 
 export const TeamLeaderDashboardView: React.FC = () => {
   const { 
+    currentUser,
     profile,
     teamMembers, 
     teamMeetings,
@@ -46,6 +47,19 @@ export const TeamLeaderDashboardView: React.FC = () => {
   } = useApp();
 
   useScreenData('teamLeaderDashboard');
+
+  const leaderName = currentUser?.name || profile?.name || 'Team Leader';
+  const leaderFirstName = leaderName.trim().split(' ')[0] || 'Leader';
+  const leaderInitials = leaderName
+    ? leaderName
+        .trim()
+        .split(' ')
+        .filter(Boolean)
+        .map((w) => w[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+    : 'TL';
 
   const [activeTab, setActiveTab] = useState<'home' | 'team' | 'leaves' | 'reports' | 'meetings'>('home');
   const [leaveSubTab, setLeaveSubTab] = useState<'approvals' | 'calendar'>('approvals');
@@ -276,18 +290,18 @@ export const TeamLeaderDashboardView: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="font-display font-black text-2xl text-[#0A2540] tracking-tight">
-                    Hello, Ramesh
+                    Hello, {leaderFirstName}
                   </h2>
                   <span className="text-xl">👋</span>
                 </div>
                 <p className="text-xs font-semibold text-slate-500 mt-0.5">
-                  Team Leader • <span className="text-[#00A88B] font-bold">{profile?.teamName || 'Alpha Growth Team'}</span>
+                  Team Leader • <span className="text-[#00A88B] font-bold">{currentUser?.groupName || profile?.teamName || 'Assigned Squad'}</span>
                 </p>
               </div>
 
               {/* Avatar Badge */}
               <div className="w-10 h-10 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-black text-xs shadow-sm">
-                RS
+                {leaderInitials}
               </div>
             </div>
 

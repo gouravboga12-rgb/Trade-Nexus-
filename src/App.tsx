@@ -97,6 +97,7 @@ export const App: React.FC = () => {
     setIsFaceIdModalOpen, 
     setIsQuickCallModalOpen, 
     setIsExcelUploadModalOpen,
+    currentUser,
     isDataLoading,
     backendError,
     invalidateAll,
@@ -214,30 +215,43 @@ export const App: React.FC = () => {
 
   // Header User Profile details based on active role
   const getHeaderUserInfo = () => {
+    const activeName = currentUser?.name || profile.name;
+    const computeInitials = (fallback: string) =>
+      activeName
+        ? activeName
+            .trim()
+            .split(' ')
+            .filter(Boolean)
+            .map((w) => w[0])
+            .join('')
+            .slice(0, 2)
+            .toUpperCase()
+        : fallback;
+
     if (currentRole === 'team_leader') {
       return {
-        initials: profile.name ? profile.name.trim().split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() : 'TL',
-        name: profile.name || 'Team Leader',
+        initials: computeInitials('TL'),
+        name: activeName || 'Team Leader',
         roleTitle: 'Team Leader Portal'
       };
     }
     if (currentRole === 'hr') {
       return {
-        initials: profile.name ? profile.name.trim().split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() : 'HR',
-        name: profile.name || 'HR Manager',
+        initials: computeInitials('HR'),
+        name: activeName || 'HR Manager',
         roleTitle: 'People Operations'
       };
     }
     if (currentRole === 'admin') {
       return {
-        initials: 'AD',
-        name: 'Super Admin',
+        initials: computeInitials('AD'),
+        name: activeName || 'Super Admin',
         roleTitle: 'Global Master Controller'
       };
     }
     return {
-      initials: profile.name ? profile.name.trim().split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() : 'EM',
-      name: profile.name || 'Employee',
+      initials: computeInitials('EM'),
+      name: activeName || 'Employee',
       roleTitle: profile.roleTitle || 'Sales Executive'
     };
   };

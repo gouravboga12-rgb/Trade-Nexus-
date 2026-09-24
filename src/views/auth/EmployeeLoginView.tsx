@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 export const EmployeeLoginView: React.FC = () => {
-  const { setAuthStep, triggerToast, loginEmployee, currentRole, setCurrentRole } = useApp();
+  const { setAuthStep, triggerToast, setCurrentUser, invalidateAll, currentRole, setCurrentRole } = useApp();
   
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -34,9 +34,10 @@ export const EmployeeLoginView: React.FC = () => {
       const authRes = await api.login(emailOrPhone.trim(), password.trim());
       if (authRes?.token) {
         setAuthToken(authRes.token);
-        const loginResult = loginEmployee(emailOrPhone.trim(), password.trim());
+        setCurrentUser(authRes.user);
+        invalidateAll();
         setCurrentRole('telecaller');
-        triggerToast(`✓ Welcome, ${authRes.user?.name || loginResult.member?.name || 'User'}! Access granted.`);
+        triggerToast(`✓ Welcome, ${authRes.user?.name || 'User'}! Access granted.`);
         setTimeout(() => {
           setIsLoading(false);
           setAuthStep('AUTHENTICATED');

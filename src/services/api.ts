@@ -21,7 +21,10 @@ import {
   OfficeSettings,
   CompanyHoliday,
   CalendarSettings,
+  AuthUser,
 } from '../types';
+
+export type { AuthUser };
 
 const envApiUrl = (import.meta as any).env?.VITE_API_URL;
 const API_BASE = envApiUrl
@@ -31,6 +34,7 @@ const API_BASE = envApiUrl
   : '/api';
 
 const TOKEN_KEY = 'tnx_auth_token';
+const USER_KEY = 'tnx_auth_user';
 
 export function getAuthToken(): string | null {
   try {
@@ -46,6 +50,24 @@ export function setAuthToken(token: string | null): void {
     else localStorage.removeItem(TOKEN_KEY);
   } catch {
     // Storage blocked — the session simply will not survive a reload
+  }
+}
+
+export function getStoredAuthUser(): AuthUser | null {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredAuthUser(user: AuthUser | null): void {
+  try {
+    if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
+    else localStorage.removeItem(USER_KEY);
+  } catch {
+    // Storage blocked
   }
 }
 
@@ -76,15 +98,6 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   }
 
   return (await res.json()) as T;
-}
-
-export interface AuthUser {
-  id: string;
-  email: string;
-  name: string;
-  role: 'telecaller' | 'employee' | 'team_leader' | 'hr' | 'admin';
-  empCode: string | null;
-  employeeId: string | null;
 }
 
 export const api = {

@@ -55,6 +55,7 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
   onTabChange 
 }) => {
   const { 
+    currentUser,
     profile,
     teamMembers, 
     teamGroups, 
@@ -115,7 +116,7 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
   const targetTotal = teamMembers.reduce((sum, m) => sum + (m.salesTarget || 0), 0);
   const targetPercentage = targetTotal > 0 ? Math.min(100, Math.round((totalSales / targetTotal) * 100)) : 0;
 
-  const leaderName = profile?.name?.trim() || 'Team Leader';
+  const leaderName = currentUser?.name?.trim() || profile?.name?.trim() || 'Team Leader';
 
   const pendingLeaves = leaveRequests.filter(r => r.status === 'PENDING');
 

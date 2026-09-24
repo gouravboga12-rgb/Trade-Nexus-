@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 export const HrLoginView: React.FC = () => {
-  const { setAuthStep, triggerToast, currentRole, setCurrentRole } = useApp();
+  const { setAuthStep, triggerToast, setCurrentUser, invalidateAll, currentRole, setCurrentRole } = useApp();
   
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -34,8 +34,10 @@ export const HrLoginView: React.FC = () => {
       const authRes = await api.login(emailOrPhone.trim(), password.trim());
       if (authRes?.token && (authRes.user?.role === 'hr' || authRes.user?.role === 'admin')) {
         setAuthToken(authRes.token);
+        setCurrentUser(authRes.user);
+        invalidateAll();
         setCurrentRole('hr');
-        triggerToast('✓ HR Administrator credentials verified! Entering Portal...');
+        triggerToast(`✓ Welcome, ${authRes.user?.name || 'HR Manager'}! Access granted.`);
         setTimeout(() => {
           setIsLoading(false);
           setAuthStep('AUTHENTICATED');

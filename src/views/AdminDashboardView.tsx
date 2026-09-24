@@ -80,6 +80,7 @@ const downloadCsv = (filename: string, header: string, rows: string[]) => {
 
 export const AdminDashboardView: React.FC = () => {
   const {
+    currentUser,
     teamMembers,
     teamGroups,
     leadBatches,
@@ -101,6 +102,18 @@ export const AdminDashboardView: React.FC = () => {
   } = useApp();
 
   useScreenData('adminDashboard');
+
+  const adminName = currentUser?.name?.trim() || 'Admin';
+  const adminFirstName = adminName.split(' ')[0] || 'Admin';
+  const adminInitials = adminName !== 'Admin'
+    ? adminName
+        .split(' ')
+        .filter(Boolean)
+        .map((w) => w[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+    : 'AD';
 
   const [tab, setTab] = useState<AdminTab>('home');
   const [searchQuery, setSearchQuery] = useState('');
@@ -399,12 +412,12 @@ export const AdminDashboardView: React.FC = () => {
             <div className="flex items-center justify-between pt-1">
               <div>
                 <h2 className="font-display font-black text-xl text-[#0A2540] tracking-tight">
-                  Hello, Admin 👋
+                  Hello, {adminFirstName} 👋
                 </h2>
               </div>
 
               <div className="w-9 h-9 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-display font-black text-xs shadow-xs border border-[#00C9A7]/30">
-                AD
+                {adminInitials}
               </div>
             </div>
 

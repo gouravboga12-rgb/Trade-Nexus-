@@ -25,9 +25,10 @@ import {
   OfferLetterData,
   NewEmployeeInput,
   CompanyHoliday,
-  CalendarSettings
+  CalendarSettings,
+  AuthUser,
 } from '../types';
-import { api } from '../services/api';
+import { api, getStoredAuthUser, setStoredAuthUser, getAuthToken, setAuthToken } from '../services/api';
 import {
   ALL_RESOURCE_KEYS,
   EMPTY_PROFILE,
@@ -181,6 +182,8 @@ interface AppContextType {
   clearAllHolidays: () => Promise<void>;
   
   // Authentication Flow
+  currentUser: AuthUser | null;
+  setCurrentUser: (user: AuthUser | null) => void;
   authStep: AuthStep;
   setAuthStep: (step: AuthStep) => void;
   logout: () => void;
@@ -285,6 +288,66 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return 'LOGIN';
     }
   });
+
+  const [currentUser, setCurrentUserState] = useState<AuthUser | null>(() => {
+    return getStoredAuthUser();
+  });
+
+  const setCurrentUser = useCallback((user: AuthUser | null) => {
+    setCurrentUserState(user);
+    setStoredAuthUser(user);
+    if (user?.role) {
+      setCurrentRole(user.role);
+      try {
+        localStorage.setItem('tnx_currentRole', user.role);
+      } catch {}
+    }
+    if (user) {
+      setProfile((prev) => ({
+        ...prev,
+        id: user.employeeId || user.id || prev.id,
+        empCode: user.empCode || prev.empCode,
+        name: user.name || prev.name,
+        email: user.email || prev.email,
+      }));
+    }
+  }, []);
+
+  // Hydrate session from backend /api/auth/me on app load
+  useEffect(() => {
+    const token = getAuthToken();
+    if (token) {
+      api.me()
+        .then(({ user }) => {
+          if (user) {
+            setCurrentUserState(user);
+            setStoredAuthUser(user);
+            if (user.role) {
+              setCurrentRole(user.role);
+              try {
+                localStorage.setItem('tnx_currentRole', user.role);
+              } catch {}
+            }
+            setProfile((prev) => ({
+              ...prev,
+              id: user.employeeId || user.id || prev.id,
+              empCode: user.empCode || prev.empCode,
+              name: user.name || prev.name,
+              email: user.email || prev.email,
+            }));
+          }
+        })
+        .catch((err) => {
+          console.warn('Session verification failed:', err);
+          if (err?.status === 401 || err?.status === 403) {
+            setAuthToken(null);
+            setStoredAuthUser(null);
+            setCurrentUserState(null);
+            setAuthStep('LOGIN');
+          }
+        });
+    }
+  }, []);
 
   // Automated version check: Purge old mock/dummy cached data so real pipeline is clean
   const CURRENT_DATA_VERSION = 'v5_pure_zero_slate';
@@ -740,21 +803,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setResourceStatus(reset);
   }, []);
 
-  const logout = () => {
-    invalidateAll();
-    try {
-      localStorage.setItem('tnx_authStep', 'LOGIN');
-    } catch {}
-    setAuthStep('LOGIN');
-    triggerToast('Logged out. Please login to continue.');
-  };
-
   const triggerToast = useCallback((msg: string) => {
     setActiveToast(msg);
     setTimeout(() => {
       setActiveToast((prev) => (prev === msg ? null : prev));
     }, 3200);
   }, []);
+
+  const logout = useCallback(() => {
+    invalidateAll();
+    setAuthToken(null);
+    setStoredAuthUser(null);
+    setCurrentUserState(null);
+    try {
+      localStorage.setItem('tnx_authStep', 'LOGIN');
+      localStorage.removeItem('tnx_profile');
+      localStorage.removeItem('tnx_stats');
+      localStorage.removeItem('tnx_assignedLeads');
+      localStorage.removeItem('tnx_callLogs');
+    } catch {}
+    setProfile(EMPTY_PROFILE);
+    setStats(EMPTY_STATS);
+    setAuthStep('LOGIN');
+    triggerToast('Logged out. Please login to continue.');
+  }, [invalidateAll, triggerToast]);
 
   // Lead Import & Allocation
   const importAndAssignLeads = async (
@@ -1245,8 +1317,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // assigned_leads; the pipeline screens were built around ClientLead, so they
   // are mapped across rather than duplicating the screens.
   const todayIso = new Date().toISOString().split('T')[0];
+  const currentEmpId = currentUser?.employeeId || currentUser?.id || profile.id;
+  const currentEmpCode = currentUser?.empCode || profile.empCode;
+  const currentEmpName = (currentUser?.name || profile.name || '').trim().toLowerCase();
+
   const myLeads: ClientLead[] = assignedLeads
-    .filter((l) => l.assignedToEmployeeId === profile.id || l.assignedToEmployeeName === profile.name)
+    .filter((l) => 
+      (currentEmpId && l.assignedToEmployeeId === currentEmpId) ||
+      (currentEmpCode && l.assignedToEmployeeId === currentEmpCode) ||
+      (currentEmpName && l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === currentEmpName)
+    )
     .map((l) => {
       const dueToday = !!l.followUpDate && l.followUpDate.slice(0, 10) === todayIso;
       return {
@@ -1761,12 +1841,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const today = now.toISOString().split('T')[0];
+    const empId = currentUser?.employeeId || currentUser?.id || profile.id || 'emp-self';
+    const empName = currentUser?.name || profile.name || 'Employee';
+    const recordId = `att-${today}-${empId}`;
 
     try {
       const rec = await api.recordAttendance({
-        id: `att-${today}-${profile.id}`,
-        employeeId: profile.id,
-        employeeName: profile.name,
+        id: recordId,
+        employeeId: empId,
+        employeeName: empName,
         date: today,
         dayNumber: now.getDate(),
         status: 'PRESENT',
@@ -1780,6 +1863,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       const updatedProfile: EmployeeProfile = {
         ...profile,
+        id: empId,
+        name: empName,
         faceIdStatus: 'VERIFIED_PRESENT',
         checkInTime: timeStr,
       };
@@ -1787,9 +1872,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       setAttendanceLogs((prev) => [
         {
-          id: `att-${today}-${profile.id}`,
-          employeeId: profile.id,
-          employeeName: profile.name,
+          id: recordId,
+          employeeId: empId,
+          employeeName: empName,
           date: today,
           dayNumber: now.getDate(),
           status: 'PRESENT',
@@ -1821,7 +1906,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const today = now.toISOString().split('T')[0];
-    const recordId = `att-${today}-${profile.id}`;
+    const empId = currentUser?.employeeId || currentUser?.id || profile.id || 'emp-self';
+    const recordId = `att-${today}-${empId}`;
 
     const updatedProfile: EmployeeProfile = { 
       ...profile, 
@@ -1834,7 +1920,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       prev.map((a) => (a.id === recordId ? { ...a, checkOut: timeStr } : a))
     );
 
-    triggerToast(`\u2713 Checked out at ${timeStr}`);
+    triggerToast(`✓ Checked out at ${timeStr}`);
 
     try {
       await api.updateAttendance2(recordId, {
@@ -1950,6 +2036,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         deleteCompanyHoliday,
         loadPresetHolidays,
         clearAllHolidays,
+        currentUser,
+        setCurrentUser,
         authStep,
         setAuthStep,
         logout,

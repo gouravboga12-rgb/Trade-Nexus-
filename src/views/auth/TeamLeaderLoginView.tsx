@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 
 export const TeamLeaderLoginView: React.FC = () => {
-  const { setAuthStep, triggerToast, currentRole, setCurrentRole } = useApp();
+  const { setAuthStep, triggerToast, setCurrentUser, invalidateAll, currentRole, setCurrentRole } = useApp();
   
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -35,8 +35,10 @@ export const TeamLeaderLoginView: React.FC = () => {
       const authRes = await api.login(emailOrPhone.trim(), password.trim());
       if (authRes?.token && (authRes.user?.role === 'team_leader' || authRes.user?.role === 'admin')) {
         setAuthToken(authRes.token);
+        setCurrentUser(authRes.user);
+        invalidateAll();
         setCurrentRole('team_leader');
-        triggerToast('✓ Team Leader credentials verified! Entering Dashboard...');
+        triggerToast(`✓ Welcome, ${authRes.user?.name || 'Team Leader'}! Access granted.`);
         setTimeout(() => {
           setIsLoading(false);
           setAuthStep('AUTHENTICATED');

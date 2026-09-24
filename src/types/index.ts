@@ -2,6 +2,17 @@ export type UserRole = 'telecaller' | 'employee' | 'team_leader' | 'hr' | 'admin
 
 export type AuthStep = 'LOGIN' | 'FACE_SCAN' | 'ATTENDANCE_SUCCESS' | 'AUTHENTICATED';
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  empCode: string | null;
+  employeeId: string | null;
+  groupName?: string;
+  phone?: string;
+}
+
 export type NavTab = 'home' | 'calling' | 'clients' | 'leaves' | 'profile' | 'menu';
 
 export type CallOutcome = 'CONNECTED' | 'BUSY' | 'CALLBACK' | 'INTERESTED' | 'NOT_INTERESTED' | 'DEAL_CLOSED';

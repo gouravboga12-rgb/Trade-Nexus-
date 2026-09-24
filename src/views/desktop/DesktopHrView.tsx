@@ -40,6 +40,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
   onTabChange
 }) => {
   const { 
+    currentUser,
     profile,
     teamMembers, 
     teamGroups, 
@@ -97,7 +98,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
   const pendingApprovalsCount = pendingLeaves.length + pendingPayments.length;
   const attendancePercent = totalEmployees > 0 ? Math.round((presentCount / totalEmployees) * 100) : 0;
 
-  const hrName = profile?.name?.trim() || 'HR Head';
+  const hrName = currentUser?.name?.trim() || profile?.name?.trim() || 'HR Manager';
 
   const handleScheduleInterviewSubmit = (e: React.FormEvent) => {
     e.preventDefault();

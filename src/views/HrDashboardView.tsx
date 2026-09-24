@@ -65,6 +65,7 @@ const formatInLakhs = (val: number) => {
 
 export const HrDashboardView: React.FC = () => {
   const {
+    currentUser,
     profile,
     openPunchIn,
     openPunchOut,
@@ -99,6 +100,21 @@ export const HrDashboardView: React.FC = () => {
   } = useApp();
 
   useScreenData('hrDashboard');
+
+  const hrName = currentUser?.name || profile?.name || 'HR Manager';
+  const hrFirstName = hrName.trim().split(' ')[0] || 'HR';
+  const hrEmail = currentUser?.email || profile?.email || 'hr@tradenexus.in';
+  const hrCode = currentUser?.empCode || profile?.empCode || 'HR-01';
+  const hrInitials = hrName
+    ? hrName
+        .trim()
+        .split(' ')
+        .filter(Boolean)
+        .map((w) => w[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+    : 'HR';
 
   const [activeHrNav, setActiveHrNav] = useState<'home' | 'attendance' | 'employees' | 'approvals' | 'reports' | 'more'>('home');
   const [selectedTeamGroup, setSelectedTeamGroup] = useState<TeamGroup | null>(null);
@@ -304,6 +320,26 @@ export const HrDashboardView: React.FC = () => {
         {activeHrNav === 'home' && (
           <div className="space-y-4 animate-in fade-in duration-150">
             
+            {/* HR Authenticated Identity Header */}
+            <div className="flex items-center justify-between pt-1">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-display font-black text-2xl text-[#0A2540] tracking-tight">
+                    Hello, {hrFirstName}
+                  </h2>
+                  <span className="text-xl">👋</span>
+                </div>
+                <p className="text-xs font-semibold text-slate-500 mt-0.5">
+                  HR Portal • <span className="text-[#00A88B] font-bold">{hrEmail}</span> • <span className="text-slate-400 font-mono">{hrCode}</span>
+                </p>
+              </div>
+
+              {/* Avatar Badge */}
+              <div className="w-10 h-10 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-display font-black text-xs shadow-sm border border-[#00C9A7]/30">
+                {hrInitials}
+              </div>
+            </div>
+
             {/* HR Attendance Punch Lifecycle Card */}
             <div className="bg-white border border-[#00C9A7]/40 shadow-xs rounded-2xl p-3.5 flex items-center justify-between">
               <div className="flex items-center gap-3">

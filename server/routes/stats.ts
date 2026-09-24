@@ -4,28 +4,68 @@ import db from '../db/connection.js';
 const router = Router();
 
 // GET /api/stats
-// Targets belong to Admin, so the daily call goal and monthly sales target are
-// taken from the employee's roster row rather than a separate copy that would
-// never hear about an Admin edit.
-router.get('/', (_req: Request, res: Response) => {
+// Scoped to the authenticated employee (or requested employeeId) with live dials from call_logs
+router.get('/', (req: Request, res: Response) => {
   try {
-    const stats = db.prepare('SELECT * FROM telecaller_stats LIMIT 1').get() as any;
-    if (!stats) {
-      return res.status(404).json({ error: 'Stats not found' });
+    const user = req.user;
+    const requestedEmpId = (req.query.employeeId as string) || '';
+    const targetId = requestedEmpId || user?.employeeId || user?.id || '';
+    const targetEmpCode = user?.empCode || '';
+
+    // 1. Fetch roster targets for this specific employee
+    let roster: any = null;
+    if (targetId || targetEmpCode || user?.email || user?.name) {
+      roster = db.prepare(`
+        SELECT * FROM team_members 
+        WHERE id = ? OR empCode = ? OR (email IS NOT NULL AND LOWER(email) = LOWER(?)) OR (name IS NOT NULL AND LOWER(name) = LOWER(?))
+        LIMIT 1
+      `).get(targetId, targetEmpCode, user?.email || '', (user?.name || '').toLowerCase()) as any;
     }
 
-    const profile = db.prepare('SELECT empCode FROM employee_profiles LIMIT 1').get() as any;
-    const roster = profile
-      ? (db.prepare('SELECT * FROM team_members WHERE empCode = ?').get(profile.empCode) as any)
+    // 2. Dynamically calculate dials today from live call_logs
+    const todayStr = new Date().toISOString().split('T')[0];
+    let dialMetrics: any = null;
+    if (targetId || targetEmpCode || user?.name) {
+      dialMetrics = db.prepare(`
+        SELECT 
+          COUNT(*) as dialsMade,
+          SUM(CASE WHEN outcome = 'CONNECTED' THEN 1 ELSE 0 END) as connected,
+          SUM(CASE WHEN outcome = 'INTERESTED' THEN 1 ELSE 0 END) as interested,
+          SUM(CASE WHEN outcome = 'NOT_INTERESTED' OR outcome = 'REJECTED' THEN 1 ELSE 0 END) as rejected,
+          AVG(durationSec) as avgSec
+        FROM call_logs
+        WHERE (employeeId = ? OR employeeId = ? OR LOWER(clientName) = LOWER(?))
+          AND (date = ? OR createdAt LIKE ?)
+      `).get(targetId, targetEmpCode, user?.name || '', todayStr, `${todayStr}%`) as any;
+    }
+
+    // 3. Look up baseline stats row if one exists for this employee
+    let stats = targetId
+      ? (db.prepare('SELECT * FROM telecaller_stats WHERE id = ?').get(`stat-${targetId}`) as any)
       : null;
 
+    if (!stats) {
+      stats = db.prepare('SELECT * FROM telecaller_stats LIMIT 1').get() as any;
+    }
+
+    const dialsToday = dialMetrics?.dialsMade ?? stats?.dialsMade ?? 0;
+    const connected = dialMetrics?.connected ?? stats?.connected ?? 0;
+    const interested = dialMetrics?.interested ?? stats?.interested ?? 0;
+    const rejected = dialMetrics?.rejected ?? stats?.rejected ?? 0;
+    const avgSec = Math.round(dialMetrics?.avgSec ?? stats?.averageCallDurationSec ?? 0);
+
     return res.status(200).json({
-      ...stats,
-      dialsToday: stats.dialsMade,
-      dailyTarget: roster?.goalCalls ?? stats.todayGoalCalls,
-      todayGoalCalls: roster?.goalCalls ?? stats.todayGoalCalls,
-      monthlySalesTarget: roster?.salesTarget ?? stats.monthlySalesTarget,
-      monthlySalesAchieved: roster?.salesAchieved ?? stats.monthlySalesAchieved,
+      id: stats?.id || `stat-${targetId || 'default'}`,
+      todayGoalCalls: roster?.goalCalls ?? stats?.todayGoalCalls ?? 60,
+      dialsMade: dialsToday,
+      dialsToday: dialsToday,
+      dailyTarget: roster?.goalCalls ?? stats?.todayGoalCalls ?? 60,
+      connected: connected,
+      interested: interested,
+      rejected: rejected,
+      averageCallDurationSec: avgSec,
+      monthlySalesTarget: roster?.salesTarget ?? stats?.monthlySalesTarget ?? 500000,
+      monthlySalesAchieved: roster?.salesAchieved ?? stats?.monthlySalesAchieved ?? 0,
     });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -36,7 +76,14 @@ router.get('/', (_req: Request, res: Response) => {
 router.put('/', (req: Request, res: Response) => {
   try {
     const data = req.body;
-    const current = db.prepare('SELECT * FROM telecaller_stats LIMIT 1').get() as any;
+    const targetId = data.id || req.user?.employeeId || req.user?.id;
+    let current = targetId
+      ? (db.prepare('SELECT * FROM telecaller_stats WHERE id = ?').get(targetId) as any)
+      : null;
+
+    if (!current) {
+      current = db.prepare('SELECT * FROM telecaller_stats LIMIT 1').get() as any;
+    }
     if (!current) {
       return res.status(404).json({ error: 'Stats not found' });
     }

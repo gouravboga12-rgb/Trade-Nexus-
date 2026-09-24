@@ -22,6 +22,7 @@ import {
 
 export const TelecallerHomeView: React.FC = () => {
   const { 
+    currentUser,
     profile, 
     stats, 
     myLeads, 
@@ -41,6 +42,11 @@ export const TelecallerHomeView: React.FC = () => {
 
   const { isLoading } = useScreenData('telecallerHome');
 
+  const empId = currentUser?.employeeId || currentUser?.id || profile.id;
+  const empCode = currentUser?.empCode || profile.empCode;
+  const empName = currentUser?.name || profile.name || 'Sales Rep';
+  const empFirstName = empName.split(' ')[0] || 'Sales Rep';
+
   // Callback lead due today or first in queue from allocated leads
   const urgentLead = myLeads.find(c => c.status === 'Due Today') || myLeads[0];
   const goalPercentage = Math.round((stats.dialsMade / Math.max(1, stats.todayGoalCalls)) * 100);
@@ -49,12 +55,11 @@ export const TelecallerHomeView: React.FC = () => {
   const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
   const remainingToTarget = Math.max(0, stats.monthlySalesTarget - stats.monthlySalesAchieved);
 
-  // User's assigned leads & pipeline breakdown
+  // User's assigned leads & pipeline breakdown strictly for this authenticated employee
   const userLeads = assignedLeads.filter(l => 
-    !l.assignedToEmployeeId || 
-    l.assignedToEmployeeId === profile.id || 
-    (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === profile.name.toLowerCase()) || 
-    l.assignedToEmployeeId === 'emp-101'
+    (empId && l.assignedToEmployeeId === empId) || 
+    (empCode && l.assignedToEmployeeId === empCode) || 
+    (empName && l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === empName.toLowerCase())
   );
   const wonCount = userLeads.filter(l => l.status === 'CONVERTED').length;
   const followUpCount = userLeads.filter(l => l.status === 'CALLBACK').length;
@@ -83,7 +88,7 @@ export const TelecallerHomeView: React.FC = () => {
         <div>
           <div className="flex items-center gap-1.5">
             <h2 className="font-display font-black text-xl text-[#0A2540] tracking-tight">
-              Hello, <span className="text-[#00A88B]">{profile.name.split(' ')[0]}</span>
+              Hello, <span className="text-[#00A88B]">{empFirstName}</span>
             </h2>
             <span className="text-lg">👋</span>
           </div>
