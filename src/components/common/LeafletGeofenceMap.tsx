@@ -71,7 +71,18 @@ export const LeafletGeofenceMap: React.FC<LeafletGeofenceMapProps> = ({
 
   // 1. Initialize Leaflet Map
   useEffect(() => {
-    if (!mapContainerRef.current || mapInstanceRef.current) return;
+    if (!mapContainerRef.current) return;
+
+    if (mapInstanceRef.current) {
+      try {
+        mapInstanceRef.current.remove();
+      } catch {}
+      mapInstanceRef.current = null;
+    }
+
+    if ((mapContainerRef.current as any)._leaflet_id) {
+      delete (mapContainerRef.current as any)._leaflet_id;
+    }
 
     const defaultLat = latitude ?? 17.314;
     const defaultLng = longitude ?? 78.529;
@@ -100,13 +111,18 @@ export const LeafletGeofenceMap: React.FC<LeafletGeofenceMapProps> = ({
       });
     }
 
-    // Force size calculation after render
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 250);
+    // Force size calculation after render at staggered intervals
+    const t1 = setTimeout(() => map.invalidateSize(), 100);
+    const t2 = setTimeout(() => map.invalidateSize(), 350);
+    const t3 = setTimeout(() => map.invalidateSize(), 700);
 
     return () => {
-      map.remove();
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      try {
+        map.remove();
+      } catch {}
       mapInstanceRef.current = null;
     };
   }, []);
@@ -250,10 +266,10 @@ export const LeafletGeofenceMap: React.FC<LeafletGeofenceMapProps> = ({
   return (
     <div
       className={`relative w-full rounded-2xl overflow-hidden border border-slate-200/90 shadow-inner group ${className}`}
-      style={{ height }}
+      style={{ height, minHeight: height }}
     >
       {/* Map DOM Container */}
-      <div ref={mapContainerRef} className="w-full h-full z-0" />
+      <div ref={mapContainerRef} className="w-full h-full z-0" style={{ width: '100%', height: '100%', minHeight: height }} />
 
       {/* Floating Controls Overlay */}
       <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-2 pointer-events-auto">
