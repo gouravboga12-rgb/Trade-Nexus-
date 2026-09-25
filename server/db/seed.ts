@@ -3,10 +3,6 @@ import { hashPassword } from './authUtils.js';
 
 export function seedUsersIfEmpty() {
   try {
-    const userCount = (db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number }).count;
-    if (userCount > 0) return;
-
-    console.log('[SQLite DB] Seeding default auth user credentials...');
     const insertUser = db.prepare(`
       INSERT INTO users (id, email, passwordHash, name, role, empCode, employeeId, active)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -14,16 +10,27 @@ export function seedUsersIfEmpty() {
 
     const users = [
       { id: 'usr-4', email: 'sagarsuchi26@gmail.com', password: 'Sagar@14326', name: 'Super Admin', role: 'admin', empCode: 'TNX-AD01', employeeId: 'emp-ad-1' },
+      { id: 'usr-hr-boga', email: 'bogagourav5@gmail.com', password: 'hr123', name: 'HR Officer', role: 'hr', empCode: 'TNX-8096', employeeId: 'emp-hr-boga' },
       { id: 'usr-3', email: 'hr@tradenexus.com', password: 'hr123', name: 'HR Manager', role: 'hr', empCode: 'TNX-HR01', employeeId: 'emp-hr-1' },
       { id: 'usr-tl', email: 'tl@tradenexus.com', password: 'tl123', name: 'Team Leader', role: 'team_leader', empCode: 'TNX-TL01', employeeId: 'emp-tl-1' },
-      { id: 'usr-emp', email: 'employee@tradenexus.com', password: 'emp123', name: 'Telecaller Executive', role: 'telecaller', empCode: 'TNX-TC01', employeeId: 'emp-tc-1' }
+      { id: 'usr-emp', email: 'employee@tradenexus.com', password: 'emp123', name: 'Telecaller Executive', role: 'telecaller', empCode: 'TNX-TC01', employeeId: 'emp-tc-1' },
+      { id: 'usr-tc-gourav', email: 'gouravboga12@gmail.com', password: 'emp123', name: 'Gourav Boga', role: 'telecaller', empCode: 'TNX-8275', employeeId: 'emp-tc-gourav' },
+      { id: 'usr-tc-zoro', email: 'bogagourav10@gmail.com', password: 'emp123', name: 'Zoro Juro', role: 'telecaller', empCode: 'TNX-8316', employeeId: 'emp-tc-zoro' },
+      { id: 'usr-tc-nikhil', email: 'dachepallynikhil6301@gmail.com', password: 'emp123', name: 'Nikhil Bill', role: 'telecaller', empCode: 'TNX-8442', employeeId: 'emp-tc-nikhil' }
     ];
 
     for (const u of users) {
-      const hash = hashPassword(u.password);
-      insertUser.run(u.id, u.email, hash, u.name, u.role, u.empCode, u.employeeId, 1);
+      const existing = db.prepare('SELECT id, email FROM users WHERE LOWER(email) = ?').get(u.email.toLowerCase()) as any;
+      if (!existing) {
+        const hash = hashPassword(u.password);
+        insertUser.run(u.id, u.email, hash, u.name, u.role, u.empCode, u.employeeId, 1);
+        console.log(`[SQLite DB] Seeded account: ${u.email} (${u.role})`);
+      } else if (u.email === 'sagarsuchi26@gmail.com') {
+        const hash = hashPassword(u.password);
+        db.prepare('UPDATE users SET role = ?, name = ?, passwordHash = ?, active = 1 WHERE id = ?').run('admin', 'Super Admin', hash, existing.id);
+      }
     }
-    console.log('[SQLite DB] Core admin, HR, TL, and employee accounts seeded.');
+    console.log('[SQLite DB] Core admin, HR, TL, and employee accounts verified.');
   } catch (err) {
     console.error('[SQLite DB] Error seeding users:', err);
   }
