@@ -315,6 +315,17 @@ export function initializeDatabaseSchema() {
     CREATE INDEX IF NOT EXISTS idx_team_members_group ON team_members(groupName);
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_users_emp_code ON users(empCode);
+
+    -- 21. Password Reset OTP Verification
+    CREATE TABLE IF NOT EXISTS password_reset_otps (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      otp TEXT NOT NULL,
+      expiresAt INTEGER NOT NULL,
+      verified INTEGER NOT NULL DEFAULT 0,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_password_reset_otps_email ON password_reset_otps(email);
   `);
 
   runMigrations();

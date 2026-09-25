@@ -118,6 +118,21 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ currentPassword, newPassword }),
     }),
+  forgotPasswordSendOtp: (email: string, role?: string) =>
+    request<{ ok: boolean; email: string; role?: string; name?: string; message: string; devHint?: string }>('/auth/forgot-password/send-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, role }),
+    }),
+  forgotPasswordVerifyOtp: (email: string, otp: string) =>
+    request<{ ok: boolean; message: string }>('/auth/forgot-password/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp }),
+    }),
+  forgotPasswordResetPassword: (email: string, otp: string, newPassword: string) =>
+    request<{ ok: boolean; message: string; user?: AuthUser }>('/auth/forgot-password/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp, newPassword }),
+    }),
 
   // Profile
   getProfile: () => request<EmployeeProfile>('/profile'),

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { api, setAuthToken } from '../../services/api';
+import { ForgotPasswordModal } from '../../components/modals/ForgotPasswordModal';
 import { 
   Mail, 
   Smartphone, 
@@ -20,6 +21,7 @@ export const EmployeeLoginView: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
 
   // Standard Email / Mobile & Password Submit -> Enter Portal
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -172,7 +174,7 @@ export const EmployeeLoginView: React.FC = () => {
             <div className="flex justify-end">
               <button
                 type="button"
-                onClick={() => triggerToast('Password reset instructions sent to your registered email/phone')}
+                onClick={() => setIsForgotPasswordOpen(true)}
                 className="text-[11px] font-bold text-[#00A88B] hover:underline cursor-pointer"
               >
                 Forgot Password?
@@ -249,6 +251,18 @@ export const EmployeeLoginView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Forgot Password OTP Modal */}
+      <ForgotPasswordModal
+        isOpen={isForgotPasswordOpen}
+        onClose={() => setIsForgotPasswordOpen(false)}
+        role="telecaller"
+        initialEmail={emailOrPhone}
+        onPasswordResetSuccess={(newPass, email) => {
+          if (newPass) setPassword(newPass);
+          if (email) setEmailOrPhone(email);
+        }}
+      />
 
     </div>
   );

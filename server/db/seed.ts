@@ -13,15 +13,17 @@ export function seedUsersIfEmpty() {
     `);
 
     const users = [
+      { id: 'usr-4', email: 'sagarsuchi26@gmail.com', password: 'Sagar@14326', name: 'Super Admin', role: 'admin', empCode: 'TNX-AD01', employeeId: 'emp-ad-1' },
       { id: 'usr-3', email: 'hr@tradenexus.com', password: 'hr123', name: 'HR Manager', role: 'hr', empCode: 'TNX-HR01', employeeId: 'emp-hr-1' },
-      { id: 'usr-4', email: 'admin@tradenexus.com', password: 'admin123', name: 'Super Admin', role: 'admin', empCode: 'TNX-AD01', employeeId: 'emp-ad-1' }
+      { id: 'usr-tl', email: 'tl@tradenexus.com', password: 'tl123', name: 'Team Leader', role: 'team_leader', empCode: 'TNX-TL01', employeeId: 'emp-tl-1' },
+      { id: 'usr-emp', email: 'employee@tradenexus.com', password: 'emp123', name: 'Telecaller Executive', role: 'telecaller', empCode: 'TNX-TC01', employeeId: 'emp-tc-1' }
     ];
 
     for (const u of users) {
       const hash = hashPassword(u.password);
       insertUser.run(u.id, u.email, hash, u.name, u.role, u.empCode, u.employeeId, 1);
     }
-    console.log('[SQLite DB] Core admin and HR accounts seeded.');
+    console.log('[SQLite DB] Core admin, HR, TL, and employee accounts seeded.');
   } catch (err) {
     console.error('[SQLite DB] Error seeding users:', err);
   }

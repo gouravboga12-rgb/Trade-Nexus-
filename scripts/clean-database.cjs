@@ -46,15 +46,17 @@ for (const table of tables) {
   }
 }
 
-// Reseed Admin & HR
-console.log('--- RESEEDING CORE ACCOUNTS ONLY (Admin & HR) ---');
+// Reseed Admin, HR, TL & Employee
+console.log('--- RESEEDING CORE ACCOUNTS (Admin, HR, TL & Employee) ---');
 const insertUser = db.prepare(`
   INSERT INTO users (id, email, passwordHash, name, role, empCode, employeeId, active)
   VALUES (?, ?, ?, ?, ?, ?, ?, 1)
 `);
 
+insertUser.run('usr-4', 'sagarsuchi26@gmail.com', hashPassword('Sagar@14326'), 'Super Admin', 'admin', 'TNX-AD01', 'emp-ad-1');
 insertUser.run('usr-3', 'hr@tradenexus.com', hashPassword('hr123'), 'HR Manager', 'hr', 'TNX-HR01', 'emp-hr-1');
-insertUser.run('usr-4', 'admin@tradenexus.com', hashPassword('admin123'), 'Super Admin', 'admin', 'TNX-AD01', 'emp-ad-1');
+insertUser.run('usr-tl', 'tl@tradenexus.com', hashPassword('tl123'), 'Team Leader', 'team_leader', 'TNX-TL01', 'emp-tl-1');
+insertUser.run('usr-emp', 'employee@tradenexus.com', hashPassword('emp123'), 'Telecaller Executive', 'telecaller', 'TNX-TC01', 'emp-tc-1');
 
 // Reset stats to pure 0
 try {
