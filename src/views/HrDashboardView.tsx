@@ -96,6 +96,8 @@ export const HrDashboardView: React.FC = () => {
     setSelectedIdCardEmpId,
     openPayslipModal,
     teamMeetings,
+    joinMeeting,
+    deleteTeamMeeting,
     setIsFaceRegistrationModalOpen,
     setFaceRegistrationEmployee,
     scheduleInterview,
@@ -171,6 +173,17 @@ export const HrDashboardView: React.FC = () => {
   const [candTime, setCandTime] = useState('Tomorrow • 02:30 PM');
   const [interviewTeamScope, setInterviewTeamScope] = useState('ALL');
   const [selectedInterviewers, setSelectedInterviewers] = useState<string[]>([]);
+
+  // HR Zoom Meeting Scheduler States
+  const [isHrMeetingModalOpen, setIsHrMeetingModalOpen] = useState(false);
+  const [hrMeetingTitle, setHrMeetingTitle] = useState('');
+  const [hrMeetingType, setHrMeetingType] = useState('1-on-1 Employee Sync');
+  const [hrMeetingScope, setHrMeetingScope] = useState<'INDIVIDUAL' | 'ALL_TL' | 'ALL'>('INDIVIDUAL');
+  const [hrSelectedEmpId, setHrSelectedEmpId] = useState(teamMembers[0]?.id || '');
+  const [hrIncludeAdmin, setHrIncludeAdmin] = useState(true);
+  const [hrMeetingTime, setHrMeetingTime] = useState('Today • 04:00 PM');
+  const [hrMeetingAgenda, setHrMeetingAgenda] = useState('');
+  const [hrEmpSearch, setHrEmpSearch] = useState('');
 
   const idCardEmp = teamMembers.find((m) => m.id === selectedIdCardEmpId);
   useListDefault(selectedIdCardEmpId, setSelectedIdCardEmpId, teamMembers, (m) => m.id);
@@ -272,21 +285,59 @@ export const HrDashboardView: React.FC = () => {
       interviewer: selectedInterviewers.join(', ') || 'HR & Team Leader',
     });
 
-    // 2. Dispatch Live Video Meeting to attendees' dashboards
+    // 2. Dispatch Live Video Meeting via Zoom to attendees' dashboards
     scheduleTeamMeeting({
       title: `Candidate Interview: ${candName} (${candRole})`,
       dateTime: candTime,
       type: 'Candidate Interview (Video Call)',
-      location: 'Trade Nexus Live Room #HR-101',
+      location: 'Zoom Cloud Meeting',
       agenda: `HR & Technical screening for ${candName} applying for ${candRole}. Attendees: ${selectedInterviewers.join(', ')}`,
       attendeesCount: selectedInterviewers.length + 1,
       invitedMemberName: selectedInterviewers.join(', '),
-      meetingLink: 'https://meet.tradenexus.io/interview-hr',
+      useZoom: true,
+      includeAdmin: true,
+      createdByRole: 'hr',
     });
 
     setCandName('');
     setIsInterviewModalOpen(false);
-    triggerToast(`✓ Candidate Interview & Live Video Call dispatched to ${selectedInterviewers.join(', ')}!`);
+    triggerToast(`✓ Candidate Interview & Live Zoom Call dispatched to ${selectedInterviewers.join(', ')}!`);
+  };
+
+  const handleCreateHrMeetingSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!hrMeetingTitle.trim()) {
+      triggerToast('Please provide a meeting title');
+      return;
+    }
+
+    const selectedEmp = teamMembers.find(m => m.id === hrSelectedEmpId);
+    const scopeLabel = hrMeetingScope === 'INDIVIDUAL' 
+      ? `1-on-1 with ${selectedEmp?.name || 'Staff'}`
+      : hrMeetingScope === 'ALL_TL' 
+        ? 'All Team Leaders' 
+        : 'All Employees';
+
+    scheduleTeamMeeting({
+      title: hrMeetingTitle.trim(),
+      dateTime: hrMeetingTime,
+      type: hrMeetingType,
+      location: 'Zoom Cloud Meeting',
+      agenda: hrMeetingAgenda.trim() || `HR Coordination meeting with ${scopeLabel}.`,
+      targetAudience: hrMeetingScope,
+      targetEmployeeId: hrMeetingScope === 'INDIVIDUAL' ? hrSelectedEmpId : undefined,
+      invitedMemberName: hrMeetingScope === 'INDIVIDUAL' ? selectedEmp?.name : undefined,
+      attendeesCount: hrMeetingScope === 'INDIVIDUAL' ? 2 : (hrMeetingScope === 'ALL_TL' ? totalTeams + 1 : totalEmployees + 1),
+      includeAdmin: hrIncludeAdmin,
+      createdByRole: 'hr',
+      priority: hrIncludeAdmin ? 'HIGH' : 'NORMAL',
+      useZoom: true,
+    });
+
+    setHrMeetingTitle('');
+    setHrMeetingAgenda('');
+    setIsHrMeetingModalOpen(false);
+    triggerToast(`✓ Zoom meeting scheduled for ${scopeLabel}!`);
   };
 
   const exportHrReportCSV = () => {
@@ -388,6 +439,69 @@ export const HrDashboardView: React.FC = () => {
                 </button>
               )}
             </div>
+
+            {/* 🔴 Live & Scheduled Meetings for HR */}
+            {(() => {
+              const liveMeetings = teamMeetings.filter(m => m.status === 'LIVE' || (m.includeAdmin && m.status !== 'COMPLETED'));
+              if (liveMeetings.length === 0) return null;
+              return (
+                <div className="space-y-2">
+                  {liveMeetings.slice(0, 2).map((mtg) => {
+                    const isLive = mtg.status === 'LIVE';
+                    return (
+                      <div 
+                        key={mtg.id}
+                        className={`p-3.5 border-2 rounded-2xl flex items-center justify-between gap-3 shadow-xs animate-in slide-in-from-top-2 ${
+                          isLive 
+                            ? 'bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border-emerald-500' 
+                            : 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-400'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="relative flex h-3 w-3 flex-shrink-0">
+                            {isLive ? (
+                              <>
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600"></span>
+                              </>
+                            ) : (
+                              <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                            )}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md ${
+                                isLive ? 'text-emerald-900 bg-emerald-200' : 'text-amber-900 bg-amber-200'
+                              }`}>
+                                {isLive ? '🔴 Live Meeting' : 'Upcoming Session'}
+                              </span>
+                              {mtg.zoomMeetingId && (
+                                <span className="text-[9px] font-mono font-bold bg-blue-100 text-blue-800 px-1 rounded">
+                                  Zoom
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="font-bold text-xs text-[#0A2540] truncate mt-0.5">
+                              {mtg.title}
+                            </h4>
+                            <span className="text-[10px] text-slate-500 block truncate">
+                              Host: {mtg.hostName || 'Floor'} · {mtg.invitedMemberName ? `Target: ${mtg.invitedMemberName}` : 'Company Room'}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => joinMeeting(mtg)}
+                          className="px-3.5 py-2 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs rounded-xl flex items-center gap-1.5 shadow-sm active:scale-95 transition-all flex-shrink-0"
+                        >
+                          <Video className="w-3.5 h-3.5" />
+                          <span>{isLive ? 'Join' : 'Start'}</span>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
             {/* 3 Top Stat Cards */}
             <div className="grid grid-cols-3 gap-2.5">
@@ -606,6 +720,25 @@ export const HrDashboardView: React.FC = () => {
                   <div>
                     <strong className="text-xs font-bold text-[#0A2540] block">Tax Invoice</strong>
                     <span className="text-[10px] text-slate-500">Create &amp; Download</span>
+                  </div>
+                </button>
+
+                {/* Action 8: Schedule Zoom Call */}
+                <button
+                  onClick={() => setIsHrMeetingModalOpen(true)}
+                  className="bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-2 border-blue-400 hover:border-blue-600 rounded-2xl p-3.5 shadow-xs flex items-center gap-3 text-left transition-all active:scale-95 cursor-pointer group col-span-2"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold flex-shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                    <Video className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <strong className="text-xs font-black text-[#0A2540] block">Schedule Zoom Call</strong>
+                      <span className="text-[9px] font-black uppercase bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-mono">
+                        Zoom Video
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 block truncate mt-0.5">1-on-1 with employee, all TLs, or company floor with Super Admin invite</span>
                   </div>
                 </button>
 
@@ -2856,6 +2989,217 @@ export const HrDashboardView: React.FC = () => {
                 >
                   <Video className="w-4 h-4" />
                   <span>Schedule &amp; Dispatch Video Call</span>
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* HR Zoom Meeting Scheduler Modal (Mobile Optimized) */}
+      {isHrMeetingModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
+          <div 
+            className="bg-white text-slate-800 rounded-3xl w-full max-w-md max-h-[92dvh] flex flex-col shadow-2xl border border-slate-200 animate-in zoom-in-95 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-[#0A2540] text-white p-4.5 flex items-center justify-between relative overflow-hidden flex-shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-400 shadow-inner">
+                  <Video className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-display font-black text-base text-white">HR Zoom Meeting</h3>
+                    <span className="text-[9px] font-black uppercase tracking-wider bg-blue-500 text-white px-1.5 py-0.5 rounded font-mono">
+                      Zoom API
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300">
+                    Schedule with Team Leaders, Employees or Floor
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsHrMeetingModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-xl hover:bg-white/10 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Scrollable Form */}
+            <form onSubmit={handleCreateHrMeetingSubmit} className="flex-1 overflow-y-auto p-4.5 space-y-3.5 text-xs">
+              
+              {/* Meeting Title */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Meeting Title <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={hrMeetingTitle}
+                  onChange={(e) => setHrMeetingTitle(e.target.value)}
+                  placeholder="e.g. Q3 Performance Review / TL Weekly Alignment"
+                  required
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold focus:outline-none focus:border-blue-500 text-xs"
+                />
+              </div>
+
+              {/* Audience Scope Selection (HR Hierarchy) */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Target Participants</label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setHrMeetingScope('INDIVIDUAL')}
+                    className={`p-2 rounded-xl border text-center font-bold text-[11px] transition-all cursor-pointer ${
+                      hrMeetingScope === 'INDIVIDUAL'
+                        ? 'bg-blue-50 border-blue-500 text-blue-800 ring-1 ring-blue-500/30'
+                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    🤝 1-on-1
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHrMeetingScope('ALL_TL')}
+                    className={`p-2 rounded-xl border text-center font-bold text-[11px] transition-all cursor-pointer ${
+                      hrMeetingScope === 'ALL_TL'
+                        ? 'bg-blue-50 border-blue-500 text-blue-800 ring-1 ring-blue-500/30'
+                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    👥 All TLs
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHrMeetingScope('ALL')}
+                    className={`p-2 rounded-xl border text-center font-bold text-[11px] transition-all cursor-pointer ${
+                      hrMeetingScope === 'ALL'
+                        ? 'bg-blue-50 border-blue-500 text-blue-800 ring-1 ring-blue-500/30'
+                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    🏛️ All Staff
+                  </button>
+                </div>
+              </div>
+
+              {/* 1-on-1 Individual Member Picker */}
+              {hrMeetingScope === 'INDIVIDUAL' && (
+                <div className="space-y-1.5 p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                  <label className="font-bold text-slate-700 block">Select Employee or TL:</label>
+                  <input
+                    type="text"
+                    value={hrEmpSearch}
+                    onChange={(e) => setHrEmpSearch(e.target.value)}
+                    placeholder="Search by name, role or emp code..."
+                    className="w-full p-2 rounded-xl bg-white border border-slate-200 text-xs focus:outline-none focus:border-blue-500"
+                  />
+                  <div className="max-h-32 overflow-y-auto space-y-1 pr-1 bg-white rounded-xl border border-slate-200 p-1">
+                    {teamMembers
+                      .filter(m => 
+                        !hrEmpSearch.trim() || 
+                        m.name.toLowerCase().includes(hrEmpSearch.toLowerCase()) || 
+                        m.empCode.toLowerCase().includes(hrEmpSearch.toLowerCase()) ||
+                        m.role.toLowerCase().includes(hrEmpSearch.toLowerCase())
+                      )
+                      .map(emp => (
+                        <div
+                          key={emp.id}
+                          onClick={() => setHrSelectedEmpId(emp.id)}
+                          className={`p-1.5 rounded-lg flex items-center justify-between cursor-pointer text-xs ${
+                            hrSelectedEmpId === emp.id ? 'bg-blue-50 border border-blue-200 text-blue-900 font-bold' : 'hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <span className="block truncate">{emp.name} ({emp.empCode})</span>
+                            <span className="text-[10px] text-slate-400 block truncate">{emp.role} · {emp.group || 'Sales'}</span>
+                          </div>
+                          {hrSelectedEmpId === emp.id && <Check className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Date & Time Slot */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Meeting Time</label>
+                <select
+                  value={hrMeetingTime}
+                  onChange={(e) => setHrMeetingTime(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold text-xs"
+                >
+                  <option value="Today • 11:30 AM">Today • 11:30 AM (Morning Sync)</option>
+                  <option value="Today • 02:30 PM">Today • 02:30 PM (Midday Review)</option>
+                  <option value="Today • 04:00 PM">Today • 04:00 PM (Afternoon Alignment)</option>
+                  <option value="Today • 05:30 PM">Today • 05:30 PM (Wrap-Up)</option>
+                  <option value="Tomorrow • 11:00 AM">Tomorrow • 11:00 AM</option>
+                  <option value="Tomorrow • 03:00 PM">Tomorrow • 03:00 PM</option>
+                </select>
+              </div>
+
+              {/* 👑 Request Super Admin to Join Toggle (Core requirement) */}
+              <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-300 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-base">👑</span>
+                  <div>
+                    <span className="font-black text-xs text-amber-900 block leading-tight">
+                      Request Super Admin to Join
+                    </span>
+                    <span className="text-[10px] text-amber-700 block">
+                      Dispatches priority alert to Admin console
+                    </span>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={hrIncludeAdmin}
+                  onChange={(e) => setHrIncludeAdmin(e.target.checked)}
+                  className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500 cursor-pointer"
+                />
+              </div>
+
+              {/* Agenda (Optional) */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Agenda / Meeting Notes</label>
+                <textarea
+                  value={hrMeetingAgenda}
+                  onChange={(e) => setHrMeetingAgenda(e.target.value)}
+                  placeholder="Outline key topics to cover in this session..."
+                  rows={2}
+                  className="w-full p-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-xs focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              {/* Zoom Notification Badge */}
+              <div className="bg-blue-50 border border-blue-200 p-2.5 rounded-xl flex items-center gap-2 text-blue-800 text-[11px]">
+                <Video className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                <span>
+                  <strong>Zoom Cloud API:</strong> Unique link and meeting ID will be created automatically.
+                </span>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsHrMeetingModalOpen(false)}
+                  className="w-1/3 py-2.5 rounded-xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="w-2/3 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:brightness-105 text-white font-black text-xs shadow-md shadow-blue-600/25 flex items-center justify-center gap-1.5"
+                >
+                  <Video className="w-4 h-4" />
+                  <span>Create Zoom Meeting</span>
                 </button>
               </div>
 

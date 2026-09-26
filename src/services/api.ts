@@ -276,8 +276,22 @@ export const api = {
 
   // Team Meetings
   getTeamMeetings: () => request<TeamMeeting[]>('/team-meetings'),
-  createTeamMeeting: (data: Omit<TeamMeeting, 'id'> & { id?: string }) => 
+  createTeamMeeting: (data: Omit<TeamMeeting, 'id'> & { id?: string; useZoom?: boolean }) => 
     request<TeamMeeting>('/team-meetings', { method: 'POST', body: JSON.stringify(data) }),
+  createZoomMeeting: (data: {
+    title: string;
+    dateTime?: string;
+    duration?: number;
+    agenda?: string;
+    type?: string;
+    targetAudience?: string;
+    targetTeam?: string;
+    targetEmployeeId?: string;
+    invitedMemberName?: string;
+    includeAdmin?: boolean | number;
+    priority?: string;
+    attendeesCount?: number;
+  }) => request<TeamMeeting>('/team-meetings/create-zoom', { method: 'POST', body: JSON.stringify(data) }),
   updateTeamMeeting: (id: string, data: Partial<TeamMeeting>) => 
     request<TeamMeeting>(`/team-meetings/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteTeamMeeting: (id: string) => 

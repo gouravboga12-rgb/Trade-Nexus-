@@ -119,36 +119,43 @@ export const TelecallerHomeView: React.FC = () => {
         </div>
       </div>
 
-      {/* 🔴 Live Team Meeting Banner on Mobile */}
+      {/* 🔴 Live Zoom Meeting Banner on Mobile */}
       {(() => {
-        const liveMeeting = teamMeetings.find(m => 
-          m.status === 'LIVE' && 
-          (!m.invitedMemberName || m.invitedMemberName.includes(profile.name) || m.invitedMemberName.toLowerCase().includes('all') || m.invitedMemberName.toLowerCase().includes('team'))
-        );
+        const liveMeeting = teamMeetings.find(m => m.status === 'LIVE');
         if (!liveMeeting) return null;
         return (
-          <div className="p-3.5 bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-500 rounded-2xl flex items-center justify-between gap-3 shadow-sm animate-in slide-in-from-top-2">
+          <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border-2 border-emerald-500 rounded-2xl flex items-center justify-between gap-3 shadow-sm animate-in slide-in-from-top-2">
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="relative flex h-3 w-3 flex-shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600"></span>
               </span>
               <div className="min-w-0">
-                <span className="text-[9px] font-black bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
-                  Live Video Meeting
-                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[9px] font-black bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                    🔴 Live Zoom Call
+                  </span>
+                  {liveMeeting.zoomMeetingId && (
+                    <span className="text-[9px] font-mono font-bold bg-blue-100 text-blue-800 px-1 rounded">
+                      ID: {liveMeeting.zoomMeetingId}
+                    </span>
+                  )}
+                </div>
                 <h4 className="font-bold text-xs text-[#0A2540] truncate mt-0.5">
                   {liveMeeting.title}
                 </h4>
+                <p className="text-[10px] text-slate-500 truncate">
+                  Host: {liveMeeting.hostName || 'Leader'} · Tap to join instantly
+                </p>
               </div>
             </div>
 
             <button
               onClick={() => joinMeeting(liveMeeting)}
-              className="px-3 py-2 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md shadow-[#00C9A7]/30 flex-shrink-0 active:scale-95 transition-all"
+              className="px-3.5 py-2 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md shadow-[#00C9A7]/30 flex-shrink-0 active:scale-95 transition-all cursor-pointer"
             >
               <Video className="w-3.5 h-3.5" />
-              <span>Join</span>
+              <span>Join Zoom</span>
             </button>
           </div>
         );

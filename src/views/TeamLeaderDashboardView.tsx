@@ -77,8 +77,10 @@ export const TeamLeaderDashboardView: React.FC = () => {
   const [meetingTitle, setMeetingTitle] = useState('');
   const [meetingType, setMeetingType] = useState<string>('Team Discussion');
   const [meetingTime, setMeetingTime] = useState('Today • 04:30 PM');
-  const [meetingLocation, setMeetingLocation] = useState('In-App Video Room');
+  const [meetingLocation, setMeetingLocation] = useState('Zoom Cloud Meeting');
   const [meetingAgenda, setMeetingAgenda] = useState('');
+  const [selectedSquadMemberId, setSelectedSquadMemberId] = useState<string>(teamMembers[0]?.id || '');
+  const [tlIncludeAdmin, setTlIncludeAdmin] = useState<boolean>(true);
 
   // Rejection modal state
   const [rejectingLeaveId, setRejectingLeaveId] = useState<string | null>(null);
@@ -200,35 +202,55 @@ export const TeamLeaderDashboardView: React.FC = () => {
     return [];
   }, [assignedLeads]);
 
-  const handleCreateMeetingSubmit = (e: React.FormEvent) => {
+  const handleCreateMeetingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!meetingTitle.trim()) return;
-    scheduleTeamMeeting({
-      title: meetingTitle,
+
+    const is1on1 = meetingType === '1-on-1 Call';
+    const targetMember = teamMembers.find(m => m.id === selectedSquadMemberId);
+    const userSquad = profile?.teamName || teamMembers[0]?.group || 'My Squad';
+
+    await scheduleTeamMeeting({
+      title: meetingTitle.trim(),
       type: meetingType,
       dateTime: meetingTime,
-      location: meetingLocation,
-      agenda: meetingAgenda || 'Review telecalling milestones and client conversion rate.',
+      location: 'Zoom Cloud Meeting',
+      agenda: meetingAgenda || `Squad meeting for ${is1on1 ? (targetMember?.name || 'squad member') : userSquad}.`,
+      targetAudience: is1on1 ? 'INDIVIDUAL' : 'SQUAD',
+      targetTeam: userSquad,
+      targetEmployeeId: is1on1 ? selectedSquadMemberId : undefined,
+      invitedMemberName: is1on1 ? targetMember?.name : undefined,
+      attendeesCount: is1on1 ? 2 : teamMembers.length + 1,
+      includeAdmin: tlIncludeAdmin,
+      createdByRole: 'team_leader',
+      useZoom: true,
+      priority: tlIncludeAdmin ? 'HIGH' : 'NORMAL',
     });
+
     setMeetingTitle('');
     setMeetingAgenda('');
     setIsMeetingModalOpen(false);
   };
 
-  const startInstantMeeting = (type: string = 'Team Discussion') => {
-    const meetingId = `meet-${Date.now()}`;
-    const newMtg: TeamMeeting = {
-      id: meetingId,
-      title: `Instant Team Meeting • ${profile?.teamName || 'Alpha Growth'}`,
+  const startInstantMeeting = async (type: string = 'Team Discussion') => {
+    const userSquad = profile?.teamName || teamMembers[0]?.group || 'My Squad';
+    const mtg = await scheduleTeamMeeting({
+      title: `⚡ Live Squad Sync • ${userSquad}`,
       dateTime: 'Live Now',
-      type: type || 'Team Discussion',
-      location: 'In-App Video Room',
-      attendeesCount: teamMembers.length,
-      agenda: 'Instant team coordination and discussion',
+      type,
+      location: 'Zoom Video Room',
+      agenda: `Instant squad sprint and live review for ${userSquad}`,
       status: 'LIVE',
-      meetingLink: `https://meet.tradenexus.io/room/${meetingId}`,
-    };
-    joinMeeting(newMtg);
+      targetAudience: 'SQUAD',
+      targetTeam: userSquad,
+      attendeesCount: teamMembers.length + 1,
+      includeAdmin: tlIncludeAdmin,
+      useZoom: true,
+      createdByRole: 'team_leader',
+    });
+    if (mtg) {
+      joinMeeting(mtg);
+    }
   };
 
   const copyMeetingLink = (link?: string) => {
@@ -1415,75 +1437,149 @@ export const TeamLeaderDashboardView: React.FC = () => {
         })}
       </nav>
 
-      {/* Schedule Meeting Modal */}
+      {/* Schedule Meeting Modal (Mobile Optimized) */}
       {isMeetingModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white text-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 border border-slate-200 animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-display font-black text-lg text-[#0A2540]">Schedule Team Meeting</h3>
-              <button onClick={() => setIsMeetingModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 animate-in fade-in duration-150">
+          <div 
+            className="bg-white text-slate-800 rounded-3xl w-full max-w-md max-h-[92dvh] flex flex-col shadow-2xl border border-slate-200 animate-in zoom-in-95 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-[#0A2540] text-white p-4.5 flex items-center justify-between relative overflow-hidden flex-shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-teal-500/20 border border-teal-400/40 flex items-center justify-center text-[#00C9A7] shadow-inner">
+                  <Video className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-display font-black text-base text-white">Squad Zoom Meeting</h3>
+                    <span className="text-[9px] font-black uppercase tracking-wider bg-[#00C9A7] text-[#0A2540] px-1.5 py-0.5 rounded font-mono">
+                      {profile?.teamName || 'Squad'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300">
+                    Host private squad huddles or 1-on-1 reviews
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsMeetingModalOpen(false)} 
+                className="text-slate-400 hover:text-white p-1 rounded-xl hover:bg-white/10 transition-colors"
+              >
+                ✕
+              </button>
             </div>
 
-            <form onSubmit={handleCreateMeetingSubmit} className="space-y-3.5 text-xs">
+            <form onSubmit={handleCreateMeetingSubmit} className="flex-1 overflow-y-auto p-4.5 space-y-3.5 text-xs">
               <div>
-                <label className="font-bold text-slate-600 block mb-1">Meeting Title</label>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Meeting Title <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="text"
                   value={meetingTitle}
                   onChange={(e) => setMeetingTitle(e.target.value)}
-                  placeholder="e.g. Target Review / Sales Workshop"
-                  className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-medium"
+                  placeholder="e.g. Target Review / Daily Sales Sprint"
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold focus:outline-none focus:border-[#00C9A7]"
                   required
                 />
               </div>
 
               <div>
-                <label className="font-bold text-slate-600 block mb-1">Meeting Type</label>
+                <label className="font-bold text-slate-700 block mb-1">Meeting Format</label>
                 <select
                   value={meetingType}
                   onChange={(e) => setMeetingType(e.target.value)}
-                  className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold"
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold"
                 >
-                  <option value="Team Discussion">👥 Team Discussion</option>
-                  <option value="1-on-1 Call">🤝 1-on-1 Call</option>
-                  <option value="Problem Solving">⚡ Problem Solving Huddle</option>
+                  <option value="Team Discussion">👥 Full Squad Huddle ({profile?.teamName || 'Squad'})</option>
+                  <option value="1-on-1 Call">🤝 1-on-1 Squad Member Review</option>
+                  <option value="Problem Solving">⚡ Pipeline &amp; Objection Solving</option>
                 </select>
               </div>
 
+              {/* 1-on-1 Squad Member Picker */}
+              {meetingType === '1-on-1 Call' && (
+                <div className="p-3 rounded-2xl bg-teal-50/60 border border-teal-200 space-y-1.5">
+                  <label className="font-bold text-[#0A2540] block">Select Squad Member for 1-on-1:</label>
+                  <select
+                    value={selectedSquadMemberId}
+                    onChange={(e) => setSelectedSquadMemberId(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-white border border-teal-300 text-slate-800 font-bold text-xs"
+                  >
+                    {teamMembers.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} ({m.empCode} • {m.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
-                <label className="font-bold text-slate-600 block mb-1">Date &amp; Time</label>
+                <label className="font-bold text-slate-700 block mb-1">Date &amp; Time Slot</label>
                 <input
                   type="text"
                   value={meetingTime}
                   onChange={(e) => setMeetingTime(e.target.value)}
                   placeholder="Today • 04:30 PM"
-                  className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-800"
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-semibold"
+                />
+              </div>
+
+              {/* 👑 Request Super Admin to Join Toggle */}
+              <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-300 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-base">👑</span>
+                  <div>
+                    <span className="font-black text-xs text-amber-900 block leading-tight">
+                      Request Super Admin to Join
+                    </span>
+                    <span className="text-[10px] text-amber-700 block">
+                      Dispatches invite to Executive Dashboard
+                    </span>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={tlIncludeAdmin}
+                  onChange={(e) => setTlIncludeAdmin(e.target.checked)}
+                  className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500 cursor-pointer"
                 />
               </div>
 
               <div>
-                <label className="font-bold text-slate-600 block mb-1">Agenda</label>
+                <label className="font-bold text-slate-700 block mb-1">Agenda / Target Notes</label>
                 <textarea
                   value={meetingAgenda}
                   onChange={(e) => setMeetingAgenda(e.target.value)}
-                  placeholder="Points to discuss..."
-                  className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 h-20"
+                  placeholder="Review dial count, target gap, pipeline hurdles..."
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-xs h-18 focus:outline-none focus:border-[#00C9A7]"
                 />
+              </div>
+
+              {/* Zoom Notification Badge */}
+              <div className="bg-blue-50 border border-blue-200 p-2.5 rounded-xl flex items-center gap-2 text-blue-800 text-[11px]">
+                <Video className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                <span>
+                  <strong>Zoom Cloud API:</strong> Dedicated numeric room ID will be created for {profile?.teamName || 'this squad'}.
+                </span>
               </div>
 
               <div className="flex gap-2 pt-2">
                 <button
-                  type="submit"
-                  className="flex-1 py-3 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black shadow-md shadow-[#00C9A7]/25 text-xs"
-                >
-                  Schedule Meeting
-                </button>
-                <button
                   type="button"
                   onClick={() => setIsMeetingModalOpen(false)}
-                  className="py-3 px-4 rounded-xl bg-slate-100 text-slate-600 font-bold text-xs"
+                  className="w-1/3 py-2.5 px-4 rounded-xl bg-slate-100 text-slate-600 font-bold text-xs hover:bg-slate-200"
                 >
                   Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="w-2/3 py-2.5 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black shadow-md shadow-[#00C9A7]/25 text-xs flex items-center justify-center gap-1.5"
+                >
+                  <Video className="w-4 h-4" />
+                  <span>Create Zoom Meeting</span>
                 </button>
               </div>
             </form>

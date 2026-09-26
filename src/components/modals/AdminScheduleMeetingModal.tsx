@@ -139,6 +139,8 @@ export const AdminScheduleMeetingModal: React.FC<AdminScheduleMeetingModalProps>
       targetEmployeeId: audienceScope === 'INDIVIDUAL' ? selectedMember?.id : undefined,
       createdByRole: 'admin',
       priority,
+      includeAdmin: true,
+      useZoom: locationType === 'IN_APP',
     });
 
     confetti({
@@ -153,9 +155,9 @@ export const AdminScheduleMeetingModal: React.FC<AdminScheduleMeetingModalProps>
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4 animate-in fade-in duration-200">
       <div 
-        className="bg-white text-slate-800 rounded-3xl w-full max-w-xl max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 animate-in zoom-in-95 overflow-hidden"
+        className="bg-white text-slate-800 rounded-3xl w-full max-w-xl max-h-[92dvh] flex flex-col shadow-2xl border border-slate-200 animate-in zoom-in-95 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header with Executive Hierarchy Identity */}
@@ -504,33 +506,36 @@ export const AdminScheduleMeetingModal: React.FC<AdminScheduleMeetingModalProps>
                 onClick={() => setLocationType('IN_APP')}
                 className={`p-2.5 rounded-xl border text-center font-bold text-xs transition-all cursor-pointer ${
                   locationType === 'IN_APP'
-                    ? 'bg-teal-50 border-[#00C9A7] text-[#00A88B]'
+                    ? 'bg-blue-50 border-blue-500 text-blue-800 ring-2 ring-blue-500/20 shadow-xs'
                     : 'bg-slate-50 border-slate-200 text-slate-600'
                 }`}
               >
-                🎥 Built-in Room
+                <span className="block font-black text-xs text-blue-900">🎥 Zoom Cloud</span>
+                <span className="text-[9.5px] text-blue-600 block mt-0.5">Auto-generated</span>
               </button>
               <button
                 type="button"
                 onClick={() => setLocationType('BOARDROOM')}
                 className={`p-2.5 rounded-xl border text-center font-bold text-xs transition-all cursor-pointer ${
                   locationType === 'BOARDROOM'
-                    ? 'bg-teal-50 border-[#00C9A7] text-[#00A88B]'
+                    ? 'bg-teal-50 border-[#00C9A7] text-[#00A88B] ring-2 ring-[#00C9A7]/20 shadow-xs'
                     : 'bg-slate-50 border-slate-200 text-slate-600'
                 }`}
               >
-                🏢 HQ Boardroom
+                <span className="block font-black text-xs text-slate-800">🏢 Boardroom</span>
+                <span className="text-[9.5px] text-slate-500 block mt-0.5">HQ Level 4</span>
               </button>
               <button
                 type="button"
                 onClick={() => setLocationType('EXTERNAL')}
                 className={`p-2.5 rounded-xl border text-center font-bold text-xs transition-all cursor-pointer ${
                   locationType === 'EXTERNAL'
-                    ? 'bg-teal-50 border-[#00C9A7] text-[#00A88B]'
+                    ? 'bg-teal-50 border-[#00C9A7] text-[#00A88B] ring-2 ring-[#00C9A7]/20 shadow-xs'
                     : 'bg-slate-50 border-slate-200 text-slate-600'
                 }`}
               >
-                🌐 External URL
+                <span className="block font-black text-xs text-slate-800">🌐 Custom Link</span>
+                <span className="text-[9.5px] text-slate-500 block mt-0.5">Manual URL</span>
               </button>
             </div>
 

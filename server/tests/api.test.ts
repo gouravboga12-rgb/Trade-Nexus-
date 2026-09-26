@@ -2,6 +2,7 @@ process.env.NODE_ENV = 'test';
 
 import http from 'http';
 import app from '../server.js';
+import db from '../db/connection.js';
 
 interface TestResult {
   name: string;
@@ -106,20 +107,23 @@ async function startTestSuite() {
     // 1. Health Check (Public)
     await runTest(TEST_PORT, 'Health Check Endpoint', 'GET', '/api/health', [200]);
 
+    const adminRow = db.prepare("SELECT email FROM users WHERE role = 'admin' LIMIT 1").get() as any;
+    const testAdminEmail = adminRow?.email || 'admin@tradenexus.com';
+
     // 2. Auth Security: Reject backdoor passwords
     await runTest(TEST_PORT, 'Reject Backdoor password123', 'POST', '/api/auth/login', [401], {
-      email: 'admin@tradenexus.com',
+      email: testAdminEmail,
       password: 'password123',
     });
 
     await runTest(TEST_PORT, 'Reject Invalid Password', 'POST', '/api/auth/login', [401], {
-      email: 'admin@tradenexus.com',
+      email: testAdminEmail,
       password: 'wrongpassword',
     });
 
     // 3. Valid Admin Login & Token
     const adminLoginRes = await runTest(TEST_PORT, 'POST Auth Login (Admin)', 'POST', '/api/auth/login', [200], {
-      email: 'admin@tradenexus.com',
+      email: testAdminEmail,
       password: 'admin123',
     });
 

@@ -156,30 +156,31 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
     return matchesFilter && matchesSearch;
   });
 
-  const startInstantMeeting = (type: string = 'Team Discussion', specificTelecaller?: string) => {
-    const meetingId = `meet-${Date.now()}`;
+  const startInstantMeeting = async (type: string = 'Team Discussion', specificTelecaller?: string) => {
+    const userSquad = profile?.teamName || teamMembers[0]?.group || 'Squad';
     const title = specificTelecaller 
-      ? `1-on-1 Call with ${specificTelecaller}` 
-      : type === 'Problem Solving' 
-      ? `Problem Solving Huddle • ${profile?.teamName || 'Alpha Team'}`
-      : `Instant Team Meeting • ${profile?.teamName || 'Alpha Team'}`;
+      ? `1-on-1 Coaching • ${specificTelecaller}`
+      : `Instant Squad Sync • ${userSquad}`;
       
-    const newMtg: TeamMeeting = {
-      id: meetingId,
+    const mtg = await scheduleTeamMeeting({
       title,
       dateTime: 'Live Now',
       type: type || 'Team Discussion',
-      location: 'In-App Video Room',
-      attendeesCount: specificTelecaller ? 2 : teamMembers.length,
-      agenda: specificTelecaller ? `1-on-1 coaching & review with ${specificTelecaller}` : 'Live team discussion and call assistance',
+      location: 'Zoom Video Room',
+      attendeesCount: specificTelecaller ? 2 : teamMembers.length + 1,
+      agenda: specificTelecaller ? `1-on-1 coaching & review with ${specificTelecaller}` : `Live squad discussion for ${userSquad}`,
       status: 'LIVE',
-      meetingLink: `https://meet.tradenexus.io/room/${meetingId}`,
+      targetAudience: specificTelecaller ? 'INDIVIDUAL' : 'SQUAD',
+      targetTeam: userSquad,
       invitedMemberName: specificTelecaller,
-    };
+      createdByRole: 'team_leader',
+      useZoom: true,
+      includeAdmin: true,
+    });
     
-    scheduleTeamMeeting(newMtg);
-    joinMeeting(newMtg);
-    triggerToast(`🚀 Live video meeting started: "${title}"`);
+    if (mtg) {
+      joinMeeting(mtg);
+    }
   };
 
   const copyMeetingLink = (link?: string) => {
@@ -188,14 +189,17 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
     triggerToast('✓ Meeting link copied to clipboard!');
   };
 
-  const handleCreateMeetingSubmit = (e: React.FormEvent) => {
+  const handleCreateMeetingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!meetingTitle.trim()) return;
 
     let inviteesDisplay: string | undefined = undefined;
     let attendeesCount = teamMembers.length;
+    const is1on1 = inviteeMode === '1ON1';
+    const targetMember = teamMembers.find(m => m.name === invitedTelecaller);
+    const userSquad = profile?.teamName || teamMembers[0]?.group || 'Squad';
 
-    if (inviteeMode === '1ON1') {
+    if (is1on1) {
       inviteesDisplay = invitedTelecaller;
       attendeesCount = 2;
     } else if (inviteeMode === 'CUSTOM') {
@@ -203,15 +207,21 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
       attendeesCount = selectedInvitees.length > 0 ? selectedInvitees.length + 1 : teamMembers.length;
     }
 
-    scheduleTeamMeeting({
+    await scheduleTeamMeeting({
       title: meetingTitle,
       dateTime: meetingTime || 'Today • 04:30 PM',
       type: meetingType,
-      location: meetingLocation || 'In-App Video Room',
-      agenda: meetingAgenda || '',
+      location: 'Zoom Cloud Meeting',
+      agenda: meetingAgenda || `Squad meeting for ${is1on1 ? (inviteesDisplay || 'rep') : userSquad}`,
       status: 'UPCOMING',
       invitedMemberName: inviteesDisplay,
       attendeesCount,
+      targetAudience: is1on1 ? 'INDIVIDUAL' : 'SQUAD',
+      targetTeam: userSquad,
+      targetEmployeeId: is1on1 ? targetMember?.id : undefined,
+      createdByRole: 'team_leader',
+      useZoom: true,
+      includeAdmin: true,
     });
     setMeetingTitle('');
     setMeetingAgenda('');

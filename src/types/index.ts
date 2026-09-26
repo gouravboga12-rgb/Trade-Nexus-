@@ -210,11 +210,19 @@ export interface TeamMeeting {
   status?: 'LIVE' | 'UPCOMING' | 'COMPLETED';
   meetingLink?: string;
   invitedMemberName?: string;
-  targetAudience?: 'ALL' | 'TEAM' | 'INDIVIDUAL' | 'LEADERSHIP';
+  targetAudience?: 'ALL' | 'TEAM' | 'INDIVIDUAL' | 'LEADERSHIP' | 'ALL_HR' | 'ALL_TL' | 'ALL_TELECALLER' | 'SQUAD';
   targetTeam?: string;
   targetEmployeeId?: string;
   createdByRole?: string;
   priority?: 'NORMAL' | 'HIGH' | 'MANDATORY';
+  zoomMeetingId?: string | null;
+  zoomJoinUrl?: string | null;
+  zoomStartUrl?: string | null;
+  zoomPassword?: string | null;
+  hostRole?: 'admin' | 'hr' | 'team_leader' | 'telecaller';
+  hostName?: string;
+  hostEmpCode?: string | null;
+  includeAdmin?: boolean | number;
 }
 
 export interface CandidateInterview {

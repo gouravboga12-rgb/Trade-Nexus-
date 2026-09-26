@@ -142,12 +142,14 @@ interface AppContextType {
     meetingLink?: string; 
     invitedMemberName?: string;
     attendeesCount?: number;
-    targetAudience?: 'ALL' | 'TEAM' | 'INDIVIDUAL' | 'LEADERSHIP';
+    targetAudience?: 'ALL' | 'TEAM' | 'INDIVIDUAL' | 'LEADERSHIP' | 'ALL_HR' | 'ALL_TL' | 'ALL_TELECALLER' | 'SQUAD';
     targetTeam?: string;
     targetEmployeeId?: string;
     createdByRole?: string;
     priority?: 'NORMAL' | 'HIGH' | 'MANDATORY';
-  }) => void;
+    includeAdmin?: boolean | number;
+    useZoom?: boolean;
+  }) => Promise<TeamMeeting | void>;
   updateTeamMeeting: (id: string, updates: Partial<TeamMeeting>) => void;
   deleteTeamMeeting: (id: string) => void;
   isLiveRoomOpen: boolean;
@@ -1703,37 +1705,81 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     meetingLink?: string; 
     invitedMemberName?: string;
     attendeesCount?: number;
-    targetAudience?: 'ALL' | 'TEAM' | 'INDIVIDUAL' | 'LEADERSHIP';
+    targetAudience?: 'ALL' | 'TEAM' | 'INDIVIDUAL' | 'LEADERSHIP' | 'ALL_HR' | 'ALL_TL' | 'ALL_TELECALLER' | 'SQUAD';
     targetTeam?: string;
     targetEmployeeId?: string;
     createdByRole?: string;
     priority?: 'NORMAL' | 'HIGH' | 'MANDATORY';
+    includeAdmin?: boolean | number;
+    useZoom?: boolean;
   }) => {
-    const meetingId = `mtg-${Date.now()}`;
-    const newMtg: TeamMeeting = {
-      id: meetingId,
-      title: data.title,
-      dateTime: data.dateTime || 'Today',
-      type: data.type || 'Team Discussion',
-      location: data.location || 'In-App Video Room',
-      attendeesCount: data.attendeesCount ?? (data.invitedMemberName ? 2 : teamMembers.length),
-      agenda: data.agenda || '',
-      status: data.status || 'UPCOMING',
-      meetingLink: data.meetingLink || `https://meet.tradenexus.io/room/${meetingId}`,
-      invitedMemberName: data.invitedMemberName,
-      targetAudience: data.targetAudience || (data.invitedMemberName ? 'INDIVIDUAL' : 'ALL'),
-      targetTeam: data.targetTeam,
-      targetEmployeeId: data.targetEmployeeId,
-      createdByRole: data.createdByRole || currentRole,
-      priority: data.priority || 'NORMAL',
-    };
-    setTeamMeetings(prev => [newMtg, ...prev]);
-    triggerToast(`✓ Meeting "${data.title}" scheduled`);
-
     try {
-      await api.createTeamMeeting(newMtg);
+      let createdMtg: TeamMeeting;
+      const shouldUseZoom = data.useZoom !== false && (!data.location || data.location.includes('Zoom') || data.location.includes('Video') || data.location.includes('In-App'));
+
+      if (shouldUseZoom) {
+        createdMtg = await api.createZoomMeeting({
+          title: data.title,
+          dateTime: data.dateTime,
+          agenda: data.agenda,
+          type: data.type,
+          targetAudience: data.targetAudience,
+          targetTeam: data.targetTeam,
+          targetEmployeeId: data.targetEmployeeId,
+          invitedMemberName: data.invitedMemberName,
+          includeAdmin: data.includeAdmin,
+          priority: data.priority,
+          attendeesCount: data.attendeesCount,
+        });
+      } else {
+        const meetingId = `mtg-${Date.now()}`;
+        createdMtg = await api.createTeamMeeting({
+          title: data.title,
+          dateTime: data.dateTime || 'Today',
+          type: data.type || 'Team Discussion',
+          location: data.location || 'In-App Video Room',
+          attendeesCount: data.attendeesCount ?? (data.invitedMemberName ? 2 : teamMembers.length),
+          agenda: data.agenda || '',
+          status: data.status || 'UPCOMING',
+          meetingLink: data.meetingLink || `https://meet.tradenexus.io/room/${meetingId}`,
+          invitedMemberName: data.invitedMemberName,
+          targetAudience: data.targetAudience || (data.invitedMemberName ? 'INDIVIDUAL' : 'ALL'),
+          targetTeam: data.targetTeam,
+          targetEmployeeId: data.targetEmployeeId,
+          createdByRole: data.createdByRole || currentRole,
+          priority: data.priority || 'NORMAL',
+          includeAdmin: data.includeAdmin ? 1 : 0,
+          useZoom: false,
+        });
+      }
+
+      setTeamMeetings(prev => [createdMtg, ...prev.filter(m => m.id !== createdMtg.id)]);
+      triggerToast(`✓ Meeting "${data.title}" scheduled`);
+      return createdMtg;
     } catch (err) {
       console.warn('API create meeting error:', err);
+      const meetingId = `mtg-${Date.now()}`;
+      const fallbackMtg: TeamMeeting = {
+        id: meetingId,
+        title: data.title,
+        dateTime: data.dateTime || 'Today',
+        type: data.type || 'Team Discussion',
+        location: data.location || 'Zoom Video Meeting',
+        attendeesCount: data.attendeesCount ?? (data.invitedMemberName ? 2 : teamMembers.length),
+        agenda: data.agenda || '',
+        status: data.status || 'UPCOMING',
+        meetingLink: data.meetingLink || `https://meet.tradenexus.io/room/${meetingId}`,
+        invitedMemberName: data.invitedMemberName,
+        targetAudience: data.targetAudience || (data.invitedMemberName ? 'INDIVIDUAL' : 'ALL'),
+        targetTeam: data.targetTeam,
+        targetEmployeeId: data.targetEmployeeId,
+        createdByRole: data.createdByRole || currentRole,
+        priority: data.priority || 'NORMAL',
+        includeAdmin: data.includeAdmin ? 1 : 0,
+      };
+      setTeamMeetings(prev => [fallbackMtg, ...prev]);
+      triggerToast(`✓ Meeting "${data.title}" scheduled`);
+      return fallbackMtg;
     }
   };
 
@@ -1758,9 +1804,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const joinMeeting = (mtg: TeamMeeting) => {
     setActiveMeetingRoom(mtg);
-    setIsLiveRoomOpen(true);
-    if (mtg.status !== 'LIVE' && (currentRole === 'team_leader' || currentRole === 'admin')) {
+
+    // If host or admin, mark meeting as LIVE
+    if (mtg.status !== 'LIVE' && (currentRole === 'team_leader' || currentRole === 'admin' || currentRole === 'hr')) {
       updateTeamMeeting(mtg.id, { status: 'LIVE' });
+    }
+
+    const zoomUrl = (currentRole === 'admin' && mtg.zoomStartUrl)
+      ? mtg.zoomStartUrl
+      : (mtg.zoomJoinUrl || (mtg.meetingLink?.includes('zoom.us') ? mtg.meetingLink : null));
+
+    if (zoomUrl) {
+      window.open(zoomUrl, '_blank', 'noopener,noreferrer');
+      triggerToast('🚀 Launching Zoom Meeting...');
+    } else {
+      setIsLiveRoomOpen(true);
     }
   };
 

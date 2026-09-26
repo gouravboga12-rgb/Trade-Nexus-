@@ -76,10 +76,7 @@ export const DesktopTelecallerHome: React.FC = () => {
   const estRemaining = `${Math.floor(minsRemaining / 60)}h ${minsRemaining % 60}m`;
   const avgDuration = `${Math.floor(stats.averageCallDurationSec / 60)}m ${String(stats.averageCallDurationSec % 60).padStart(2, '0')}s`;
 
-  const liveMeeting = teamMeetings.find(m => 
-    m.status === 'LIVE' && 
-    (!m.invitedMemberName || m.invitedMemberName.includes(profile.name) || m.invitedMemberName.toLowerCase().includes('all') || m.invitedMemberName.toLowerCase().includes('team'))
-  );
+  const liveMeeting = teamMeetings.find(m => m.status === 'LIVE');
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">

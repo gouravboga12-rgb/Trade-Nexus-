@@ -511,33 +511,70 @@ export const AdminDashboardView: React.FC = () => {
               </div>
             </div>
 
-            {/* 🔴 Live Meeting Alert for Admin */}
+            {/* 🔴 Live & Requested Meeting Alerts for Super Admin */}
             {(() => {
-              const liveMeeting = teamMeetings.find(m => m.status === 'LIVE');
-              if (!liveMeeting) return null;
+              const liveMeetings = teamMeetings.filter(m => m.status === 'LIVE' || (m.includeAdmin && m.status !== 'COMPLETED'));
+              if (liveMeetings.length === 0) return null;
               return (
-                <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border-2 border-emerald-500/80 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-xs animate-in slide-in-from-top-2">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="relative flex h-3 w-3 flex-shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600"></span>
-                    </span>
-                    <div className="min-w-0">
-                      <span className="text-[9px] font-black uppercase text-emerald-800 tracking-wider block">
-                        🔴 Live Meeting In Progress
-                      </span>
-                      <span className="font-bold text-xs text-[#0A2540] truncate block">
-                        {liveMeeting.title}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => joinMeeting(liveMeeting)}
-                    className="px-3 py-1.5 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-[11px] rounded-xl flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer flex-shrink-0"
-                  >
-                    <Video className="w-3.5 h-3.5" />
-                    <span>Join Live</span>
-                  </button>
+                <div className="space-y-2">
+                  {liveMeetings.slice(0, 3).map((mtg) => {
+                    const isLive = mtg.status === 'LIVE';
+                    return (
+                      <div 
+                        key={mtg.id}
+                        className={`border-2 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-xs animate-in slide-in-from-top-2 ${
+                          isLive 
+                            ? 'bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border-emerald-500/80' 
+                            : 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-400'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="relative flex h-3 w-3 flex-shrink-0">
+                            {isLive ? (
+                              <>
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600"></span>
+                              </>
+                            ) : (
+                              <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                            )}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
+                                isLive ? 'bg-emerald-200 text-emerald-900' : 'bg-amber-200 text-amber-900'
+                              }`}>
+                                {isLive ? '🔴 Live Session' : '👑 Admin Invited'}
+                              </span>
+                              {mtg.zoomMeetingId && (
+                                <span className="text-[9px] font-mono font-bold bg-blue-100 text-blue-800 px-1 rounded">
+                                  Zoom
+                                </span>
+                              )}
+                              {mtg.targetTeam && (
+                                <span className="text-[9px] font-bold text-slate-500 truncate">
+                                  · {mtg.targetTeam}
+                                </span>
+                              )}
+                            </div>
+                            <span className="font-bold text-xs text-[#0A2540] truncate block mt-0.5">
+                              {mtg.title}
+                            </span>
+                            <span className="text-[10px] text-slate-500 block truncate">
+                              Host: {mtg.hostName || 'Floor Leader'} {mtg.hostRole ? `(${mtg.hostRole.toUpperCase()})` : ''}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => joinMeeting(mtg)}
+                          className="px-3 py-1.5 bg-[#0A2540] hover:bg-[#00C9A7] hover:text-[#0A2540] text-white font-black text-[11px] rounded-xl flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer flex-shrink-0"
+                        >
+                          <Video className="w-3.5 h-3.5 text-[#00C9A7]" />
+                          <span>{isLive ? 'Join' : 'Start'}</span>
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })()}

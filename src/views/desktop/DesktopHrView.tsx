@@ -69,6 +69,8 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
     generateBulkPayslips, 
     teamMeetings,
     joinMeeting,
+    scheduleTeamMeeting,
+    deleteTeamMeeting,
     triggerToast,
     setIsFaceIdModalOpen,
     openOfferLetterModal,
@@ -115,6 +117,16 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
   const [payrollMonth, setPayrollMonth] = useState('May');
   const [payrollYear, setPayrollYear] = useState('2025');
 
+  // HR Zoom Meeting Scheduler States
+  const [isHrMeetingModalOpen, setIsHrMeetingModalOpen] = useState(false);
+  const [hrMeetingTitle, setHrMeetingTitle] = useState('');
+  const [hrMeetingType, setHrMeetingType] = useState('1-on-1 Employee Sync');
+  const [hrMeetingScope, setHrMeetingScope] = useState<'INDIVIDUAL' | 'ALL_TL' | 'ALL'>('INDIVIDUAL');
+  const [hrSelectedEmpId, setHrSelectedEmpId] = useState(teamMembers[0]?.id || '');
+  const [hrIncludeAdmin, setHrIncludeAdmin] = useState(true);
+  const [hrMeetingTime, setHrMeetingTime] = useState('Today • 04:00 PM');
+  const [hrMeetingAgenda, setHrMeetingAgenda] = useState('');
+
   // Metrics
   const totalEmployees = teamMembers.length;
   const totalTeams = teamGroups.length;
@@ -139,10 +151,56 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
       interviewTime: candTime,
       interviewer: candInterviewer,
     });
+    // Provision Zoom meeting for interview
+    scheduleTeamMeeting({
+      title: `Candidate Interview: ${candName} (${candRole})`,
+      dateTime: candTime,
+      type: 'Candidate Interview (Video Call)',
+      location: 'Zoom Cloud Meeting',
+      agenda: `HR & Technical screening for ${candName} (${candRole}). Interviewer: ${candInterviewer}`,
+      invitedMemberName: candInterviewer,
+      useZoom: true,
+      includeAdmin: true,
+      createdByRole: 'hr',
+    });
     setCandName('');
     setCandEmail('');
     setCandPhone('');
     setIsInterviewModalOpen(false);
+    triggerToast(`✓ Candidate Interview & Zoom Call scheduled!`);
+  };
+
+  const handleCreateHrMeetingSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!hrMeetingTitle.trim()) return;
+
+    const selectedEmp = teamMembers.find(m => m.id === hrSelectedEmpId);
+    const scopeLabel = hrMeetingScope === 'INDIVIDUAL' 
+      ? `1-on-1 with ${selectedEmp?.name || 'Staff'}`
+      : hrMeetingScope === 'ALL_TL' 
+        ? 'All Team Leaders' 
+        : 'All Employees';
+
+    scheduleTeamMeeting({
+      title: hrMeetingTitle.trim(),
+      dateTime: hrMeetingTime,
+      type: hrMeetingType,
+      location: 'Zoom Cloud Meeting',
+      agenda: hrMeetingAgenda.trim() || `HR Coordination meeting with ${scopeLabel}.`,
+      targetAudience: hrMeetingScope,
+      targetEmployeeId: hrMeetingScope === 'INDIVIDUAL' ? hrSelectedEmpId : undefined,
+      invitedMemberName: hrMeetingScope === 'INDIVIDUAL' ? selectedEmp?.name : undefined,
+      attendeesCount: hrMeetingScope === 'INDIVIDUAL' ? 2 : (hrMeetingScope === 'ALL_TL' ? totalTeams + 1 : totalEmployees + 1),
+      includeAdmin: hrIncludeAdmin,
+      createdByRole: 'hr',
+      priority: hrIncludeAdmin ? 'HIGH' : 'NORMAL',
+      useZoom: true,
+    });
+
+    setHrMeetingTitle('');
+    setHrMeetingAgenda('');
+    setIsHrMeetingModalOpen(false);
+    triggerToast(`✓ Zoom meeting scheduled for ${scopeLabel}!`);
   };
 
   const handleBulkPayrollSubmit = (e: React.FormEvent) => {
@@ -211,6 +269,14 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
             >
               <Award className="w-4 h-4 text-[#00C9A7]" />
               <span>Documents Studio</span>
+            </button>
+
+            <button
+              onClick={() => setIsHrMeetingModalOpen(true)}
+              className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-xs cursor-pointer active:scale-95"
+            >
+              <Video className="w-4 h-4 text-blue-600" />
+              <span>Host Zoom Call</span>
             </button>
 
             <button
@@ -1534,6 +1600,190 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                   Cancel
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* HR Zoom Meeting Scheduler Modal */}
+      {isHrMeetingModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div 
+            className="bg-white text-slate-800 rounded-3xl w-full max-w-md max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 animate-in zoom-in-95 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-[#0A2540] text-white p-5 flex items-center justify-between relative overflow-hidden flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-400 shadow-inner">
+                  <Video className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-display font-black text-lg text-white">HR Zoom Meeting</h3>
+                    <span className="text-[9px] font-black uppercase tracking-wider bg-blue-500 text-white px-2 py-0.5 rounded-md font-mono">
+                      Zoom API
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300">
+                    Schedule with Team Leaders, Employees or Floor
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsHrMeetingModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-xl hover:bg-white/10 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Scrollable Form */}
+            <form onSubmit={handleCreateHrMeetingSubmit} className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Meeting Title <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={hrMeetingTitle}
+                  onChange={(e) => setHrMeetingTitle(e.target.value)}
+                  placeholder="e.g. Q3 Performance Review / TL Weekly Alignment"
+                  required
+                  className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold focus:outline-none focus:border-blue-500 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Target Participants</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setHrMeetingScope('INDIVIDUAL')}
+                    className={`p-2.5 rounded-xl border text-center font-bold text-xs transition-all cursor-pointer ${
+                      hrMeetingScope === 'INDIVIDUAL'
+                        ? 'bg-blue-50 border-blue-500 text-blue-800 ring-2 ring-blue-500/20 shadow-xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    🤝 1-on-1
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHrMeetingScope('ALL_TL')}
+                    className={`p-2.5 rounded-xl border text-center font-bold text-xs transition-all cursor-pointer ${
+                      hrMeetingScope === 'ALL_TL'
+                        ? 'bg-blue-50 border-blue-500 text-blue-800 ring-2 ring-blue-500/20 shadow-xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    👥 All TLs
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHrMeetingScope('ALL')}
+                    className={`p-2.5 rounded-xl border text-center font-bold text-xs transition-all cursor-pointer ${
+                      hrMeetingScope === 'ALL'
+                        ? 'bg-blue-50 border-blue-500 text-blue-800 ring-2 ring-blue-500/20 shadow-xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    🏛️ All Staff
+                  </button>
+                </div>
+              </div>
+
+              {hrMeetingScope === 'INDIVIDUAL' && (
+                <div className="space-y-2 p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                  <label className="font-bold text-slate-700 block">Select Employee or TL for 1-on-1:</label>
+                  <select
+                    value={hrSelectedEmpId}
+                    onChange={(e) => setHrSelectedEmpId(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-800"
+                  >
+                    {teamMembers.map(emp => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name} ({emp.empCode} • {emp.role} • {emp.group || 'Sales'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Meeting Time Slot</label>
+                <select
+                  value={hrMeetingTime}
+                  onChange={(e) => setHrMeetingTime(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold"
+                >
+                  <option value="Today • 11:30 AM">Today • 11:30 AM (Morning Sync)</option>
+                  <option value="Today • 02:30 PM">Today • 02:30 PM (Midday Review)</option>
+                  <option value="Today • 04:00 PM">Today • 04:00 PM (Afternoon Alignment)</option>
+                  <option value="Today • 05:30 PM">Today • 05:30 PM (Wrap-Up)</option>
+                  <option value="Tomorrow • 11:00 AM">Tomorrow • 11:00 AM</option>
+                  <option value="Tomorrow • 03:00 PM">Tomorrow • 03:00 PM</option>
+                </select>
+              </div>
+
+              {/* 👑 Request Super Admin to Join Toggle */}
+              <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-300 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-lg">👑</span>
+                  <div>
+                    <span className="font-black text-xs text-amber-900 block leading-tight">
+                      Request Super Admin to Join
+                    </span>
+                    <span className="text-[10px] text-amber-700 block">
+                      Sends priority alert to Super Admin executive dashboard
+                    </span>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={hrIncludeAdmin}
+                  onChange={(e) => setHrIncludeAdmin(e.target.checked)}
+                  className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500 cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Agenda / Meeting Notes</label>
+                <textarea
+                  value={hrMeetingAgenda}
+                  onChange={(e) => setHrMeetingAgenda(e.target.value)}
+                  placeholder="Outline key topics to cover in this session..."
+                  rows={2}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-xs focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              {/* Zoom Notification Badge */}
+              <div className="bg-blue-50 border border-blue-200 p-3 rounded-2xl flex items-center gap-2.5 text-blue-800 text-xs">
+                <Video className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                <span>
+                  <strong>Zoom Cloud API:</strong> Secure meeting room with unique ID and join link provisioned automatically.
+                </span>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsHrMeetingModalOpen(false)}
+                  className="w-1/3 py-3 rounded-xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="w-2/3 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:brightness-105 text-white font-black text-xs shadow-md shadow-blue-600/25 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Video className="w-4 h-4" />
+                  <span>Create Zoom Meeting</span>
+                </button>
+              </div>
+
             </form>
           </div>
         </div>

@@ -423,6 +423,23 @@ function runMigrations() {
     CREATE INDEX IF NOT EXISTS idx_employee_documents_emp ON employee_documents(employeeId);
   `);
 
+  // Team Meetings Zoom & Multi-tenant Hierarchy Isolation
+  addColumnIfMissing('team_meetings', 'status', "TEXT NOT NULL DEFAULT 'UPCOMING'");
+  addColumnIfMissing('team_meetings', 'meetingLink', 'TEXT');
+  addColumnIfMissing('team_meetings', 'invitedMemberName', 'TEXT');
+  addColumnIfMissing('team_meetings', 'zoomMeetingId', 'TEXT');
+  addColumnIfMissing('team_meetings', 'zoomJoinUrl', 'TEXT');
+  addColumnIfMissing('team_meetings', 'zoomStartUrl', 'TEXT');
+  addColumnIfMissing('team_meetings', 'zoomPassword', 'TEXT');
+  addColumnIfMissing('team_meetings', 'hostRole', 'TEXT');
+  addColumnIfMissing('team_meetings', 'hostName', 'TEXT');
+  addColumnIfMissing('team_meetings', 'hostEmpCode', 'TEXT');
+  addColumnIfMissing('team_meetings', 'targetAudience', "TEXT NOT NULL DEFAULT 'ALL'");
+  addColumnIfMissing('team_meetings', 'targetTeam', 'TEXT');
+  addColumnIfMissing('team_meetings', 'targetEmployeeId', 'TEXT');
+  addColumnIfMissing('team_meetings', 'includeAdmin', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfMissing('team_meetings', 'priority', "TEXT NOT NULL DEFAULT 'NORMAL'");
+
   // Where the office is, so a check-in can be judged near or far.
   db.exec(`
     CREATE TABLE IF NOT EXISTS office_settings (
