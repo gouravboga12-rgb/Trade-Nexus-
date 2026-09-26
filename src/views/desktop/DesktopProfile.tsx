@@ -13,7 +13,8 @@ import {
   Phone,
   CheckCircle2,
   Clock,
-  Award
+  Award,
+  Video
 } from 'lucide-react';
 
 export const DesktopProfile: React.FC = () => {
@@ -22,6 +23,7 @@ export const DesktopProfile: React.FC = () => {
     payslips, 
     teamTasks, 
     teamMeetings, 
+    joinMeeting,
     toggleTaskStatus, 
     setIsIdCardModalOpen,
     setSelectedIdCardEmpId, 
@@ -360,15 +362,31 @@ export const DesktopProfile: React.FC = () => {
                 <h5 className="font-display font-bold text-xs text-slate-500">Upcoming Team Meetings & Coaching</h5>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {teamMeetings.map((mtg) => (
-                    <div key={mtg.id} className="p-3 rounded-xl bg-sky-50/60 border border-sky-100 flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Calendar className="w-4 h-4" />
+                    <div key={mtg.id} className="p-3 rounded-xl bg-sky-50/60 border border-sky-100 flex items-center justify-between gap-3">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Calendar className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h6 className="font-display font-bold text-xs text-[#0A2540] truncate">{mtg.title}</h6>
+                            {mtg.zoomMeetingId && (
+                              <span className="text-[9px] font-mono font-bold bg-blue-100 text-blue-800 px-1 rounded">
+                                Zoom ID: {mtg.zoomMeetingId}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-0.5">{mtg.dateTime}</p>
+                          <p className="text-[10px] text-sky-700 font-semibold">{mtg.location}</p>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <h6 className="font-display font-bold text-xs text-[#0A2540] truncate">{mtg.title}</h6>
-                        <p className="text-[10px] text-slate-500 mt-0.5">{mtg.dateTime}</p>
-                        <p className="text-[10px] text-sky-700 font-semibold">{mtg.location}</p>
-                      </div>
+                      <button
+                        onClick={() => joinMeeting(mtg)}
+                        className="px-3 py-1.5 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs rounded-xl flex items-center gap-1 cursor-pointer transition-all active:scale-95 flex-shrink-0"
+                      >
+                        <Video className="w-3.5 h-3.5" />
+                        <span>Join</span>
+                      </button>
                     </div>
                   ))}
                 </div>

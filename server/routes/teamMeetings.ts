@@ -60,12 +60,13 @@ router.get('/', (req: Request, res: Response) => {
         SELECT * FROM team_meetings 
         WHERE hostRole = 'hr'
            OR hostEmpCode = ?
-           OR targetAudience IN ('ALL', 'ALL_HR', 'LEADERSHIP')
+           OR targetAudience IS NULL
+           OR UPPER(targetAudience) IN ('ALL', 'ALL_HR', 'LEADERSHIP')
            OR targetEmployeeId = ?
-           OR LOWER(invitedMemberName) = ?
+           OR (? != '' AND LOWER(invitedMemberName) = LOWER(?))
            OR includeAdmin = 1
         ORDER BY createdAt DESC
-      `).all(empCode, empId, empName);
+      `).all(empCode, empId, empName, empName);
       return res.status(200).json(meetings);
     }
 
@@ -73,26 +74,27 @@ router.get('/', (req: Request, res: Response) => {
     if (role === 'team_leader') {
       const meetings = db.prepare(`
         SELECT * FROM team_meetings 
-        WHERE hostRole = 'team_leader' AND (hostEmpCode = ? OR LOWER(hostName) = ?)
-           OR (targetAudience IN ('ALL', 'ALL_TL', 'LEADERSHIP'))
-           OR (targetTeam IS NOT NULL AND LOWER(targetTeam) = LOWER(?))
+        WHERE (hostRole = 'team_leader' AND (hostEmpCode = ? OR LOWER(hostName) = LOWER(?)))
+           OR targetAudience IS NULL
+           OR UPPER(targetAudience) IN ('ALL', 'ALL_TL', 'LEADERSHIP')
+           OR (targetTeam IS NOT NULL AND ? != '' AND LOWER(targetTeam) = LOWER(?))
            OR targetEmployeeId = ?
-           OR LOWER(invitedMemberName) = ?
+           OR (? != '' AND LOWER(invitedMemberName) = LOWER(?))
         ORDER BY createdAt DESC
-      `).all(empCode, empName, userSquad || '', empId, empName);
+      `).all(empCode, empName, userSquad || '', userSquad || '', empId, empName, empName);
       return res.status(200).json(meetings);
     }
 
     // 4. Telecaller / Employee: Strict join-only scope.
-    // Cannot see other squads' private meetings or HR disciplinary 1-on-1s of others.
     const meetings = db.prepare(`
       SELECT * FROM team_meetings 
-      WHERE targetAudience IN ('ALL', 'ALL_TELECALLER')
-         OR (targetTeam IS NOT NULL AND LOWER(targetTeam) = LOWER(?))
+      WHERE targetAudience IS NULL
+         OR UPPER(targetAudience) IN ('ALL', 'ALL_TELECALLER')
+         OR (targetTeam IS NOT NULL AND ? != '' AND LOWER(targetTeam) = LOWER(?))
          OR targetEmployeeId = ?
-         OR LOWER(invitedMemberName) = ?
+         OR (? != '' AND LOWER(invitedMemberName) = LOWER(?))
       ORDER BY createdAt DESC
-    `).all(userSquad || '', empId, empName);
+    `).all(userSquad || '', userSquad || '', empId, empName, empName);
 
     return res.status(200).json(meetings);
   } catch (error) {

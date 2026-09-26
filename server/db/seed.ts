@@ -207,15 +207,8 @@ export function seedInitialDataIfEmpty() {
     insertTask.run('tsk-2', 'Follow-up with B2B Logistics Inbound Inquiries', 'Zoro Juro', 'Inbound Qualifiers', '29 May 2025', 'NORMAL', 'PENDING');
   }
 
-  // 11. Team Meetings
-  if (getTableCount('team_meetings') === 0) {
-    const insertMeeting = db.prepare(`
-      INSERT INTO team_meetings (id, title, dateTime, type, location, attendeesCount, agenda)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-    insertMeeting.run('mtg-1', 'Daily Morning Huddle & Target Review', 'Today • 09:30 AM - 09:50 AM', 'Team Standup', 'Conference Room 2 & Google Meet', 6, 'Review hourly dial quotas, share objection handling techniques, and address blocked leads.');
-    insertMeeting.run('mtg-2', 'High-Ticket Objections & Pricing Coaching', 'Tomorrow • 04:00 PM - 04:45 PM', 'Product Training', 'Main Training Bay', 4, 'Deep dive into handling price objections and closing enterprise annual subscriptions.');
-  }
+  // 11. Team Meetings (Empty by default; scheduled on-demand via Zoom integration)
+  // No hardcoded dummy meetings
 
   // 12. Candidate Interviews
   if (getTableCount('candidate_interviews') === 0) {

@@ -442,7 +442,7 @@ export const HrDashboardView: React.FC = () => {
 
             {/* 🔴 Live & Scheduled Meetings for HR */}
             {(() => {
-              const liveMeetings = teamMeetings.filter(m => m.status === 'LIVE' || (m.includeAdmin && m.status !== 'COMPLETED'));
+              const liveMeetings = teamMeetings.filter(m => m.status !== 'COMPLETED');
               if (liveMeetings.length === 0) return null;
               return (
                 <div className="space-y-2">

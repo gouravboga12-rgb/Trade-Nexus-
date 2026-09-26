@@ -929,6 +929,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch {}
   }, [activeTab]);
 
+  // Live real-time background sync for team meetings so all accounts see scheduled meetings immediately
+  useEffect(() => {
+    if (authStep !== 'AUTHENTICATED') return;
+    const syncMeetings = () => {
+      loadResources(['teamMeetings'], { force: true });
+    };
+    syncMeetings();
+    const interval = setInterval(syncMeetings, 6000);
+    return () => clearInterval(interval);
+  }, [authStep, loadResources]);
+
   useEffect(() => {
     try {
       localStorage.setItem('tnx_teamMembers', JSON.stringify(teamMembers));

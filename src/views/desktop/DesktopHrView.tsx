@@ -306,40 +306,91 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
         </div>
       )}
 
-      {/* 🔴 Live Team Meeting Banner for HR */}
+      {/* 📹 Active & Scheduled Meetings Banner for HR */}
       {activeTab === 'home' && (() => {
-        const liveMeeting = teamMeetings.find(m => m.status === 'LIVE');
-        if (!liveMeeting) return null;
+        const activeMeetings = teamMeetings.filter(m => m.status !== 'COMPLETED');
+        if (!activeMeetings.length) return null;
         return (
-          <div className="p-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-indigo-50 border-2 border-emerald-500 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-md animate-in slide-in-from-top-2">
-            <div className="flex items-center gap-3.5">
-              <span className="relative flex h-3.5 w-3.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-600"></span>
-              </span>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                    🔴 Live Team Meeting in Progress
-                  </span>
-                  <span className="text-xs font-mono text-emerald-800 font-bold">Conducted by Team Leader</span>
-                </div>
-                <h4 className="font-display font-black text-base text-[#0A2540] mt-0.5">
-                  {liveMeeting.title}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600"></span>
+                </span>
+                <h4 className="font-display font-black text-sm text-[#0A2540]">
+                  Active & Scheduled Zoom Floor Calls ({activeMeetings.length})
                 </h4>
-                <p className="text-xs text-slate-500 font-medium">
-                  {liveMeeting.invitedMemberName ? `Invited: ${liveMeeting.invitedMemberName}` : 'All team employees'} • HR can join to audit or assist
-                </p>
               </div>
             </div>
 
-            <button
-              onClick={() => joinMeeting(liveMeeting)}
-              className="px-5 py-2.5 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs rounded-xl flex items-center gap-2 shadow-md shadow-[#00C9A7]/30 transition-all active:scale-95"
-            >
-              <Video className="w-4 h-4" />
-              <span>Join Video Session</span>
-            </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {activeMeetings.map((mtg) => {
+                const isLive = mtg.status === 'LIVE';
+                const hasZoom = Boolean(mtg.zoomJoinUrl || mtg.zoomMeetingId);
+
+                return (
+                  <div
+                    key={mtg.id}
+                    className={`p-4 rounded-3xl border transition-all shadow-xs flex flex-col justify-between gap-3 ${
+                      isLive 
+                        ? 'bg-gradient-to-r from-emerald-50 via-teal-50 to-indigo-50 border-emerald-400 ring-2 ring-emerald-400/20 shadow-md'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                            isLive ? 'bg-emerald-200 text-emerald-900 animate-pulse' : 'bg-sky-100 text-sky-800'
+                          }`}>
+                            {isLive ? '🔴 LIVE NOW' : '📅 SCHEDULED'}
+                          </span>
+                          {hasZoom && (
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200 flex items-center gap-1">
+                              <Video className="w-3 h-3 text-blue-600" />
+                              <span>Zoom Room</span>
+                            </span>
+                          )}
+                        </div>
+
+                        <span className="text-xs font-mono font-bold text-slate-500">
+                          {mtg.dateTime}
+                        </span>
+                      </div>
+
+                      <h4 className="font-display font-black text-base text-[#0A2540]">
+                        {mtg.title}
+                      </h4>
+
+                      <p className="text-xs text-slate-500 mt-1 font-medium">
+                        Host: <span className="font-bold text-slate-700">{mtg.hostName || 'HR/Leadership'}</span> • Scope: <span className="font-bold text-slate-700">{mtg.targetAudience || 'Team'} {mtg.targetTeam ? `(${mtg.targetTeam})` : ''}</span>
+                        {mtg.zoomMeetingId ? ` • ID: ${mtg.zoomMeetingId}` : ''}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 gap-2">
+                      <div className="text-[11px] text-slate-400 font-medium">
+                        {mtg.attendeesCount ? `${mtg.attendeesCount} Participants` : 'Staff Room'}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => joinMeeting(mtg)}
+                        className={`px-4 py-2 rounded-xl font-black text-xs flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer ${
+                          isLive
+                            ? 'bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540]'
+                            : 'bg-[#0A2540] hover:bg-teal-900 text-white'
+                        }`}
+                      >
+                        <Video className="w-3.5 h-3.5" />
+                        <span>{isLive ? 'Join Video Call' : 'Enter Zoom'}</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         );
       })()}

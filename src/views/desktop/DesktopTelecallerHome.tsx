@@ -76,7 +76,7 @@ export const DesktopTelecallerHome: React.FC = () => {
   const estRemaining = `${Math.floor(minsRemaining / 60)}h ${minsRemaining % 60}m`;
   const avgDuration = `${Math.floor(stats.averageCallDurationSec / 60)}m ${String(stats.averageCallDurationSec % 60).padStart(2, '0')}s`;
 
-  const liveMeeting = teamMeetings.find(m => m.status === 'LIVE');
+  const activeMeetings = teamMeetings.filter(m => m.status !== 'COMPLETED');
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -146,37 +146,70 @@ export const DesktopTelecallerHome: React.FC = () => {
         </div>
       </div>
 
-      {/* 🔴 Live Team Meeting Banner (if active) */}
-      {liveMeeting && (
-        <div className="p-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 border-2 border-emerald-500 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-md animate-in slide-in-from-top-2">
-          <div className="flex items-center gap-3.5">
-            <span className="relative flex h-3.5 w-3.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-600"></span>
-            </span>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  🔴 Live Team Meeting
-                </span>
-                <span className="text-xs font-mono text-emerald-800 font-bold">Conducted by Team Leader</span>
-              </div>
-              <h4 className="font-display font-black text-base text-[#0A2540] mt-0.5">
-                {liveMeeting.title}
-              </h4>
-              <p className="text-xs text-slate-500 font-medium">
-                {liveMeeting.invitedMemberName ? `Invited: ${liveMeeting.invitedMemberName}` : 'All team employees invited'} • Click Join to enter live video session
-              </p>
-            </div>
-          </div>
+      {/* 🔴 Active & Scheduled Zoom Floor Meetings */}
+      {activeMeetings.length > 0 && (
+        <div className="space-y-3">
+          {activeMeetings.map((mtg) => {
+            const isLive = mtg.status === 'LIVE';
+            return (
+              <div 
+                key={mtg.id} 
+                className={`p-4 border-2 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-md animate-in slide-in-from-top-2 ${
+                  isLive 
+                    ? 'bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 border-emerald-500' 
+                    : 'bg-white border-blue-200'
+                }`}
+              >
+                <div className="flex items-center gap-3.5">
+                  <span className="relative flex h-3.5 w-3.5 flex-shrink-0">
+                    {isLive ? (
+                      <>
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-600"></span>
+                      </>
+                    ) : (
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                    )}
+                  </span>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                        isLive ? 'bg-emerald-200 text-emerald-900' : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {isLive ? '🔴 Live Zoom Floor Call' : '📅 Scheduled Zoom Call'}
+                      </span>
+                      {mtg.zoomMeetingId && (
+                        <span className="text-xs font-mono font-bold bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-lg">
+                          Zoom ID: {mtg.zoomMeetingId}
+                        </span>
+                      )}
+                      <span className="text-xs font-mono text-slate-500 font-semibold">
+                        {mtg.dateTime ? `Time: ${mtg.dateTime} • ` : ''}Host: {mtg.hostName || 'Floor Manager'}
+                      </span>
+                    </div>
+                    <h4 className="font-display font-black text-base text-[#0A2540] mt-0.5">
+                      {mtg.title}
+                    </h4>
+                    <p className="text-xs text-slate-500 font-medium">
+                      {mtg.invitedMemberName ? `Invited: ${mtg.invitedMemberName}` : 'All team employees invited'} • Click Join to enter live Zoom room
+                    </p>
+                  </div>
+                </div>
 
-          <button
-            onClick={() => joinMeeting(liveMeeting)}
-            className="px-6 py-2.5 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs rounded-xl flex items-center gap-2 shadow-md shadow-[#00C9A7]/30 transition-all active:scale-95"
-          >
-            <Video className="w-4 h-4" />
-            <span>Join Video Call</span>
-          </button>
+                <button
+                  onClick={() => joinMeeting(mtg)}
+                  className={`px-6 py-2.5 font-black text-xs rounded-xl flex items-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer ${
+                    isLive 
+                      ? 'bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] shadow-[#00C9A7]/30' 
+                      : 'bg-[#0A2540] hover:bg-slate-800 text-white shadow-slate-900/20'
+                  }`}
+                >
+                  <Video className="w-4 h-4" />
+                  <span>{isLive ? 'Join Zoom Call' : 'Enter Zoom Room'}</span>
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 

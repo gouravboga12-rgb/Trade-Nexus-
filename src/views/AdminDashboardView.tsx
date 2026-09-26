@@ -515,13 +515,47 @@ export const AdminDashboardView: React.FC = () => {
               </div>
             </div>
 
-            {/* 🔴 Live & Requested Meeting Alerts for Super Admin */}
+            {/* Executive Quick Actions Bar */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsScheduleMeetingOpen(true)}
+                className="flex-1 py-2.5 px-3 bg-gradient-to-r from-[#0A2540] to-teal-950 text-[#00C9A7] font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm border border-[#00C9A7]/40 active:scale-95 transition-all cursor-pointer"
+              >
+                <Video className="w-4 h-4 text-[#00C9A7]" />
+                <span>Schedule Zoom Call</span>
+                <span className="text-[9px] bg-[#00C9A7] text-[#0A2540] font-black px-1.5 py-0.5 rounded uppercase">Cloud</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsAddUserModalOpen(true)}
+                className="py-2.5 px-3.5 bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-2xs hover:border-slate-300 active:scale-95 transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4 text-emerald-600" />
+                <span>Add Staff</span>
+              </button>
+            </div>
+
+            {/* 📹 Live & Scheduled Meeting Alerts for Super Admin */}
             {(() => {
-              const liveMeetings = teamMeetings.filter(m => m.status === 'LIVE' || (m.includeAdmin && m.status !== 'COMPLETED'));
-              if (liveMeetings.length === 0) return null;
+              const activeMeetings = teamMeetings.filter(m => m.status !== 'COMPLETED');
+              if (activeMeetings.length === 0) return null;
               return (
                 <div className="space-y-2">
-                  {liveMeetings.slice(0, 3).map((mtg) => {
+                  <div className="flex items-center justify-between px-0.5">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                      Active Floor Calls ({activeMeetings.length})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsScheduleMeetingOpen(true)}
+                      className="text-[10px] font-bold text-sky-600 hover:text-sky-800"
+                    >
+                      + Schedule Call
+                    </button>
+                  </div>
+                  {activeMeetings.slice(0, 5).map((mtg) => {
                     const isLive = mtg.status === 'LIVE';
                     return (
                       <div 
@@ -548,7 +582,7 @@ export const AdminDashboardView: React.FC = () => {
                               <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
                                 isLive ? 'bg-emerald-200 text-emerald-900' : 'bg-amber-200 text-amber-900'
                               }`}>
-                                {isLive ? '🔴 Live Session' : '👑 Admin Invited'}
+                                {isLive ? '🔴 Live Session' : '📅 Scheduled'}
                               </span>
                               {mtg.zoomMeetingId && (
                                 <span className="text-[9px] font-mono font-bold bg-blue-100 text-blue-800 px-1 rounded">
@@ -565,11 +599,12 @@ export const AdminDashboardView: React.FC = () => {
                               {mtg.title}
                             </span>
                             <span className="text-[10px] text-slate-500 block truncate">
-                              Host: {mtg.hostName || 'Floor Leader'} {mtg.hostRole ? `(${mtg.hostRole.toUpperCase()})` : ''}
+                              Host: {mtg.hostName || 'Floor Leader'} {mtg.hostRole ? `(${mtg.hostRole.toUpperCase()})` : ''} · {mtg.dateTime}
                             </span>
                           </div>
                         </div>
                         <button
+                          type="button"
                           onClick={() => joinMeeting(mtg)}
                           className="px-3 py-1.5 bg-[#0A2540] hover:bg-[#00C9A7] hover:text-[#0A2540] text-white font-black text-[11px] rounded-xl flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer flex-shrink-0"
                         >
