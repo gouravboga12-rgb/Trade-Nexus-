@@ -184,7 +184,29 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     (m) => m.attendanceStatus === 'PRESENT' && (m.dialsToday || 0) === 0
   );
 
-  const filteredPeople = teamMembers.filter((m) => {
+  const nonAdminMembers = teamMembers.filter(
+    (m) => m.portal !== 'admin' && m.empCode !== 'TNX-AD01' && !(m.role || '').toLowerCase().includes('admin')
+  );
+
+  const telecallerCount = nonAdminMembers.filter((m) => {
+    const p = (m.portal || '').toLowerCase();
+    const r = (m.role || '').toLowerCase();
+    return p !== 'hr' && !r.includes('hr') && p !== 'team_leader' && !r.includes('leader');
+  }).length;
+
+  const leaderCount = nonAdminMembers.filter((m) => {
+    const p = (m.portal || '').toLowerCase();
+    const r = (m.role || '').toLowerCase();
+    return p === 'team_leader' || r.includes('leader');
+  }).length;
+
+  const hrCount = nonAdminMembers.filter((m) => {
+    const p = (m.portal || '').toLowerCase();
+    const r = (m.role || '').toLowerCase();
+    return p === 'hr' || r.includes('hr');
+  }).length;
+
+  const filteredPeople = nonAdminMembers.filter((m) => {
     const q = searchQuery.trim().toLowerCase();
     const portalStr = (m.portal || '').toLowerCase();
     const roleStr = (m.role || '').toLowerCase();
@@ -556,17 +578,32 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
             className="bg-transparent text-xs text-slate-800 focus:outline-none w-full font-medium"
           />
         </div>
-        {(['ALL', 'EMPLOYEE', 'LEADER', 'HR'] as const).map((f) => (
+        {[
+          { key: 'ALL', label: 'Everyone', count: nonAdminMembers.length },
+          { key: 'EMPLOYEE', label: 'Telecallers (Employees)', count: telecallerCount, icon: '📞' },
+          { key: 'LEADER', label: 'Team Leaders', count: leaderCount, icon: '⭐' },
+          { key: 'HR', label: 'HR Staff', count: hrCount, icon: '👥' },
+        ].map((tabItem) => (
           <button
-            key={f}
-            onClick={() => setRoleFilter(f)}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all ${
-              roleFilter === f
+            key={tabItem.key}
+            onClick={() => setRoleFilter(tabItem.key as any)}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 cursor-pointer ${
+              roleFilter === tabItem.key
                 ? 'bg-[#0A2540] text-[#00C9A7] border-[#0A2540] shadow-xs'
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
             }`}
           >
-            {f === 'ALL' ? 'Everyone' : f === 'EMPLOYEE' ? 'Telecallers' : f === 'LEADER' ? 'Team Leaders' : 'HR Staff'}
+            {tabItem.icon && <span>{tabItem.icon}</span>}
+            <span>{tabItem.label}</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                roleFilter === tabItem.key
+                  ? 'bg-[#00C9A7] text-[#0A2540] font-black'
+                  : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {tabItem.count}
+            </span>
           </button>
         ))}
       </div>
@@ -2014,12 +2051,22 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
             </div>
 
             <div>
-              <h3 className="font-display font-black text-lg text-[#0A2540]">
-                Delete Employee Record?
-              </h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Are you sure you want to permanently delete <strong className="text-slate-800">{employeeToDelete.name}</strong> (<span className="font-mono text-slate-600">{employeeToDelete.empCode}</span>)?
-              </p>
+              {(() => {
+                const isLeader = employeeToDelete.portal === 'team_leader' || (employeeToDelete.role || '').toLowerCase().includes('leader');
+                const isHr = employeeToDelete.portal === 'hr' || (employeeToDelete.role || '').toLowerCase().includes('hr');
+                const roleLabel = isLeader ? 'Team Leader' : isHr ? 'HR Staff' : 'Employee (Telecaller)';
+
+                return (
+                  <>
+                    <h3 className="font-display font-black text-lg text-[#0A2540]">
+                      Delete {roleLabel}?
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      Are you sure you want to permanently delete <strong className="text-slate-800">{employeeToDelete.name}</strong> (<span className="font-mono text-slate-600">{employeeToDelete.empCode}</span>)?
+                    </p>
+                  </>
+                );
+              })()}
             </div>
 
             <div className="bg-rose-50/70 border border-rose-200/80 rounded-2xl p-3.5 space-y-1.5 text-xs text-rose-800">

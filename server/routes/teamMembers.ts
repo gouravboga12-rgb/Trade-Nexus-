@@ -381,7 +381,16 @@ router.delete('/:id', (req: Request, res: Response) => {
         `).run(empId, empCode, name);
       } catch (_) {}
 
-      // 7. Update team groups member count
+      // 7. If this person is a Team Leader of any team, clear the leader in team_groups
+      try {
+        db.prepare(`
+          UPDATE team_groups 
+          SET leaderName = '', leaderEmpCode = '' 
+          WHERE leaderEmpCode = ? OR LOWER(leaderName) = LOWER(?)
+        `).run(empCode, name);
+      } catch (_) {}
+
+      // 8. Update team groups member count
       try {
         db.prepare(`
           UPDATE team_groups 

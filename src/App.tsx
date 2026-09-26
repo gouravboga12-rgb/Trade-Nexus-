@@ -120,7 +120,6 @@ export const App: React.FC = () => {
   } = useApp();
 
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
-  const [isMobileRoleMenuOpen, setIsMobileRoleMenuOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
 
   const q = globalSearch.trim().toLowerCase();
@@ -333,13 +332,11 @@ export const App: React.FC = () => {
   };
 
   const handleRoleSelect = (r: UserRole) => {
-    // Drop cached data so the new portal loads its own resources fresh
     invalidateAll();
     setCurrentRole(r);
     setActiveTab('home');
     setAuthStep('AUTHENTICATED');
     setIsRoleDropdownOpen(false);
-    setIsMobileRoleMenuOpen(false);
     triggerToast(`Switched to ${r.toUpperCase().replace('_', ' ')} Workspace`);
   };
 
@@ -637,51 +634,7 @@ export const App: React.FC = () => {
           {renderActiveView(false)}
         </main>
 
-        {/* Floating Role Button on Mobile */}
-        <div className="fixed bottom-20 right-4 z-40 flex flex-col gap-2 items-end">
-          <div className="relative">
-            <button
-              onClick={() => setIsMobileRoleMenuOpen(!isMobileRoleMenuOpen)}
-              title="Switch Active Role"
-              className="w-12 h-12 rounded-full bg-[#0A2540] text-white flex items-center justify-center shadow-xl shadow-black/35 border-2 border-[#00C9A7] active:scale-95 transition-all relative hover:scale-105"
-            >
-              <Shield className="w-5 h-5 text-[#00C9A7]" />
-              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#00C9A7] text-[#0A2540] font-black text-[8px] flex items-center justify-center">
-                {currentRole === 'telecaller' ? 'TC' : currentRole === 'team_leader' ? 'TL' : currentRole === 'hr' ? 'HR' : 'AD'}
-              </span>
-            </button>
 
-            {/* Menu Popup */}
-            {isMobileRoleMenuOpen && (
-              <div className="absolute bottom-14 right-0 bg-[#0A2540] text-white rounded-2xl shadow-2xl p-2 border border-white/10 w-48 space-y-1 animate-in slide-in-from-bottom duration-150">
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-2.5 block py-1 border-b border-white/10">
-                  Switch Active Portal
-                </span>
-                {(['telecaller', 'team_leader', 'hr', 'admin'] as UserRole[]).map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => handleRoleSelect(r)}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                      currentRole === r ? 'bg-[#00C9A7] text-[#0A2540] font-black' : 'text-slate-300 hover:bg-white/10'
-                    }`}
-                  >
-                    {r === 'telecaller' ? 'Telecaller / SDR' : r === 'team_leader' ? 'Team Leader' : r === 'hr' ? 'HR Portal' : 'Admin Console'}
-                  </button>
-                ))}
-
-                <div className="border-t border-white/10 pt-1 mt-1">
-                  <button
-                    onClick={logout}
-                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-500/20 flex items-center gap-2"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Test Full Login Flow</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
 
         {/* Bottom Navigation on Mobile only for Telecaller */}
         {currentRole === 'telecaller' && <BottomNav />}
