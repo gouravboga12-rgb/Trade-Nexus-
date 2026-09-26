@@ -259,6 +259,8 @@ export const api = {
     request<TeamMember>('/team-members', { method: 'POST', body: JSON.stringify(data) }),
   updateTeamMember: (id: string, data: Partial<TeamMember>) => 
     request<TeamMember>(`/team-members/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteTeamMember: (id: string) =>
+    request<{ success: boolean; deletedId: string; name?: string; empCode?: string }>(`/team-members/${id}`, { method: 'DELETE' }),
 
   // Team Groups
   getTeamGroups: () => request<TeamGroup[]>('/team-groups'),

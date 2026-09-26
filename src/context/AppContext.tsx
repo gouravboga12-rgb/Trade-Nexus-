@@ -117,6 +117,8 @@ interface AppContextType {
   updateEmployee: (id: string, changes: Partial<TeamMember>) => Promise<void>;
   /** Switch an employee off without deleting their history, or switch them back on. */
   setEmployeeActive: (id: string, active: boolean) => Promise<void>;
+  /** Permanently delete an employee and cascade their associated records. */
+  deleteEmployee: (id: string) => Promise<void>;
 
   // Team Leader Module State
   teamMembers: TeamMember[];
@@ -1306,6 +1308,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const deleteEmployee = async (id: string) => {
+    const member = teamMembers.find((m) => m.id === id || m.empCode === id);
+    if (!member) return;
+
+    // Optimistic removal
+    setTeamMembers((prev) => prev.filter((m) => m.id !== id && m.empCode !== id));
+
+    // Update group counts locally
+    if (member.group) {
+      setTeamGroups((prev) =>
+        prev.map((g) =>
+          g.name.toLowerCase() === member.group.toLowerCase()
+            ? { ...g, memberCount: Math.max(0, g.memberCount - 1) }
+            : g
+        )
+      );
+    }
+
+    try {
+      await api.deleteTeamMember(id);
+      triggerToast(`\u2713 ${member.name} (${member.empCode}) permanently deleted`);
+    } catch (err: any) {
+      console.warn('Employee delete failed:', err);
+      // Rollback
+      setTeamMembers((prev) => [...prev, member]);
+      triggerToast(`\u2717 ${err.message || 'Could not delete employee'}`);
+      throw err;
+    }
+  };
+
   const createNewEmployee = async (data: NewEmployeeInput) => {
     const empCode = data.empCode || `TNX-${Math.floor(8000 + Math.random() * 999)}`;
     const empId = `emp-${Date.now()}`;
@@ -2274,6 +2306,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         loginEmployee,
         updateEmployee,
         setEmployeeActive,
+        deleteEmployee,
         teamMembers,
         teamGroups,
         teamTasks,

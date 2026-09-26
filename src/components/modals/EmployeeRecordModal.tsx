@@ -43,12 +43,14 @@ type Tab = 'details' | 'attendance' | 'work' | 'documents';
  * the server sends to nobody else.
  */
 export const EmployeeRecordModal: React.FC<Props> = ({ employee, onClose }) => {
-  const { teamGroups, attendanceLogs, updateEmployee, setEmployeeActive } = useApp();
+  const { teamGroups, attendanceLogs, updateEmployee, setEmployeeActive, deleteEmployee, currentUser } = useApp();
 
   const [tab, setTab] = useState<Tab>('details');
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<Partial<TeamMember>>({});
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [documents, setDocuments] = useState<any[]>([]);
   const [docCategory, setDocCategory] = useState('ID Proof');
@@ -526,25 +528,86 @@ export const EmployeeRecordModal: React.FC<Props> = ({ employee, onClose }) => {
                 </button>
               </div>
             </>
+          ) : confirmDelete ? (
+            <>
+              <div className="flex-1 min-w-[200px]">
+                <span className="text-xs font-black text-rose-700 block">
+                  Permanently delete {employee.name} ({employee.empCode})?
+                </span>
+                <span className="text-[10px] text-slate-500 block">
+                  All credentials, attendance, biometrics, and documents will be purged.
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => setConfirmDelete(false)}
+                  className="px-3.5 py-2 rounded-xl border border-slate-300 font-bold text-slate-600 hover:bg-slate-100 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={async () => {
+                    try {
+                      setIsDeleting(true);
+                      await deleteEmployee(employee.id);
+                      setConfirmDelete(false);
+                      onClose();
+                    } catch (err) {
+                      console.error('Delete failed:', err);
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  }}
+                  className="bg-rose-600 hover:bg-rose-700 text-white font-black text-xs px-4 py-2 rounded-xl active:scale-95 transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <span>Deleting...</span>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Yes, Delete</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </>
           ) : (
             <>
-              {isActive ? (
-                <button
-                  onClick={() => setConfirmDeactivate(true)}
-                  className="flex items-center gap-1.5 border border-rose-200 text-rose-600 hover:bg-rose-50 font-bold text-xs px-4 py-2.5 rounded-xl transition-all"
-                >
-                  <UserMinus className="w-4 h-4" />
-                  <span>Deactivate</span>
-                </button>
-              ) : (
-                <button
-                  onClick={() => setEmployeeActive(employee.id, true)}
-                  className="flex items-center gap-1.5 border border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-bold text-xs px-4 py-2.5 rounded-xl transition-all"
-                >
-                  <UserCheck className="w-4 h-4" />
-                  <span>Reactivate</span>
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {isActive ? (
+                  <button
+                    onClick={() => setConfirmDeactivate(true)}
+                    className="flex items-center gap-1.5 border border-rose-200 text-rose-600 hover:bg-rose-50 font-bold text-xs px-3.5 py-2.5 rounded-xl transition-all"
+                  >
+                    <UserMinus className="w-4 h-4" />
+                    <span>Deactivate</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setEmployeeActive(employee.id, true)}
+                    className="flex items-center gap-1.5 border border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-bold text-xs px-3.5 py-2.5 rounded-xl transition-all"
+                  >
+                    <UserCheck className="w-4 h-4" />
+                    <span>Reactivate</span>
+                  </button>
+                )}
+
+                {/* Delete Employee - Admin only & Protected from Super Admin */}
+                {currentUser?.role === 'admin' && employee.portal !== 'admin' && employee.empCode !== 'TNX-AD01' && !(employee.role || '').toLowerCase().includes('admin') && (
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    className="flex items-center gap-1.5 border border-rose-300 text-rose-600 hover:bg-rose-50 font-bold text-xs px-3.5 py-2.5 rounded-xl transition-all cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete</span>
+                  </button>
+                )}
+              </div>
+
               <button
                 onClick={() => setIsEditing(true)}
                 className="bg-[#0A2540] hover:bg-[#0F3258] text-white font-black text-xs px-5 py-2.5 rounded-xl active:scale-95 transition-all"

@@ -28,6 +28,7 @@ import {
   DollarSign,
   Award,
   ArrowRight,
+  Trash2,
 } from 'lucide-react';
 import { OfficeSettings, TeamMember, UserRole } from '../../types';
 import { api } from '../../services/api';
@@ -79,6 +80,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     reassignLeadsBetween,
     teamMeetings,
     joinMeeting,
+    deleteEmployee,
     triggerToast,
   } = useApp();
 
@@ -92,6 +94,8 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'EMPLOYEE' | 'LEADER' | 'HR'>('ALL');
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [openEmployee, setOpenEmployee] = useState<TeamMember | null>(null);
+  const [employeeToDelete, setEmployeeToDelete] = useState<TeamMember | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Where the office is — the reference point every check-in is measured against
   const [office, setOffice] = useState<OfficeSettings | null>(null);
@@ -492,6 +496,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                 <th className="py-3 px-5">Team</th>
                 <th className="py-3 px-5">Calls today</th>
                 <th className="py-3 px-5">Status</th>
+                <th className="py-3 px-5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -553,6 +558,20 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                     >
                       {m.attendanceStatus.replace('_', ' ')}
                     </span>
+                  </td>
+                  <td className="py-3.5 px-5 text-right" onClick={(e) => e.stopPropagation()}>
+                    {m.portal !== 'admin' && m.empCode !== 'TNX-AD01' && !(m.role || '').toLowerCase().includes('admin') ? (
+                      <button
+                        onClick={() => setEmployeeToDelete(m)}
+                        title={`Delete ${m.name}`}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer inline-flex items-center gap-1 text-[11px] font-bold"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span className="hidden xl:inline">Delete</span>
+                      </button>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Protected</span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1898,6 +1917,78 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
         isOpen={isScheduleMeetingOpen}
         onClose={() => setIsScheduleMeetingOpen(false)}
       />
+
+      {/* Delete Employee Confirmation Modal */}
+      {employeeToDelete && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-rose-100 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600">
+              <Trash2 className="w-6 h-6 stroke-[2.2]" />
+            </div>
+
+            <div>
+              <h3 className="font-display font-black text-lg text-[#0A2540]">
+                Delete Employee Record?
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Are you sure you want to permanently delete <strong className="text-slate-800">{employeeToDelete.name}</strong> (<span className="font-mono text-slate-600">{employeeToDelete.empCode}</span>)?
+              </p>
+            </div>
+
+            <div className="bg-rose-50/70 border border-rose-200/80 rounded-2xl p-3.5 space-y-1.5 text-xs text-rose-800">
+              <p className="font-bold flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
+                Permanent action — cannot be undone
+              </p>
+              <ul className="list-disc list-inside text-[11px] text-rose-700 space-y-0.5 ml-1">
+                <li>User credentials and login access will be removed</li>
+                <li>Biometric profile and attendance logs will be purged</li>
+                <li>Assigned leads will be unassigned for reassignment</li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setEmployeeToDelete(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-600 hover:bg-slate-100 text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={async () => {
+                  if (!employeeToDelete) return;
+                  try {
+                    setIsDeleting(true);
+                    await deleteEmployee(employeeToDelete.id);
+                    setEmployeeToDelete(null);
+                  } catch (err) {
+                    console.error('Failed to delete employee:', err);
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                }}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-black text-xs px-5 py-2.5 rounded-xl active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm hover:shadow-md disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Yes, Delete Employee</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

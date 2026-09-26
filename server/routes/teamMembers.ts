@@ -306,4 +306,107 @@ router.put('/:id', (req: Request, res: Response) => {
   }
 });
 
+// DELETE /api/team-members/:id (Admin Only)
+router.delete('/:id', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+
+    // Only Admin can delete employees
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden: Only Admin can delete employees' });
+    }
+
+    // Find target employee by id or empCode
+    const existing = (db.prepare(`
+      SELECT id, empCode, name, groupName, portal, email 
+      FROM team_members 
+      WHERE id = ? OR empCode = ?
+    `).get(id, id) || db.prepare(`
+      SELECT id, empCode, name, teamName as groupName, email 
+      FROM employee_profiles 
+      WHERE id = ? OR empCode = ?
+    `).get(id, id)) as any;
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    // Safety: Protect Super Admin accounts from deletion
+    const isSuperAdmin = 
+      existing.portal === 'admin' || 
+      existing.empCode === 'TNX-AD01' || 
+      (existing.email && existing.email.toLowerCase() === 'sagarsuchi26@gmail.com') ||
+      (user && (user.employeeId === existing.id || user.empCode === existing.empCode));
+
+    if (isSuperAdmin) {
+      return res.status(400).json({ error: 'Super Admin account cannot be deleted' });
+    }
+
+    const empId = existing.id;
+    const empCode = existing.empCode;
+    const email = existing.email ? existing.email.toLowerCase().trim() : null;
+    const name = existing.name;
+
+    const deleteAtomic = db.transaction(() => {
+      // 1. Delete from team_members
+      db.prepare('DELETE FROM team_members WHERE id = ? OR empCode = ?').run(empId, empCode);
+
+      // 2. Delete from employee_profiles
+      db.prepare('DELETE FROM employee_profiles WHERE id = ? OR empCode = ?').run(empId, empCode);
+
+      // 3. Delete from users (credentials), protecting admin accounts
+      if (email) {
+        db.prepare('DELETE FROM users WHERE (employeeId = ? OR empCode = ? OR LOWER(email) = ?) AND role != "admin"').run(empId, empCode, email);
+      } else {
+        db.prepare('DELETE FROM users WHERE (employeeId = ? OR empCode = ?) AND role != "admin"').run(empId, empCode);
+      }
+
+      // 4. Delete face biometric profiles
+      try {
+        db.prepare('DELETE FROM face_biometric_profiles WHERE employeeId = ? OR employeeName = ?').run(empId, name);
+      } catch (_) {}
+
+      // 5. Delete employee documents
+      try {
+        db.prepare('DELETE FROM employee_documents WHERE employeeId = ?').run(empId);
+      } catch (_) {}
+
+      // 6. Delete or unassign assigned leads so leads are not orphaned
+      try {
+        db.prepare(`
+          UPDATE assigned_leads 
+          SET assignedToEmployeeId = '', assignedToEmployeeName = 'Unassigned' 
+          WHERE assignedToEmployeeId = ? OR assignedToEmployeeId = ? OR LOWER(assignedToEmployeeName) = LOWER(?)
+        `).run(empId, empCode, name);
+      } catch (_) {}
+
+      // 7. Update team groups member count
+      try {
+        db.prepare(`
+          UPDATE team_groups 
+          SET memberCount = (
+            SELECT COUNT(*) FROM team_members WHERE LOWER(groupName) = LOWER(team_groups.name)
+          )
+        `).run();
+      } catch (_) {}
+    });
+
+    deleteAtomic();
+
+    console.log(`[Admin Action] Deleted employee: ${name} (${empCode}) [ID: ${empId}]`);
+
+    return res.status(200).json({
+      success: true,
+      deletedId: empId,
+      empCode,
+      name,
+      message: `Employee ${name} (${empCode}) permanently deleted.`
+    });
+  } catch (error) {
+    console.error('Error deleting employee:', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;

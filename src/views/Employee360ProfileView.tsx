@@ -20,7 +20,8 @@ import {
   ArrowRightLeft,
   Filter,
   Users,
-  PhoneCall
+  PhoneCall,
+  Trash2,
 } from 'lucide-react';
 
 interface Employee360ProfileViewProps {
@@ -45,8 +46,11 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
     leaveRequests,
     teamGroups,
     paymentVerifications,
+    deleteEmployee,
   } = useApp();
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState<'CALLING' | 'ATTENDANCE' | 'LEAVES'>('CALLING');
   const [leaveCapsuleFilter, setLeaveCapsuleFilter] = useState<'ALL' | 'CASUAL' | 'SICK' | 'ABSENT'>('ALL');
   const [expandedDayIndex, setExpandedDayIndex] = useState<number | null>(0);
@@ -539,15 +543,29 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
             </div>
           </div>
 
-          {/* Attendance Status Pill on Right (matching 2nd image 4/4 Present style) */}
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap flex-shrink-0 ${
-            member.attendanceStatus === 'PRESENT' ? 'bg-[#E6FAF6] text-[#00A88B] border border-[#00C9A7]/30' :
-            member.attendanceStatus === 'LATE' ? 'bg-amber-50 text-amber-800 border border-amber-200' :
-            'bg-purple-50 text-purple-800 border border-purple-200'
-          }`}>
-            {member.attendanceStatus === 'PRESENT' && <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#00C9A7] mr-1 align-middle animate-pulse" />}
-            {member.attendanceStatus}
-          </span>
+          {/* Attendance Status Pill & Admin Delete Action */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {viewerRole === 'admin' && member.portal !== 'admin' && member.empCode !== 'TNX-AD01' && !(member.role || '').toLowerCase().includes('admin') && (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className="px-2 py-1 rounded-xl text-rose-500 hover:text-rose-700 hover:bg-rose-50 border border-rose-200/80 transition-all flex items-center gap-1 text-[10px] font-bold cursor-pointer"
+                title="Delete Employee"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Delete</span>
+              </button>
+            )}
+
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap flex-shrink-0 ${
+              member.attendanceStatus === 'PRESENT' ? 'bg-[#E6FAF6] text-[#00A88B] border border-[#00C9A7]/30' :
+              member.attendanceStatus === 'LATE' ? 'bg-amber-50 text-amber-800 border border-amber-200' :
+              'bg-purple-50 text-purple-800 border border-purple-200'
+            }`}>
+              {member.attendanceStatus === 'PRESENT' && <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#00C9A7] mr-1 align-middle animate-pulse" />}
+              {member.attendanceStatus}
+            </span>
+          </div>
         </div>
 
         {/* Sleek 4-Column Metric Boxes */}
@@ -1697,6 +1715,72 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
             </div>
           )}
 
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal for Admin */}
+      {confirmDelete && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150"
+          onClick={() => setConfirmDelete(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-rose-100 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600">
+              <Trash2 className="w-5 h-5 stroke-[2.2]" />
+            </div>
+
+            <div>
+              <h3 className="font-display font-black text-base text-[#0A2540]">
+                Delete {member.name}?
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Permanently delete <strong className="text-slate-800">{member.name}</strong> (<span className="font-mono text-slate-600">{member.empCode}</span>)? This will erase their user credentials, attendance history, biometrics, and documents.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setConfirmDelete(false)}
+                className="px-3.5 py-2 rounded-xl border border-slate-300 font-bold text-slate-600 hover:bg-slate-100 text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={async () => {
+                  try {
+                    setIsDeleting(true);
+                    await deleteEmployee(member.id);
+                    setConfirmDelete(false);
+                    onBack();
+                  } catch (err) {
+                    console.error('Failed to delete employee:', err);
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                }}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-black text-xs px-4 py-2 rounded-xl active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Yes, Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
