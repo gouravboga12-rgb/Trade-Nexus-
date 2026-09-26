@@ -39,6 +39,7 @@ import {
   Minimize2,
   Building2,
   Trash2,
+  LogOut,
 } from 'lucide-react';
 import { ExcelLeadUploadModal } from '../components/modals/ExcelLeadUploadModal';
 import { AddEmployeeModal } from '../components/modals/AddEmployeeModal';
@@ -101,6 +102,7 @@ export const AdminDashboardView: React.FC = () => {
     verifyPayment,
     reassignLeadsBetween,
     triggerToast,
+    logout,
   } = useApp();
 
   useScreenData('adminDashboard');
@@ -2386,6 +2388,16 @@ export const AdminDashboardView: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* ---- Logout Button ---- */}
+            <button
+              onClick={() => logout()}
+              className="w-full mt-2 flex items-center justify-center gap-2.5 bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-400 text-red-600 hover:text-red-700 rounded-2xl p-4 font-bold text-sm transition-all active:scale-[0.98] cursor-pointer group"
+            >
+              <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              <span>Logout</span>
+            </button>
+
           </div>
         )}
 

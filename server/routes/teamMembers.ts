@@ -372,7 +372,27 @@ router.delete('/:id', (req: Request, res: Response) => {
         db.prepare('DELETE FROM employee_documents WHERE employeeId = ?').run(empId);
       } catch (_) {}
 
-      // 6. Delete or unassign assigned leads so leads are not orphaned
+      // 6. Delete call logs belonging to this employee
+      try {
+        db.prepare(`DELETE FROM call_logs WHERE employeeId = ? OR employeeId = ?`).run(empId, empCode);
+      } catch (_) {}
+
+      // 7. Delete attendance records for this employee
+      try {
+        db.prepare(`DELETE FROM attendance_records WHERE employeeId = ? OR employeeId = ? OR LOWER(employeeName) = LOWER(?)`).run(empId, empCode, name);
+      } catch (_) {}
+
+      // 8. Delete payment verifications (won deal submissions) by this employee
+      try {
+        db.prepare(`DELETE FROM payment_verifications WHERE LOWER(telecallerName) = LOWER(?)`).run(name);
+      } catch (_) {}
+
+      // 9. Delete leave requests submitted by this employee
+      try {
+        db.prepare(`DELETE FROM leave_requests WHERE LOWER(employeeName) = LOWER(?) OR employeeCode = ?`).run(name, empCode);
+      } catch (_) {}
+
+      // 10. Delete or unassign assigned leads so leads are not orphaned
       try {
         db.prepare(`
           UPDATE assigned_leads 
@@ -381,7 +401,7 @@ router.delete('/:id', (req: Request, res: Response) => {
         `).run(empId, empCode, name);
       } catch (_) {}
 
-      // 7. If this person is a Team Leader of any team, clear the leader in team_groups
+      // 11. If this person is a Team Leader of any team, clear the leader in team_groups
       try {
         db.prepare(`
           UPDATE team_groups 
@@ -390,7 +410,7 @@ router.delete('/:id', (req: Request, res: Response) => {
         `).run(empCode, name);
       } catch (_) {}
 
-      // 8. Update team groups member count
+      // 12. Update team groups member count
       try {
         db.prepare(`
           UPDATE team_groups 
