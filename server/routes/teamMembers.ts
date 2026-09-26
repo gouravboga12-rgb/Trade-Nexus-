@@ -357,9 +357,9 @@ router.delete('/:id', (req: Request, res: Response) => {
 
       // 3. Delete from users (credentials), protecting admin accounts
       if (email) {
-        db.prepare('DELETE FROM users WHERE (employeeId = ? OR empCode = ? OR LOWER(email) = ?) AND role != "admin"').run(empId, empCode, email);
+        db.prepare('DELETE FROM users WHERE (employeeId = ? OR empCode = ? OR LOWER(email) = ?) AND role != ?').run(empId, empCode, email, 'admin');
       } else {
-        db.prepare('DELETE FROM users WHERE (employeeId = ? OR empCode = ?) AND role != "admin"').run(empId, empCode);
+        db.prepare('DELETE FROM users WHERE (employeeId = ? OR empCode = ?) AND role != ?').run(empId, empCode, 'admin');
       }
 
       // 4. Delete face biometric profiles
