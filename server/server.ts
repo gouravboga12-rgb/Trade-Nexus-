@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { initializeDatabaseSchema } from './db/schema.js';
 import { seedInitialDataIfEmpty, resetDatabaseToClean } from './db/seed.js';
+import { createDatabaseBackup } from './db/backup.js';
 import { authenticate, requireRole } from './middleware/auth.js';
 
 // Route imports
@@ -29,6 +30,9 @@ import employeeDocumentsRoutes from './routes/employeeDocuments.js';
 import authRoutes from './routes/auth.js';
 import calendarRoutes from './routes/calendar.js';
 import mediaRoutes from './routes/media.js';
+
+// Preserve backup before any startup schema checks or queries
+createDatabaseBackup('startup');
 
 // Initialize SQLite DB
 initializeDatabaseSchema();
