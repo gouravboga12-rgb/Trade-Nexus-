@@ -89,7 +89,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
   const setTab = onTabChange || setInternalTab;
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'ALL' | 'EMPLOYEE' | 'LEADER'>('ALL');
+  const [roleFilter, setRoleFilter] = useState<'ALL' | 'EMPLOYEE' | 'LEADER' | 'HR'>('ALL');
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [openEmployee, setOpenEmployee] = useState<TeamMember | null>(null);
 
@@ -181,16 +181,26 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
 
   const filteredPeople = teamMembers.filter((m) => {
     const q = searchQuery.trim().toLowerCase();
+    const portalStr = (m.portal || '').toLowerCase();
+    const roleStr = (m.role || '').toLowerCase();
     const matchesSearch =
       !q ||
       m.name.toLowerCase().includes(q) ||
       m.empCode.toLowerCase().includes(q) ||
-      (m.role ?? '').toLowerCase().includes(q) ||
-      (m.group ?? '').toLowerCase().includes(q);
+      roleStr.includes(q) ||
+      (m.group ?? '').toLowerCase().includes(q) ||
+      portalStr.includes(q);
 
-    const isLeader = (m.role ?? '').toLowerCase().includes('leader');
+    const isLeader = roleStr.includes('leader') || portalStr === 'team_leader';
+    const isHr = roleStr.includes('hr') || portalStr === 'hr';
     const matchesRole =
-      roleFilter === 'ALL' || (roleFilter === 'LEADER' ? isLeader : !isLeader);
+      roleFilter === 'ALL'
+        ? true
+        : roleFilter === 'LEADER'
+        ? isLeader
+        : roleFilter === 'HR'
+        ? isHr
+        : !isLeader && !isHr;
 
     return matchesSearch && matchesRole;
   });
@@ -455,17 +465,17 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
             className="bg-transparent text-xs text-slate-800 focus:outline-none w-full font-medium"
           />
         </div>
-        {(['ALL', 'EMPLOYEE', 'LEADER'] as const).map((f) => (
+        {(['ALL', 'EMPLOYEE', 'LEADER', 'HR'] as const).map((f) => (
           <button
             key={f}
             onClick={() => setRoleFilter(f)}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all ${
               roleFilter === f
-                ? 'bg-[#0A2540] text-white border-[#0A2540]'
+                ? 'bg-[#0A2540] text-[#00C9A7] border-[#0A2540] shadow-xs'
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
             }`}
           >
-            {f === 'ALL' ? 'Everyone' : f === 'EMPLOYEE' ? 'Employees' : 'Team Leaders'}
+            {f === 'ALL' ? 'Everyone' : f === 'EMPLOYEE' ? 'Telecallers' : f === 'LEADER' ? 'Team Leaders' : 'HR Staff'}
           </button>
         ))}
       </div>
@@ -505,10 +515,26 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                     </div>
                   </td>
                   <td className="py-3.5 px-5 font-mono text-slate-500">{m.empCode}</td>
-                  <td className="py-3.5 px-5 text-slate-600">{m.role}</td>
+                  <td className="py-3.5 px-5 text-slate-600 font-medium">{m.role}</td>
                   <td className="py-3.5 px-5">
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-                      {PORTAL_LABEL[(m.portal as UserRole) ?? 'telecaller']}
+                    <span
+                      className={`text-[10px] font-black px-2.5 py-1 rounded-lg inline-flex items-center gap-1 border ${
+                        m.portal === 'admin'
+                          ? 'bg-amber-50 text-amber-800 border-amber-200'
+                          : m.portal === 'hr' || (m.role || '').toLowerCase().includes('hr')
+                          ? 'bg-purple-50 text-purple-700 border-purple-200'
+                          : m.portal === 'team_leader' || (m.role || '').toLowerCase().includes('leader')
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          : 'bg-sky-50 text-sky-700 border-sky-200'
+                      }`}
+                    >
+                      {m.portal === 'team_leader' || (m.role || '').toLowerCase().includes('leader')
+                        ? '⭐ Team Leader'
+                        : m.portal === 'hr' || (m.role || '').toLowerCase().includes('hr')
+                        ? '👥 HR'
+                        : m.portal === 'admin'
+                        ? '👑 Admin'
+                        : '📞 Employee'}
                     </span>
                   </td>
                   <td className="py-3.5 px-5 text-slate-600">{m.group}</td>
