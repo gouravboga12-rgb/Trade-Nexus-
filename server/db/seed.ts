@@ -11,7 +11,55 @@ function getTableCount(tableName: string): number {
   }
 }
 
+function isInitialSeedDone(): boolean {
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS system_metadata (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      );
+    `);
+    const row = db.prepare("SELECT value FROM system_metadata WHERE key = 'initial_seed_completed'").get() as any;
+    return row && row.value === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
+function markInitialSeedDone(): void {
+  try {
+    db.prepare("INSERT OR REPLACE INTO system_metadata (key, value) VALUES ('initial_seed_completed', '1')").run();
+  } catch (_) {}
+}
+
+export function ensureSuperAdminUser() {
+  try {
+    const adminEmail = 'sagarsuchi26@gmail.com';
+    const hash = hashPassword('Sagar@14326');
+    const existing = db.prepare('SELECT id, email FROM users WHERE LOWER(email) = ?').get(adminEmail) as any;
+    if (!existing) {
+      db.prepare(`
+        INSERT INTO users (id, email, passwordHash, name, role, empCode, employeeId, active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run('usr-4', adminEmail, hash, 'Super Admin', 'admin', 'TNX-AD01', 'emp-ad-1', 1);
+      console.log('[SQLite DB] Verified/Created Super Admin account: sagarsuchi26@gmail.com');
+    } else {
+      db.prepare('UPDATE users SET role = ?, name = ?, passwordHash = ?, active = 1 WHERE id = ?')
+        .run('admin', 'Super Admin', hash, existing.id);
+    }
+  } catch (err) {
+    console.error('[SQLite DB] Error ensuring super admin user:', err);
+  }
+}
+
 export function seedUsersIfEmpty() {
+  ensureSuperAdminUser();
+
+  // If initial seed has already run on this system, DO NOT recreate deleted users!
+  if (isInitialSeedDone()) {
+    return;
+  }
+
   try {
     const insertUser = db.prepare(`
       INSERT INTO users (id, email, passwordHash, name, role, empCode, employeeId, active)
@@ -19,7 +67,6 @@ export function seedUsersIfEmpty() {
     `);
 
     const users = [
-      { id: 'usr-4', email: 'sagarsuchi26@gmail.com', password: 'Sagar@14326', name: 'Super Admin', role: 'admin', empCode: 'TNX-AD01', employeeId: 'emp-ad-1' },
       { id: 'usr-hr-boga', email: 'bogagourav5@gmail.com', password: 'hr123', name: 'HR Officer', role: 'hr', empCode: 'TNX-8096', employeeId: 'emp-hr-boga' },
       { id: 'usr-3', email: 'hr@tradenexus.com', password: 'hr123', name: 'HR Manager', role: 'hr', empCode: 'TNX-HR01', employeeId: 'emp-hr-1' },
       { id: 'usr-tl', email: 'tl@tradenexus.com', password: 'tl123', name: 'Team Leader', role: 'team_leader', empCode: 'TNX-TL01', employeeId: 'emp-tl-1' },
@@ -35,9 +82,6 @@ export function seedUsersIfEmpty() {
         const hash = hashPassword(u.password);
         insertUser.run(u.id, u.email, hash, u.name, u.role, u.empCode, u.employeeId, 1);
         console.log(`[SQLite DB] Verified/Added core user: ${u.email} (${u.role})`);
-      } else if (u.email === 'sagarsuchi26@gmail.com') {
-        const hash = hashPassword(u.password);
-        db.prepare('UPDATE users SET role = ?, name = ?, passwordHash = ?, active = 1 WHERE id = ?').run('admin', 'Super Admin', hash, existing.id);
       }
     }
   } catch (err) {
@@ -47,6 +91,12 @@ export function seedUsersIfEmpty() {
 
 export function seedInitialDataIfEmpty() {
   seedUsersIfEmpty();
+
+  // If initial seed has already run on this installation, DO NOT re-seed deleted employees, squads or data!
+  if (isInitialSeedDone()) {
+    console.log('[SQLite DB] Preserving all user deletions and changes (initial seed already complete).');
+    return;
+  }
 
   // 1. Employee Profiles
   if (getTableCount('employee_profiles') === 0) {
@@ -300,7 +350,8 @@ export function seedInitialDataIfEmpty() {
     insertPayment.run('pay-2', 'Vikram Mehta', 'Mehta Global Logistics', 'Priya Nair', 120000, 'ICIC849204928104', 'Corporate Net Banking', 'Yesterday, 04:15 PM', 'VERIFIED', null);
   }
 
-  console.log('[SQLite DB] Non-destructive initial data verification complete.');
+  markInitialSeedDone();
+  console.log('[SQLite DB] Initial data seed successfully marked complete.');
 }
 
 export function resetDatabaseToClean() {

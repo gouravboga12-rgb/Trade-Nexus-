@@ -1253,8 +1253,9 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     const totalWonDeals = Math.max(verifiedPayments.length, convertedLeadsCount);
     const avgDealValue = totalWonDeals > 0 ? Math.round(effectiveTotalRevenue / totalWonDeals) : 0;
 
-    // Build Rep Leaderboard
+    // Build Rep Leaderboard (excluding Admin & HR)
     const leaderboard = teamMembers
+      .filter((m) => m.portal !== 'admin' && m.empCode !== 'TNX-AD01' && !(m.role || '').toLowerCase().includes('admin') && m.portal !== 'hr' && !(m.role || '').toLowerCase().includes('hr'))
       .map((m) => {
         const mNameLower = m.name.toLowerCase();
         const repPayments = paymentVerifications.filter(

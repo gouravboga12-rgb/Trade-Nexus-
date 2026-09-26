@@ -2655,8 +2655,9 @@ export const AdminDashboardView: React.FC = () => {
           const totalWonDeals = Math.max(verifiedPayments.length, convertedLeadsCount);
           const avgDealValue = totalWonDeals > 0 ? Math.round(effectiveTotalRevenue / totalWonDeals) : 0;
 
-          // Build Leaderboard
+          // Build Leaderboard (excluding Admin & HR)
           const leaderboard = teamMembers
+            .filter((m) => m.portal !== 'admin' && m.empCode !== 'TNX-AD01' && !(m.role || '').toLowerCase().includes('admin') && m.portal !== 'hr' && !(m.role || '').toLowerCase().includes('hr'))
             .map((m) => {
               const mNameLower = m.name.toLowerCase();
               const repPayments = paymentVerifications.filter(
@@ -2742,7 +2743,12 @@ export const AdminDashboardView: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  {leaderboard.map((entry, idx) => (
+                  {leaderboard.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-slate-400 font-medium">
+                      No active sales employees on the leaderboard yet.
+                    </div>
+                  ) : (
+                    leaderboard.map((entry, idx) => (
                     <div
                       key={entry.member.id}
                       onClick={() => setSelectedMemberFor360(entry.member)}
@@ -2773,7 +2779,7 @@ export const AdminDashboardView: React.FC = () => {
                         <span className="text-teal-600 font-bold">Inspect 360 →</span>
                       </div>
                     </div>
-                  ))}
+                  )))}
                 </div>
               </div>
 
