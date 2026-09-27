@@ -278,62 +278,49 @@ export const App: React.FC = () => {
 
   // 3. Full Workspace once authenticated
   const renderActiveView = (isDesktop: boolean = false) => {
-    if (isDesktop) {
-      if (currentRole === 'team_leader') {
-        return <DesktopTeamLeaderView currentTab={activeTab} onTabChange={(tab) => setActiveTab(tab as any)} />;
-      }
-      if (currentRole === 'hr') {
-        return <DesktopHrView currentTab={activeTab} onTabChange={(tab) => setActiveTab(tab as any)} />;
-      }
-      if (currentRole === 'admin') {
-        return <DesktopAdminView currentTab={activeTab} onTabChange={(tab) => setActiveTab(tab as any)} />;
-      }
+    let content: React.ReactNode = null;
 
-      // Telecaller Desktop Widescreen
+    if (currentRole === 'team_leader') {
+      content = <TeamLeaderDashboardView />;
+    } else if (currentRole === 'hr') {
+      content = <HrDashboardView />;
+    } else if (currentRole === 'admin') {
+      content = <AdminDashboardView />;
+    } else {
       switch (activeTab) {
         case 'home':
-          return <DesktopTelecallerHome />;
+          content = <TelecallerHomeView />;
+          break;
         case 'calling':
-          return <DesktopDailyCalling />;
+          content = <DailyCallingView />;
+          break;
         case 'clients':
-          return <DesktopClientsPipeline />;
+          content = <ClientsPipelineView />;
+          break;
         case 'leaves':
-          return <DesktopAttendanceLeaves />;
+          content = <AttendanceLeavesView />;
+          break;
         case 'profile':
+          content = <ProfileSelfServiceView />;
+          break;
         case 'menu':
-          return <DesktopProfile />;
+          content = <AllModulesMenuView />;
+          break;
         default:
-          return <DesktopTelecallerHome />;
+          content = <TelecallerHomeView />;
+          break;
       }
     }
 
-    // Mobile View (Screens < 1024px) - Dedicated Native Mobile App Views
-    if (currentRole === 'team_leader') {
-      return <TeamLeaderDashboardView />;
-    }
-    if (currentRole === 'hr') {
-      return <HrDashboardView />;
-    }
-    if (currentRole === 'admin') {
-      return <AdminDashboardView />;
+    if (isDesktop) {
+      return (
+        <div className="max-w-2xl mx-auto w-full pb-16">
+          {content}
+        </div>
+      );
     }
 
-    switch (activeTab) {
-      case 'home':
-        return <TelecallerHomeView />;
-      case 'calling':
-        return <DailyCallingView />;
-      case 'clients':
-        return <ClientsPipelineView />;
-      case 'leaves':
-        return <AttendanceLeavesView />;
-      case 'profile':
-        return <ProfileSelfServiceView />;
-      case 'menu':
-        return <AllModulesMenuView />;
-      default:
-        return <TelecallerHomeView />;
-    }
+    return content;
   };
 
   const handleRoleSelect = (r: UserRole) => {

@@ -1108,33 +1108,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Optimistically update assignedLeads in state
     setAssignedLeads(prev => prev.map(lead => lead.id === leadId ? targetLead : lead));
 
-    // Also log as call item
+    // Also log as call item with explicit employee linkage
     const newCallItem: CallLogItem = {
       id: `call-${Date.now()}`,
       clientName: targetLead.name,
       companyName: targetLead.company,
       phoneNumber: targetLead.phone,
-      durationSec: 180,
+      durationSec: status === 'BUSY' ? 0 : 180,
       outcome: status === 'CONVERTED' ? 'DEAL_CLOSED' : 
                status === 'INTERESTED' ? 'INTERESTED' : 
                status === 'CALLBACK' ? 'CALLBACK' : 
+               status === 'BUSY' ? 'BUSY' : 
                status === 'NOT_INTERESTED' ? 'NOT_INTERESTED' : 'CONNECTED',
-      notes: notes || `Call outcome updated to ${status}`,
+      notes: notes || `Call outcome updated to ${status.replace('_', ' ')}`,
       timestamp: 'Just now',
       date: nowIso.split('T')[0],
       createdAt: nowIso,
       followUpDate,
+      employeeId: targetLead.assignedToEmployeeId || currentUser?.employeeId || currentUser?.id,
+      employeeName: targetLead.assignedToEmployeeName || currentUser?.name,
     };
 
     setCallLogs(prev => [newCallItem, ...prev]);
 
-    // Update Telecaller Stats
+    // Update Telecaller Stats (Only increment interested for INTERESTED, never for CONVERTED)
     const updatedStats: TelecallerStats = {
       ...stats,
       dialsMade: stats.dialsMade + 1,
-      connected: status !== 'NOT_INTERESTED' ? stats.connected + 1 : stats.connected,
-      interested: (status === 'INTERESTED' || status === 'CONVERTED') ? stats.interested + 1 : stats.interested,
-      rejected: status === 'NOT_INTERESTED' ? stats.rejected + 1 : stats.rejected,
+      connected: (status !== 'NOT_INTERESTED' && status !== 'BUSY') ? stats.connected + 1 : stats.connected,
+      interested: status === 'INTERESTED' ? stats.interested + 1 : stats.interested,
+      rejected: (status === 'NOT_INTERESTED' || status === 'BUSY') ? stats.rejected + 1 : stats.rejected,
       monthlySalesAchieved: status === 'CONVERTED' ? (stats.monthlySalesAchieved || 0) + dealAmountNum : stats.monthlySalesAchieved,
     };
     setStats(updatedStats);
@@ -1142,14 +1145,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Update Team Member record for TL and HR live visibility
     setTeamMembers(prev => prev.map(m => {
       const isTargetEmp =
-        (m.id && m.id === targetLead.assignedToEmployeeId) ||
-        (m.empCode && m.empCode === targetLead.assignedToEmployeeId) ||
+        (m.id && (m.id === targetLead.assignedToEmployeeId || m.id === currentUser?.employeeId || m.id === currentUser?.id)) ||
+        (m.empCode && (m.empCode === targetLead.assignedToEmployeeId || m.empCode === currentUser?.empCode)) ||
         (m.name && targetLead.assignedToEmployeeName && m.name.toLowerCase() === targetLead.assignedToEmployeeName.toLowerCase());
 
       if (isTargetEmp) {
         const newDials = m.dialsToday + 1;
-        const newConnected = status !== 'NOT_INTERESTED' ? m.connected + 1 : m.connected;
-        const newInterested = (status === 'INTERESTED' || status === 'CONVERTED') ? m.interested + 1 : m.interested;
+        const newConnected = (status !== 'NOT_INTERESTED' && status !== 'BUSY') ? m.connected + 1 : m.connected;
+        const newInterested = status === 'INTERESTED' ? m.interested + 1 : m.interested;
         const newSales = status === 'CONVERTED' ? (m.salesAchieved || 0) + dealAmountNum : m.salesAchieved;
         const updatedM: TeamMember = {
           ...m,
@@ -1722,12 +1725,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           l.status === 'CONVERTED' ? 'CONVERTED'
           : l.status === 'INTERESTED' ? 'HOT'
           : l.status === 'CALLBACK' ? 'WARM'
-          : l.status === 'NOT_INTERESTED' ? 'COLD'
+          : (l.status === 'NOT_INTERESTED' || l.status === 'BUSY') ? 'COLD'
           : 'WARM',
         status:
           l.status === 'CONVERTED' ? 'Converted'
           : dueToday ? 'Due Today'
           : l.status === 'CALLBACK' ? 'Follow-up'
+          : l.status === 'INTERESTED' ? 'Follow-up'
+          : l.status === 'NOT_INTERESTED' ? 'Lost'
           : 'Pending',
         dueTime: l.followUpDate,
         dealValue: l.dealValue ?? 0,

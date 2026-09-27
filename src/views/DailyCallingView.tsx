@@ -42,7 +42,8 @@ export const DailyCallingView: React.FC = () => {
   useScreenData('dailyCalling');
 
   const [activeSection, setActiveSection] = useState<'FRESH_CALLS' | 'CALL_LOGS'>('FRESH_CALLS');
-  const [activeQueueFilter, setActiveQueueFilter] = useState<'ALL_ASSIGNED' | 'CALLBACKS' | 'INTERESTED'>('ALL_ASSIGNED');
+  type QueueFilter = 'ALL_ASSIGNED' | 'PENDING' | 'CALLBACKS' | 'INTERESTED' | 'BUSY' | 'NOT_INTERESTED' | 'WON';
+  const [activeQueueFilter, setActiveQueueFilter] = useState<QueueFilter>('ALL_ASSIGNED');
   const [selectedOutcome, setSelectedOutcome] = useState<string>('ALL');
   const [search, setSearch] = useState('');
 
@@ -74,6 +75,9 @@ export const DailyCallingView: React.FC = () => {
   const uncalledLeads = myAssignedLeads.filter((l) => l.status === 'PENDING');
   const callbackLeads = myAssignedLeads.filter((l) => l.status === 'CALLBACK');
   const interestedLeads = myAssignedLeads.filter((l) => l.status === 'INTERESTED');
+  const busyLeads = myAssignedLeads.filter((l) => l.status === 'BUSY');
+  const notInterestedLeads = myAssignedLeads.filter((l) => l.status === 'NOT_INTERESTED');
+  const wonLeads = myAssignedLeads.filter((l) => l.status === 'CONVERTED');
   const freshLeads = uncalledLeads;
 
   const totalAssigned = myAssignedLeads.length;
@@ -110,6 +114,14 @@ export const DailyCallingView: React.FC = () => {
       if (l.status !== 'CALLBACK') return false;
     } else if (activeQueueFilter === 'INTERESTED') {
       if (l.status !== 'INTERESTED') return false;
+    } else if (activeQueueFilter === 'BUSY') {
+      if (l.status !== 'BUSY') return false;
+    } else if (activeQueueFilter === 'NOT_INTERESTED') {
+      if (l.status !== 'NOT_INTERESTED') return false;
+    } else if (activeQueueFilter === 'WON') {
+      if (l.status !== 'CONVERTED') return false;
+    } else if (activeQueueFilter === 'PENDING') {
+      if (l.status !== 'PENDING') return false;
     } else {
       // Fresh queue: ONLY PENDING leads
       if (l.status !== 'PENDING') return false;
@@ -412,6 +424,31 @@ export const DailyCallingView: React.FC = () => {
                 </span>
               </div>
             </button>
+          </div>
+
+          {/* Detailed Status Filter Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+            {[
+              { id: 'ALL_ASSIGNED', label: `Fresh (${uncalledLeads.length})` },
+              { id: 'CALLBACKS', label: `Callbacks (${callbackLeads.length})` },
+              { id: 'INTERESTED', label: `Interested (${interestedLeads.length})` },
+              { id: 'BUSY', label: `No Answer (${busyLeads.length})` },
+              { id: 'NOT_INTERESTED', label: `Not Interested (${notInterestedLeads.length})` },
+              { id: 'WON', label: `Won Deals (${wonLeads.length})` },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveQueueFilter(tab.id as any)}
+                className={`px-3 py-1.5 rounded-xl font-bold text-[11px] whitespace-nowrap transition-all cursor-pointer ${
+                  activeQueueFilter === tab.id
+                    ? 'bg-[#0A2540] text-white shadow-2xs'
+                    : 'bg-white text-slate-600 border border-slate-200/90 hover:bg-slate-50'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
           {/* Search by Phone Number */}

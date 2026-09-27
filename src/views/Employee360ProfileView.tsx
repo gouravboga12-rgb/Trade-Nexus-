@@ -199,57 +199,46 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
 
       let dayRevenue = paymentRevenue + convertedCallsRevenue;
 
-      if (isSunday) {
-        records.push({
-          index: i,
-          dateLabel: `${dateStr} (${dayName})`,
-          assigned: 0,
-          called: 0,
-          target: member.goalCalls || 0,
-          interested: 0,
-          callback: 0,
-          notInterested: 0,
-          converted: 0,
-          revenue: 0,
-          isSunday: true,
-          leads: [] as AssignedLead[],
-          calls: [] as any[],
-          payments: [] as any[],
-          dateIso: dIso,
-        });
-      } else if (i === 0) {
+      if (i === 0) {
         // Today - Real Values & Live Leads
-        const calledCount = dayCalls.length > 0 ? dayCalls.length : (member.dialsToday || 0);
+        const calledCount = Math.max(
+          dayCalls.length,
+          (member.dialsToday || 0),
+          memberLeads.filter(l => l.status !== 'PENDING').length
+        );
         const interestedCount = dayCalls.length > 0
           ? dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'INTERESTED').length
-          : (member.interested || 0);
+          : memberLeads.filter(l => l.status === 'INTERESTED').length;
         const callbackCount = dayCalls.length > 0
           ? dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'CALLBACK').length
           : memberLeads.filter(l => l.status === 'CALLBACK').length;
         const notIntCount = dayCalls.length > 0
-          ? dayCalls.filter((c: any) => ['NOT_INTERESTED', 'LOST', 'REJECTED'].includes((c.outcome || '').toUpperCase())).length
-          : memberLeads.filter(l => (l.status as string) === 'NOT_INTERESTED' || (l.status as string) === 'LOST').length;
-        const convertedCount = dayCalls.length > 0
-          ? dayCalls.filter((c: any) => ['CONVERTED', 'WON', 'DEAL_CLOSED'].includes((c.outcome || '').toUpperCase())).length
-          : memberLeads.filter(l => l.status === 'CONVERTED').length;
+          ? dayCalls.filter((c: any) => ['NOT_INTERESTED', 'LOST', 'REJECTED', 'BUSY'].includes((c.outcome || '').toUpperCase())).length
+          : memberLeads.filter(l => ['NOT_INTERESTED', 'LOST', 'REJECTED', 'BUSY'].includes((l.status as string) || '')).length;
+        const convertedCount = Math.max(
+          dayCalls.filter((c: any) => ['CONVERTED', 'WON', 'DEAL_CLOSED'].includes((c.outcome || '').toUpperCase())).length,
+          memberLeads.filter(l => l.status === 'CONVERTED').length
+        );
 
-        // If day revenue calculated is 0, fall back to member.salesAchieved for today
-        if (dayRevenue === 0 && (member.salesAchieved || 0) > 0) {
-          dayRevenue = member.salesAchieved;
+        if (dayRevenue === 0) {
+          const leadsRev = memberLeads.filter(l => l.status === 'CONVERTED').reduce((sum, l) => sum + (l.dealValue || 0), 0);
+          dayRevenue = leadsRev > 0 ? leadsRev : (member.salesAchieved || 0);
         }
+
+        const isActuallyRestDay = isSunday && calledCount === 0 && convertedCount === 0 && dayRevenue === 0;
 
         records.push({
           index: i,
           dateLabel: `Today (${dateStr})`,
-          assigned: memberLeads.length || calledCount,
+          assigned: Math.max(memberLeads.length, calledCount),
           called: calledCount,
-          target: member.goalCalls || 0,
+          target: member.goalCalls || 60,
           interested: interestedCount,
           callback: callbackCount,
           notInterested: notIntCount,
           converted: convertedCount,
           revenue: dayRevenue,
-          isSunday: false,
+          isSunday: isActuallyRestDay,
           leads: memberLeads,
           calls: dayCalls,
           payments: dayPayments,
@@ -257,24 +246,36 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
         });
       } else {
         // Past Days with Real Call Logs, Leads & Payments
-        const calledCount = dayCalls.length;
+        const calledCount = Math.max(
+          dayCalls.length,
+          dayLeads.filter(l => l.status !== 'PENDING').length
+        );
         const interestedCount = dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'INTERESTED').length;
         const callbackCount = dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'CALLBACK').length;
-        const notIntCount = dayCalls.filter((c: any) => ['NOT_INTERESTED', 'LOST', 'REJECTED'].includes((c.outcome || '').toUpperCase())).length;
-        const convertedCount = dayCalls.filter((c: any) => ['CONVERTED', 'WON', 'DEAL_CLOSED'].includes((c.outcome || '').toUpperCase())).length;
+        const notIntCount = dayCalls.filter((c: any) => ['NOT_INTERESTED', 'LOST', 'REJECTED', 'BUSY'].includes((c.outcome || '').toUpperCase())).length;
+        const convertedCount = Math.max(
+          dayCalls.filter((c: any) => ['CONVERTED', 'WON', 'DEAL_CLOSED'].includes((c.outcome || '').toUpperCase())).length,
+          dayLeads.filter(l => l.status === 'CONVERTED').length
+        );
+
+        if (dayRevenue === 0 && convertedCount > 0) {
+          dayRevenue = dayLeads.filter(l => l.status === 'CONVERTED').reduce((sum, l) => sum + (l.dealValue || 0), 0);
+        }
+
+        const isActuallyRestDay = isSunday && calledCount === 0 && convertedCount === 0 && dayRevenue === 0;
 
         records.push({
           index: i,
           dateLabel: `${dateStr} (${dayName})`,
           assigned: Math.max(calledCount, dayLeads.length),
           called: calledCount,
-          target: member.goalCalls || 0,
+          target: member.goalCalls || 60,
           interested: interestedCount,
           callback: callbackCount,
           notInterested: notIntCount,
           converted: convertedCount,
           revenue: dayRevenue,
-          isSunday: false,
+          isSunday: isActuallyRestDay,
           leads: dayLeads,
           calls: dayCalls,
           payments: dayPayments,
@@ -572,7 +573,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
         <div className="grid grid-cols-4 gap-1.5 text-center">
           <div className="bg-slate-50/90 rounded-xl py-1 px-1 border border-slate-100">
             <strong className="text-xs font-display font-black text-[#0A2540] block leading-tight">
-              {member.dialsToday} <span className="text-[9px] text-slate-400 font-normal">/{member.goalCalls || 0}</span>
+              {Math.max(member.dialsToday || 0, memberLeads.filter(l => l.status !== 'PENDING').length, memberCallLogs.length)} <span className="text-[9px] text-slate-400 font-normal">/{member.goalCalls || 60}</span>
             </strong>
             <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block mt-0.5">
               Dials
@@ -581,7 +582,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
 
           <div className="bg-slate-50/90 rounded-xl py-1 px-1 border border-slate-100">
             <strong className="text-xs font-display font-black text-[#00A88B] block leading-tight">
-              {formatInLakhs(member.salesAchieved)}
+              {formatInLakhs(Math.max(member.salesAchieved || 0, memberLeads.filter(l => l.status === 'CONVERTED').reduce((sum, l) => sum + (l.dealValue || 0), 0)))}
             </strong>
             <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block mt-0.5">
               Sales
@@ -590,7 +591,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
 
           <div className="bg-slate-50/90 rounded-xl py-1 px-1 border border-slate-100">
             <strong className="text-xs font-display font-black text-purple-700 block leading-tight">
-              {member.interested || 0}
+              {memberLeads.filter(l => l.status === 'INTERESTED').length}
             </strong>
             <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block mt-0.5">
               Interested
@@ -772,7 +773,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
               {filteredCallingDays.map((day) => {
                 const isExpanded = expandedDayIndex === day.index;
 
-                if (day.isSunday) {
+                if (day.isSunday && day.called === 0 && day.converted === 0 && day.revenue === 0) {
                   return (
                     <div key={day.index} className="p-3 bg-white/70 border border-slate-200/60 rounded-2xl text-center text-xs text-slate-400 font-medium">
                       <span className="font-bold text-slate-500 block">{day.dateLabel}</span>
@@ -955,7 +956,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
                     {filteredCallingDays.map((day) => {
                       const isExpanded = expandedDayIndex === day.index;
 
-                      if (day.isSunday) {
+                      if (day.isSunday && day.called === 0 && day.converted === 0 && day.revenue === 0) {
                         return (
                           <tr key={day.index} className="bg-slate-50/50 text-slate-400 font-medium">
                             <td className="py-3 pl-2 font-bold">{day.dateLabel}</td>

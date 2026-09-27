@@ -41,6 +41,7 @@ export interface CallLogItem {
   notes: string;
   followUpDate?: string;
   employeeId?: string;
+  employeeName?: string;
   createdAt?: string;
   date?: string;
 }
@@ -52,7 +53,7 @@ export interface ClientLead {
   phone: string;
   email: string;
   temperature: LeadTemperature;
-  status: 'Due Today' | 'Pending' | 'Follow-up' | 'Converted';
+  status: 'Due Today' | 'Pending' | 'Follow-up' | 'Converted' | 'Lost';
   dueTime?: string;
   dealValue: number;
   requirement: string;

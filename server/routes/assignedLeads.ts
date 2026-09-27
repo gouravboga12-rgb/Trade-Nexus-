@@ -217,17 +217,39 @@ router.put('/:id', (req: Request, res: Response) => {
       now, id
     );
 
-    // If deal is won with a deal value, credit sales to team member
+    // Increment dials on team member if moving from PENDING
+    if (existing.status === 'PENDING' && merged.status !== 'PENDING') {
+      try {
+        db.prepare(`
+          UPDATE team_members
+          SET dialsToday = dialsToday + 1
+          WHERE id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
+        `).run(merged.assignedToEmployeeId, merged.assignedToEmployeeId, merged.assignedToEmployeeName || '');
+      } catch (err) {
+        console.warn('[assignedLeads] Failed to increment team member dialsToday:', err);
+      }
+    }
+
+    // If deal is won with a deal value, credit sales to team member (do NOT increment interested)
     if (merged.status === 'CONVERTED' && merged.dealValue && Number(merged.dealValue) > 0) {
       try {
         db.prepare(`
           UPDATE team_members
-          SET salesAchieved = salesAchieved + ?,
-              interested = interested + 1
+          SET salesAchieved = salesAchieved + ?
           WHERE id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
         `).run(Number(merged.dealValue), merged.assignedToEmployeeId, merged.assignedToEmployeeId, merged.assignedToEmployeeName || '');
       } catch (err) {
         console.warn('[assignedLeads] Failed to credit team member salesAchieved:', err);
+      }
+    } else if (merged.status === 'INTERESTED') {
+      try {
+        db.prepare(`
+          UPDATE team_members
+          SET interested = interested + 1
+          WHERE id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
+        `).run(merged.assignedToEmployeeId, merged.assignedToEmployeeId, merged.assignedToEmployeeName || '');
+      } catch (err) {
+        console.warn('[assignedLeads] Failed to credit team member interested:', err);
       }
     }
 
