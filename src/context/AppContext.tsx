@@ -2316,7 +2316,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (currentUser?.employeeId === employeeId || currentUser?.id === employeeId || profile.id === employeeId) {
       setProfile(p => ({
         ...p,
-        faceIdStatus: 'ABSENT',
+        faceIdStatus: 'NOT_CHECKED_IN' as const,
       }));
     }
 
