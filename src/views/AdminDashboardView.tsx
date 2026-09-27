@@ -116,6 +116,7 @@ export const AdminDashboardView: React.FC = () => {
     verifyAttendanceRecord,
     triggerToast,
     logout,
+    autoDistributeFreshLeads,
     refreshResources,
   } = useApp();
 
@@ -489,8 +490,17 @@ export const AdminDashboardView: React.FC = () => {
                 </h2>
               </div>
 
-              <div className="w-9 h-9 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-display font-black text-xs shadow-xs border border-[#00C9A7]/30">
-                {adminInitials}
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-display font-black text-xs shadow-xs border border-[#00C9A7]/30">
+                  {adminInitials}
+                </div>
+                <button
+                  onClick={() => logout()}
+                  title="Exit Account / Logout"
+                  className="w-9 h-9 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/80 flex items-center justify-center shadow-2xs active:scale-95 transition-all flex-shrink-0 cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
@@ -1967,40 +1977,9 @@ export const AdminDashboardView: React.FC = () => {
           const convertedLeadsCount = assignedLeads.filter((l) => l.status === 'CONVERTED').length;
 
           const handleAutoDistribute = async () => {
-            const freshLeads = assignedLeads.filter((l) => l.callCount === 0);
-            const activeTelecallers = teamMembers.filter(
-              (m) =>
-                (m.portal === 'telecaller' ||
-                  m.portal === 'employee' ||
-                  m.role?.toLowerCase().includes('telecaller') ||
-                  m.role?.toLowerCase().includes('sales')) &&
-                m.active !== 0
-            );
-            if (!freshLeads.length) {
-              triggerToast('No fresh uncalled leads available.');
-              return;
-            }
-            if (!activeTelecallers.length) {
-              triggerToast('No active employees found to receive leads.');
-              return;
-            }
             setIsDistributing(true);
             try {
-              const perCaller = Math.ceil(freshLeads.length / activeTelecallers.length);
-              let idx = 0;
-              for (const caller of activeTelecallers) {
-                const chunk = freshLeads.slice(idx, idx + perCaller);
-                idx += perCaller;
-                for (const l of chunk) {
-                  if (l.assignedToEmployeeId !== caller.id) {
-                    await reassignLeadsBetween(l.assignedToEmployeeId || '', caller.id, 1);
-                  }
-                }
-              }
-              triggerToast(`✓ Distributed ${freshLeads.length} fresh leads across ${activeTelecallers.length} employees`);
-            } catch (err) {
-              console.warn(err);
-              triggerToast('✓ Leads distributed successfully');
+              await autoDistributeFreshLeads();
             } finally {
               setIsDistributing(false);
             }
@@ -2057,27 +2036,29 @@ export const AdminDashboardView: React.FC = () => {
                 </div>
               </div>
 
-              {/* 1-Tap Quick Action: Auto-Distribute Fresh Leads */}
-              {freshLeadsCount > 0 && (
-                <div className="bg-gradient-to-r from-teal-500/10 via-emerald-500/10 to-transparent border border-[#00C9A7]/30 rounded-2xl p-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <span className="text-xs font-bold text-[#0A2540] block truncate">
-                      {freshLeadsCount} fresh leads waiting to be called
-                    </span>
-                    <span className="text-[10px] text-slate-500 block truncate">
-                      Distribute evenly among active employees
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAutoDistribute}
-                    disabled={isDistributing}
-                    className="py-1.5 px-3 rounded-xl bg-[#0A2540] hover:bg-[#123659] text-white font-bold text-xs active:scale-95 transition-all flex-shrink-0 cursor-pointer disabled:opacity-50"
-                  >
-                    {isDistributing ? 'Distributing...' : '1-Tap Distribute'}
-                  </button>
+              {/* 1-Tap Quick Action: Auto-Distribute Fresh Leads (Always Kept per User Spec) */}
+              <div className="bg-[#E8FAF6] border border-[#00C9A7]/40 rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-2xs">
+                <div className="min-w-0">
+                  <span className="text-xs sm:text-sm font-black text-[#0A2540] block truncate">
+                    {freshLeadsCount > 0
+                      ? `${freshLeadsCount} fresh leads waiting to be called`
+                      : 'All fresh leads distributed evenly'}
+                  </span>
+                  <span className="text-[10px] sm:text-[11px] text-slate-500 font-semibold block truncate mt-0.5">
+                    {freshLeadsCount > 0
+                      ? 'Distribute evenly among active employees'
+                      : 'Every active rep has fresh lead allocations ready'}
+                  </span>
                 </div>
-              )}
+                <button
+                  type="button"
+                  onClick={handleAutoDistribute}
+                  disabled={isDistributing}
+                  className="py-2 px-4 rounded-xl bg-[#0A2540] hover:bg-[#123659] text-white font-extrabold text-xs active:scale-95 transition-all flex-shrink-0 cursor-pointer disabled:opacity-60 shadow-xs"
+                >
+                  {isDistributing ? 'Distributing...' : '1-Tap Distribute'}
+                </button>
+              </div>
 
               {/* Employee Holding Breakdown */}
               <SectionTitle>Employee Lead Allocations</SectionTitle>

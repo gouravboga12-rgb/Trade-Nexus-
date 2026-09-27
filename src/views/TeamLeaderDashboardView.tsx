@@ -22,7 +22,8 @@ import {
   Check,
   X,
   AlertTriangle,
-  Camera
+  Camera,
+  LogOut
 } from 'lucide-react';
 import { TeamMeeting, TeamMember } from '../types';
 import { Employee360ProfileView } from './Employee360ProfileView';
@@ -46,7 +47,8 @@ export const TeamLeaderDashboardView: React.FC = () => {
     setIsLeaveModalOpen,
     openPunchIn,
     openPunchOut,
-    triggerToast 
+    triggerToast,
+    logout
   } = useApp();
 
   useScreenData('teamLeaderDashboard');
@@ -334,9 +336,18 @@ export const TeamLeaderDashboardView: React.FC = () => {
                 </p>
               </div>
 
-              {/* Avatar Badge */}
-              <div className="w-10 h-10 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-black text-xs shadow-sm">
-                {leaderInitials}
+              {/* Avatar Badge & Exit Account Button */}
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-black text-xs shadow-sm">
+                  {leaderInitials}
+                </div>
+                <button
+                  onClick={() => logout()}
+                  title="Exit Account / Logout"
+                  className="w-10 h-10 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/80 flex items-center justify-center shadow-2xs active:scale-95 transition-all flex-shrink-0 cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
@@ -1386,6 +1397,15 @@ export const TeamLeaderDashboardView: React.FC = () => {
                 );
               })}
             </div>
+
+            {/* ---- Logout Button ---- */}
+            <button
+              onClick={() => logout()}
+              className="w-full mt-4 mb-6 flex items-center justify-center gap-2.5 bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-400 text-red-600 hover:text-red-700 rounded-2xl p-4 font-bold text-sm transition-all active:scale-[0.98] cursor-pointer group shadow-xs"
+            >
+              <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              <span>Logout</span>
+            </button>
           </div>
         )}
 
@@ -1486,6 +1506,15 @@ export const TeamLeaderDashboardView: React.FC = () => {
                 ))
               )}
             </div>
+
+            {/* ---- Logout Button ---- */}
+            <button
+              onClick={() => logout()}
+              className="w-full mt-4 mb-8 flex items-center justify-center gap-2.5 bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-400 text-red-600 hover:text-red-700 rounded-2xl p-4 font-bold text-sm transition-all active:scale-[0.98] cursor-pointer group shadow-xs"
+            >
+              <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              <span>Logout</span>
+            </button>
           </div>
         )}
 

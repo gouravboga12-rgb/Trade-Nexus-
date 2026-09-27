@@ -541,14 +541,14 @@ export const ProfileSelfServiceView: React.FC = () => {
         )}
       </div>
 
-      {/* 7. Sign Out Button */}
-      <div className="pt-1">
+      {/* 7. Sign Out / Logout Button */}
+      <div className="pt-2">
         <button
           onClick={logout}
-          className="w-full py-3 rounded-2xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-black text-xs flex items-center justify-center gap-2 shadow-xs active:scale-98 transition-all"
+          className="w-full mt-2 mb-4 flex items-center justify-center gap-2.5 bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-400 text-red-600 hover:text-red-700 rounded-2xl p-4 font-bold text-sm transition-all active:scale-[0.98] cursor-pointer group shadow-xs"
         >
-          <LogOut className="w-3.5 h-3.5" />
-          <span>Sign Out of Account</span>
+          <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          <span>Logout / Sign Out of Account</span>
         </button>
 
         <p className="text-center text-[10px] text-slate-400 font-medium pt-2.5">

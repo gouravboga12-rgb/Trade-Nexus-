@@ -83,6 +83,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     deleteTeamMeeting,
     deleteEmployee,
     triggerToast,
+    autoDistributeFreshLeads,
   } = useApp();
 
   useScreenData('adminDashboard');
@@ -97,6 +98,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
   const [openEmployee, setOpenEmployee] = useState<TeamMember | null>(null);
   const [employeeToDelete, setEmployeeToDelete] = useState<TeamMember | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDistributing, setIsDistributing] = useState(false);
 
   // Where the office is — the reference point every check-in is measured against
   const [office, setOffice] = useState<OfficeSettings | null>(null);
@@ -1085,23 +1087,59 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     );
   };
 
-  const renderLeads = () => (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      <PageHead title="Lead Allocation" blurb="Give lists of prospects to the employees who will call them.">
-        <button
-          onClick={() => setIsExcelUploadModalOpen(true)}
-          className="flex items-center gap-2 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-extrabold text-xs px-5 py-2.5 rounded-xl shadow-md shadow-[#00C9A7]/20 transition-all active:scale-95"
-        >
-          <FileSpreadsheet className="w-4 h-4 stroke-[2.5]" />
-          <span>Upload Leads</span>
-        </button>
-      </PageHead>
+  const renderLeads = () => {
+    const freshLeadsCount = assignedLeads.filter((l) => l.callCount === 0).length;
 
-      <div className="nexus-card bg-white border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
-          <Users className="w-4 h-4 text-[#00A88B]" />
-          <h3 className="font-display font-black text-base text-[#0A2540]">Who is holding what</h3>
+    const handleAutoDistribute = async () => {
+      setIsDistributing(true);
+      try {
+        await autoDistributeFreshLeads();
+      } finally {
+        setIsDistributing(false);
+      }
+    };
+
+    return (
+      <div className="space-y-6 max-w-7xl mx-auto">
+        <PageHead title="Lead Allocation" blurb="Give lists of prospects to the employees who will call them.">
+          <button
+            onClick={() => setIsExcelUploadModalOpen(true)}
+            className="flex items-center gap-2 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-extrabold text-xs px-5 py-2.5 rounded-xl shadow-md shadow-[#00C9A7]/20 transition-all active:scale-95"
+          >
+            <FileSpreadsheet className="w-4 h-4 stroke-[2.5]" />
+            <span>Upload Leads</span>
+          </button>
+        </PageHead>
+
+        {/* 1-Tap Quick Action: Auto-Distribute Fresh Leads */}
+        <div className="bg-[#E8FAF6] border border-[#00C9A7]/40 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm">
+          <div className="min-w-0">
+            <span className="text-sm font-black text-[#0A2540] block">
+              {freshLeadsCount > 0
+                ? `${freshLeadsCount} fresh leads waiting to be called`
+                : 'All fresh leads distributed evenly'}
+            </span>
+            <span className="text-xs text-slate-500 font-semibold block mt-0.5">
+              {freshLeadsCount > 0
+                ? 'Distribute evenly among active employees with 1-tap'
+                : 'Every active rep has fresh lead allocations ready to dial'}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleAutoDistribute}
+            disabled={isDistributing}
+            className="py-2.5 px-5 rounded-xl bg-[#0A2540] hover:bg-[#123659] text-white font-extrabold text-xs active:scale-95 transition-all flex-shrink-0 cursor-pointer disabled:opacity-60 shadow-sm"
+          >
+            {isDistributing ? 'Distributing...' : '1-Tap Distribute'}
+          </button>
         </div>
+
+        <div className="nexus-card bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
+            <Users className="w-4 h-4 text-[#00A88B]" />
+            <h3 className="font-display font-black text-base text-[#0A2540]">Who is holding what</h3>
+          </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs min-w-[40rem]">
             <thead>
@@ -1239,7 +1277,8 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
         (File → Save As → CSV). Columns in order: name, phone, company, city, email.
       </p>
     </div>
-  );
+    );
+  };
 
   const renderRevenue = () => {
     // 1. Calculate Aggregates

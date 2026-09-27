@@ -1,10 +1,10 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
 import { TradeNexusLogo } from '../common/TradeNexusLogo';
-import { Bell } from 'lucide-react';
+import { Bell, LogOut } from 'lucide-react';
 
 export const MobileHeader: React.FC = () => {
-  const { triggerToast, currentUser, profile, currentRole } = useApp();
+  const { triggerToast, currentUser, profile, currentRole, logout } = useApp();
 
   const activeName = currentUser?.name || profile?.name;
   const initials = activeName
@@ -38,8 +38,8 @@ export const MobileHeader: React.FC = () => {
       {/* Official Trade Nexus Logo with Text */}
       <TradeNexusLogo size="sm" showText={true} />
 
-      {/* Right: Authenticated User Badge & Notification Bell */}
-      <div className="flex items-center gap-2">
+      {/* Right: Authenticated User Badge, Exit Account Button & Notification Bell */}
+      <div className="flex items-center gap-1.5">
         {activeName && (
           <div 
             title={`Signed in as ${activeName} (${roleLabel})`}
@@ -53,6 +53,15 @@ export const MobileHeader: React.FC = () => {
             </span>
           </div>
         )}
+
+        {/* Small Exit Account / Logout Button beside Profile Badge */}
+        <button
+          onClick={logout}
+          title="Exit Panel / Logout"
+          className="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200/80 text-rose-600 flex items-center justify-center shadow-2xs active:scale-95 transition-all flex-shrink-0 cursor-pointer"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+        </button>
 
         <button
           onClick={() => triggerToast(`👤 Signed in as ${activeName || 'User'} (${roleLabel})`)}

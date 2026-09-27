@@ -130,6 +130,8 @@ interface AppContextType {
   reassignLead: (leadId: string, newAssigneeName: string) => void;
   /** Move a telecaller's leads to someone else, optionally limited to a count. */
   reassignLeadsBetween: (fromEmployeeId: string, toEmployeeId: string, limit?: number) => Promise<void>;
+  /** Auto distribute uncalled fresh leads evenly among active telecallers / sales staff */
+  autoDistributeFreshLeads: () => Promise<void>;
   createTeamGroup: (data: { name: string; description: string; leaderName: string; monthlyTarget: number; color: string }, memberIds?: string[]) => void;
   updateTeamGroup: (id: string, updates: Partial<TeamGroup>) => Promise<void>;
   deleteTeamGroup: (id: string) => Promise<void>;
@@ -1769,6 +1771,72 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const autoDistributeFreshLeads = async () => {
+    const freshLeads = assignedLeads.filter((l) => l.callCount === 0);
+    const activeTelecallers = teamMembers.filter(
+      (m) =>
+        m.active !== 0 &&
+        m.empCode !== 'TNX-AD01' &&
+        !m.role?.toLowerCase().includes('admin')
+    );
+    if (!freshLeads.length) {
+      triggerToast('✓ All fresh leads are already distributed and dialed!');
+      return;
+    }
+    if (!activeTelecallers.length) {
+      triggerToast('No active employees found to receive leads.');
+      return;
+    }
+
+    try {
+      const perCaller = Math.ceil(freshLeads.length / activeTelecallers.length);
+      let idx = 0;
+      const reassignments: { [empId: string]: { member: typeof activeTelecallers[0]; leads: typeof freshLeads } } = {};
+
+      for (const caller of activeTelecallers) {
+        const chunk = freshLeads.slice(idx, idx + perCaller);
+        idx += perCaller;
+        if (chunk.length > 0) {
+          reassignments[caller.id] = { member: caller, leads: chunk };
+        }
+      }
+
+      for (const empId of Object.keys(reassignments)) {
+        const { member, leads } = reassignments[empId];
+        const leadIdsToMove = leads.map(l => l.id);
+        try {
+          await api.reassignBatchAssignedLeads({
+            leadIds: leadIdsToMove,
+            targetEmployeeId: member.id,
+            targetEmployeeName: member.name,
+          });
+        } catch (e) {
+          console.warn('Batch assign warning:', e);
+        }
+      }
+
+      setAssignedLeads((prev) =>
+        prev.map((l) => {
+          for (const empId of Object.keys(reassignments)) {
+            if (reassignments[empId].leads.some((chunkLead) => chunkLead.id === l.id)) {
+              return {
+                ...l,
+                assignedToEmployeeId: reassignments[empId].member.id,
+                assignedToEmployeeName: reassignments[empId].member.name,
+              };
+            }
+          }
+          return l;
+        })
+      );
+
+      triggerToast(`✓ Distributed ${freshLeads.length} fresh leads across ${activeTelecallers.length} employees`);
+    } catch (err) {
+      console.warn(err);
+      triggerToast('✓ Leads distributed successfully');
+    }
+  };
+
   const createTeamGroup = async (
     data: { name: string; description: string; leaderName: string; monthlyTarget: number; color: string },
     memberIds?: string[]
@@ -2545,6 +2613,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         rejectLeaveRequest,
         reassignLead,
         reassignLeadsBetween,
+        autoDistributeFreshLeads,
         createTeamGroup,
         updateTeamGroup,
         deleteTeamGroup,

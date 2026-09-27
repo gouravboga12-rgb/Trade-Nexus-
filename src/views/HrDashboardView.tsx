@@ -47,7 +47,8 @@ import {
   EyeOff,
   Key,
   Receipt,
-  ExternalLink
+  ExternalLink,
+  LogOut
 } from 'lucide-react';
 import { OnboardingEmployee, ExitEmployee, TeamMember, TeamGroup } from '../types';
 import { AddEmployeeModal } from '../components/modals/AddEmployeeModal';
@@ -115,6 +116,7 @@ export const HrDashboardView: React.FC = () => {
     verifyPayment,
     triggerToast,
     refreshResources,
+    logout,
   } = useApp();
 
   useScreenData('hrDashboard');
@@ -414,9 +416,18 @@ export const HrDashboardView: React.FC = () => {
                 </p>
               </div>
 
-              {/* Avatar Badge */}
-              <div className="w-10 h-10 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-display font-black text-xs shadow-sm border border-[#00C9A7]/30">
-                {hrInitials}
+              {/* Avatar Badge & Exit Account Button */}
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-display font-black text-xs shadow-sm border border-[#00C9A7]/30">
+                  {hrInitials}
+                </div>
+                <button
+                  onClick={() => logout()}
+                  title="Exit Account / Logout"
+                  className="w-10 h-10 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/80 flex items-center justify-center shadow-2xs active:scale-95 transition-all flex-shrink-0 cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
@@ -2722,6 +2733,15 @@ export const HrDashboardView: React.FC = () => {
                 <span>Export Master CSV</span>
               </button>
             </div>
+
+            {/* ---- Logout Button ---- */}
+            <button
+              onClick={() => logout()}
+              className="w-full mt-4 mb-8 flex items-center justify-center gap-2.5 bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-400 text-red-600 hover:text-red-700 rounded-2xl p-4 font-bold text-sm transition-all active:scale-[0.98] cursor-pointer group shadow-xs"
+            >
+              <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              <span>Logout</span>
+            </button>
 
           </div>
         )}
