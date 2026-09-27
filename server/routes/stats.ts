@@ -28,7 +28,7 @@ router.get('/', (req: Request, res: Response) => {
       leadMetrics = db.prepare(`
         SELECT 
           COALESCE(SUM(dealValue), 0) as totalRevenue,
-          COALESCE(SUM(dials), 0) as totalDials,
+          COALESCE(SUM(callCount), 0) as totalDials,
           SUM(CASE WHEN status = 'CONVERTED' THEN 1 ELSE 0 END) as wonCount,
           SUM(CASE WHEN status = 'INTERESTED' THEN 1 ELSE 0 END) as interested,
           SUM(CASE WHEN status = 'NOT_INTERESTED' OR status = 'FAILED' THEN 1 ELSE 0 END) as rejected

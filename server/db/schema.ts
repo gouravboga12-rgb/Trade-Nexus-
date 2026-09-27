@@ -387,6 +387,8 @@ function runMigrations() {
 
   // Call logs per employee
   addColumnIfMissing('call_logs', 'employeeId', 'TEXT');
+  addColumnIfMissing('call_logs', 'employeeName', 'TEXT');
+  addColumnIfMissing('call_logs', 'date', 'TEXT');
 
   // Which of the four portals a person may enter. `role` is their job title
   // (free text); `portal` is what the system acts on.
