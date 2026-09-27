@@ -113,14 +113,29 @@ export interface LeaveRequest {
   id: string;
   employeeName?: string;
   employeeCode?: string;
+  employeeId?: string;
+  employeeRole?: 'telecaller' | 'team_leader' | 'hr' | 'admin';
   leaveType: 'Casual Leave' | 'Sick Leave' | 'Earned / Paid Leave';
   fromDate: string;
   toDate: string;
   totalDays: number;
   reason: string;
+  /** Overall simplified status for display */
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  /**
+   * Tracks which level of approval is currently pending.
+   * telecaller  → PENDING_TEAM_LEADER → PENDING_HR → PENDING_ADMIN → APPROVED
+   * team_leader → PENDING_HR → PENDING_ADMIN → APPROVED
+   * hr          → PENDING_ADMIN → APPROVED
+   */
+  approvalStage?: 'PENDING_TEAM_LEADER' | 'PENDING_HR' | 'PENDING_ADMIN' | 'APPROVED' | 'REJECTED';
   appliedOn: string;
   approvedBy?: string;
+  rejectedBy?: string;
+  rejectionReason?: string;
+  teamLeaderApprovedAt?: string;
+  hrApprovedAt?: string;
+  adminApprovedAt?: string;
 }
 
 export interface PayslipItem {

@@ -252,14 +252,15 @@ export const HrDashboardView: React.FC = () => {
   const targetAchievedPercent = Math.round((totalSalesAchieved / Math.max(1, totalSalesTarget)) * 100);
 
   const pendingApprovalsCount =
-    leaveRequests.filter((r) => r.status === 'PENDING').length +
+    leaveRequests.filter((r) => r.approvalStage === 'PENDING_HR' || (!r.approvalStage && r.status === 'PENDING')).length +
     paymentVerifications.filter((p) => p.status === 'PENDING_HR_AUDIT').length;
 
   // Leave Approvals & Sanctions States
   const [leaveApprovalTab, setLeaveApprovalTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [approvedCategoryFilter, setApprovedCategoryFilter] = useState<'ALL' | 'Casual Leave' | 'Sick Leave' | 'Earned / Paid Leave'>('ALL');
 
-  const pendingLeaves = useMemo(() => leaveRequests.filter((r) => r.status === 'PENDING'), [leaveRequests]);
+  // HR only sees leaves pending at their stage (PENDING_HR)
+  const pendingLeaves = useMemo(() => leaveRequests.filter((r) => r.approvalStage === 'PENDING_HR' || (!r.approvalStage && r.status === 'PENDING')), [leaveRequests]);
   const approvedLeaves = useMemo(() => leaveRequests.filter((r) => r.status === 'APPROVED'), [leaveRequests]);
   const rejectedLeaves = useMemo(() => leaveRequests.filter((r) => r.status === 'REJECTED'), [leaveRequests]);
 
@@ -1806,12 +1807,12 @@ export const HrDashboardView: React.FC = () => {
                             <button
                               onClick={() => {
                                 approveLeaveRequest(req.id);
-                                triggerToast(`✓ Sanctioned leave for ${req.employeeName || 'Employee'}`);
+                                triggerToast(`✓ Forwarded leave for ${req.employeeName || 'Employee'} to Admin`);
                               }}
                               className="py-2 rounded-xl bg-gradient-to-r from-[#00A88B] to-[#00C9A7] text-[#0A2540] font-black text-xs flex items-center justify-center gap-1.5 shadow-2xs hover:brightness-105 transition-all active:scale-98 cursor-pointer"
                             >
                               <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                              <span>Approve</span>
+                              <span>Forward to Admin</span>
                             </button>
                             <button
                               onClick={() => {

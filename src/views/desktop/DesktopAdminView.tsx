@@ -1669,7 +1669,8 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
   };
 
   const renderApprovals = () => {
-    const pendingLeaves = leaveRequests.filter((l) => l.status === 'PENDING');
+    // Admin only sees leaves at the PENDING_ADMIN stage (final sign-off)
+    const pendingLeaves = leaveRequests.filter((l) => l.approvalStage === 'PENDING_ADMIN' || (!l.approvalStage && l.status === 'PENDING'));
     const totalPending = pendingPayments.length + pendingLeaves.length;
     const auditedPayments = paymentVerifications.filter((p) => p.status !== 'PENDING_HR_AUDIT');
 

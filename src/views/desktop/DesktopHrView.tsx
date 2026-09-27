@@ -133,7 +133,8 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
   const totalTeams = teamGroups.length;
   const presentCount = teamMembers.filter(m => m.attendanceStatus === 'PRESENT').length;
   const onLeaveCount = teamMembers.filter(m => m.attendanceStatus === 'ON_LEAVE').length;
-  const pendingLeaves = leaveRequests.filter(r => r.status === 'PENDING');
+  // HR only sees leaves pending at their stage (PENDING_HR)
+  const pendingLeaves = leaveRequests.filter(r => r.approvalStage === 'PENDING_HR' || (!r.approvalStage && r.status === 'PENDING'));
   const pendingPayments = paymentVerifications.filter(p => p.status === 'PENDING_HR_AUDIT');
   const pendingApprovalsCount = pendingLeaves.length + pendingPayments.length;
   const attendancePercent = totalEmployees > 0 ? Math.round((presentCount / totalEmployees) * 100) : 0;
@@ -1453,12 +1454,12 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                     }`}>
                       {req.status}
                     </span>
-                    {req.status === 'PENDING' && (
+                    {(req.approvalStage === 'PENDING_HR' || (!req.approvalStage && req.status === 'PENDING')) && (
                       <button
                         onClick={() => approveLeaveRequest(req.id)}
                         className="py-1 px-3 bg-[#00C9A7] text-[#0A2540] font-bold text-xs rounded-lg"
                       >
-                        Approve
+                        Forward to Admin
                       </button>
                     )}
                   </div>

@@ -1353,13 +1353,50 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
 
     if (!updated) return;
-    triggerToast(`\u2713 ${updated.name} updated`);
+    triggerToast(`✓ ${updated.name} updated`);
+
+    // ── Global sync: if admin edits the currently logged-in employee, update profile too ──
+    const currentEmpIdForSync = currentUser?.employeeId || currentUser?.id || profile.id;
+    const isCurrentUser = id === currentEmpIdForSync ||
+      (profile.empCode && profile.empCode === (updated as TeamMember).empCode);
+
+    if (isCurrentUser) {
+      setProfile(prev => ({
+        ...prev,
+        ...(changes.name !== undefined && { name: changes.name }),
+        ...(changes.phone !== undefined && { phone: changes.phone }),
+        ...(changes.email !== undefined && { email: changes.email }),
+        ...(changes.address !== undefined && { address: changes.address }),
+        ...(changes.salary !== undefined && { salary: changes.salary }),
+        ...(changes.bankName !== undefined && { bankName: changes.bankName }),
+        ...(changes.bankAccountNumber !== undefined && { bankAccountNumber: changes.bankAccountNumber }),
+        ...(changes.bankIfscCode !== undefined && { bankIfscCode: changes.bankIfscCode }),
+        ...(changes.panDocumentName !== undefined && { panDocumentName: changes.panDocumentName }),
+        ...(changes.panDocumentUrl !== undefined && { panDocumentUrl: changes.panDocumentUrl }),
+        ...(changes.aadhaarDocumentName !== undefined && { aadhaarDocumentName: changes.aadhaarDocumentName }),
+        ...(changes.aadhaarDocumentUrl !== undefined && { aadhaarDocumentUrl: changes.aadhaarDocumentUrl }),
+      }));
+    }
+
+    // ── Sync payslips: update employee name on existing payslips if name changed ──
+    if (changes.name) {
+      setPayslips(prev => prev.map(p =>
+        p.employeeId === id ? { ...p, employeeName: changes.name! } : p
+      ));
+    }
+
+    // ── Sync assignedLeads: update assignee name if it changed ──
+    if (changes.name) {
+      setAssignedLeads(prev => prev.map(l =>
+        l.assignedToEmployeeId === id ? { ...l, assignedToEmployeeName: changes.name! } : l
+      ));
+    }
 
     try {
       await api.updateTeamMember(id, changes);
     } catch (err) {
       console.warn('Employee update failed:', err);
-      triggerToast('\u2717 Could not save those changes');
+      triggerToast('✗ Could not save those changes');
     }
   };
 
@@ -1655,21 +1692,47 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const approveLeaveRequest = async (id: string) => {
     const approverTitle = currentRole === 'admin' ? 'Super Admin' : currentRole === 'hr' ? 'HR Manager' : (profile.name ? `${profile.name} (Team Leader)` : 'Team Leader');
     setLeaveRequests(prev => prev.map(req => {
-      if (req.id === id) {
-        const updated: LeaveRequest = { ...req, status: 'APPROVED', approvedBy: approverTitle };
-        api.updateLeave(id, updated).catch(console.warn);
-        return updated;
+      if (req.id !== id) return req;
+      const currentStage = req.approvalStage || 'PENDING_TEAM_LEADER';
+      let nextStage: LeaveRequest['approvalStage'] = 'APPROVED';
+      let nextStatus: LeaveRequest['status'] = 'APPROVED';
+      // Advance stage based on current approver role
+      if (currentRole === 'team_leader') {
+        // Team leader approves → goes to HR
+        nextStage = 'PENDING_HR';
+        nextStatus = 'PENDING';
+      } else if (currentRole === 'hr') {
+        // HR approves → goes to Admin
+        nextStage = 'PENDING_ADMIN';
+        nextStatus = 'PENDING';
+      } else {
+        // Admin final approval
+        nextStage = 'APPROVED';
+        nextStatus = 'APPROVED';
       }
-      return req;
+      const updated: LeaveRequest = {
+        ...req,
+        approvalStage: nextStage,
+        status: nextStatus,
+        approvedBy: nextStatus === 'APPROVED' ? approverTitle : undefined,
+      };
+      api.updateLeave(id, updated).catch(console.warn);
+      return updated;
     }));
-    triggerToast(`✓ Leave request APPROVED by ${approverTitle}`);
+    const stageMsg = currentRole === 'team_leader' ? 'forwarded to HR' : currentRole === 'hr' ? 'forwarded to Admin' : 'APPROVED';
+    triggerToast(`✓ Leave request ${stageMsg} by ${approverTitle}`);
   };
 
   const rejectLeaveRequest = async (id: string, reason: string) => {
     const rejectorTitle = currentRole === 'admin' ? 'Admin' : currentRole === 'hr' ? 'HR' : 'Team Leader';
     setLeaveRequests(prev => prev.map(req => {
       if (req.id === id) {
-        const updated: LeaveRequest = { ...req, status: 'REJECTED', approvedBy: `Rejected by ${rejectorTitle}: ${reason || 'Operational requirements'}` };
+        const updated: LeaveRequest = {
+          ...req,
+          status: 'REJECTED',
+          approvalStage: 'REJECTED',
+          approvedBy: `Rejected by ${rejectorTitle}: ${reason || 'Operational requirements'}`,
+        };
         api.updateLeave(id, updated).catch(console.warn);
         return updated;
       }
@@ -2331,16 +2394,35 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     totalDays: number;
     reason: string;
   }) => {
+    // Determine initial approval stage based on employee role
+    const empRole = currentRole as LeaveRequest['employeeRole'];
+    let initialStage: LeaveRequest['approvalStage'];
+    let toastMsg: string;
+    if (currentRole === 'hr') {
+      initialStage = 'PENDING_ADMIN';
+      toastMsg = `✓ Leave request submitted for Admin approval (${data.totalDays} Days)`;
+    } else if (currentRole === 'team_leader') {
+      initialStage = 'PENDING_HR';
+      toastMsg = `✓ Leave request submitted to HR (${data.totalDays} Days)`;
+    } else {
+      // telecaller / default
+      initialStage = 'PENDING_TEAM_LEADER';
+      toastMsg = `✓ Leave request submitted to Team Leader (${data.totalDays} Days)`;
+    }
+
     const newLeave: LeaveRequest = {
       id: `lv-${Date.now()}`,
       employeeName: profile.name,
       employeeCode: profile.empCode,
+      employeeId: currentUser?.employeeId || currentUser?.id || profile.id,
+      employeeRole: empRole,
       leaveType: data.leaveType,
       fromDate: data.fromDate,
       toDate: data.toDate,
       totalDays: data.totalDays,
       reason: data.reason,
       status: 'PENDING',
+      approvalStage: initialStage,
       appliedOn: `Today, ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`,
     };
 
@@ -2351,7 +2433,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     setProfile(updatedProfile);
 
-    triggerToast(`✓ Leave request submitted to Team Leader (${data.totalDays} Days)`);
+    triggerToast(toastMsg);
 
     try {
       await Promise.all([

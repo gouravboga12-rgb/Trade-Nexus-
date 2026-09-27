@@ -119,7 +119,8 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
 
   const leaderName = currentUser?.name?.trim() || profile?.name?.trim() || 'Team Leader';
 
-  const pendingLeaves = leaveRequests.filter(r => r.status === 'PENDING');
+  // Team Leader only sees leaves pending at their stage
+  const pendingLeaves = leaveRequests.filter(r => r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING'));
 
   // Leave Approvals filter & search
   const [leaveStatusFilter, setLeaveStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
@@ -129,12 +130,16 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
   const [reportsTimeframe, setReportsTimeframe] = useState<'today' | 'week' | 'month'>('month');
 
   // Leave metrics
-  const pendingLeavesCount = leaveRequests.filter(r => r.status === 'PENDING').length;
+  const pendingLeavesCount = leaveRequests.filter(r => r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING')).length;
   const approvedLeavesCount = leaveRequests.filter(r => r.status === 'APPROVED').length;
   const rejectedLeavesCount = leaveRequests.filter(r => r.status === 'REJECTED').length;
 
   const filteredLeaves = leaveRequests.filter(req => {
-    const matchesFilter = leaveStatusFilter === 'ALL' || req.status === leaveStatusFilter;
+    const matchesFilter = leaveStatusFilter === 'ALL'
+      ? true
+      : leaveStatusFilter === 'PENDING'
+        ? (req.approvalStage === 'PENDING_TEAM_LEADER' || (!req.approvalStage && req.status === 'PENDING'))
+        : req.status === leaveStatusFilter;
     const matchesSearch = !leaveSearch.trim() || 
       (req.employeeName || '').toLowerCase().includes(leaveSearch.toLowerCase()) ||
       (req.employeeCode || '').toLowerCase().includes(leaveSearch.toLowerCase()) ||
@@ -651,7 +656,7 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
                             onClick={() => approveLeaveRequest(req.id)}
                             className="flex-1 py-1.5 rounded-lg bg-[#00C9A7] text-[#0A2540] font-bold text-xs shadow-xs"
                           >
-                            Approve
+                            Approve → HR
                           </button>
                           <button
                             onClick={() => setRejectingLeaveId(req.id)}

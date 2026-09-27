@@ -119,7 +119,8 @@ export const TeamLeaderDashboardView: React.FC = () => {
     return teamMembers.filter(m => m.salesAchieved > 0).length;
   }, [assignedLeads, teamMembers]);
 
-  const pendingLeaves = leaveRequests.filter(r => r.status === 'PENDING');
+  // Team Leader only sees leaves pending at their stage
+  const pendingLeaves = leaveRequests.filter(r => r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING'));
 
   // Calendar calculations driven by attendanceLogs
   const latestLogDate = attendanceLogs.map((l) => l.date).sort().at(-1);
@@ -1111,7 +1112,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
                   <span className="text-xs font-bold text-slate-500">Filter Requests:</span>
                   <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
                     {[
-                      { id: 'PENDING', label: 'Pending', count: leaveRequests.filter(r => r.status === 'PENDING').length },
+                      { id: 'PENDING', label: 'Pending', count: leaveRequests.filter(r => r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING')).length },
                       { id: 'APPROVED', label: 'Approved', count: leaveRequests.filter(r => r.status === 'APPROVED').length },
                       { id: 'REJECTED', label: 'Rejected', count: leaveRequests.filter(r => r.status === 'REJECTED').length },
                     ].map(s => (
@@ -1134,14 +1135,18 @@ export const TeamLeaderDashboardView: React.FC = () => {
                 </div>
 
                 <div className="space-y-3">
-                  {leaveRequests.filter(r => r.status === approvalsFilter).length === 0 ? (
+                  {leaveRequests.filter(r => approvalsFilter === 'PENDING' 
+                    ? (r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING'))
+                    : r.status === approvalsFilter).length === 0 ? (
                     <div className="text-center py-8 bg-white border border-slate-200 rounded-2xl p-4 space-y-2">
                       <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
                       <span className="text-xs font-bold text-slate-700 block">No {approvalsFilter.toLowerCase()} requests</span>
                       <span className="text-[10px] text-slate-400 block">All leave requests in this category have been processed.</span>
                     </div>
                   ) : (
-                    leaveRequests.filter(r => r.status === approvalsFilter).map((req) => (
+                    leaveRequests.filter(r => approvalsFilter === 'PENDING'
+                      ? (r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING'))
+                      : r.status === approvalsFilter).map((req) => (
                       <div key={req.id} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2.5">
                         <div className="flex justify-between items-start">
                           <div>
@@ -1157,6 +1162,30 @@ export const TeamLeaderDashboardView: React.FC = () => {
                           </span>
                         </div>
 
+                        {/* Approval Pipeline */}
+                        <div className="flex items-center gap-1 text-[9px] font-bold">
+                          {(['TL', 'HR', 'Admin'] as const).map((stage, idx) => {
+                            const stages = ['PENDING_TEAM_LEADER', 'PENDING_HR', 'PENDING_ADMIN'] as const;
+                            const isDone = req.status === 'APPROVED' || (
+                              req.approvalStage === 'PENDING_HR' && idx < 1 ||
+                              req.approvalStage === 'PENDING_ADMIN' && idx < 2
+                            );
+                            const isCurrent = req.approvalStage === stages[idx];
+                            return (
+                              <>
+                                <span key={stage} className={`px-1.5 py-0.5 rounded ${
+                                  req.status === 'REJECTED' ? 'bg-slate-100 text-slate-400' :
+                                  req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' :
+                                  isDone ? 'bg-emerald-100 text-emerald-700' :
+                                  isCurrent ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-400' :
+                                  'bg-slate-100 text-slate-400'
+                                }`}>{stage}</span>
+                                {idx < 2 && <span className="text-slate-300">→</span>}
+                              </>
+                            );
+                          })}
+                        </div>
+
                         <p className="text-xs text-slate-600 italic bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                           "{req.reason}"
                         </p>
@@ -1166,14 +1195,14 @@ export const TeamLeaderDashboardView: React.FC = () => {
                           <span>Applied: {req.appliedOn}</span>
                         </div>
 
-                        {req.status === 'PENDING' && (
+                        {(req.approvalStage === 'PENDING_TEAM_LEADER' || (!req.approvalStage && req.status === 'PENDING')) && (
                           <div className="grid grid-cols-2 gap-2 pt-1">
                             <button
                               onClick={() => approveLeaveRequest(req.id)}
                               className="py-2.5 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
                             >
                               <Check className="w-4 h-4 stroke-[3]" />
-                              <span>Approve</span>
+                              <span>Forward to HR</span>
                             </button>
                             <button
                               onClick={() => setRejectingLeaveId(req.id)}

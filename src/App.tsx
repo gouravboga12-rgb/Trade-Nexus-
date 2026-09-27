@@ -182,7 +182,8 @@ export const App: React.FC = () => {
   // 2. Dynamic Desktop Navigation Items tailored to Current Role
   const getDesktopNavLinks = () => {
     if (currentRole === 'team_leader') {
-      const pendingCount = leaveRequests.filter(r => r.status === 'PENDING').length;
+      // Team Leader only sees PENDING_TEAM_LEADER leaves
+      const pendingCount = leaveRequests.filter(r => r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING')).length;
       return [
         { id: 'home', label: 'Dashboard & Overview', icon: Home },
         { id: 'team', label: 'Team Members & CRM', icon: Users },
@@ -193,7 +194,8 @@ export const App: React.FC = () => {
     }
 
     if (currentRole === 'hr') {
-      const pendingLeaves = leaveRequests.filter(r => r.status === 'PENDING').length;
+      // HR only sees PENDING_HR stage leaves
+      const pendingLeaves = leaveRequests.filter(r => r.approvalStage === 'PENDING_HR' || (!r.approvalStage && r.status === 'PENDING')).length;
       const pendingPays = paymentVerifications.filter(p => p.status === 'PENDING_HR_AUDIT').length;
       return [
         { id: 'home', label: 'HR Overview', icon: Home },

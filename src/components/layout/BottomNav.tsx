@@ -21,7 +21,8 @@ export const BottomNav: React.FC = () => {
 
   const getTabs = () => {
     if (currentRole === 'team_leader') {
-      const pendingLeaves = leaveRequests.filter(r => r.status === 'PENDING').length;
+      // Team Leader only sees PENDING_TEAM_LEADER leaves
+      const pendingLeaves = leaveRequests.filter(r => r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING')).length;
       return [
         { id: 'home', label: 'Dashboard', icon: Home },
         { id: 'team', label: 'Team', icon: Users },
@@ -32,7 +33,8 @@ export const BottomNav: React.FC = () => {
     }
 
     if (currentRole === 'hr') {
-      const pendingLeaves = leaveRequests.filter(r => r.status === 'PENDING').length;
+      // HR only sees PENDING_HR stage leaves
+      const pendingLeaves = leaveRequests.filter(r => r.approvalStage === 'PENDING_HR' || (!r.approvalStage && r.status === 'PENDING')).length;
       const pendingPays = paymentVerifications.filter(p => p.status === 'PENDING_HR_AUDIT').length;
       return [
         { id: 'home', label: 'Overview', icon: Home },
