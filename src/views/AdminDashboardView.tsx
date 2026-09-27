@@ -65,6 +65,7 @@ import { AdminCalendarConfig } from '../components/common/AdminCalendarConfig';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { LeafletGeofenceMap } from '../components/common/LeafletGeofenceMap';
 import { ManageEmployeesTab } from './admin/ManageEmployeesTab';
+import { getTodayDateIST } from '../utils/dateUtils';
 
 type AdminTab = 'home' | 'people' | 'attendance' | 'leads' | 'revenue' | 'more' | 'approvals' | 'reports' | 'attendance_verification' | 'manage_employees';
 
@@ -164,10 +165,10 @@ export const AdminDashboardView: React.FC = () => {
   const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<TeamGroup | null>(null);
   const [deletingTeam, setDeletingTeam] = useState<TeamGroup | null>(null);
-  const [verifySelectedDate, setVerifySelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [verifySelectedDate, setVerifySelectedDate] = useState<string>(getTodayDateIST());
   const [verifyDateMode, setVerifyDateMode] = useState<'TODAY' | 'YESTERDAY' | 'THIS_MONTH' | 'SPECIFIC' | 'CUSTOM' | 'ALL'>('TODAY');
-  const [customStartDate, setCustomStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [customEndDate, setCustomEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [customStartDate, setCustomStartDate] = useState<string>(getTodayDateIST());
+  const [customEndDate, setCustomEndDate] = useState<string>(getTodayDateIST());
   const [verifyStatusFilter, setVerifyStatusFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'DISPUTED'>('ALL');
   const [verifySearchQuery, setVerifySearchQuery] = useState('');
   const [isRefreshingLogs, setIsRefreshingLogs] = useState(false);
@@ -176,8 +177,8 @@ export const AdminDashboardView: React.FC = () => {
   const [zoomPhotoUrl, setZoomPhotoUrl] = useState<string | null>(null);
   const [isClearAttendanceModalOpen, setIsClearAttendanceModalOpen] = useState(false);
   const [clearAttendanceScope, setClearAttendanceScope] = useState<'SELECTED_DAY' | 'THIS_MONTH' | 'CUSTOM_RANGE' | 'ALL'>('SELECTED_DAY');
-  const [clearCustomStartDate, setClearCustomStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [clearCustomEndDate, setClearCustomEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [clearCustomStartDate, setClearCustomStartDate] = useState<string>(getTodayDateIST());
+  const [clearCustomEndDate, setClearCustomEndDate] = useState<string>(getTodayDateIST());
   const [isClearingAttendance, setIsClearingAttendance] = useState(false);
   const [attendanceToDelete, setAttendanceToDelete] = useState<AttendanceRecord | null>(null);
   const [managingSquad, setManagingSquad] = useState<TeamGroup | null>(null);
@@ -1968,7 +1969,7 @@ export const AdminDashboardView: React.FC = () => {
                     ? 'bg-amber-50 text-amber-700 border border-amber-200/80'
                     : 'bg-purple-50 text-purple-700 border border-purple-200/80';
 
-                  const todayIso = new Date().toISOString().split('T')[0];
+                  const todayIso = getTodayDateIST();
                   const rec = attendanceLogs.find((a) => a.employeeId === member.id && a.date === todayIso);
                   const locLabel =
                     rec?.locationStatus === 'AT_OFFICE' ? 'At office'
@@ -3046,8 +3047,8 @@ export const AdminDashboardView: React.FC = () => {
         {/* ---------------------------------------------------- Reports */}
         {/* --------------------------------------------------- Attendance Verification */}
         {tab === 'attendance_verification' && (() => {
-          const todayIso = new Date().toISOString().split('T')[0];
-          const yesterdayIso = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+          const todayIso = getTodayDateIST();
+          const yesterdayIso = new Date(new Date(todayIso + 'T12:00:00+05:30').getTime() - 86400000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
           const currentMonthIso = todayIso.slice(0, 7);
 
           const verifyRecords = attendanceLogs.filter((r) => {

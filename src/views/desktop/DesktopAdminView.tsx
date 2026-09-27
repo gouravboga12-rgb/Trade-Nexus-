@@ -41,6 +41,7 @@ import { TeamGroup } from '../../types';
 import { Employee360ProfileView } from '../Employee360ProfileView';
 import { AdminCalendarConfig } from '../../components/common/AdminCalendarConfig';
 import { AdminScheduleMeetingModal } from '../../components/modals/AdminScheduleMeetingModal';
+import { getTodayDateIST } from '../../utils/dateUtils';
 
 interface DesktopAdminViewProps {
   currentTab?: string;
@@ -112,7 +113,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
 
   // Attendance Report date picker & filter state
   const [attendanceDate, setAttendanceDate] = useState<string>(
-    () => new Date().toISOString().split('T')[0]
+    () => getTodayDateIST()
   );
   const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'PROBLEMS'>('ALL');
 
@@ -963,7 +964,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
             </button>
 
             <button
-              onClick={() => setAttendanceDate(new Date().toISOString().split('T')[0])}
+              onClick={() => setAttendanceDate(getTodayDateIST())}
               className="text-xs font-bold px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
             >
               Today
