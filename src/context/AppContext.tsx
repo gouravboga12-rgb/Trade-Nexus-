@@ -280,6 +280,8 @@ interface AppContextType {
   loadResources: (keys: readonly ResourceKey[], options?: { force?: boolean }) => Promise<void>;
   refreshResources: (keys: readonly ResourceKey[]) => Promise<void>;
   invalidateAll: () => void;
+  isRefreshing: boolean;
+  refreshAllData: () => Promise<void>;
 
   // Quick Actions & Simulation
   activeToast: string | null;
@@ -339,7 +341,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   });
   const [deviceMode, setDeviceMode] = useState<'mobile' | 'desktop'>('desktop');
-  const [clientPipelineTab, setClientPipelineTab] = useState<'TO_CALL' | 'CALLBACK' | 'INTERESTED' | 'WON' | 'BUSY' | 'NOT_INTERESTED' | 'ALL'>('TO_CALL');
+  const [clientPipelineTab, setClientPipelineTab] = useState<'TO_CALL' | 'CALLBACK' | 'INTERESTED' | 'WON' | 'BUSY' | 'NOT_INTERESTED' | 'ALL'>(() => {
+    try {
+      return (localStorage.getItem('tnx_pipelineTab') as any) || 'TO_CALL';
+    } catch {
+      return 'TO_CALL';
+    }
+  });
   const [authStep, setAuthStep] = useState<AuthStep>(() => {
     try {
       return (localStorage.getItem('tnx_authStep') as AuthStep) || 'LOGIN';
@@ -699,6 +707,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
   const [activeToast, setActiveToast] = useState<string | null>(null);
 
+  const triggerToast = useCallback((msg: string) => {
+    setActiveToast(msg);
+    setTimeout(() => {
+      setActiveToast(null);
+    }, 3000);
+  }, []);
+
   // --- On-demand resource loading -----------------------------------------
   // Nothing is fetched on mount. Screens declare what they need via
   // useScreenData(), and each resource is fetched at most once per session
@@ -823,6 +838,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setAuthStep('AUTHENTICATED');
             loadResources([
               'profile',
+              'stats',
               'attendanceLogs',
               'teamMembers',
               'assignedLeads',
@@ -868,12 +884,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch {}
   }, [activeTab]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem('tnx_pipelineTab', clientPipelineTab);
+    } catch {}
+  }, [clientPipelineTab]);
+
   // Live real-time background sync for all 4 panels (Admin, TL, HR, Employee)
-  // Keeps attendance, leads, team roster, calls, payments, leaves, and meetings perfectly synchronized
+  // Keeps attendance, stats, leads, team roster, calls, payments, leaves, and meetings perfectly synchronized
   useEffect(() => {
     if (authStep !== 'AUTHENTICATED') return;
     const syncAllPanels = () => {
       loadResources([
+        'stats',
         'assignedLeads',
         'attendanceLogs',
         'teamMembers',
@@ -888,6 +911,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const interval = setInterval(syncAllPanels, 8000);
     return () => clearInterval(interval);
   }, [authStep, loadResources]);
+
+  // Manual one-tap refresh triggered from headers across all 4 panels
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const refreshAllData = useCallback(async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await refreshResources(ALL_RESOURCE_KEYS);
+      triggerToast('✓ Data refreshed successfully');
+    } catch (e) {
+      console.error('Failed to sync data:', e);
+      triggerToast('⚠ Error syncing with server');
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 600);
+    }
+  }, [isRefreshing, refreshResources, triggerToast]);
 
 
 
@@ -969,12 +1008,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setResourceStatus(reset);
   }, []);
 
-  const triggerToast = useCallback((msg: string) => {
-    setActiveToast(msg);
-    setTimeout(() => {
-      setActiveToast((prev) => (prev === msg ? null : prev));
-    }, 3200);
-  }, []);
 
   const logout = useCallback(() => {
     invalidateAll();
@@ -2845,6 +2878,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         loadResources,
         refreshResources,
         invalidateAll,
+        isRefreshing,
+        refreshAllData,
         activeToast,
         triggerToast,
         logNewCall,

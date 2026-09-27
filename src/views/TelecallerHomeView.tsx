@@ -29,6 +29,7 @@ export const TelecallerHomeView: React.FC = () => {
     stats, 
     myLeads, 
     assignedLeads,
+    callLogs,
     attendanceLogs,
     teamMeetings,
     joinMeeting,
@@ -60,11 +61,6 @@ export const TelecallerHomeView: React.FC = () => {
 
   // Callback lead due today or first in queue from allocated leads
   const urgentLead = myLeads.find(c => c.status === 'Due Today') || myLeads[0];
-  const goalPercentage = Math.round((stats.dialsMade / Math.max(1, stats.todayGoalCalls)) * 100);
-  const tgtPercentage = Math.round((stats.monthlySalesAchieved / Math.max(1, stats.monthlySalesTarget)) * 100);
-
-  const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
-  const remainingToTarget = Math.max(0, stats.monthlySalesTarget - stats.monthlySalesAchieved);
 
   // User's assigned leads & pipeline breakdown strictly for this authenticated employee
   const userLeads = useMemo(() => {
@@ -85,9 +81,55 @@ export const TelecallerHomeView: React.FC = () => {
 
     return filtered.length > 0 ? filtered : assignedLeads;
   }, [assignedLeads, currentUser, empId, empCode, empName, profile]);
-  const wonCount = userLeads.filter((l: AssignedLead) => l.status === 'CONVERTED').length;
+
+  const wonCount = userLeads.filter((l: AssignedLead) => l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0)).length;
   const followUpCount = userLeads.filter((l: AssignedLead) => l.status === 'CALLBACK').length;
   const toCallCount = userLeads.filter((l: AssignedLead) => l.status === 'PENDING').length;
+
+  // Real-time live dynamic revenue from won deals in SQLite
+  const wonDealsRevenue = useMemo(() => {
+    const fromLeads = userLeads
+      .filter((l) => l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0))
+      .reduce((sum, l) => sum + (l.dealValue || 0), 0);
+    return Math.max(fromLeads, stats.monthlySalesAchieved || 0);
+  }, [userLeads, stats.monthlySalesAchieved]);
+
+  const effectiveMonthlyTarget = useMemo(() => {
+    return (stats.monthlySalesTarget && stats.monthlySalesTarget > 0) ? stats.monthlySalesTarget : 200000;
+  }, [stats.monthlySalesTarget]);
+
+  const effectiveTodayGoal = useMemo(() => {
+    return (stats.todayGoalCalls && stats.todayGoalCalls > 0) ? stats.todayGoalCalls : 60;
+  }, [stats.todayGoalCalls]);
+
+  const totalDialsCount = useMemo(() => {
+    const fromLeads = userLeads.reduce((sum, l) => sum + (l.callCount || (l.status !== 'PENDING' ? 1 : 0)), 0);
+    const fromLogs = (callLogs || []).length;
+    return Math.max(fromLeads, fromLogs, stats.dialsMade || 0);
+  }, [userLeads, callLogs, stats.dialsMade]);
+
+  const effectiveConnected = useMemo(() => {
+    const fromLogs = (callLogs || []).filter(c => c.outcome === 'CONNECTED' || c.outcome === 'INTERESTED' || c.outcome === 'DEAL_CLOSED').length;
+    return Math.max(fromLogs, wonCount, stats.connected || 0);
+  }, [callLogs, wonCount, stats.connected]);
+
+  const effectiveInterested = useMemo(() => {
+    const fromLeads = userLeads.filter(l => l.status === 'INTERESTED').length;
+    const fromLogs = (callLogs || []).filter(c => c.outcome === 'INTERESTED').length;
+    return Math.max(fromLeads, fromLogs, stats.interested || 0);
+  }, [userLeads, callLogs, stats.interested]);
+
+  const effectiveRejected = useMemo(() => {
+    const fromLeads = userLeads.filter(l => l.status === 'NOT_INTERESTED').length;
+    const fromLogs = (callLogs || []).filter(c => c.outcome === 'NOT_INTERESTED' || c.outcome === 'BUSY').length;
+    return Math.max(fromLeads, fromLogs, stats.rejected || 0);
+  }, [userLeads, callLogs, stats.rejected]);
+
+  const goalPercentage = Math.round((totalDialsCount / Math.max(1, effectiveTodayGoal)) * 100);
+  const tgtPercentage = Math.round((wonDealsRevenue / Math.max(1, effectiveMonthlyTarget)) * 100);
+
+  const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
+  const remainingToTarget = Math.max(0, effectiveMonthlyTarget - wonDealsRevenue);
 
   const isPunchedIn = profile.faceIdStatus === 'VERIFIED_PRESENT' && !!profile.checkInTime;
   const isShiftEnded = profile.faceIdStatus === 'ON_BREAK';
@@ -339,7 +381,7 @@ export const TelecallerHomeView: React.FC = () => {
           </div>
           <div className="flex items-center gap-1 text-[11px] font-bold text-[#00A88B] bg-[#E6FAF6] px-2.5 py-1 rounded-lg">
             <Target className="w-3.5 h-3.5" />
-            <span>Target: {stats.todayGoalCalls} Calls</span>
+            <span>Target: {effectiveTodayGoal} Calls</span>
           </div>
         </div>
 
@@ -385,7 +427,7 @@ export const TelecallerHomeView: React.FC = () => {
                 <Phone className="w-3 h-3 text-[#00C9A7]" />
                 <span className="text-[10px] font-bold">Dials</span>
               </div>
-              <span className="font-mono-nums font-black text-base text-[#0A2540]">{stats.dialsMade}</span>
+              <span className="font-mono-nums font-black text-base text-[#0A2540]">{totalDialsCount}</span>
             </div>
 
             <div className="bg-slate-50 border border-slate-100 rounded-xl p-2">
@@ -393,7 +435,7 @@ export const TelecallerHomeView: React.FC = () => {
                 <PhoneCall className="w-3 h-3 text-sky-500" />
                 <span className="text-[10px] font-bold">Connected</span>
               </div>
-              <span className="font-mono-nums font-black text-base text-sky-600">{stats.connected}</span>
+              <span className="font-mono-nums font-black text-base text-sky-600">{effectiveConnected}</span>
             </div>
 
             <div className="bg-slate-50 border border-slate-100 rounded-xl p-2">
@@ -401,7 +443,7 @@ export const TelecallerHomeView: React.FC = () => {
                 <CheckCircle2 className="w-3 h-3 text-emerald-500" />
                 <span className="text-[10px] font-bold">Interested</span>
               </div>
-              <span className="font-mono-nums font-black text-base text-emerald-600">{stats.interested}</span>
+              <span className="font-mono-nums font-black text-base text-emerald-600">{effectiveInterested}</span>
             </div>
 
             <div className="bg-slate-50 border border-slate-100 rounded-xl p-2">
@@ -409,7 +451,7 @@ export const TelecallerHomeView: React.FC = () => {
                 <AlertTriangle className="w-3 h-3 text-rose-500" />
                 <span className="text-[10px] font-bold">Rejected</span>
               </div>
-              <span className="font-mono-nums font-black text-base text-rose-500">{stats.rejected}</span>
+              <span className="font-mono-nums font-black text-base text-rose-500">{effectiveRejected}</span>
             </div>
           </div>
         </div>
@@ -433,10 +475,10 @@ export const TelecallerHomeView: React.FC = () => {
 
           <div className="flex items-baseline justify-between font-mono-nums text-xs mb-3">
             <span className="font-extrabold text-base text-[#0A2540]">
-              {inr(stats.monthlySalesAchieved)}
+              {inr(wonDealsRevenue)}
             </span>
             <span className="text-slate-400 font-semibold text-xs">
-              / {inr(stats.monthlySalesTarget)}
+              / {inr(effectiveMonthlyTarget)}
             </span>
           </div>
 
@@ -494,7 +536,7 @@ export const TelecallerHomeView: React.FC = () => {
             </h4>
 
             <div className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200/70 mt-0.5">
-              <span>{inr(stats.monthlySalesAchieved)}</span>
+              <span>{inr(wonDealsRevenue)}</span>
             </div>
           </div>
         </div>

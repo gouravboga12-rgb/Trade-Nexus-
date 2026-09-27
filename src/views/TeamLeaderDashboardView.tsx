@@ -76,7 +76,20 @@ export const TeamLeaderDashboardView: React.FC = () => {
   const isAttendanceDisputed = Boolean(profile?.disputedByAdmin) || Boolean(todayAttendance?.disputedByAdmin);
   const attendanceDisputeReason = profile?.disputeReason || todayAttendance?.disputeReason || 'Your punch-in photo was flagged as suspicious.';
 
-  const [activeTab, setActiveTab] = useState<'home' | 'team' | 'leaves' | 'reports' | 'meetings'>('home');
+  const [activeTab, setActiveTabState] = useState<'home' | 'team' | 'leaves' | 'reports' | 'meetings'>(() => {
+    try {
+      return (localStorage.getItem('tnx_tlTab') as any) || 'home';
+    } catch {
+      return 'home';
+    }
+  });
+
+  const setActiveTab = (newTab: 'home' | 'team' | 'leaves' | 'reports' | 'meetings') => {
+    setActiveTabState(newTab);
+    try {
+      localStorage.setItem('tnx_tlTab', newTab);
+    } catch {}
+  };
   const [leaveSubTab, setLeaveSubTab] = useState<'approvals' | 'calendar'>('approvals');
   const [calendarMonthOffset, setCalendarMonthOffset] = useState(0);
   const [approvalsFilter, setApprovalsFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');

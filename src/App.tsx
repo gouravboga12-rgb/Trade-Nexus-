@@ -76,7 +76,8 @@ import {
   FileText,
   UserPlus,
   Video,
-  DollarSign
+  DollarSign,
+  RotateCw
 } from 'lucide-react';
 import { NavTab, UserRole } from './types';
 
@@ -116,7 +117,9 @@ export const App: React.FC = () => {
     isDataLoading,
     backendError,
     invalidateAll,
-    triggerToast
+    triggerToast,
+    isRefreshing,
+    refreshAllData
   } = useApp();
 
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
@@ -450,6 +453,18 @@ export const App: React.FC = () => {
 
           {/* Header Right Actions - Clean and uncluttered */}
           <div className="flex items-center gap-3">
+            {/* 🔄 Instant One-Tap Server Refresh Button */}
+            <button 
+              onClick={refreshAllData}
+              disabled={isRefreshing}
+              title="Refresh Data from Server"
+              className={`relative w-10 h-10 rounded-xl bg-slate-100 hover:bg-[#E6FAF6] hover:border-[#00C9A7]/40 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-[#00A88B] transition-all cursor-pointer active:scale-95 ${
+                isRefreshing ? 'opacity-70 pointer-events-none' : ''
+              }`}
+            >
+              <RotateCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-[#00A88B]' : ''}`} />
+            </button>
+
             {/* Notification Bell */}
             <button 
               onClick={() => triggerToast('🔔 2 pending callbacks for today')}

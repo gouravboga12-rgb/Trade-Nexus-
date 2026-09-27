@@ -49,8 +49,6 @@ export const DesktopTelecallerHome: React.FC = () => {
 
   // May be undefined while the pipeline loads, or when no leads are assigned yet
   const urgentLead = clients.find(c => c.status === 'Due Today') || clients[0];
-  const goalPercentage = Math.round((stats.dialsMade / Math.max(1, stats.todayGoalCalls)) * 100);
-  const tgtPercentage = Math.round((stats.monthlySalesAchieved / Math.max(1, stats.monthlySalesTarget)) * 100);
 
   const handleInstantCall = () => {
     if (!urgentLead) return;
@@ -62,9 +60,6 @@ export const DesktopTelecallerHome: React.FC = () => {
   };
 
   const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
-  const pendingCallbacks = clients.filter(c => c.status === 'Due Today' || c.status === 'Follow-up').length;
-  const dialsRemaining = Math.max(0, stats.todayGoalCalls - stats.dialsMade);
-  const minsRemaining = Math.round((dialsRemaining * stats.averageCallDurationSec) / 60);
 
   // User's assigned leads & pipeline breakdown
   const userLeads = useMemo(() => {
@@ -85,11 +80,51 @@ export const DesktopTelecallerHome: React.FC = () => {
 
     return filtered.length > 0 ? filtered : assignedLeads;
   }, [assignedLeads, currentUser, profile]);
-  const wonCount = userLeads.filter((l: AssignedLead) => l.status === 'CONVERTED').length;
+
+  const wonCount = userLeads.filter((l: AssignedLead) => l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0)).length;
   const followUpCount = userLeads.filter((l: AssignedLead) => l.status === 'CALLBACK').length;
   const toCallCount = userLeads.filter((l: AssignedLead) => l.status === 'PENDING').length;
+
+  // Real-time live dynamic revenue from won deals in SQLite
+  const wonDealsRevenue = useMemo(() => {
+    const fromLeads = userLeads
+      .filter((l) => l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0))
+      .reduce((sum, l) => sum + (l.dealValue || 0), 0);
+    return Math.max(fromLeads, stats.monthlySalesAchieved || 0);
+  }, [userLeads, stats.monthlySalesAchieved]);
+
+  const effectiveMonthlyTarget = useMemo(() => {
+    return (stats.monthlySalesTarget && stats.monthlySalesTarget > 0) ? stats.monthlySalesTarget : 200000;
+  }, [stats.monthlySalesTarget]);
+
+  const effectiveTodayGoal = useMemo(() => {
+    return (stats.todayGoalCalls && stats.todayGoalCalls > 0) ? stats.todayGoalCalls : 60;
+  }, [stats.todayGoalCalls]);
+
+  const totalDialsCount = useMemo(() => {
+    const fromLeads = userLeads.reduce((sum, l) => sum + (l.callCount || (l.status !== 'PENDING' ? 1 : 0)), 0);
+    const fromLogs = (callLogs || []).length;
+    return Math.max(fromLeads, fromLogs, stats.dialsMade || 0);
+  }, [userLeads, callLogs, stats.dialsMade]);
+
+  const effectiveConnected = useMemo(() => {
+    const fromLogs = (callLogs || []).filter(c => c.outcome === 'CONNECTED' || c.outcome === 'INTERESTED' || c.outcome === 'DEAL_CLOSED').length;
+    return Math.max(fromLogs, wonCount, stats.connected || 0);
+  }, [callLogs, wonCount, stats.connected]);
+
+  const effectiveInterested = useMemo(() => {
+    const fromLeads = userLeads.filter(l => l.status === 'INTERESTED').length;
+    const fromLogs = (callLogs || []).filter(c => c.outcome === 'INTERESTED').length;
+    return Math.max(fromLeads, fromLogs, stats.interested || 0);
+  }, [userLeads, callLogs, stats.interested]);
+
+  const goalPercentage = Math.round((totalDialsCount / Math.max(1, effectiveTodayGoal)) * 100);
+  const tgtPercentage = Math.round((wonDealsRevenue / Math.max(1, effectiveMonthlyTarget)) * 100);
+  const pendingCallbacks = clients.filter(c => c.status === 'Due Today' || c.status === 'Follow-up').length;
+  const dialsRemaining = Math.max(0, effectiveTodayGoal - totalDialsCount);
+  const minsRemaining = Math.round((dialsRemaining * (stats.averageCallDurationSec || 90)) / 60);
   const estRemaining = `${Math.floor(minsRemaining / 60)}h ${minsRemaining % 60}m`;
-  const avgDuration = `${Math.floor(stats.averageCallDurationSec / 60)}m ${String(stats.averageCallDurationSec % 60).padStart(2, '0')}s`;
+  const avgDuration = `${Math.floor((stats.averageCallDurationSec || 90) / 60)}m ${String((stats.averageCallDurationSec || 90) % 60).padStart(2, '0')}s`;
 
   const activeMeetings = teamMeetings.filter(m => m.status !== 'COMPLETED');
 
@@ -241,8 +276,8 @@ export const DesktopTelecallerHome: React.FC = () => {
               Today's Calling Goal
             </span>
             <div className="flex items-baseline gap-2">
-              <span className="font-mono-nums font-black text-2xl text-[#0A2540]">{stats.dialsMade}</span>
-              <span className="text-xs font-bold text-slate-400">/ {stats.todayGoalCalls} Dials</span>
+              <span className="font-mono-nums font-black text-2xl text-[#0A2540]">{totalDialsCount}</span>
+              <span className="text-xs font-bold text-slate-400">/ {effectiveTodayGoal} Dials</span>
             </div>
             <span className="text-xs text-[#00A88B] font-extrabold mt-1 block">
               {goalPercentage}% Goal Achieved
@@ -261,11 +296,11 @@ export const DesktopTelecallerHome: React.FC = () => {
               Connected Calls
             </span>
             <div className="flex items-baseline gap-2">
-              <span className="font-mono-nums font-black text-2xl text-sky-600">{stats.connected}</span>
+              <span className="font-mono-nums font-black text-2xl text-sky-600">{effectiveConnected}</span>
               <span className="text-xs font-bold text-slate-400">Calls</span>
             </div>
             <span className="text-xs text-sky-600 font-bold mt-1 block">
-              {Math.round((stats.connected / (stats.dialsMade || 1)) * 100)}% Connection Rate
+              {Math.round((effectiveConnected / (totalDialsCount || 1)) * 100)}% Connection Rate
             </span>
           </div>
 
@@ -281,8 +316,8 @@ export const DesktopTelecallerHome: React.FC = () => {
               Monthly Sales Target (TGT)
             </span>
             <div className="flex items-baseline gap-2">
-              <span className="font-mono-nums font-black text-xl text-[#00A88B]">{inr(stats.monthlySalesAchieved)}</span>
-              <span className="text-xs font-bold text-slate-400">/ {inr(stats.monthlySalesTarget)}</span>
+              <span className="font-mono-nums font-black text-xl text-[#00A88B]">{inr(wonDealsRevenue)}</span>
+              <span className="text-xs font-bold text-slate-400">/ {inr(effectiveMonthlyTarget)}</span>
             </div>
             <span className="text-xs text-[#00A88B] font-extrabold mt-1 block">
               {tgtPercentage}% Target Met
@@ -301,7 +336,7 @@ export const DesktopTelecallerHome: React.FC = () => {
               Interested Hot Leads
             </span>
             <div className="flex items-baseline gap-2">
-              <span className="font-mono-nums font-black text-2xl text-amber-600">{stats.interested}</span>
+              <span className="font-mono-nums font-black text-2xl text-amber-600">{effectiveInterested}</span>
               <span className="text-xs font-bold text-slate-400">Prospects</span>
             </div>
             <span className="text-xs text-amber-600 font-bold mt-1 block">
@@ -436,7 +471,7 @@ export const DesktopTelecallerHome: React.FC = () => {
               </h4>
 
               <div className="inline-flex items-center gap-1 text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200/70 mt-1">
-                <span>{inr(stats.monthlySalesAchieved)}</span>
+                <span>{inr(wonDealsRevenue)}</span>
               </div>
             </div>
           </div>

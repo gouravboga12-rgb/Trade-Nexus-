@@ -1,10 +1,10 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
 import { TradeNexusLogo } from '../common/TradeNexusLogo';
-import { Bell, LogOut } from 'lucide-react';
+import { Bell, LogOut, RotateCw } from 'lucide-react';
 
 export const MobileHeader: React.FC = () => {
-  const { triggerToast, currentUser, profile, currentRole, logout } = useApp();
+  const { triggerToast, currentUser, profile, currentRole, logout, isRefreshing, refreshAllData } = useApp();
 
   const activeName = currentUser?.name || profile?.name;
   const initials = activeName
@@ -38,7 +38,7 @@ export const MobileHeader: React.FC = () => {
       {/* Official Trade Nexus Logo with Text */}
       <TradeNexusLogo size="sm" showText={true} />
 
-      {/* Right: Authenticated User Badge, Exit Account Button & Notification Bell */}
+      {/* Right: Authenticated User Badge, Refresh, Exit Account Button & Notification Bell */}
       <div className="flex items-center gap-1.5">
         {activeName && (
           <div 
@@ -53,6 +53,18 @@ export const MobileHeader: React.FC = () => {
             </span>
           </div>
         )}
+
+        {/* 🔄 Instant One-Tap Server Refresh Button */}
+        <button
+          onClick={refreshAllData}
+          disabled={isRefreshing}
+          title="Refresh Data from Server"
+          className={`w-8 h-8 rounded-xl bg-slate-100 hover:bg-[#E6FAF6] hover:border-[#00C9A7]/40 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-[#00A88B] shadow-2xs active:scale-95 transition-all flex-shrink-0 cursor-pointer ${
+            isRefreshing ? 'opacity-70 pointer-events-none' : ''
+          }`}
+        >
+          <RotateCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#00A88B]' : ''}`} />
+        </button>
 
         {/* Small Exit Account / Logout Button beside Profile Badge */}
         <button

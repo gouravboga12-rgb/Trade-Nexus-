@@ -152,7 +152,20 @@ export const HrDashboardView: React.FC = () => {
     (profile?.faceIdStatus === 'VERIFIED_PRESENT' || Boolean(todayAttendance?.checkIn && !todayAttendance?.checkOut));
   const punchInTimeDisplay = isAttendanceDisputed ? '' : (profile?.checkInTime || todayAttendance?.checkIn || '');
 
-  const [activeHrNav, setActiveHrNav] = useState<'home' | 'attendance' | 'employees' | 'approvals' | 'reports' | 'more'>('home');
+  const [activeHrNav, setActiveHrNavState] = useState<'home' | 'attendance' | 'employees' | 'approvals' | 'reports' | 'more'>(() => {
+    try {
+      return (localStorage.getItem('tnx_hrTab') as any) || 'home';
+    } catch {
+      return 'home';
+    }
+  });
+
+  const setActiveHrNav = (newNav: 'home' | 'attendance' | 'employees' | 'approvals' | 'reports' | 'more') => {
+    setActiveHrNavState(newNav);
+    try {
+      localStorage.setItem('tnx_hrTab', newNav);
+    } catch {}
+  };
   const [selectedTeamGroup, setSelectedTeamGroup] = useState<TeamGroup | null>(null);
   const [selectedEmployeeFor360, setSelectedEmployeeFor360] = useState<TeamMember | null>(null);
   

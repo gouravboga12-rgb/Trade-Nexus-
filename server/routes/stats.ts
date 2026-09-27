@@ -22,7 +22,22 @@ router.get('/', (req: Request, res: Response) => {
       `).get(targetId, targetEmpCode, user?.email || '', (user?.name || '').toLowerCase()) as any;
     }
 
-    // 2. Dynamically calculate dials today from live call_logs
+    // 2. Dynamically aggregate from assigned_leads (deals won, dials, status breakdown)
+    let leadMetrics: any = null;
+    if (targetId || targetEmpCode || user?.name) {
+      leadMetrics = db.prepare(`
+        SELECT 
+          COALESCE(SUM(dealValue), 0) as totalRevenue,
+          COALESCE(SUM(dials), 0) as totalDials,
+          SUM(CASE WHEN status = 'CONVERTED' THEN 1 ELSE 0 END) as wonCount,
+          SUM(CASE WHEN status = 'INTERESTED' THEN 1 ELSE 0 END) as interested,
+          SUM(CASE WHEN status = 'NOT_INTERESTED' OR status = 'FAILED' THEN 1 ELSE 0 END) as rejected
+        FROM assigned_leads
+        WHERE assignedToEmployeeId = ? OR assignedToEmployeeId = ? OR (assignedToEmployeeName IS NOT NULL AND LOWER(assignedToEmployeeName) = LOWER(?))
+      `).get(targetId, targetEmpCode, user?.name || '') as any;
+    }
+
+    // 3. Dynamically calculate dials today from live call_logs
     const todayStr = new Date().toISOString().split('T')[0];
     let dialMetrics: any = null;
     if (targetId || targetEmpCode || user?.name) {
@@ -39,7 +54,7 @@ router.get('/', (req: Request, res: Response) => {
       `).get(targetId, targetEmpCode, user?.name || '', todayStr, `${todayStr}%`) as any;
     }
 
-    // 3. Look up baseline stats row if one exists for this employee
+    // 4. Look up baseline stats row if one exists for this employee
     let stats = targetId
       ? (db.prepare('SELECT * FROM telecaller_stats WHERE id = ?').get(`stat-${targetId}`) as any)
       : null;
@@ -48,24 +63,54 @@ router.get('/', (req: Request, res: Response) => {
       stats = db.prepare('SELECT * FROM telecaller_stats LIMIT 1').get() as any;
     }
 
-    const dialsToday = dialMetrics?.dialsMade ?? stats?.dialsMade ?? 0;
-    const connected = dialMetrics?.connected ?? stats?.connected ?? 0;
-    const interested = dialMetrics?.interested ?? stats?.interested ?? 0;
-    const rejected = dialMetrics?.rejected ?? stats?.rejected ?? 0;
+    const dialsToday = Math.max(
+      Number(leadMetrics?.totalDials || 0),
+      Number(dialMetrics?.dialsMade || 0),
+      Number(stats?.dialsMade || 0)
+    );
+    const connected = Math.max(
+      Number(dialMetrics?.connected || 0),
+      Number(leadMetrics?.wonCount || 0),
+      Number(stats?.connected || 0)
+    );
+    const interested = Math.max(
+      Number(leadMetrics?.interested || 0),
+      Number(dialMetrics?.interested || 0),
+      Number(stats?.interested || 0)
+    );
+    const rejected = Math.max(
+      Number(leadMetrics?.rejected || 0),
+      Number(dialMetrics?.rejected || 0),
+      Number(stats?.rejected || 0)
+    );
     const avgSec = Math.round(dialMetrics?.avgSec ?? stats?.averageCallDurationSec ?? 0);
+
+    const achievedRevenue = Math.max(
+      Number(leadMetrics?.totalRevenue || 0),
+      Number(roster?.salesAchieved || 0),
+      Number(stats?.monthlySalesAchieved || 0)
+    );
+
+    const goalCalls = (roster?.goalCalls && Number(roster.goalCalls) > 0)
+      ? Number(roster.goalCalls)
+      : (stats?.todayGoalCalls && Number(stats.todayGoalCalls) > 0 ? Number(stats.todayGoalCalls) : 60);
+
+    const monthlySalesTarget = (roster?.salesTarget && Number(roster.salesTarget) > 0)
+      ? Number(roster.salesTarget)
+      : (stats?.monthlySalesTarget && Number(stats.monthlySalesTarget) > 0 ? Number(stats.monthlySalesTarget) : 200000);
 
     return res.status(200).json({
       id: stats?.id || `stat-${targetId || 'default'}`,
-      todayGoalCalls: roster?.goalCalls ?? stats?.todayGoalCalls ?? 60,
+      todayGoalCalls: goalCalls,
       dialsMade: dialsToday,
       dialsToday: dialsToday,
-      dailyTarget: roster?.goalCalls ?? stats?.todayGoalCalls ?? 60,
+      dailyTarget: goalCalls,
       connected: connected,
       interested: interested,
       rejected: rejected,
       averageCallDurationSec: avgSec,
-      monthlySalesTarget: roster?.salesTarget ?? stats?.monthlySalesTarget ?? 500000,
-      monthlySalesAchieved: roster?.salesAchieved ?? stats?.monthlySalesAchieved ?? 0,
+      monthlySalesTarget: monthlySalesTarget,
+      monthlySalesAchieved: achievedRevenue,
     });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });

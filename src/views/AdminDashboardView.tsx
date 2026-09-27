@@ -137,7 +137,20 @@ export const AdminDashboardView: React.FC = () => {
         .toUpperCase()
     : 'AD';
 
-  const [tab, setTab] = useState<AdminTab>('home');
+  const [tab, setTabState] = useState<AdminTab>(() => {
+    try {
+      return (localStorage.getItem('tnx_adminTab') as AdminTab) || 'home';
+    } catch {
+      return 'home';
+    }
+  });
+
+  const setTab = (newTab: AdminTab) => {
+    setTabState(newTab);
+    try {
+      localStorage.setItem('tnx_adminTab', newTab);
+    } catch {}
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMemberFor360, setSelectedMemberFor360] = useState<TeamMember | null>(null);
   const [selectedAdminTeamGroup, setSelectedAdminTeamGroup] = useState<TeamGroup | null>(null);
