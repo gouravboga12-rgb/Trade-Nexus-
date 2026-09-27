@@ -102,6 +102,9 @@ export const AdminDashboardView: React.FC = () => {
     leaveRequests,
     teamMeetings,
     joinMeeting,
+    deleteTeamMeeting,
+    clearAttendanceRecords,
+    deleteAttendanceRecord,
     approveLeaveRequest,
     rejectLeaveRequest,
     updateEmployee,
@@ -149,12 +152,21 @@ export const AdminDashboardView: React.FC = () => {
   const [editingTeam, setEditingTeam] = useState<TeamGroup | null>(null);
   const [deletingTeam, setDeletingTeam] = useState<TeamGroup | null>(null);
   const [verifySelectedDate, setVerifySelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [verifyDateMode, setVerifyDateMode] = useState<'TODAY' | 'YESTERDAY' | 'THIS_MONTH' | 'SPECIFIC' | 'CUSTOM' | 'ALL'>('TODAY');
+  const [customStartDate, setCustomStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [customEndDate, setCustomEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [verifyStatusFilter, setVerifyStatusFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'DISPUTED'>('ALL');
   const [verifySearchQuery, setVerifySearchQuery] = useState('');
   const [isRefreshingLogs, setIsRefreshingLogs] = useState(false);
   const [suspiciousModalItem, setSuspiciousModalItem] = useState<AttendanceRecord | null>(null);
   const [suspiciousReason, setSuspiciousReason] = useState<string>('Suspicious face photo / Proxy verification suspected');
   const [zoomPhotoUrl, setZoomPhotoUrl] = useState<string | null>(null);
+  const [isClearAttendanceModalOpen, setIsClearAttendanceModalOpen] = useState(false);
+  const [clearAttendanceScope, setClearAttendanceScope] = useState<'SELECTED_DAY' | 'THIS_MONTH' | 'CUSTOM_RANGE' | 'ALL'>('SELECTED_DAY');
+  const [clearCustomStartDate, setClearCustomStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [clearCustomEndDate, setClearCustomEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [isClearingAttendance, setIsClearingAttendance] = useState(false);
+  const [attendanceToDelete, setAttendanceToDelete] = useState<AttendanceRecord | null>(null);
   const [managingSquad, setManagingSquad] = useState<TeamGroup | null>(null);
   const [moveFrom, setMoveFrom] = useState('');
   const [moveTo, setMoveTo] = useState('');
@@ -257,6 +269,28 @@ export const AdminDashboardView: React.FC = () => {
 
   const officeField = <K extends keyof OfficeSettings>(k: K) =>
     (officeDraft[k] !== undefined ? officeDraft[k] : office?.[k]) as OfficeSettings[K];
+
+  const handleConfirmClearAttendance = async () => {
+    setIsClearingAttendance(true);
+    try {
+      if (clearAttendanceScope === 'SELECTED_DAY') {
+        await clearAttendanceRecords({ date: verifySelectedDate });
+      } else if (clearAttendanceScope === 'THIS_MONTH') {
+        const d = new Date();
+        await clearAttendanceRecords({ month: String(d.getMonth() + 1), year: String(d.getFullYear()) });
+      } else if (clearAttendanceScope === 'CUSTOM_RANGE') {
+        await clearAttendanceRecords({ startDate: clearCustomStartDate, endDate: clearCustomEndDate });
+      } else if (clearAttendanceScope === 'ALL') {
+        await clearAttendanceRecords({ all: true });
+      }
+      setIsClearAttendanceModalOpen(false);
+      triggerToast('✓ Attendance records cleared successfully');
+    } catch (err: any) {
+      triggerToast(err?.message || 'Failed to clear records');
+    } finally {
+      setIsClearingAttendance(false);
+    }
+  };
 
   const useMyLocation = () => {
     if (!navigator.geolocation) {
@@ -616,15 +650,15 @@ export const AdminDashboardView: React.FC = () => {
               </button>
             </div>
 
-            {/* 📹 Active LIVE Meeting Alerts for Super Admin — only truly live calls */}
+            {/* 📹 Active LIVE & Scheduled Meeting Alerts for Super Admin */}
             {(() => {
-              const liveMeetings = teamMeetings.filter(m => m.status === 'LIVE');
-              if (liveMeetings.length === 0) return null;
+              const activeMeetings = teamMeetings.filter(m => m.status === 'LIVE' || m.status === 'UPCOMING');
+              if (activeMeetings.length === 0) return null;
               return (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between px-0.5">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                      Active Floor Calls ({liveMeetings.length})
+                      Active Floor Calls & Meetings ({activeMeetings.length})
                     </span>
                     <button
                       type="button"
@@ -634,15 +668,15 @@ export const AdminDashboardView: React.FC = () => {
                       + Schedule Call
                     </button>
                   </div>
-                  {liveMeetings.slice(0, 5).map((mtg) => {
-                    const isLive = true; // Only LIVE meetings shown here
+                  {activeMeetings.slice(0, 5).map((mtg) => {
+                    const isLive = mtg.status === 'LIVE';
                     return (
                       <div 
                         key={mtg.id}
                         className={`border-2 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-xs animate-in slide-in-from-top-2 ${
                           isLive 
                             ? 'bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border-emerald-500/80' 
-                            : 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-400'
+                            : 'bg-gradient-to-r from-sky-50 via-indigo-50 to-purple-50 border-sky-300'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -653,13 +687,13 @@ export const AdminDashboardView: React.FC = () => {
                                 <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600"></span>
                               </>
                             ) : (
-                              <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                              <span className="relative inline-flex rounded-full h-3 w-3 bg-sky-500"></span>
                             )}
                           </span>
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
-                                isLive ? 'bg-emerald-200 text-emerald-900' : 'bg-amber-200 text-amber-900'
+                                isLive ? 'bg-emerald-200 text-emerald-900' : 'bg-sky-100 text-sky-800 border border-sky-200'
                               }`}>
                                 {isLive ? '🔴 Live Session' : '📅 Scheduled'}
                               </span>
@@ -682,14 +716,24 @@ export const AdminDashboardView: React.FC = () => {
                             </span>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => joinMeeting(mtg)}
-                          className="px-3 py-1.5 bg-[#0A2540] hover:bg-[#00C9A7] hover:text-[#0A2540] text-white font-black text-[11px] rounded-xl flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer flex-shrink-0"
-                        >
-                          <Video className="w-3.5 h-3.5 text-[#00C9A7]" />
-                          <span>{isLive ? 'Join' : 'Start'}</span>
-                        </button>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => deleteTeamMeeting(mtg.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
+                            title="Cancel / Delete Meeting"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => joinMeeting(mtg)}
+                            className="px-3 py-1.5 bg-[#0A2540] hover:bg-[#00C9A7] hover:text-[#0A2540] text-white font-black text-[11px] rounded-xl flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
+                          >
+                            <Video className="w-3.5 h-3.5 text-[#00C9A7]" />
+                            <span>{isLive ? 'Join' : 'Start / Join'}</span>
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -2921,8 +2965,27 @@ export const AdminDashboardView: React.FC = () => {
         {/* --------------------------------------------------- Attendance Verification */}
         {tab === 'attendance_verification' && (() => {
           const todayIso = new Date().toISOString().split('T')[0];
+          const yesterdayIso = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+          const currentMonthIso = todayIso.slice(0, 7);
+
           const verifyRecords = attendanceLogs.filter((r) => {
-            const matchDate = r.date === verifySelectedDate;
+            let matchDate = true;
+            if (verifyDateMode === 'TODAY') {
+              matchDate = r.date === todayIso;
+            } else if (verifyDateMode === 'YESTERDAY') {
+              matchDate = r.date === yesterdayIso;
+            } else if (verifyDateMode === 'THIS_MONTH') {
+              matchDate = (r.date || '').startsWith(currentMonthIso);
+            } else if (verifyDateMode === 'SPECIFIC') {
+              matchDate = r.date === verifySelectedDate;
+            } else if (verifyDateMode === 'CUSTOM') {
+              const start = customStartDate || todayIso;
+              const end = customEndDate || todayIso;
+              matchDate = (r.date || '') >= start && (r.date || '') <= end;
+            } else if (verifyDateMode === 'ALL') {
+              matchDate = true;
+            }
+
             const matchStatus =
               verifyStatusFilter === 'ALL'
                 ? true
@@ -2933,13 +2996,34 @@ export const AdminDashboardView: React.FC = () => {
                 : verifyStatusFilter === 'DISPUTED'
                 ? !!r.disputedByAdmin
                 : true;
+
             const q = verifySearchQuery.toLowerCase();
             const matchSearch =
               !q ||
               (r.employeeName || '').toLowerCase().includes(q) ||
               (r.employeeId || '').toLowerCase().includes(q);
+
             return matchDate && matchStatus && matchSearch;
           });
+
+          // Compute stats for current date filter
+          const dateFilteredLogs = attendanceLogs.filter((r) => {
+            if (verifyDateMode === 'TODAY') return r.date === todayIso;
+            if (verifyDateMode === 'YESTERDAY') return r.date === yesterdayIso;
+            if (verifyDateMode === 'THIS_MONTH') return (r.date || '').startsWith(currentMonthIso);
+            if (verifyDateMode === 'SPECIFIC') return r.date === verifySelectedDate;
+            if (verifyDateMode === 'CUSTOM') {
+              const start = customStartDate || todayIso;
+              const end = customEndDate || todayIso;
+              return (r.date || '') >= start && (r.date || '') <= end;
+            }
+            return true;
+          });
+
+          const presentCount = dateFilteredLogs.filter(r => r.status === 'PRESENT' && !r.disputedByAdmin).length;
+          const flaggedCount = dateFilteredLogs.filter(r => r.disputedByAdmin).length;
+          const punchedOutCount = dateFilteredLogs.filter(r => !!r.checkOut || !!r.checkOutPhoto).length;
+          const noPhotoCount = dateFilteredLogs.filter(r => r.status === 'PRESENT' && !r.checkInPhoto && !r.checkOutPhoto).length;
 
           return (
             <div className="space-y-4 animate-in fade-in duration-150">
@@ -2953,82 +3037,160 @@ export const AdminDashboardView: React.FC = () => {
                     <ArrowLeft className="w-4 h-4" />
                   </button>
                   <div>
-                    <h2 className="font-display font-black text-xl text-[#0A2540] tracking-tight">Photo Audit</h2>
-                    <p className="text-[11px] text-slate-500">Review punch-in selfies & flag suspicious records</p>
+                    <h2 className="font-display font-black text-xl text-[#0A2540] tracking-tight">Attendance Photo Audit</h2>
+                    <p className="text-[11px] text-slate-500">Punch-in & punch-out selfies, timings & GPS coordinates</p>
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsRefreshingLogs(true);
-                    refreshResources(['attendanceLogs']).finally(() => setIsRefreshingLogs(false));
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer shadow-2xs"
-                  title="Refresh latest punch-ins"
-                >
-                  <RotateCw className={`w-3.5 h-3.5 ${isRefreshingLogs ? 'animate-spin text-[#00A88B]' : ''}`} />
-                  <span>Refresh</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsClearAttendanceModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-all cursor-pointer border border-rose-200 shadow-2xs active:scale-95"
+                    title="Clean/Clear attendance records"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Clear Records</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsRefreshingLogs(true);
+                      refreshResources(['attendanceLogs']).finally(() => setIsRefreshingLogs(false));
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95"
+                    title="Refresh latest attendance logs"
+                  >
+                    <RotateCw className={`w-3.5 h-3.5 ${isRefreshingLogs ? 'animate-spin text-[#00A88B]' : ''}`} />
+                    <span>Refresh</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Filters */}
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <input
-                    type="date"
-                    value={verifySelectedDate}
-                    onChange={(e) => setVerifySelectedDate(e.target.value)}
-                    className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-[#0A2540] bg-white focus:outline-none focus:ring-2 focus:ring-[#00A88B]/30 focus:border-[#00A88B]"
-                  />
+              {/* Date Filters Bar */}
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-2xs space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-extrabold text-[#0A2540] uppercase tracking-wider flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-[#00A88B]" />
+                    Date Filter
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    Showing: {verifyRecords.length} record{verifyRecords.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+
+                {/* Date Mode Selector Pills */}
+                <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  {[
+                    { id: 'TODAY', label: 'Today' },
+                    { id: 'YESTERDAY', label: 'Yesterday' },
+                    { id: 'THIS_MONTH', label: 'This Month' },
+                    { id: 'SPECIFIC', label: 'Specific Day' },
+                    { id: 'CUSTOM', label: 'Custom Range' },
+                    { id: 'ALL', label: 'All Dates' },
+                  ].map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => setVerifyDateMode(m.id as any)}
+                      className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                        verifyDateMode === m.id
+                          ? 'bg-[#00A88B] text-white shadow-2xs font-black'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Sub Date Inputs */}
+                {verifyDateMode === 'SPECIFIC' && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="text-xs text-slate-500 font-bold whitespace-nowrap">Choose Date:</span>
+                    <input
+                      type="date"
+                      value={verifySelectedDate}
+                      onChange={(e) => setVerifySelectedDate(e.target.value)}
+                      className="flex-1 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-[#0A2540] bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00A88B]/30 focus:border-[#00A88B]"
+                    />
+                  </div>
+                )}
+
+                {verifyDateMode === 'CUSTOM' && (
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 block mb-0.5">From Date</span>
+                      <input
+                        type="date"
+                        value={customStartDate}
+                        onChange={(e) => setCustomStartDate(e.target.value)}
+                        className="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-[#0A2540] bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00A88B]/30 focus:border-[#00A88B]"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 block mb-0.5">To Date</span>
+                      <input
+                        type="date"
+                        value={customEndDate}
+                        onChange={(e) => setCustomEndDate(e.target.value)}
+                        className="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-[#0A2540] bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00A88B]/30 focus:border-[#00A88B]"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Search & Status Filters */}
+                <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row gap-2">
                   <div className="relative flex-1">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="Search employee…"
+                      placeholder="Search employee by name or ID…"
                       value={verifySearchQuery}
                       onChange={(e) => setVerifySearchQuery(e.target.value)}
-                      className="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#00A88B]/30 focus:border-[#00A88B]"
+                      className="w-full pl-7 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#00A88B]/30 focus:border-[#00A88B]"
                     />
                   </div>
-                </div>
-                <div className="flex gap-1.5 overflow-x-auto pb-1">
-                  {(['ALL', 'PRESENT', 'LATE', 'DISPUTED'] as const).map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setVerifyStatusFilter(f)}
-                      className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
-                        verifyStatusFilter === f
-                          ? 'bg-[#0A2540] text-white shadow-xs'
-                          : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                      }`}
-                    >
-                      {f === 'DISPUTED' ? '🚩 Flagged' : f === 'PRESENT' ? '✓ Present' : f === 'LATE' ? '⏰ Late' : 'All'}
-                    </button>
-                  ))}
+                  <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+                    {(['ALL', 'PRESENT', 'LATE', 'DISPUTED'] as const).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setVerifyStatusFilter(f)}
+                        className={`flex-shrink-0 px-2.5 py-1.5 rounded-xl text-[10.5px] font-bold transition-all cursor-pointer ${
+                          verifyStatusFilter === f
+                            ? 'bg-[#0A2540] text-white shadow-2xs'
+                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                        }`}
+                      >
+                        {f === 'DISPUTED' ? '🚩 Flagged' : f === 'PRESENT' ? '✓ Present' : f === 'LATE' ? '⏰ Late' : 'All Status'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
               {/* Stats row */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 {[
-                  { label: 'Present', val: attendanceLogs.filter(r => r.date === verifySelectedDate && r.status === 'PRESENT' && !r.disputedByAdmin).length, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                  { label: 'Flagged', val: attendanceLogs.filter(r => r.date === verifySelectedDate && r.disputedByAdmin).length, color: 'text-rose-600', bg: 'bg-rose-50' },
-                  { label: 'No Photo', val: attendanceLogs.filter(r => r.date === verifySelectedDate && r.status === 'PRESENT' && !r.checkInPhoto).length, color: 'text-amber-600', bg: 'bg-amber-50' },
+                  { label: 'Present', val: presentCount, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                  { label: 'Punched Out', val: punchedOutCount, color: 'text-teal-600', bg: 'bg-teal-50' },
+                  { label: 'Flagged', val: flaggedCount, color: 'text-rose-600', bg: 'bg-rose-50' },
+                  { label: 'No Photo', val: noPhotoCount, color: 'text-amber-600', bg: 'bg-amber-50' },
                 ].map((s) => (
-                  <div key={s.label} className={`${s.bg} rounded-2xl p-3 text-center`}>
-                    <div className={`font-black text-xl ${s.color}`}>{s.val}</div>
-                    <div className="text-[10px] font-bold text-slate-500 mt-0.5">{s.label}</div>
+                  <div key={s.label} className={`${s.bg} rounded-2xl p-2.5 text-center`}>
+                    <div className={`font-black text-lg ${s.color}`}>{s.val}</div>
+                    <div className="text-[9.5px] font-bold text-slate-500 mt-0.5">{s.label}</div>
                   </div>
                 ))}
               </div>
 
               {/* Photo Cards */}
               {verifyRecords.length === 0 ? (
-                <div className="text-center py-12 text-slate-400">
+                <div className="text-center py-12 text-slate-400 bg-white border border-slate-200/90 rounded-2xl p-6">
                   <Camera className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm font-bold">No records found</p>
-                  <p className="text-xs mt-1">Try a different date or filter</p>
+                  <p className="text-sm font-bold text-[#0A2540]">No attendance records found</p>
+                  <p className="text-xs mt-1 text-slate-400">Try changing date mode or clearing filters</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -3042,80 +3204,168 @@ export const AdminDashboardView: React.FC = () => {
                       <div
                         key={rec.id || `${rec.employeeId}-${rec.date}`}
                         className={`bg-white border rounded-2xl p-3.5 shadow-2xs transition-all ${
-                          isFlagged ? 'border-rose-300 bg-rose-50/40' : 'border-slate-200/90'
+                          isFlagged ? 'border-rose-300 bg-rose-50/30' : 'border-slate-200/90'
                         }`}
                       >
-                        <div className="flex gap-3">
-                          {/* Photo */}
-                          <div
-                            className="relative w-16 h-16 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0 cursor-pointer group"
-                            onClick={() => rec.checkInPhoto && setZoomPhotoUrl(rec.checkInPhoto)}
-                          >
-                            {rec.checkInPhoto ? (
-                              <>
-                                <img
-                                  src={rec.checkInPhoto}
-                                  alt={`${name} check-in`}
-                                  className="w-full h-full object-cover"
-                                />
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 flex items-center justify-center transition-all">
-                                  <Maximize2 className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </div>
-                              </>
-                            ) : (
-                              <div className="w-full h-full flex flex-col items-center justify-center">
-                                <CameraOff className="w-5 h-5 text-slate-300" />
-                                <span className="text-[9px] text-slate-300 mt-0.5">No photo</span>
-                              </div>
-                            )}
-                            {isFlagged && (
-                              <div className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-rose-500 flex items-center justify-center">
-                                <AlertTriangle className="w-2.5 h-2.5 text-white" />
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-1">
-                              <div className="min-w-0">
-                                <p className="font-bold text-sm text-[#0A2540] truncate">{name}</p>
-                                <p className="text-[10px] text-slate-400 font-mono">{rec.employeeId}</p>
-                              </div>
-                              <span className={`flex-shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full ${
-                                isFlagged
-                                  ? 'bg-rose-100 text-rose-700'
-                                  : rec.status === 'PRESENT'
-                                  ? 'bg-emerald-100 text-emerald-700'
-                                  : (rec.status as string) === 'LATE'
-                                  ? 'bg-amber-100 text-amber-700'
-                                  : 'bg-slate-100 text-slate-500'
-                              }`}>
-                                {isFlagged ? '🚩 Flagged' : rec.status}
+                        {/* Header: Employee Info, Date, Status & Delete button */}
+                        <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-bold text-sm text-[#0A2540] truncate">{name}</p>
+                              <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                                {rec.employeeId}
                               </span>
                             </div>
-                            <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
-                              {rec.checkIn && (
-                                <span className="text-[11px] text-slate-500 flex items-center gap-1">
-                                  <Clock className="w-3 h-3" /> {rec.checkIn}
-                                </span>
-                              )}
-                              {rec.locationStatus && (
-                                <span className={`text-[11px] flex items-center gap-1 ${
-                                  rec.locationStatus === 'AT_OFFICE' ? 'text-emerald-600' : 'text-amber-500'
-                                }`}>
-                                  <MapPin className="w-3 h-3" />
-                                  {rec.locationStatus === 'AT_OFFICE' ? 'At Office' : rec.locationStatus === 'AWAY' ? 'Away' : 'No GPS'}
+                            <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-500 flex-wrap">
+                              <span className="font-medium flex items-center gap-1">
+                                <Calendar className="w-3 h-3 text-slate-400" /> {rec.date}
+                              </span>
+                              {rec.workHours && (
+                                <span className="bg-teal-50 text-[#00A88B] font-bold px-1.5 py-0.2 rounded border border-teal-200/60">
+                                  ⏱️ {rec.workHours}
                                 </span>
                               )}
                             </div>
-                            {isFlagged && rec.disputeReason && (
-                              <p className="mt-1 text-[10px] text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-2 py-1 line-clamp-2">
-                                🚩 {rec.disputeReason}
-                              </p>
-                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                              isFlagged
+                                ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                                : rec.status === 'PRESENT'
+                                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                : (rec.status as string) === 'LATE'
+                                ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                                : 'bg-slate-100 text-slate-500'
+                            }`}>
+                              {isFlagged ? '🚩 Flagged' : rec.status}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setAttendanceToDelete(rec)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
+                              title="Delete this record"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </div>
+
+                        {/* Dual Punch In & Punch Out Grid */}
+                        <div className="grid grid-cols-2 gap-2.5 pt-3">
+                          {/* PUNCH IN SIDE */}
+                          <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-200/70 flex flex-col justify-between">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                Punch In
+                              </span>
+                              <span className="text-[11px] font-bold text-[#0A2540] font-mono">
+                                {rec.checkIn || '—'}
+                              </span>
+                            </div>
+
+                            <div
+                              className="relative w-full aspect-square rounded-lg overflow-hidden bg-slate-200/60 cursor-pointer group mb-1.5"
+                              onClick={() => rec.checkInPhoto && setZoomPhotoUrl(rec.checkInPhoto)}
+                            >
+                              {rec.checkInPhoto ? (
+                                <>
+                                  <img
+                                    src={rec.checkInPhoto}
+                                    alt={`${name} punch-in`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 flex items-center justify-center transition-all">
+                                    <Maximize2 className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                                  <CameraOff className="w-5 h-5 mb-1 opacity-50" />
+                                  <span className="text-[9px] font-medium">No In Photo</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="text-[10px] flex items-center justify-between text-slate-500 font-medium">
+                              <span className="flex items-center gap-1 truncate">
+                                <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                                <span className="truncate">
+                                  {rec.locationStatus === 'AT_OFFICE' ? 'At Office' : rec.locationStatus === 'AWAY' ? 'Away' : 'No GPS'}
+                                </span>
+                              </span>
+                              {rec.distanceM != null && (
+                                <span className="font-mono text-[9px] text-slate-400 flex-shrink-0">
+                                  ±{Math.round(rec.distanceM)}m
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* PUNCH OUT SIDE */}
+                          <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-200/70 flex flex-col justify-between">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                Punch Out
+                              </span>
+                              <span className="text-[11px] font-bold text-[#0A2540] font-mono">
+                                {rec.checkOut || 'Active'}
+                              </span>
+                            </div>
+
+                            <div
+                              className="relative w-full aspect-square rounded-lg overflow-hidden bg-slate-200/60 cursor-pointer group mb-1.5"
+                              onClick={() => rec.checkOutPhoto && setZoomPhotoUrl(rec.checkOutPhoto)}
+                            >
+                              {rec.checkOutPhoto ? (
+                                <>
+                                  <img
+                                    src={rec.checkOutPhoto}
+                                    alt={`${name} punch-out`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 flex items-center justify-center transition-all">
+                                    <Maximize2 className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </div>
+                                </>
+                              ) : rec.checkOut ? (
+                                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                                  <CameraOff className="w-5 h-5 mb-1 opacity-50" />
+                                  <span className="text-[9px] font-medium">No Out Photo</span>
+                                </div>
+                              ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center text-emerald-600 bg-emerald-50/50">
+                                  <Clock className="w-5 h-5 mb-1 animate-pulse" />
+                                  <span className="text-[9px] font-bold">On Duty</span>
+                                  <span className="text-[8px] text-slate-400">Not Punched Out</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="text-[10px] flex items-center justify-between text-slate-500 font-medium">
+                              <span className="flex items-center gap-1 truncate">
+                                <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                                <span className="truncate">
+                                  {rec.checkOutLocationStatus === 'AT_OFFICE' ? 'At Office' : rec.checkOutLocationStatus === 'AWAY' ? 'Away' : rec.checkOut ? 'Recorded' : 'Pending Out'}
+                                </span>
+                              </span>
+                              {rec.checkOutDistanceM != null && (
+                                <span className="font-mono text-[9px] text-slate-400 flex-shrink-0">
+                                  ±{Math.round(rec.checkOutDistanceM)}m
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Dispute Reason */}
+                        {isFlagged && rec.disputeReason && (
+                          <p className="mt-2 text-[11px] text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-2.5 py-1.5">
+                            🚩 {rec.disputeReason}
+                          </p>
+                        )}
 
                         {/* Action Buttons */}
                         <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100">
@@ -3649,11 +3899,183 @@ export const AdminDashboardView: React.FC = () => {
           </button>
           <img
             src={zoomPhotoUrl}
-            alt="Attendance check-in photo"
+            alt="Attendance photo"
             className="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           />
           <p className="absolute bottom-4 left-0 right-0 text-center text-white/50 text-xs">Tap outside to close</p>
+        </div>
+      )}
+
+      {/* Clear Attendance Records Modal */}
+      {isClearAttendanceModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-black text-base text-[#0A2540]">Clear Attendance Records</h3>
+                  <p className="text-xs text-slate-500">Purge concluded or verified audit logs</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsClearAttendanceModalOpen(false)}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2.5">
+              <label className="text-xs font-bold text-slate-700 block">Select Scope to Clear:</label>
+              
+              <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
+                <input
+                  type="radio"
+                  name="clearScope"
+                  checked={clearAttendanceScope === 'SELECTED_DAY'}
+                  onChange={() => setClearAttendanceScope('SELECTED_DAY')}
+                  className="text-rose-600 focus:ring-rose-500"
+                />
+                <div className="flex-1">
+                  <span className="text-xs font-bold text-[#0A2540] block">Selected Day ({verifySelectedDate})</span>
+                  <span className="text-[11px] text-slate-400">Clear all records for this specific date</span>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
+                <input
+                  type="radio"
+                  name="clearScope"
+                  checked={clearAttendanceScope === 'THIS_MONTH'}
+                  onChange={() => setClearAttendanceScope('THIS_MONTH')}
+                  className="text-rose-600 focus:ring-rose-500"
+                />
+                <div className="flex-1">
+                  <span className="text-xs font-bold text-[#0A2540] block">Current Month ({new Date().toISOString().slice(0, 7)})</span>
+                  <span className="text-[11px] text-slate-400">Clear all records in the ongoing month</span>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
+                <input
+                  type="radio"
+                  name="clearScope"
+                  checked={clearAttendanceScope === 'CUSTOM_RANGE'}
+                  onChange={() => setClearAttendanceScope('CUSTOM_RANGE')}
+                  className="text-rose-600 focus:ring-rose-500"
+                />
+                <div className="flex-1">
+                  <span className="text-xs font-bold text-[#0A2540] block">Custom Date Range</span>
+                  <span className="text-[11px] text-slate-400">Choose start and end dates</span>
+                </div>
+              </label>
+
+              {clearAttendanceScope === 'CUSTOM_RANGE' && (
+                <div className="flex gap-2 pl-7 pt-1">
+                  <div className="flex-1">
+                    <span className="text-[10px] font-bold text-slate-500 block mb-1">From</span>
+                    <input
+                      type="date"
+                      value={clearCustomStartDate}
+                      onChange={(e) => setClearCustomStartDate(e.target.value)}
+                      className="w-full text-xs font-bold border border-slate-200 rounded-lg p-2"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-[10px] font-bold text-slate-500 block mb-1">To</span>
+                    <input
+                      type="date"
+                      value={clearCustomEndDate}
+                      onChange={(e) => setClearCustomEndDate(e.target.value)}
+                      className="w-full text-xs font-bold border border-slate-200 rounded-lg p-2"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <label className="flex items-center gap-3 p-3 rounded-xl border border-rose-200 bg-rose-50/40 cursor-pointer hover:bg-rose-50 transition-colors">
+                <input
+                  type="radio"
+                  name="clearScope"
+                  checked={clearAttendanceScope === 'ALL'}
+                  onChange={() => setClearAttendanceScope('ALL')}
+                  className="text-rose-600 focus:ring-rose-500"
+                />
+                <div className="flex-1">
+                  <span className="text-xs font-bold text-rose-800 block">Clear All Records</span>
+                  <span className="text-[11px] text-rose-600">Completely purge all attendance logs across all dates</span>
+                </div>
+              </label>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-[11px] text-amber-800 font-medium">
+                This action will permanently delete the selected attendance records and their photos. This cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsClearAttendanceModalOpen(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 font-bold text-xs text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isClearingAttendance}
+                onClick={handleConfirmClearAttendance}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {isClearingAttendance ? <RotateCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                <span>Confirm Clear</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Single Attendance Record Confirmation Modal */}
+      {attendanceToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95">
+            <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
+              <Trash2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-display font-black text-base text-[#0A2540]">Delete Attendance Log</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Are you sure you want to delete attendance record for <span className="font-bold text-slate-700">{attendanceToDelete.employeeName || attendanceToDelete.employeeId}</span> on <span className="font-bold text-slate-700">{attendanceToDelete.date}</span>?
+              </p>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setAttendanceToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 font-bold text-xs text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (attendanceToDelete.id) {
+                    await deleteAttendanceRecord(attendanceToDelete.id);
+                  }
+                  setAttendanceToDelete(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs cursor-pointer"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

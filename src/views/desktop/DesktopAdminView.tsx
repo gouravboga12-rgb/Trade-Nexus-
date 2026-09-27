@@ -312,9 +312,9 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
         </div>
       </PageHead>
 
-      {/* 🔴 Active LIVE Meetings Banner for Admin */}
+      {/* 🔴 Active LIVE & Scheduled Meetings Banner for Admin */}
       {(() => {
-        const activeMeetings = teamMeetings.filter(m => m.status === 'LIVE');
+        const activeMeetings = teamMeetings.filter(m => m.status === 'LIVE' || m.status === 'UPCOMING');
         if (!activeMeetings.length) return null;
         return (
           <div className="space-y-3">
@@ -1018,16 +1018,18 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
 
         <div className="nexus-card bg-white border border-slate-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs min-w-[42rem]">
+            <table className="w-full text-left text-xs min-w-[48rem]">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-400 uppercase tracking-wider font-bold text-[10px] bg-slate-50/70">
-                  <th className="py-3 px-5">Photo</th>
-                  <th className="py-3 px-5">Name</th>
-                  <th className="py-3 px-5">Team</th>
-                  <th className="py-3 px-5">Check-in</th>
-                  <th className="py-3 px-5">Location</th>
-                  <th className="py-3 px-5">Check-out</th>
-                  <th className="py-3 px-5">Status</th>
+                  <th className="py-3 px-4">Punch In</th>
+                  <th className="py-3 px-4">Punch Out</th>
+                  <th className="py-3 px-4">Name</th>
+                  <th className="py-3 px-4">Team</th>
+                  <th className="py-3 px-4">Check-in</th>
+                  <th className="py-3 px-4">Location</th>
+                  <th className="py-3 px-4">Check-out</th>
+                  <th className="py-3 px-4">Work Hours</th>
+                  <th className="py-3 px-4">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1035,7 +1037,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                   const rec = recordFor(m.id);
                   return (
                   <tr key={m.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-5">
+                    <td className="py-3 px-4">
                       {rec?.checkInPhoto ? (
                         <img
                           src={rec.checkInPhoto}
@@ -1048,12 +1050,30 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                         </div>
                       )}
                     </td>
-                    <td className="py-3.5 px-5 font-bold text-[#0A2540]">{m.name}</td>
-                    <td className="py-3.5 px-5 text-slate-600">{m.group}</td>
-                    <td className="py-3.5 px-5 font-mono text-slate-700">{rec?.checkIn || m.checkInTime || '—'}</td>
-                    <td className="py-3.5 px-5">{locationCell(rec)}</td>
-                    <td className="py-3.5 px-5 font-mono text-slate-700">{rec?.checkOut || '—'}</td>
-                    <td className="py-3.5 px-5">
+                    <td className="py-3 px-4">
+                      {rec?.checkOutPhoto ? (
+                        <img
+                          src={rec.checkOutPhoto}
+                          alt={`${m.name} at check-out`}
+                          className="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-xs"
+                        />
+                      ) : rec?.checkOut ? (
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] text-slate-400 font-mono">
+                          No Pic
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[9px] text-emerald-700 font-bold">
+                          Active
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4 font-bold text-[#0A2540]">{m.name}</td>
+                    <td className="py-3.5 px-4 text-slate-600">{m.group}</td>
+                    <td className="py-3.5 px-4 font-mono text-slate-700">{rec?.checkIn || m.checkInTime || '—'}</td>
+                    <td className="py-3.5 px-4">{locationCell(rec)}</td>
+                    <td className="py-3.5 px-4 font-mono text-slate-700">{rec?.checkOut || '—'}</td>
+                    <td className="py-3.5 px-4 font-mono font-bold text-teal-700 text-xs">{rec?.workHours || (rec?.checkOut ? 'Recorded' : 'In Progress')}</td>
+                    <td className="py-3.5 px-4">
                       <span
                         className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
                           m.attendanceStatus === 'PRESENT'

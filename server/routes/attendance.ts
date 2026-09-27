@@ -339,8 +339,25 @@ function minutesOfDay(t?: string | null): number | null {
 // PUT /api/attendance/:id — check out, or correct a record
 router.put('/:id', (req: Request, res: Response) => {
   try {
-    const existing = db.prepare('SELECT * FROM attendance_records WHERE id = ?').get(req.params.id) as any;
+    const today = new Date().toISOString().split('T')[0];
+    let existing = db.prepare('SELECT * FROM attendance_records WHERE id = ?').get(req.params.id) as any;
+    
+    // Fallback: match by employeeId / employeeName and date if direct ID lookup fails
+    if (!existing && (req.body.employeeId || req.body.employeeName)) {
+      existing = db.prepare(`
+        SELECT * FROM attendance_records 
+        WHERE (employeeId = ? OR (employeeName IS NOT NULL AND employeeName = ?)) 
+          AND date = ? 
+        ORDER BY createdAt DESC LIMIT 1
+      `).get(
+        req.body.employeeId || '',
+        req.body.employeeName || req.body.employeeId || '',
+        req.body.date || today
+      ) as any;
+    }
+
     if (!existing) return res.status(404).json({ error: 'Attendance record not found' });
+    const targetRecordId = existing.id;
 
     const { checkOutPhoto, latitude, longitude } = req.body;
     const merged = { ...existing, ...req.body };
@@ -386,7 +403,7 @@ router.put('/:id', (req: Request, res: Response) => {
       outDistance, outStatus,
       merged.disputedByAdmin !== undefined ? (merged.disputedByAdmin ? 1 : 0) : null,
       merged.disputeReason !== undefined ? merged.disputeReason : null,
-      req.params.id
+      targetRecordId
     );
 
     // If an employeeId is present and status was updated, sync team_members and employee_profiles table
@@ -407,7 +424,52 @@ router.put('/:id', (req: Request, res: Response) => {
       } catch {}
     }
 
-    return res.status(200).json(db.prepare('SELECT * FROM attendance_records WHERE id = ?').get(req.params.id));
+    return res.status(200).json(db.prepare('SELECT * FROM attendance_records WHERE id = ?').get(targetRecordId));
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// DELETE /api/attendance — clear attendance records with optional date filters
+router.delete('/', (req: Request, res: Response) => {
+  try {
+    const { date, startDate, endDate, month, year, all } = req.query;
+
+    if (all === 'true') {
+      const info = db.prepare('DELETE FROM attendance_records').run();
+      return res.status(200).json({ success: true, count: info.changes, message: `Cleared all ${info.changes} attendance records` });
+    }
+
+    if (date) {
+      const info = db.prepare('DELETE FROM attendance_records WHERE date = ?').run(String(date));
+      return res.status(200).json({ success: true, count: info.changes, message: `Cleared ${info.changes} records for date ${date}` });
+    }
+
+    if (startDate && endDate) {
+      const info = db.prepare('DELETE FROM attendance_records WHERE date >= ? AND date <= ?').run(String(startDate), String(endDate));
+      return res.status(200).json({ success: true, count: info.changes, message: `Cleared ${info.changes} records from ${startDate} to ${endDate}` });
+    }
+
+    if (month && year) {
+      const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
+      const info = db.prepare('DELETE FROM attendance_records WHERE date LIKE ?').run(`${monthPrefix}%`);
+      return res.status(200).json({ success: true, count: info.changes, message: `Cleared ${info.changes} records for ${monthPrefix}` });
+    }
+
+    // Default if no param: delete for today
+    const today = new Date().toISOString().split('T')[0];
+    const info = db.prepare('DELETE FROM attendance_records WHERE date = ?').run(today);
+    return res.status(200).json({ success: true, count: info.changes, message: `Cleared ${info.changes} records for ${today}` });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// DELETE /api/attendance/:id — delete a specific attendance record
+router.delete('/:id', (req: Request, res: Response) => {
+  try {
+    const info = db.prepare('DELETE FROM attendance_records WHERE id = ?').run(req.params.id);
+    return res.status(200).json({ success: true, count: info.changes });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }

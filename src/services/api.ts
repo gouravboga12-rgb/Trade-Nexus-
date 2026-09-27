@@ -238,6 +238,18 @@ export const api = {
     request<AttendanceRecord>('/attendance', { method: 'POST', body: JSON.stringify(data) }),
   updateAttendance: (id: string, data: Partial<AttendanceRecord>) => 
     request<AttendanceRecord>(`/attendance/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  clearAttendanceRecords: (params?: { date?: string; startDate?: string; endDate?: string; month?: string; year?: string; all?: boolean }) => {
+    const q = new URLSearchParams();
+    if (params?.all) q.set('all', 'true');
+    if (params?.date) q.set('date', params.date);
+    if (params?.startDate) q.set('startDate', params.startDate);
+    if (params?.endDate) q.set('endDate', params.endDate);
+    if (params?.month) q.set('month', params.month);
+    if (params?.year) q.set('year', params.year);
+    return request<{ success: boolean; count: number; message: string }>(`/attendance?${q.toString()}`, { method: 'DELETE' });
+  },
+  deleteAttendanceRecord: (id: string) => 
+    request<{ success: boolean; count: number }>(`/attendance/${id}`, { method: 'DELETE' }),
 
   // Leaves
   getLeaves: () => request<LeaveRequest[]>('/leaves'),

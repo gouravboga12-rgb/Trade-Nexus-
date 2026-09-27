@@ -90,7 +90,14 @@ export interface AttendanceRecord {
   checkInLng?: number;
   /** Metres from the office at check-in. */
   checkInDistanceM?: number;
+  distanceM?: number;
   locationStatus?: 'AT_OFFICE' | 'AWAY' | 'NOT_SHARED' | 'OFFICE_NOT_SET';
+  /** Photo taken at check-out. Admin only. */
+  checkOutPhoto?: string;
+  checkOutLat?: number;
+  checkOutLng?: number;
+  checkOutDistanceM?: number;
+  checkOutLocationStatus?: 'AT_OFFICE' | 'AWAY' | 'NOT_SHARED' | 'OFFICE_NOT_SET';
   date: string;
   dayNumber: number;
   status: 'PRESENT' | 'ABSENT' | 'LEAVE' | 'HOLIDAY' | 'HALF_DAY';

@@ -315,6 +315,8 @@ interface AppContextType {
   }) => Promise<void>;
   disputeAttendanceRecord: (recordId: string, employeeId: string, reason: string) => Promise<void>;
   verifyAttendanceRecord: (recordId: string, employeeId: string) => Promise<void>;
+  clearAttendanceRecords: (params?: { date?: string; startDate?: string; endDate?: string; month?: string; year?: string; all?: boolean }) => Promise<void>;
+  deleteAttendanceRecord: (id: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -2452,22 +2454,90 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     setProfile(updatedProfile);
 
-    setAttendanceLogs((prev) =>
-      prev.map((a) => (a.id === recordId ? { ...a, checkOut: timeStr } : a))
-    );
+    setAttendanceLogs((prev) => {
+      const exists = prev.some((a) =>
+        a.id === recordId || (a.employeeId === empId && a.date === today) || (a.employeeName && profile.name && a.employeeName.toLowerCase() === profile.name.toLowerCase() && a.date === today)
+      );
+      if (exists) {
+        return prev.map((a) =>
+          (a.id === recordId || (a.employeeId === empId && a.date === today) || (a.employeeName && profile.name && a.employeeName.toLowerCase() === profile.name.toLowerCase() && a.date === today))
+            ? {
+                ...a,
+                checkOut: timeStr,
+                checkOutPhoto: data.photo,
+                checkOutLocationStatus: 'AT_OFFICE',
+              }
+            : a
+        );
+      }
+      return [
+        {
+          id: recordId,
+          date: today,
+          dayNumber: now.getDate(),
+          status: 'PRESENT',
+          checkIn: profile.checkInTime || timeStr,
+          checkOut: timeStr,
+          checkOutPhoto: data.photo,
+          employeeId: empId,
+          employeeName: profile.name,
+          locationStatus: 'AT_OFFICE',
+          checkOutLocationStatus: 'AT_OFFICE',
+          workHours: 'In Progress',
+        } as any,
+        ...prev,
+      ];
+    });
 
     triggerToast(`✓ Checked out at ${timeStr}`);
 
     try {
-      await api.updateAttendance2(recordId, {
+      await api.updateAttendance(recordId, {
         checkOut: timeStr,
         checkOutPhoto: data.photo,
         latitude: data.latitude,
         longitude: data.longitude,
+        employeeId: empId,
+        employeeName: profile.name,
+        date: today,
       } as any);
       await api.updateProfile(updatedProfile);
     } catch (err) {
       console.warn('Check-out save failed:', err);
+    }
+  };
+
+  const clearAttendanceRecords = async (params?: { date?: string; startDate?: string; endDate?: string; month?: string; year?: string; all?: boolean }) => {
+    try {
+      const res = await api.clearAttendanceRecords(params);
+      setAttendanceLogs((prev) => {
+        if (params?.all) return [];
+        if (params?.date) return prev.filter((r) => r.date !== params.date);
+        if (params?.startDate && params?.endDate) {
+          return prev.filter((r) => r.date < params.startDate! || r.date > params.endDate!);
+        }
+        if (params?.month && params?.year) {
+          const prefix = `${params.year}-${String(params.month).padStart(2, '0')}`;
+          return prev.filter((r) => !r.date.startsWith(prefix));
+        }
+        const today = new Date().toISOString().split('T')[0];
+        return prev.filter((r) => r.date !== today);
+      });
+      triggerToast(res?.message || '✓ Attendance records cleared successfully');
+    } catch (err) {
+      console.warn('Failed to clear attendance records:', err);
+      triggerToast('✗ Failed to clear attendance records');
+    }
+  };
+
+  const deleteAttendanceRecord = async (id: string) => {
+    try {
+      await api.deleteAttendanceRecord(id);
+      setAttendanceLogs((prev) => prev.filter((r) => r.id !== id));
+      triggerToast('✓ Attendance record deleted');
+    } catch (err) {
+      console.warn('Failed to delete attendance record:', err);
+      triggerToast('✗ Failed to delete record');
     }
   };
 
@@ -2737,6 +2807,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         recordCheckOut,
         disputeAttendanceRecord,
         verifyAttendanceRecord,
+        clearAttendanceRecords,
+        deleteAttendanceRecord,
       }}
     >
       {children}
