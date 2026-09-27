@@ -636,7 +636,7 @@ export const AdminDashboardView: React.FC = () => {
                     {inr(salesAchieved)}
                   </span>
                   <span className="text-[8.5px] font-bold text-[#00A88B] bg-[#E6FAF6] px-1.5 py-0.2 rounded-md border border-[#00C9A7]/40 inline-block mt-1 truncate max-w-full">
-                    {salesTarget > 0 ? Math.round((salesAchieved / salesTarget) * 100) : 53}% of {salesTarget >= 100000 ? `₹${(salesTarget / 100000).toFixed(1)}L` : inr(salesTarget)}
+                    {salesTarget > 0 ? `${Math.round((salesAchieved / salesTarget) * 100)}% of ${salesTarget >= 100000 ? `₹${(salesTarget / 100000).toFixed(1)}L` : inr(salesTarget)}` : salesAchieved > 0 ? `${inr(salesAchieved)} achieved` : '0% of ₹0'}
                   </span>
                 </div>
               </div>

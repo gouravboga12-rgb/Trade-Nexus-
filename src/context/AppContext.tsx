@@ -2270,93 +2270,82 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const verifyPayment = async (paymentId: string, status: 'VERIFIED' | 'REJECTED') => {
-    let targetPayment: PaymentVerificationItem | undefined;
-    let oldStatus: string | undefined;
+    const targetPayment = paymentVerifications.find((p) => p.id === paymentId);
+    if (!targetPayment) return;
+    const oldStatus = targetPayment.status;
+    if (oldStatus === status) return; // Prevent double crediting or redundant execution
 
-    setPaymentVerifications(prev => prev.map(p => {
-      if (p.id === paymentId) {
-        targetPayment = p;
-        oldStatus = p.status;
-        const updated: PaymentVerificationItem = { ...p, status };
-        api.updatePayment(paymentId, updated).catch(console.warn);
-        return updated;
-      }
-      return p;
-    }));
+    const updatedPayment: PaymentVerificationItem = { ...targetPayment, status };
+    setPaymentVerifications((prev) => prev.map((p) => (p.id === paymentId ? updatedPayment : p)));
 
-    if (targetPayment) {
-      const amount = (targetPayment as PaymentVerificationItem).dealAmount || 0;
-      const telecallerName = (targetPayment as PaymentVerificationItem).telecallerName;
+    const amount = targetPayment.dealAmount || 0;
+    const telecallerName = targetPayment.telecallerName || '';
 
-      if (status === 'VERIFIED' && oldStatus !== 'VERIFIED') {
-        // Credit employee salesAchieved and squad achieved upon HR verification
-        let matchedGroupName = '';
-        setTeamMembers(prev => prev.map(m => {
+    if (status === 'VERIFIED' && oldStatus !== 'VERIFIED') {
+      let matchedGroupName = '';
+      setTeamMembers((prev) =>
+        prev.map((m) => {
           if (m.name.toLowerCase() === telecallerName.toLowerCase()) {
             matchedGroupName = m.group;
-            const newSales = (m.salesAchieved || 0) + amount;
-            const updated = { ...m, salesAchieved: newSales };
-            api.updateTeamMember(m.id, updated).catch(console.warn);
-            return updated;
+            return { ...m, salesAchieved: (m.salesAchieved || 0) + amount };
           }
           return m;
-        }));
+        })
+      );
 
-        if (matchedGroupName) {
-          setTeamGroups(prev => prev.map(g => {
+      if (matchedGroupName) {
+        setTeamGroups((prev) =>
+          prev.map((g) => {
             if (g.name.toLowerCase() === matchedGroupName.toLowerCase()) {
-              const newAchieved = (g.achieved || 0) + amount;
-              const updated = { ...g, achieved: newAchieved };
-              api.updateTeamGroup(g.id, updated).catch(console.warn);
-              return updated;
+              return { ...g, achieved: (g.achieved || 0) + amount };
             }
             return g;
-          }));
-        }
+          })
+        );
+      }
 
-        if (profile.name.toLowerCase() === telecallerName.toLowerCase()) {
-          setStats(prev => {
-            const newSales = (prev.monthlySalesAchieved || 0) + amount;
-            const updated = { ...prev, monthlySalesAchieved: newSales };
-            api.updateStats(updated).catch(console.warn);
-            return updated;
-          });
-        }
-      } else if (status === 'REJECTED' && oldStatus === 'VERIFIED') {
-        // Reverse previously recognized sales from employee and squad
-        let matchedGroupName = '';
-        setTeamMembers(prev => prev.map(m => {
+      if (profile.name.toLowerCase() === telecallerName.toLowerCase()) {
+        setStats((prev) => ({
+          ...prev,
+          monthlySalesAchieved: (prev.monthlySalesAchieved || 0) + amount,
+        }));
+      }
+    } else if (status === 'REJECTED' && oldStatus === 'VERIFIED') {
+      let matchedGroupName = '';
+      setTeamMembers((prev) =>
+        prev.map((m) => {
           if (m.name.toLowerCase() === telecallerName.toLowerCase()) {
             matchedGroupName = m.group;
-            const newSales = Math.max(0, (m.salesAchieved || 0) - amount);
-            const updated = { ...m, salesAchieved: newSales };
-            api.updateTeamMember(m.id, updated).catch(console.warn);
-            return updated;
+            return { ...m, salesAchieved: Math.max(0, (m.salesAchieved || 0) - amount) };
           }
           return m;
-        }));
+        })
+      );
 
-        if (matchedGroupName) {
-          setTeamGroups(prev => prev.map(g => {
+      if (matchedGroupName) {
+        setTeamGroups((prev) =>
+          prev.map((g) => {
             if (g.name.toLowerCase() === matchedGroupName.toLowerCase()) {
-              const newAchieved = Math.max(0, (g.achieved || 0) - amount);
-              const updated = { ...g, achieved: newAchieved };
-              api.updateTeamGroup(g.id, updated).catch(console.warn);
-              return updated;
+              return { ...g, achieved: Math.max(0, (g.achieved || 0) - amount) };
             }
             return g;
-          }));
-        }
-
-        if (profile.name.toLowerCase() === telecallerName.toLowerCase()) {
-          setStats(prev => {
-            const newSales = Math.max(0, (prev.monthlySalesAchieved || 0) - amount);
-            const updated = { ...prev, monthlySalesAchieved: newSales };
-            api.updateStats(updated).catch(console.warn);
-            return updated;
-          });
-        }
+          })
+        );
       }
+
+      if (profile.name.toLowerCase() === telecallerName.toLowerCase()) {
+        setStats((prev) => ({
+          ...prev,
+          monthlySalesAchieved: Math.max(0, (prev.monthlySalesAchieved || 0) - amount),
+        }));
+      }
+    }
+
+    try {
+      await api.updatePayment(paymentId, updatedPayment);
+      refreshResources(['paymentVerifications', 'teamMembers', 'teamGroups', 'stats']);
+    } catch (err) {
+      console.warn('verifyPayment API sync error:', err);
     }
 
     triggerToast(`✓ Payment ${status === 'VERIFIED' ? 'Approved & Verified' : 'Rejected'}`);
