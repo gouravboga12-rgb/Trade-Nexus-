@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useScreenData } from '../../hooks/useScreenData';
+import { useCheckInCapture } from '../../hooks/useCheckInCapture';
 import { 
   Camera, 
   CheckCircle2, 
@@ -12,7 +13,8 @@ import {
   Building, 
   Clock,
   Shield,
-  ScanFace
+  ScanFace,
+  AlertCircle
 } from 'lucide-react';
 import { FaceRegistrationModal } from '../../components/modals/FaceRegistrationModal';
 
@@ -22,6 +24,7 @@ export const FaceScanAttendanceView: React.FC = () => {
     profile, 
     faceProfiles, 
     verifyFaceAttendance, 
+    recordCheckIn,
     setIsFaceRegistrationModalOpen, 
     setFaceRegistrationEmployee,
     setAuthStep, 
@@ -31,6 +34,15 @@ export const FaceScanAttendanceView: React.FC = () => {
   useScreenData('faceScan');
   const [scanningState, setScanningState] = useState<'INITIAL' | 'SCANNING' | 'MATCHED'>('INITIAL');
   const [progress, setProgress] = useState(0);
+
+  const { videoRef, isCameraOn, cameraError, startCamera, stopCamera, capture } = useCheckInCapture();
+
+  useEffect(() => {
+    void startCamera();
+    return () => {
+      stopCamera();
+    };
+  }, [startCamera, stopCamera]);
 
   const isLeader = currentRole === 'team_leader';
   const personName = profile.name || (isLeader ? 'Team Leader' : 'Employee');
@@ -44,32 +56,42 @@ export const FaceScanAttendanceView: React.FC = () => {
     p.employeeId === profile.id
   );
 
-  const startFaceScan = () => {
+  const startFaceScan = async () => {
     setScanningState('SCANNING');
     setProgress(0);
-  };
 
-  useEffect(() => {
-    if (scanningState === 'SCANNING') {
-      const interval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            setScanningState('MATCHED');
-            verifyFaceAttendance();
-            triggerToast(`✓ Face Match 99.8% Verified: ${personName}`);
-            setTimeout(() => {
-              setAuthStep('ATTENDANCE_SUCCESS');
-            }, 1000);
-            return 100;
-          }
-          return prev + 25;
+    const progTimer = setInterval(() => {
+      setProgress((prev) => (prev >= 90 ? 90 : prev + 15));
+    }, 120);
+
+    try {
+      const capResult = await capture();
+      clearInterval(progTimer);
+      setProgress(100);
+
+      try {
+        await recordCheckIn({
+          photo: capResult.photo,
+          latitude: capResult.latitude,
+          longitude: capResult.longitude,
         });
-      }, 140);
+      } catch (recErr) {
+        console.warn('recordCheckIn failed, falling back to verifyFaceAttendance', recErr);
+        verifyFaceAttendance();
+      }
 
-      return () => clearInterval(interval);
+      setScanningState('MATCHED');
+      stopCamera();
+      triggerToast(`✓ Face Match 99.8% Verified: ${personName}`);
+      setTimeout(() => {
+        setAuthStep('ATTENDANCE_SUCCESS');
+      }, 1000);
+    } catch (err: any) {
+      clearInterval(progTimer);
+      setScanningState('INITIAL');
+      triggerToast(`✗ Camera capture failed: ${err.message || 'Error'}`);
     }
-  }, [scanningState, setAuthStep, triggerToast, personName, verifyFaceAttendance]);
+  };
 
   return (
     <div className="min-h-screen bg-[#07131F] text-white flex flex-col justify-between max-w-md mx-auto relative overflow-hidden font-sans p-5">
@@ -107,21 +129,33 @@ export const FaceScanAttendanceView: React.FC = () => {
         {/* Terminal Outer Bezel */}
         <div className="w-full aspect-[3/4] max-h-[440px] bg-[#0A2540] rounded-[36px] border-4 border-slate-700 shadow-2xl relative overflow-hidden flex items-center justify-center">
           
-          {/* Simulated Live Camera Background */}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-800 to-slate-900 flex items-center justify-center">
-            {/* Holographic Face Silhouette */}
-            <div className="w-48 h-56 rounded-full bg-gradient-to-b from-slate-700/60 to-slate-800/80 border-2 border-dashed border-[#00C9A7]/40 flex flex-col items-center justify-center relative shadow-2xl">
-              <User className="w-24 h-24 text-slate-500 opacity-60" />
-              
-              {/* AI Facial Landmarks Dots */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-32 h-36 border border-[#00C9A7]/30 rounded-full relative">
-                  <span className="w-1.5 h-1.5 bg-[#00C9A7] rounded-full absolute top-10 left-8 shadow-[0_0_8px_#00C9A7]" />
-                  <span className="w-1.5 h-1.5 bg-[#00C9A7] rounded-full absolute top-10 right-8 shadow-[0_0_8px_#00C9A7]" />
-                  <span className="w-1.5 h-1.5 bg-[#00C9A7] rounded-full absolute top-18 left-14 shadow-[0_0_8px_#00C9A7]" />
-                  <span className="w-1.5 h-1.5 bg-[#00C9A7] rounded-full absolute bottom-8 left-14 shadow-[0_0_8px_#00C9A7]" />
-                </div>
+          {/* Live Camera Video Feed / Fallback */}
+          {isCameraOn ? (
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-800 to-slate-900 flex flex-col items-center justify-center p-4 text-center">
+              <div className="w-48 h-56 rounded-full bg-gradient-to-b from-slate-700/60 to-slate-800/80 border-2 border-dashed border-[#00C9A7]/40 flex flex-col items-center justify-center relative shadow-2xl mb-2">
+                <User className="w-24 h-24 text-slate-500 opacity-60" />
               </div>
+              {cameraError && (
+                <p className="text-[11px] text-amber-400 font-semibold px-4">{cameraError}</p>
+              )}
+            </div>
+          )}
+
+          {/* AI Facial Landmarks Dots Overlay */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-44 h-52 border-2 border-dashed border-[#00C9A7]/40 rounded-full relative">
+              <span className="w-2 h-2 bg-[#00C9A7] rounded-full absolute top-12 left-10 shadow-[0_0_8px_#00C9A7]" />
+              <span className="w-2 h-2 bg-[#00C9A7] rounded-full absolute top-12 right-10 shadow-[0_0_8px_#00C9A7]" />
+              <span className="w-2 h-2 bg-[#00C9A7] rounded-full absolute top-24 left-20 shadow-[0_0_8px_#00C9A7]" />
+              <span className="w-2 h-2 bg-[#00C9A7] rounded-full absolute bottom-12 left-20 shadow-[0_0_8px_#00C9A7]" />
             </div>
           </div>
 

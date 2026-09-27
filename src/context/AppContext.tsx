@@ -992,6 +992,47 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch {}
   }, [profile]);
 
+  // Synchronize profile attendance status strictly with today's attendance record
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const empId = currentUser?.employeeId || currentUser?.id || profile.id;
+    if (!empId) return;
+
+    const todayRec = attendanceLogs.find(
+      (a) =>
+        (a.employeeId === empId ||
+          a.employeeId === currentUser?.id ||
+          a.employeeId === currentUser?.empCode ||
+          (a.employeeName && profile.name && a.employeeName.toLowerCase() === profile.name.toLowerCase())) &&
+        a.date === today
+    );
+
+    if (todayRec) {
+      const isOut = Boolean(todayRec.checkOut);
+      const newStatus = isOut
+        ? 'ON_BREAK'
+        : todayRec.status === 'PRESENT'
+        ? 'VERIFIED_PRESENT'
+        : 'NOT_CHECKED_IN';
+      const newTime = todayRec.checkIn || '';
+      if (profile.checkInTime !== newTime || profile.faceIdStatus !== newStatus) {
+        setProfile((prev) => ({
+          ...prev,
+          checkInTime: newTime,
+          faceIdStatus: newStatus,
+        }));
+      }
+    } else if (resourceStatus.attendanceLogs === 'loaded') {
+      if (profile.checkInTime || profile.faceIdStatus === 'VERIFIED_PRESENT') {
+        setProfile((prev) => ({
+          ...prev,
+          checkInTime: '',
+          faceIdStatus: 'NOT_CHECKED_IN',
+        }));
+      }
+    }
+  }, [attendanceLogs, currentUser, profile.id, profile.name, resourceStatus.attendanceLogs]);
+
   useEffect(() => {
     try {
       localStorage.setItem('tnx_leaveRequests', JSON.stringify(leaveRequests));

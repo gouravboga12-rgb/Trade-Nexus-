@@ -45,6 +45,7 @@ import {
   Camera,
   AlertTriangle,
   CameraOff,
+  RotateCw,
 } from 'lucide-react';
 import { ExcelLeadUploadModal } from '../components/modals/ExcelLeadUploadModal';
 import { AddEmployeeModal } from '../components/modals/AddEmployeeModal';
@@ -114,6 +115,7 @@ export const AdminDashboardView: React.FC = () => {
     verifyAttendanceRecord,
     triggerToast,
     logout,
+    refreshResources,
   } = useApp();
 
   useScreenData('adminDashboard');
@@ -147,6 +149,7 @@ export const AdminDashboardView: React.FC = () => {
   const [verifySelectedDate, setVerifySelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [verifyStatusFilter, setVerifyStatusFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'DISPUTED'>('ALL');
   const [verifySearchQuery, setVerifySearchQuery] = useState('');
+  const [isRefreshingLogs, setIsRefreshingLogs] = useState(false);
   const [suspiciousModalItem, setSuspiciousModalItem] = useState<AttendanceRecord | null>(null);
   const [suspiciousReason, setSuspiciousReason] = useState<string>('Suspicious face photo / Proxy verification suspected');
   const [zoomPhotoUrl, setZoomPhotoUrl] = useState<string | null>(null);
@@ -207,6 +210,12 @@ export const AdminDashboardView: React.FC = () => {
       setAdminDistanceToOffice(null);
     }
   }, [adminDeviceLocation, office]);
+
+  useEffect(() => {
+    if (tab === 'attendance_verification') {
+      refreshResources(['attendanceLogs']);
+    }
+  }, [tab, refreshResources]);
 
   const verifyAdminLiveLocation = () => {
     setIsVerifyingAdminLocation(true);
@@ -2931,17 +2940,32 @@ export const AdminDashboardView: React.FC = () => {
           return (
             <div className="space-y-4 animate-in fade-in duration-150">
               {/* Header */}
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setTab('more')}
-                  className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                </button>
-                <div>
-                  <h2 className="font-display font-black text-xl text-[#0A2540] tracking-tight">Photo Audit</h2>
-                  <p className="text-[11px] text-slate-500">Review punch-in selfies & flag suspicious records</p>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setTab('more')}
+                    className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                  <div>
+                    <h2 className="font-display font-black text-xl text-[#0A2540] tracking-tight">Photo Audit</h2>
+                    <p className="text-[11px] text-slate-500">Review punch-in selfies & flag suspicious records</p>
+                  </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRefreshingLogs(true);
+                    refreshResources(['attendanceLogs']).finally(() => setIsRefreshingLogs(false));
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                  title="Refresh latest punch-ins"
+                >
+                  <RotateCw className={`w-3.5 h-3.5 ${isRefreshingLogs ? 'animate-spin text-[#00A88B]' : ''}`} />
+                  <span>Refresh</span>
+                </button>
               </div>
 
               {/* Filters */}

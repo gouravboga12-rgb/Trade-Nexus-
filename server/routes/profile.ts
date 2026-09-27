@@ -115,15 +115,15 @@ function mergedProfile(user?: any, queryEmpId?: string) {
     ORDER BY createdAt DESC LIMIT 1
   `).get(profile.id, profile.empCode || profile.id, `att-${todayStr}-${profile.id}`, todayStr) as any;
 
-  let dynamicFaceIdStatus = profile.faceIdStatus || 'NOT_CHECKED_IN';
-  let dynamicCheckInTime = profile.checkInTime || '';
-  let dynamicCheckOutTime = profile.checkOutTime || '';
+  let dynamicFaceIdStatus = 'NOT_CHECKED_IN';
+  let dynamicCheckInTime = '';
+  let dynamicCheckOutTime = '';
 
   if (todayAtt) {
     if (todayAtt.checkOut) {
       dynamicFaceIdStatus = 'ON_BREAK';
-      dynamicCheckInTime = todayAtt.checkIn || dynamicCheckInTime;
-      dynamicCheckOutTime = todayAtt.checkOut;
+      dynamicCheckInTime = todayAtt.checkIn || '';
+      dynamicCheckOutTime = todayAtt.checkOut || '';
     } else if (todayAtt.checkIn) {
       dynamicFaceIdStatus = 'VERIFIED_PRESENT';
       dynamicCheckInTime = todayAtt.checkIn;

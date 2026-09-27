@@ -92,6 +92,7 @@ export const SCREEN_RESOURCES = {
   modulesMenu: ['profile'],
 
   teamLeaderDashboard: [
+    'profile',
     'teamMembers',
     'teamGroups',
     'teamTasks',
@@ -105,6 +106,8 @@ export const SCREEN_RESOURCES = {
   ],
 
   hrDashboard: [
+    'profile',
+    'attendanceLogs',
     'teamMembers',
     'teamGroups',
     'leaveRequests',
