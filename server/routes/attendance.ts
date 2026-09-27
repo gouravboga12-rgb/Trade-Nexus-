@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
+import { getTodayDateIST, getCurrentTimeIST } from '../utils/dateUtils.js';
 
 const router = Router();
 
@@ -73,7 +74,7 @@ router.get('/today', (req: Request, res: Response) => {
     const userEmpId = req.user?.employeeId || req.user?.id;
     const userEmpCode = req.user?.empCode;
     const targetEmpId = String(req.query.employeeId || '').trim() || userEmpId;
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getTodayDateIST();
 
     const record = targetEmpId
       ? db.prepare(`
@@ -237,10 +238,10 @@ router.post('/', (req: Request, res: Response) => {
       employeeId, employeeName, checkInPhoto, latitude, longitude, inTime, outTime
     } = req.body;
 
-    const resolvedCheckIn = checkIn || inTime || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const resolvedCheckIn = checkIn || inTime || getCurrentTimeIST();
     const resolvedCheckOut = checkOut || outTime || null;
 
-    const recDate = date || new Date().toISOString().split('T')[0];
+    const recDate = date || getTodayDateIST();
     const recDay = dayNumber || new Date(recDate).getDate();
 
     // Match any existing record for this employee today by employeeId, empCode, name or provided id
@@ -314,8 +315,8 @@ router.post('/', (req: Request, res: Response) => {
       ON CONFLICT(id) DO UPDATE SET
         status = excluded.status,
         checkIn = excluded.checkIn,
-        checkOut = coalesce(excluded.checkOut, attendance_records.checkOut),
-        workHours = coalesce(excluded.workHours, attendance_records.workHours),
+        checkOut = excluded.checkOut,
+        workHours = coalesce(excluded.workHours, 'In Progress'),
         method = coalesce(excluded.method, attendance_records.method),
         employeeName = coalesce(excluded.employeeName, attendance_records.employeeName),
         checkInPhoto = excluded.checkInPhoto,
@@ -358,7 +359,7 @@ router.post('/', (req: Request, res: Response) => {
 // PUT /api/attendance/:id — check out, or correct a record
 router.put('/:id', (req: Request, res: Response) => {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayDateIST();
     let existing = db.prepare('SELECT * FROM attendance_records WHERE id = ?').get(req.params.id) as any;
     
     // Fallback: match by employeeId / employeeName and date if direct ID lookup fails
@@ -435,6 +436,10 @@ router.put('/:id', (req: Request, res: Response) => {
           db.prepare(`UPDATE employee_profiles SET faceIdStatus = 'NOT_CHECKED_IN', checkInTime = '' WHERE id = ? OR empCode = ?`).run(
             merged.employeeId, merged.employeeId
           );
+        } else if (merged.checkOut) {
+          db.prepare(`UPDATE employee_profiles SET faceIdStatus = 'ON_BREAK', checkOutTime = ? WHERE id = ? OR empCode = ?`).run(
+            merged.checkOut, merged.employeeId, merged.employeeId
+          );
         } else if (merged.status === 'PRESENT' || merged.status === 'LATE') {
           db.prepare(`UPDATE employee_profiles SET faceIdStatus = 'VERIFIED_PRESENT', checkInTime = coalesce(?, checkInTime) WHERE id = ? OR empCode = ?`).run(
             merged.checkIn || null, merged.employeeId, merged.employeeId
@@ -476,7 +481,7 @@ router.delete('/', (req: Request, res: Response) => {
     }
 
     // Default if no param: delete for today
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayDateIST();
     const info = db.prepare('DELETE FROM attendance_records WHERE date = ?').run(today);
     return res.status(200).json({ success: true, count: info.changes, message: `Cleared ${info.changes} records for ${today}` });
   } catch (error) {

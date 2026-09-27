@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useScreenData } from '../hooks/useScreenData';
 import { AssignedLead } from '../types';
+import { getTodayDateIST } from '../utils/dateUtils';
 import { 
   CheckCircle2, 
   Phone, 
@@ -52,7 +53,7 @@ export const TelecallerHomeView: React.FC = () => {
   const empFirstName = empName.split(' ')[0] || 'Sales Rep';
 
   // Dispute state derived from profile and attendanceLogs
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayDateIST();
   const todayAttendance = attendanceLogs?.find(
     (a) => a.date === today && (a.employeeId === empId || a.employeeId === empCode || a.id?.includes(empId || '') || (a.employeeName && profile.name && a.employeeName.toLowerCase() === profile.name.toLowerCase()))
   );
@@ -133,8 +134,11 @@ export const TelecallerHomeView: React.FC = () => {
   const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
   const remainingToTarget = Math.max(0, effectiveMonthlyTarget - wonDealsRevenue);
 
-  const isPunchedIn = profile.faceIdStatus === 'VERIFIED_PRESENT' && !!profile.checkInTime;
-  const isShiftEnded = profile.faceIdStatus === 'ON_BREAK';
+  const isPunchedIn = !isAttendanceDisputed && (
+    (profile.faceIdStatus === 'VERIFIED_PRESENT' && !!profile.checkInTime) ||
+    Boolean(todayAttendance?.checkIn && !todayAttendance?.checkOut)
+  );
+  const isShiftEnded = !isPunchedIn && (profile.faceIdStatus === 'ON_BREAK' || Boolean(todayAttendance?.checkOut));
 
   const handleInstantCall = () => {
     if (!urgentLead) return;

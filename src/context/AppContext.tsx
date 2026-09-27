@@ -32,6 +32,7 @@ import {
   AuthUser,
 } from '../types';
 import { api, getStoredAuthUser, setStoredAuthUser, getAuthToken, setAuthToken } from '../services/api';
+import { getTodayDateIST, getCurrentTimeIST } from '../utils/dateUtils';
 import {
   ALL_RESOURCE_KEYS,
   EMPTY_PROFILE,
@@ -967,7 +968,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Synchronize profile attendance status strictly with today's attendance record
   useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayDateIST();
     const empId = currentUser?.employeeId || currentUser?.id || profile.id;
     if (!empId) return;
 
@@ -996,9 +997,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
       } else {
         const isOut = Boolean(todayRec.checkOut);
-        const newStatus = isOut
+        const isPunchedIn = Boolean(todayRec.checkIn) && !isOut;
+        const newStatus: 'VERIFIED_PRESENT' | 'ON_BREAK' | 'NOT_CHECKED_IN' = isOut
           ? 'ON_BREAK'
-          : todayRec.status === 'PRESENT'
+          : (isPunchedIn || todayRec.status === 'PRESENT' || todayRec.status === 'LATE' || todayRec.status === 'HALF_DAY')
           ? 'VERIFIED_PRESENT'
           : 'NOT_CHECKED_IN';
         const newTime = todayRec.checkIn || '';
@@ -2524,8 +2526,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     longitude: number | null;
   }) => {
     const now = new Date();
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const today = now.toISOString().split('T')[0];
+    const timeStr = getCurrentTimeIST();
+    const today = getTodayDateIST();
     const empId = currentUser?.employeeId || currentUser?.id || profile.id || 'emp-self';
     const empName = currentUser?.name || profile.name || 'Employee';
     const recordId = `att-${today}-${empId}`;
@@ -2554,6 +2556,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         name: empName,
         faceIdStatus: 'VERIFIED_PRESENT',
         checkInTime: timeStr,
+        checkOutTime: undefined,
         // Clear any dispute on successful re-punch
         disputedByAdmin: false,
         disputeReason: null,
@@ -2571,9 +2574,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           dayNumber: now.getDate(),
           status: resolvedStatus,
           checkIn: timeStr,
+          checkOut: undefined,
           workHours: 'In Progress',
           method: 'Face ID Biometric',
           checkInPhoto: data.photo ?? undefined,
+          checkOutPhoto: undefined,
           checkInLat: data.latitude ?? undefined,
           checkInLng: data.longitude ?? undefined,
           locationStatus: (rec as any)?.locationStatus || (data.latitude == null ? 'NOT_SHARED' : 'AT_OFFICE'),
@@ -2609,8 +2614,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     longitude: number | null;
   }) => {
     const now = new Date();
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const today = now.toISOString().split('T')[0];
+    const timeStr = getCurrentTimeIST();
+    const today = getTodayDateIST();
     const empId = currentUser?.employeeId || currentUser?.id || profile.id || 'emp-self';
     const recordId = `att-${today}-${empId}`;
 

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useScreenData } from '../hooks/useScreenData';
+import { getTodayDateIST } from '../utils/dateUtils';
 import { 
   Users, 
   PhoneCall, 
@@ -72,7 +73,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
     : 'TL';
 
   // Dispute state derived from profile and attendanceLogs
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getTodayDateIST();
   const todayDate = new Date();
   const empId = currentUser?.employeeId || currentUser?.id || profile?.id;
   const todayAttendance = attendanceLogs?.find(
@@ -80,6 +81,11 @@ export const TeamLeaderDashboardView: React.FC = () => {
   );
   const isAttendanceDisputed = Boolean(profile?.disputedByAdmin) || Boolean(todayAttendance?.disputedByAdmin);
   const attendanceDisputeReason = profile?.disputeReason || todayAttendance?.disputeReason || 'Your punch-in photo was flagged as suspicious.';
+  const isPunchedInToday = !isAttendanceDisputed && (
+    profile.faceIdStatus === 'VERIFIED_PRESENT' ||
+    Boolean(todayAttendance?.checkIn && !todayAttendance?.checkOut)
+  );
+  const punchInTimeDisplay = isAttendanceDisputed ? '' : (profile?.checkInTime || todayAttendance?.checkIn || '');
 
   const [activeTab, setActiveTabState] = useState<'home' | 'team' | 'leaves' | 'reports' | 'meetings'>(() => {
     try {
@@ -655,12 +661,12 @@ export const TeamLeaderDashboardView: React.FC = () => {
                   <div>
                     <h4 className="font-display font-bold text-xs text-[#0A2540]">My Attendance (TL Punch)</h4>
                     <p className="text-[10px] text-slate-500 font-mono">
-                      {profile.checkInTime ? `Punched in: ${profile.checkInTime}` : 'Face scan required to check in'}
+                      {isPunchedInToday && punchInTimeDisplay ? `Punched in: ${punchInTimeDisplay}` : 'Face scan required to check in'}
                     </p>
                   </div>
                 </div>
 
-                {profile.checkInTime && profile.faceIdStatus === 'VERIFIED_PRESENT' ? (
+                {isPunchedInToday ? (
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
                       ✓ Present

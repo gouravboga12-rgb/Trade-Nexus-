@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useListDefault } from '../hooks/useListDefault';
 import { useScreenData } from '../hooks/useScreenData';
+import { getTodayDateIST } from '../utils/dateUtils';
 import { 
   Menu,
   Bell,
@@ -143,7 +144,7 @@ export const HrDashboardView: React.FC = () => {
     : 'HR';
 
   // --- Attendance dispute & punch state derived from profile & attendance logs ---
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayDateIST();
   const empId = currentUser?.employeeId || currentUser?.id || profile?.id;
   const todayAttendance = attendanceLogs.find(
     (a) => a.date === today && (a.employeeId === empId || a.employeeId === currentUser?.empCode || a.id?.includes(empId || '') || (a.employeeName && profile?.name && a.employeeName.toLowerCase() === profile.name.toLowerCase()))
