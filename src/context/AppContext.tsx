@@ -1008,26 +1008,46 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
 
     if (todayRec) {
-      const isOut = Boolean(todayRec.checkOut);
-      const newStatus = isOut
-        ? 'ON_BREAK'
-        : todayRec.status === 'PRESENT'
-        ? 'VERIFIED_PRESENT'
-        : 'NOT_CHECKED_IN';
-      const newTime = todayRec.checkIn || '';
-      if (profile.checkInTime !== newTime || profile.faceIdStatus !== newStatus) {
-        setProfile((prev) => ({
-          ...prev,
-          checkInTime: newTime,
-          faceIdStatus: newStatus,
-        }));
+      if (todayRec.disputedByAdmin) {
+        if (profile.faceIdStatus !== 'NOT_CHECKED_IN' || profile.checkInTime || !profile.disputedByAdmin) {
+          setProfile((prev) => ({
+            ...prev,
+            checkInTime: '',
+            faceIdStatus: 'NOT_CHECKED_IN',
+            disputedByAdmin: true,
+            disputeReason: todayRec.disputeReason,
+          }));
+        }
+      } else {
+        const isOut = Boolean(todayRec.checkOut);
+        const newStatus = isOut
+          ? 'ON_BREAK'
+          : todayRec.status === 'PRESENT'
+          ? 'VERIFIED_PRESENT'
+          : 'NOT_CHECKED_IN';
+        const newTime = todayRec.checkIn || '';
+        if (
+          profile.checkInTime !== newTime ||
+          profile.faceIdStatus !== newStatus ||
+          profile.disputedByAdmin
+        ) {
+          setProfile((prev) => ({
+            ...prev,
+            checkInTime: newTime,
+            faceIdStatus: newStatus,
+            disputedByAdmin: false,
+            disputeReason: null,
+          }));
+        }
       }
     } else if (resourceStatus.attendanceLogs === 'loaded') {
-      if (profile.checkInTime || profile.faceIdStatus === 'VERIFIED_PRESENT') {
+      if (profile.checkInTime || profile.faceIdStatus === 'VERIFIED_PRESENT' || profile.disputedByAdmin) {
         setProfile((prev) => ({
           ...prev,
           checkInTime: '',
           faceIdStatus: 'NOT_CHECKED_IN',
+          disputedByAdmin: false,
+          disputeReason: null,
         }));
       }
     }
@@ -2271,6 +2291,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         name: empName,
         faceIdStatus: 'VERIFIED_PRESENT',
         checkInTime: timeStr,
+        // Clear any dispute on successful re-punch
+        disputedByAdmin: false,
+        disputeReason: null,
       };
       setProfile(updatedProfile);
 
@@ -2289,12 +2312,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           checkInLat: data.latitude ?? undefined,
           checkInLng: data.longitude ?? undefined,
           locationStatus: (rec as any)?.locationStatus || (data.latitude == null ? 'NOT_SHARED' : 'AT_OFFICE'),
+          disputedByAdmin: false,
+          disputeReason: undefined,
         },
         ...prev.filter((item) => item.dayNumber !== now.getDate()),
       ]);
 
       triggerToast(`✓ Checked in at ${timeStr}`);
       await api.updateProfile(updatedProfile).catch(() => {});
+      // Refresh from server so Admin Photo Audit panel updates with the new photo
+      refreshResources(['attendanceLogs']).catch(() => {});
     } catch (err: any) {
       const msg = err.message || 'Check-in failed';
       triggerToast(`✗ ${msg}`);
@@ -2358,10 +2385,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setProfile(p => ({
         ...p,
         faceIdStatus: 'NOT_CHECKED_IN' as const,
+        checkInTime: '',
+        disputedByAdmin: true,
+        disputeReason: reason,
       }));
     }
 
-    triggerToast(`✓ Attendance changed to ABSENT (Reason noted)`);
+    triggerToast(`✓ Attendance marked as Suspicious & Flagged`);
     try {
       await api.updateAttendance(recordId, {
         status: 'ABSENT',
@@ -2388,6 +2418,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
 
     setTeamMembers(prev => prev.map(m => (m.id === employeeId || m.empCode === employeeId) ? { ...m, attendanceStatus: 'PRESENT' } : m));
+
+    if (currentUser?.employeeId === employeeId || currentUser?.id === employeeId || profile.id === employeeId) {
+      setProfile(p => ({
+        ...p,
+        faceIdStatus: 'VERIFIED_PRESENT' as const,
+        disputedByAdmin: false,
+        disputeReason: null,
+      }));
+    }
 
     triggerToast(`✓ Attendance marked PRESENT & verified`);
     try {

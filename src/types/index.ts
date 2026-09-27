@@ -151,6 +151,8 @@ export interface EmployeeProfile {
   checkOutTime?: string;
   avatar?: string;
   totalLeaveBalance: number;
+  disputedByAdmin?: boolean;
+  disputeReason?: string | null;
 }
 
 export interface TeamMember {

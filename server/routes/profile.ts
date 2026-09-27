@@ -120,7 +120,11 @@ function mergedProfile(user?: any, queryEmpId?: string) {
   let dynamicCheckOutTime = '';
 
   if (todayAtt) {
-    if (todayAtt.checkOut) {
+    if (todayAtt.disputedByAdmin) {
+      dynamicFaceIdStatus = 'NOT_CHECKED_IN';
+      dynamicCheckInTime = '';
+      dynamicCheckOutTime = '';
+    } else if (todayAtt.checkOut) {
       dynamicFaceIdStatus = 'ON_BREAK';
       dynamicCheckInTime = todayAtt.checkIn || '';
       dynamicCheckOutTime = todayAtt.checkOut || '';
@@ -141,6 +145,8 @@ function mergedProfile(user?: any, queryEmpId?: string) {
     faceIdStatus: dynamicFaceIdStatus,
     checkInTime: dynamicCheckInTime,
     checkOutTime: dynamicCheckOutTime,
+    disputedByAdmin: todayAtt ? Boolean(todayAtt.disputedByAdmin) : false,
+    disputeReason: todayAtt?.disputedByAdmin ? todayAtt.disputeReason : null,
     active: roster?.active ?? 1,
   };
 }

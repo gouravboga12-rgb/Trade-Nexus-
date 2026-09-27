@@ -265,16 +265,18 @@ router.post('/', (req: Request, res: Response) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         status = excluded.status,
-        checkIn = coalesce(attendance_records.checkIn, excluded.checkIn),
+        checkIn = excluded.checkIn,
         checkOut = coalesce(excluded.checkOut, attendance_records.checkOut),
         workHours = coalesce(excluded.workHours, attendance_records.workHours),
         method = coalesce(excluded.method, attendance_records.method),
         employeeName = coalesce(excluded.employeeName, attendance_records.employeeName),
-        checkInPhoto = coalesce(attendance_records.checkInPhoto, excluded.checkInPhoto),
-        checkInLat = coalesce(attendance_records.checkInLat, excluded.checkInLat),
-        checkInLng = coalesce(attendance_records.checkInLng, excluded.checkInLng),
-        checkInDistanceM = coalesce(attendance_records.checkInDistanceM, excluded.checkInDistanceM),
-        locationStatus = coalesce(attendance_records.locationStatus, excluded.locationStatus)
+        checkInPhoto = coalesce(excluded.checkInPhoto, attendance_records.checkInPhoto),
+        checkInLat = coalesce(excluded.checkInLat, attendance_records.checkInLat),
+        checkInLng = coalesce(excluded.checkInLng, attendance_records.checkInLng),
+        checkInDistanceM = coalesce(excluded.checkInDistanceM, attendance_records.checkInDistanceM),
+        locationStatus = coalesce(excluded.locationStatus, attendance_records.locationStatus),
+        disputedByAdmin = 0,
+        disputeReason = NULL
     `).run(
       recId, recDate, recDay, status || 'PRESENT', resolvedCheckIn, resolvedCheckOut,
       workHours || 'In Progress', method || 'Face ID Biometric',
@@ -285,8 +287,13 @@ router.post('/', (req: Request, res: Response) => {
     // Keep the roster in step so Admin's register shows today's status
     if (employeeId) {
       db.prepare(
-        `UPDATE team_members SET attendanceStatus = ?, checkInTime = ?, checkInMethod = ? WHERE id = ?`
-      ).run(status || 'PRESENT', resolvedCheckIn, method || 'Face ID Biometric', employeeId);
+        `UPDATE team_members SET attendanceStatus = ?, checkInTime = ?, checkInMethod = ? WHERE id = ? OR empCode = ?`
+      ).run(status || 'PRESENT', resolvedCheckIn, method || 'Face ID Biometric', employeeId, employeeId);
+      try {
+        db.prepare(
+          `UPDATE employee_profiles SET faceIdStatus = 'VERIFIED_PRESENT', checkInTime = ? WHERE id = ? OR empCode = ?`
+        ).run(resolvedCheckIn, employeeId, employeeId);
+      } catch {}
     }
 
     const record = db.prepare('SELECT * FROM attendance_records WHERE id = ?').get(recId) as any;
