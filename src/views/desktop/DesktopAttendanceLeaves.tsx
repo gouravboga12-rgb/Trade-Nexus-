@@ -211,13 +211,22 @@ export const DesktopAttendanceLeaves: React.FC = () => {
                       <td className="py-3 px-2 text-slate-600 max-w-xs truncate">{req.reason}</td>
                       <td className="py-3 px-2">
                         <span className={`inline-block text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${
-                          req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                          req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
+                          req.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' :
+                          'bg-amber-100 text-amber-800'
                         }`}>
                           {req.status}
                         </span>
                       </td>
-                      <td className="py-3 px-2 text-right font-semibold text-slate-500">
-                        {req.approvedBy ? req.approvedBy : 'Pending TL Review'}
+                      <td className={`py-3 px-2 text-right font-semibold text-xs ${
+                        req.status === 'REJECTED' ? 'text-rose-600' :
+                        req.approvedBy ? 'text-emerald-700' : 'text-slate-500'
+                      }`}>
+                        {req.approvedBy
+                          ? req.status === 'REJECTED'
+                            ? req.approvedBy
+                            : `✓ Approved by ${req.approvedBy}`
+                          : 'Pending TL Review'}
                       </td>
                     </tr>
                   ))}

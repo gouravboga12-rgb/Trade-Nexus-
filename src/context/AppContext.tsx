@@ -949,6 +949,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return () => clearInterval(interval);
   }, [authStep, loadResources]);
 
+  // Live real-time background sync for leads, call logs, and payments so
+  // Admin/TL/HR panels always reflect telecaller activity (won deals, updates, etc.)
+  useEffect(() => {
+    if (authStep !== 'AUTHENTICATED') return;
+    const syncLeads = () => {
+      loadResources(['assignedLeads', 'callLogs', 'paymentVerifications'], { force: true });
+    };
+    // Initial fetch immediately, then poll every 10 seconds
+    syncLeads();
+    const interval = setInterval(syncLeads, 10000);
+    return () => clearInterval(interval);
+  }, [authStep, loadResources]);
+
   useEffect(() => {
     try {
       localStorage.setItem('tnx_teamMembers', JSON.stringify(teamMembers));
@@ -1243,11 +1256,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         api.createPayment(newPayment).catch(console.warn);
       }
 
-      // SQLite API calls
+      // SQLite API calls — then force-refresh so Admin/TL see the update immediately
       try {
-        api.updateAssignedLead(leadId, targetLead).catch(console.warn);
-        api.createCallLog(newCallItem).catch(console.warn);
-        api.updateStats(updatedStats).catch(console.warn);
+        await Promise.allSettled([
+          api.updateAssignedLead(leadId, targetLead),
+          api.createCallLog(newCallItem),
+          api.updateStats(updatedStats),
+        ]);
+        // Force global refresh of leads, call logs, and payment verifications
+        // so all panels (Admin, TL, HR) reflect this change without waiting for
+        // the next polling cycle.
+        refreshResources(['assignedLeads', 'callLogs', 'paymentVerifications']);
       } catch (err) {
         console.warn('API sync error:', err);
       }
