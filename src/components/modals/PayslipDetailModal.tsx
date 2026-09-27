@@ -335,6 +335,23 @@ export const PayslipDetailModal: React.FC<PayslipDetailModalProps> = ({ payslip,
                 </div>
               </div>
 
+              {/* Remarks / Custom Adjustments Note if edited */}
+              {payslip.changeRemarks && (
+                <div className="mt-3 p-2.5 rounded-lg bg-amber-50/70 border border-amber-200 text-xs text-slate-700">
+                  <span className="font-bold text-amber-900 block mb-0.5">
+                    Salary Customization &amp; Adjustment Notes:
+                  </span>
+                  <p className="italic text-[11px] text-slate-600">
+                    "{payslip.changeRemarks}"
+                  </p>
+                  {payslip.modifiedBy && (
+                    <span className="text-[10px] text-slate-400 block mt-1">
+                      Customized by {payslip.modifiedBy}
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Bottom Summary & Authorized Signatory (Exact 4.png) */}
               <div className="pt-4 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 text-xs sm:text-sm font-semibold text-slate-800">
                 

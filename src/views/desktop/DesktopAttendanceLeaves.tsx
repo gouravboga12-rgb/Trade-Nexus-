@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   FileText
 } from 'lucide-react';
+import { RejectedLeaveBanner } from '../../components/common/RejectedLeaveBanner';
 
 export const DesktopAttendanceLeaves: React.FC = () => {
   const { 
@@ -58,6 +59,9 @@ export const DesktopAttendanceLeaves: React.FC = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       
+      {/* Rejected Leave Notification Banner */}
+      <RejectedLeaveBanner className="mb-2" />
+
       {/* Top Header */}
       <div className="flex items-center justify-between">
         <div>

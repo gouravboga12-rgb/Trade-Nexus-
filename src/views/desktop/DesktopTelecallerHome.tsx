@@ -23,6 +23,7 @@ import {
   Award,
   ArrowRight
 } from 'lucide-react';
+import { RejectedLeaveBanner } from '../../components/common/RejectedLeaveBanner';
 
 export const DesktopTelecallerHome: React.FC = () => {
   const { 
@@ -81,6 +82,9 @@ export const DesktopTelecallerHome: React.FC = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       
+      {/* Rejected Leave Notification Banner */}
+      <RejectedLeaveBanner className="mb-2" />
+
       {/* 1. Page Header with Greeting & Quick Log Call CTA */}
       <div className="flex items-center justify-between">
         <div>

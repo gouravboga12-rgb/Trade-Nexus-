@@ -250,6 +250,8 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     };
   });
 
+  const pendingLeaves = leaveRequests.filter((l) => l.approvalStage === 'PENDING_ADMIN' || (!l.approvalStage && l.status === 'PENDING'));
+
   // ---------------------------------------------------------------- shells
 
   const Card: React.FC<{ label: string; value: string; sub?: string; tone?: 'plain' | 'good' | 'warn' }> = ({
@@ -454,6 +456,74 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
         />
         <Card label="Leads due today" value={String(leadsDueToday.length)} sub="follow-ups scheduled" />
       </div>
+
+      {/* Pending Leave Approvals Quick Escalation Card for Super Admin */}
+      {pendingLeaves.length > 0 && (
+        <div className="nexus-card bg-amber-50/75 border-2 border-amber-300 rounded-3xl p-5 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-xs shadow-xs">
+                {pendingLeaves.length}
+              </div>
+              <div>
+                <h4 className="font-display font-black text-base text-amber-950 uppercase tracking-wider">
+                  Pending Leave Requests ({pendingLeaves.length})
+                </h4>
+                <span className="text-xs text-amber-800">Final executive sanction waiting on floor</span>
+              </div>
+            </div>
+            <button
+              onClick={() => setTab('approvals')}
+              className="text-xs font-bold text-amber-900 hover:underline"
+            >
+              View All Approvals →
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            {pendingLeaves.slice(0, 4).map((l) => (
+              <div key={l.id} className="bg-white p-4 rounded-2xl border border-amber-200 shadow-2xs space-y-2.5">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="font-bold text-sm text-[#0A2540] block">{l.employeeName || 'Staff Member'}</span>
+                    <span className="text-xs text-amber-800 font-semibold">{l.leaveType} • {l.fromDate} to {l.toDate} ({l.totalDays || 1} day(s))</span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300">
+                    PENDING
+                  </span>
+                </div>
+                {l.reason && (
+                  <p className="text-xs text-slate-600 italic bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    "{l.reason}"
+                  </p>
+                )}
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    onClick={() => {
+                      approveLeaveRequest(l.id);
+                      triggerToast(`✓ Approved leave request for ${l.employeeName || 'Staff'}`);
+                    }}
+                    className="py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Approve Leave</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      rejectLeaveRequest(l.id, 'Declined by Admin due to operational schedule');
+                      triggerToast(`✗ Rejected leave request for ${l.employeeName || 'Staff'}`);
+                    }}
+                    className="py-2 rounded-xl bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-600 hover:text-rose-600 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    <span>Reject</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="nexus-card bg-white border border-slate-200 shadow-sm overflow-hidden">

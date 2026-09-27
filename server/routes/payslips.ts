@@ -68,18 +68,25 @@ router.post('/', (req: Request, res: Response) => {
     const { 
       id, employeeId, empCode, employeeName, roleTitle, department,
       month, year, basicSalary, hra, specialAllowance, incentives, 
-      pfDeduction, taxDeduction, netPay, generatedDate, status 
+      pfDeduction, taxDeduction, netPay, generatedDate, status,
+      customNotes, changeRemarks, modifiedBy, modifiedAt
     } = req.body;
     const payId = id || `pay-${Date.now()}`;
 
     db.prepare(`
-      INSERT INTO payslips (id, employeeId, empCode, employeeName, roleTitle, department, month, year, basicSalary, hra, specialAllowance, incentives, pfDeduction, taxDeduction, netPay, generatedDate, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO payslips (
+        id, employeeId, empCode, employeeName, roleTitle, department, 
+        month, year, basicSalary, hra, specialAllowance, incentives, 
+        pfDeduction, taxDeduction, netPay, generatedDate, status,
+        customNotes, changeRemarks, modifiedBy, modifiedAt
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       payId, employeeId || null, empCode || null, employeeName || null, roleTitle || null, department || null,
       month, Number(year) || new Date().getFullYear(), Number(basicSalary) || 0, Number(hra) || 0,
       Number(specialAllowance) || 0, Number(incentives) || 0, Number(pfDeduction) || 0,
-      Number(taxDeduction) || 0, Number(netPay) || 0, generatedDate || 'Today', status || 'PAID'
+      Number(taxDeduction) || 0, Number(netPay) || 0, generatedDate || 'Today', status || 'PAID',
+      customNotes || null, changeRemarks || null, modifiedBy || null, modifiedAt || new Date().toISOString()
     );
 
     const created = db.prepare('SELECT * FROM payslips WHERE id = ?').get(payId);
@@ -89,15 +96,82 @@ router.post('/', (req: Request, res: Response) => {
   }
 });
 
+// PUT /api/payslips/:id (Edit / Customize existing payslip with salary fields & change remarks)
+router.put('/:id', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const existing = db.prepare('SELECT * FROM payslips WHERE id = ?').get(id) as any;
+    if (!existing) {
+      return res.status(404).json({ error: 'Payslip not found' });
+    }
+
+    const {
+      basicSalary = existing.basicSalary,
+      hra = existing.hra,
+      specialAllowance = existing.specialAllowance,
+      incentives = existing.incentives,
+      pfDeduction = existing.pfDeduction,
+      taxDeduction = existing.taxDeduction,
+      netPay,
+      status = existing.status,
+      customNotes = existing.customNotes,
+      changeRemarks = existing.changeRemarks,
+      modifiedBy = req.user?.name || 'HR Manager',
+    } = req.body;
+
+    const numBasic = Number(basicSalary) || 0;
+    const numHra = Number(hra) || 0;
+    const numAllowance = Number(specialAllowance) || 0;
+    const numIncentives = Number(incentives) || 0;
+    const numPf = Number(pfDeduction) || 0;
+    const numTax = Number(taxDeduction) || 0;
+    const computedNetPay = netPay !== undefined 
+      ? Number(netPay) 
+      : (numBasic + numHra + numAllowance + numIncentives) - (numPf + numTax);
+
+    const nowIso = new Date().toISOString();
+
+    db.prepare(`
+      UPDATE payslips SET
+        basicSalary = ?,
+        hra = ?,
+        specialAllowance = ?,
+        incentives = ?,
+        pfDeduction = ?,
+        taxDeduction = ?,
+        netPay = ?,
+        status = ?,
+        customNotes = ?,
+        changeRemarks = ?,
+        modifiedBy = ?,
+        modifiedAt = ?
+      WHERE id = ?
+    `).run(
+      numBasic, numHra, numAllowance, numIncentives, numPf, numTax,
+      computedNetPay, status, customNotes || null, changeRemarks || null,
+      modifiedBy, nowIso, id
+    );
+
+    const updated = db.prepare('SELECT * FROM payslips WHERE id = ?').get(id);
+    return res.status(200).json(updated);
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 // POST /api/payslips/bulk
 router.post('/bulk', (req: Request, res: Response) => {
   try {
-    const { month, year } = req.body;
+    const { month, year, employeeIds } = req.body;
     const numericYear = Number(year) || new Date().getFullYear();
     const monthClean = String(month || 'January').trim();
 
-    // Get all active team members
-    const activeMembers = db.prepare('SELECT * FROM team_members WHERE active = 1').all() as any[];
+    // Get all active team members or filter by employeeIds
+    let activeMembers = db.prepare('SELECT * FROM team_members WHERE active = 1').all() as any[];
+    if (Array.isArray(employeeIds) && employeeIds.length > 0) {
+      const idSet = new Set(employeeIds);
+      activeMembers = activeMembers.filter(m => idSet.has(m.id) || idSet.has(m.empCode));
+    }
 
     const generatedPayslips: any[] = [];
     const insertPayslip = db.prepare(`

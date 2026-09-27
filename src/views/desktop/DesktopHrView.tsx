@@ -32,10 +32,13 @@ import {
   Eye,
   ExternalLink,
   QrCode,
-  Layers
+  Layers,
+  FileEdit
 } from 'lucide-react';
-import { CandidateInterview, OnboardingEmployee, ExitEmployee, PaymentVerificationItem, TeamMember } from '../../types';
+import { CandidateInterview, OnboardingEmployee, ExitEmployee, PaymentVerificationItem, TeamMember, PayslipItem } from '../../types';
 import { AddEmployeeModal } from '../../components/modals/AddEmployeeModal';
+import { EditPayslipModal } from '../../components/modals/EditPayslipModal';
+import { RejectedLeaveBanner } from '../../components/common/RejectedLeaveBanner';
 import { Employee360ProfileView } from '../Employee360ProfileView';
 import { EmployeeAvatar } from '../../components/common/EmployeeAvatar';
 import { MeetingTimePicker } from '../../components/common/MeetingTimePicker';
@@ -117,6 +120,9 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
 
   const [payrollMonth, setPayrollMonth] = useState('May');
   const [payrollYear, setPayrollYear] = useState('2025');
+  const [payslipSelectionMode, setPayslipSelectionMode] = useState<'ALL' | 'SPECIFIC'>('ALL');
+  const [selectedEmpIdsForPayroll, setSelectedEmpIdsForPayroll] = useState<string[]>(teamMembers.map(m => m.id));
+  const [selectedPayslipForEdit, setSelectedPayslipForEdit] = useState<PayslipItem | null>(null);
 
   // HR Zoom Meeting Scheduler States
   const [isHrMeetingModalOpen, setIsHrMeetingModalOpen] = useState(false);
@@ -207,8 +213,9 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
 
   const handleBulkPayrollSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    generateBulkPayslips(payrollMonth, payrollYear);
+    generateBulkPayslips(payrollMonth, payrollYear, payslipSelectionMode === 'SPECIFIC' ? selectedEmpIdsForPayroll : undefined);
     setIsPayslipGenModalOpen(false);
+    triggerToast(`✓ Generated ${payrollMonth} ${payrollYear} payslips for ${payslipSelectionMode === 'ALL' ? totalEmployees : selectedEmpIdsForPayroll.length} employees!`);
   };
 
   const exportHrReportCSV = () => {
@@ -229,6 +236,9 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       
+      {/* Rejected Leave Escalation Banner */}
+      <RejectedLeaveBanner className="mb-2" />
+
       {/* 1. Top Header Banner */}
       {activeTab === 'home' && (
         <div className="flex items-center justify-between">
@@ -1398,6 +1408,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    <th className="pb-3">Employee</th>
                     <th className="pb-3">Period</th>
                     <th className="pb-3">Basic Salary</th>
                     <th className="pb-3">HRA</th>
@@ -1406,12 +1417,24 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                     <th className="pb-3">Deductions</th>
                     <th className="pb-3">Net Pay</th>
                     <th className="pb-3">Status</th>
+                    <th className="pb-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">
                   {payslips.map((ps) => (
                     <tr key={ps.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3.5 font-sans font-bold text-[#0A2540]">
+                        <div className="flex items-center gap-1.5">
+                          <span>{ps.employeeName || 'Staff Member'}</span>
+                          {ps.changeRemarks && (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 font-bold font-sans" title={ps.changeRemarks}>
+                              Customized
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono block">{ps.empCode || ps.employeeCode || ps.id}</span>
+                      </td>
+                      <td className="py-3.5 font-sans font-bold text-slate-700">
                         {ps.month} {ps.year}
                       </td>
                       <td className="py-3.5 text-slate-700">₹{ps.basicSalary.toLocaleString()}</td>
@@ -1421,9 +1444,28 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                       <td className="py-3.5 text-rose-600 font-bold">₹{(ps.pfDeduction + ps.taxDeduction).toLocaleString()}</td>
                       <td className="py-3.5 font-black text-[#00A88B] text-sm">₹{ps.netPay.toLocaleString()}</td>
                       <td className="py-3.5">
-                        <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-extrabold">
-                          {ps.status}
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold font-sans ${
+                          ps.status === 'REVISED' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                        }`}>
+                          {ps.status || 'PAID'}
                         </span>
+                      </td>
+                      <td className="py-3.5 text-right font-sans">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setSelectedPayslipForEdit(ps)}
+                            className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-xl flex items-center gap-1 transition-all"
+                          >
+                            <FileEdit className="w-3.5 h-3.5" />
+                            <span>Edit Salary</span>
+                          </button>
+                          <button
+                            onClick={() => openPayslipModal(ps)}
+                            className="px-2.5 py-1.5 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-xl transition-all"
+                          >
+                            View
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1610,17 +1652,17 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
       {/* Run Bulk Payroll Modal */}
       {isPayslipGenModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white text-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 border border-slate-200 animate-in zoom-in-95">
+          <div className="bg-white text-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4 border border-slate-200 animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
             <h3 className="font-display font-black text-lg text-[#0A2540]">Generate Organization Payroll</h3>
-            <p className="text-xs text-slate-500">Calculate salary components, statutory PF & tax deductions for all active employees.</p>
-            <form onSubmit={handleBulkPayrollSubmit} className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-2">
+            <p className="text-xs text-slate-500">Calculate salary components, statutory PF &amp; tax deductions for all active employees or specific staff.</p>
+            <form onSubmit={handleBulkPayrollSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-slate-600 block mb-1">Payroll Month</label>
                   <select
                     value={payrollMonth}
                     onChange={(e) => setPayrollMonth(e.target.value)}
-                    className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-800"
+                    className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold"
                   >
                     {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
                       <option key={m} value={m}>{m}</option>
@@ -1633,22 +1675,90 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                     type="text"
                     value={payrollYear}
                     onChange={(e) => setPayrollYear(e.target.value)}
-                    className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-800"
+                    className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold"
                   />
                 </div>
               </div>
 
+              {/* Scope Selection: All vs Specific */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1.5">Dispatch Scope:</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPayslipSelectionMode('ALL');
+                      setSelectedEmpIdsForPayroll(teamMembers.map(m => m.id));
+                    }}
+                    className={`p-2.5 rounded-xl border font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                      payslipSelectionMode === 'ALL'
+                        ? 'bg-teal-50 border-[#00C9A7] text-teal-950 shadow-2xs font-black'
+                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    <Check className={`w-3.5 h-3.5 ${payslipSelectionMode === 'ALL' ? 'opacity-100 text-[#00A88B]' : 'opacity-0'}`} />
+                    <span>All {totalEmployees} Employees</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPayslipSelectionMode('SPECIFIC')}
+                    className={`p-2.5 rounded-xl border font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                      payslipSelectionMode === 'SPECIFIC'
+                        ? 'bg-teal-50 border-[#00C9A7] text-teal-950 shadow-2xs font-black'
+                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    <Check className={`w-3.5 h-3.5 ${payslipSelectionMode === 'SPECIFIC' ? 'opacity-100 text-[#00A88B]' : 'opacity-0'}`} />
+                    <span>Specific Employees</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Employee Checkboxes for Specific Selection */}
+              {payslipSelectionMode === 'SPECIFIC' && (
+                <div className="border border-slate-200 rounded-2xl p-3 bg-slate-50 space-y-2 max-h-48 overflow-y-auto">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Select Individual Staff:</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEmpIdsForPayroll(teamMembers.map(m => m.id))}
+                      className="text-[10px] text-[#00A88B] font-bold hover:underline"
+                    >
+                      Select All
+                    </button>
+                  </div>
+                  {teamMembers.map(m => (
+                    <label key={m.id} className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer hover:bg-slate-100/80 p-1 rounded-lg">
+                      <input
+                        type="checkbox"
+                        checked={selectedEmpIdsForPayroll.includes(m.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedEmpIdsForPayroll(prev => [...prev, m.id]);
+                          } else {
+                            setSelectedEmpIdsForPayroll(prev => prev.filter(id => id !== m.id));
+                          }
+                        }}
+                        className="rounded text-[#00C9A7] focus:ring-[#00C9A7]"
+                      />
+                      <span>{m.name} <span className="text-slate-400 font-mono text-[10px]">({m.empCode} • {m.role})</span></span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
               <div className="flex gap-2 pt-2">
                 <button
                   type="submit"
-                  className="flex-1 py-3 rounded-xl bg-[#00C9A7] text-[#0A2540] font-black shadow-md shadow-[#00C9A7]/25"
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#00A88B] to-[#00C9A7] text-[#0A2540] font-black shadow-md shadow-[#00C9A7]/25 hover:brightness-105 active:scale-98 transition-all"
                 >
-                  Confirm & Dispatch Payslips
+                  Generate &amp; Dispatch ({payslipSelectionMode === 'ALL' ? totalEmployees : selectedEmpIdsForPayroll.length} Staff)
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsPayslipGenModalOpen(false)}
-                  className="py-3 px-4 rounded-xl bg-slate-100 text-slate-600 font-bold"
+                  className="py-3 px-4 rounded-xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-colors"
                 >
                   Cancel
                 </button>
@@ -1657,6 +1767,13 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Edit / Customize Payslip Modal */}
+      <EditPayslipModal
+        payslip={selectedPayslipForEdit}
+        isOpen={Boolean(selectedPayslipForEdit)}
+        onClose={() => setSelectedPayslipForEdit(null)}
+      />
 
       {/* HR Zoom Meeting Scheduler Modal */}
       {isHrMeetingModalOpen && (

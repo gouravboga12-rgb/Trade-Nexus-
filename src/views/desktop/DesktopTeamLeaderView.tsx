@@ -41,6 +41,7 @@ import {
   UserPlus
 } from 'lucide-react';
 import { TeamMeeting, TeamMember } from '../../types';
+import { RejectedLeaveBanner } from '../../components/common/RejectedLeaveBanner';
 import { TelecallerDetailDrawer } from '../../components/modals/TelecallerDetailDrawer';
 import { Employee360ProfileView } from '../Employee360ProfileView';
 import { EmployeeAvatar } from '../../components/common/EmployeeAvatar';
@@ -274,6 +275,9 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
+
+      {/* Rejected Leave Notification Banner */}
+      <RejectedLeaveBanner className="mb-2" />
 
       {/* --- TAB: HOME / OVERVIEW --- */}
       {activeTab === 'home' && (

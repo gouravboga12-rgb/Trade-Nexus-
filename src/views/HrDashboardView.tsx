@@ -48,10 +48,13 @@ import {
   Key,
   Receipt,
   ExternalLink,
-  LogOut
+  LogOut,
+  FileEdit
 } from 'lucide-react';
-import { OnboardingEmployee, ExitEmployee, TeamMember, TeamGroup } from '../types';
+import { OnboardingEmployee, ExitEmployee, TeamMember, TeamGroup, PayslipItem } from '../types';
 import { AddEmployeeModal } from '../components/modals/AddEmployeeModal';
+import { EditPayslipModal } from '../components/modals/EditPayslipModal';
+import { RejectedLeaveBanner } from '../components/common/RejectedLeaveBanner';
 import { OfferLetterModal } from '../components/modals/OfferLetterModal';
 import { GenerateOfferLetterModal } from '../components/modals/GenerateOfferLetterModal';
 import { DigitalIdCardModal } from '../components/modals/DigitalIdCardModal';
@@ -183,6 +186,7 @@ export const HrDashboardView: React.FC = () => {
   const [payrollYear, setPayrollYear] = useState('2025');
   const [payslipSelectionMode, setPayslipSelectionMode] = useState<'ALL' | 'SPECIFIC'>('ALL');
   const [selectedEmpIdsForPayroll, setSelectedEmpIdsForPayroll] = useState<string[]>(teamMembers.map(m => m.id));
+  const [selectedPayslipForEdit, setSelectedPayslipForEdit] = useState<PayslipItem | null>(null);
 
   // Schedule Interview States
   const [candName, setCandName] = useState('');
@@ -286,7 +290,7 @@ export const HrDashboardView: React.FC = () => {
 
   const handleGeneratePayslipsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    generateBulkPayslips(payrollMonth, payrollYear);
+    generateBulkPayslips(payrollMonth, payrollYear, payslipSelectionMode === 'SPECIFIC' ? selectedEmpIdsForPayroll : undefined);
     setIsPayslipGenModalOpen(false);
     triggerToast(`✓ Published ${payrollMonth} ${payrollYear} payslips for ${payslipSelectionMode === 'ALL' ? totalEmployees : selectedEmpIdsForPayroll.length} employees!`);
   };
@@ -398,6 +402,9 @@ export const HrDashboardView: React.FC = () => {
     <div className="min-h-screen bg-[#F8FAFC] pb-24 text-slate-800 animate-in fade-in duration-150">
       
       <div className="p-4 space-y-4 max-w-lg mx-auto">
+
+        {/* Rejected Leave Escalation Banner */}
+        <RejectedLeaveBanner className="mb-2" />
 
         {/* --- TAB 1: HR HOME / PULSE --- */}
         {activeHrNav === 'home' && (
@@ -2446,18 +2453,35 @@ export const HrDashboardView: React.FC = () => {
                             </div>
                           </div>
 
-                          <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
-                            <span className="text-[10px] text-slate-400 font-mono">
-                              PF Deduction: ₹{pf.toLocaleString('en-IN')}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => openPayslipModal(ps)}
-                              className="px-2.5 py-1 rounded-lg bg-teal-50 text-[#00897B] hover:bg-teal-100 font-bold text-[10px] inline-flex items-center gap-1 transition-all border border-[#00C9A7]/30"
-                            >
-                              <Receipt className="w-3 h-3" />
-                              <span>Inspect Payslip</span>
-                            </button>
+                          <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100 gap-1.5">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-[10px] text-slate-400 font-mono truncate">
+                                PF: ₹{pf.toLocaleString('en-IN')}
+                              </span>
+                              {ps.changeRemarks && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 font-bold" title={ps.changeRemarks}>
+                                  Edited
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPayslipForEdit(ps)}
+                                className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-[10px] inline-flex items-center gap-1 transition-all border border-amber-300"
+                              >
+                                <FileEdit className="w-3 h-3" />
+                                <span>Customize</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openPayslipModal(ps)}
+                                className="px-2.5 py-1 rounded-lg bg-teal-50 text-[#00897B] hover:bg-teal-100 font-bold text-[10px] inline-flex items-center gap-1 transition-all border border-[#00C9A7]/30"
+                              >
+                                <Receipt className="w-3 h-3" />
+                                <span>Inspect</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -3277,6 +3301,13 @@ export const HrDashboardView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Edit / Customize Payslip Modal */}
+      <EditPayslipModal
+        payslip={selectedPayslipForEdit}
+        isOpen={Boolean(selectedPayslipForEdit)}
+        onClose={() => setSelectedPayslipForEdit(null)}
+      />
 
     </div>
   );

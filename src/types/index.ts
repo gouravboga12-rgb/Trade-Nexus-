@@ -143,6 +143,9 @@ export interface PayslipItem {
   employeeId?: string;
   employeeName?: string;
   employeeCode?: string;
+  empCode?: string;
+  roleTitle?: string;
+  department?: string;
   month: string;
   year: number;
   basicSalary: number;
@@ -153,7 +156,11 @@ export interface PayslipItem {
   taxDeduction: number;
   netPay: number;
   generatedDate: string;
-  status: 'PAID';
+  status: 'PAID' | 'PROCESSED' | 'PENDING' | 'REVISED';
+  customNotes?: string;
+  changeRemarks?: string;
+  modifiedBy?: string;
+  modifiedAt?: string;
 }
 
 export interface EmployeeProfile {

@@ -262,8 +262,10 @@ export const api = {
   getPayslips: () => request<PayslipItem[]>('/payslips'),
   createPayslip: (data: Omit<PayslipItem, 'id'> & { id?: string }) => 
     request<PayslipItem>('/payslips', { method: 'POST', body: JSON.stringify(data) }),
-  generateBulkPayslips: (month: string, year: string) => 
-    request<PayslipItem>('/payslips/bulk', { method: 'POST', body: JSON.stringify({ month, year }) }),
+  updatePayslip: (id: string, data: Partial<PayslipItem>) =>
+    request<PayslipItem>(`/payslips/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  generateBulkPayslips: (month: string, year: string, employeeIds?: string[]) => 
+    request<PayslipItem[]>('/payslips/bulk', { method: 'POST', body: JSON.stringify({ month, year, employeeIds }) }),
 
   // Team Members
   getTeamMembers: () => request<TeamMember[]>('/team-members'),

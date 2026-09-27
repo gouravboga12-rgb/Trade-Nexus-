@@ -445,12 +445,21 @@ function runMigrations() {
   addColumnIfMissing('team_meetings', 'zoomPassword', 'TEXT');
   addColumnIfMissing('team_meetings', 'hostRole', 'TEXT');
   addColumnIfMissing('team_meetings', 'hostName', 'TEXT');
-  addColumnIfMissing('team_meetings', 'hostEmpCode', 'TEXT');
-  addColumnIfMissing('team_meetings', 'targetAudience', "TEXT NOT NULL DEFAULT 'ALL'");
   addColumnIfMissing('team_meetings', 'targetTeam', 'TEXT');
   addColumnIfMissing('team_meetings', 'targetEmployeeId', 'TEXT');
   addColumnIfMissing('team_meetings', 'includeAdmin', 'INTEGER NOT NULL DEFAULT 0');
   addColumnIfMissing('team_meetings', 'priority', "TEXT NOT NULL DEFAULT 'NORMAL'");
+
+  // Payslips Customization & Fields
+  addColumnIfMissing('payslips', 'employeeId', 'TEXT');
+  addColumnIfMissing('payslips', 'empCode', 'TEXT');
+  addColumnIfMissing('payslips', 'employeeName', 'TEXT');
+  addColumnIfMissing('payslips', 'roleTitle', 'TEXT');
+  addColumnIfMissing('payslips', 'department', 'TEXT');
+  addColumnIfMissing('payslips', 'customNotes', 'TEXT');
+  addColumnIfMissing('payslips', 'changeRemarks', 'TEXT');
+  addColumnIfMissing('payslips', 'modifiedBy', 'TEXT');
+  addColumnIfMissing('payslips', 'modifiedAt', 'TEXT');
 
   // Where the office is, so a check-in can be judged near or far.
   db.exec(`

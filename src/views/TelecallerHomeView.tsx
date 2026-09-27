@@ -19,6 +19,7 @@ import {
   ArrowRight,
   ArrowUpRight
 } from 'lucide-react';
+import { RejectedLeaveBanner } from '../components/common/RejectedLeaveBanner';
 
 export const TelecallerHomeView: React.FC = () => {
   const { 
@@ -92,6 +93,9 @@ export const TelecallerHomeView: React.FC = () => {
   return (
     <div className="flex flex-col gap-4 pb-28 pt-2 px-3 sm:px-4 max-w-lg mx-auto">
       
+      {/* Rejected Leave Notification Banner */}
+      <RejectedLeaveBanner className="mb-1" />
+
       {/* 1. Personalized Greeting with Online Status */}
       <div className="flex items-center justify-between pt-1">
         <div>

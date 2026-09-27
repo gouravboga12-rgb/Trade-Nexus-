@@ -175,7 +175,8 @@ interface AppContextType {
   toggleOnboardingChecklist: (employeeId: string, itemKey: keyof OnboardingEmployee['checklist']) => void;
   toggleExitChecklist: (employeeId: string, itemKey: keyof ExitEmployee['checklist']) => void;
   verifyPayment: (paymentId: string, status: 'VERIFIED' | 'REJECTED') => void;
-  generateBulkPayslips: (month: string, year: string) => void;
+  generateBulkPayslips: (month: string, year: string, employeeIds?: string[]) => void;
+  updatePayslip: (id: string, updates: Partial<PayslipItem>) => Promise<void>;
 
   // Company Calendar & Holidays (Hierarchy-wide)
   weeklyOffDays: number[];
@@ -2110,6 +2111,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const normalizeMeetingUrl = (mtg: TeamMeeting, role: string): string | null => {
+    let url = (role === 'admin' && mtg.zoomStartUrl)
+      ? mtg.zoomStartUrl
+      : (mtg.zoomJoinUrl || mtg.meetingLink || '');
+
+    if (typeof url === 'string' && url.trim()) {
+      url = url.trim();
+      if (!/^https?:\/\//i.test(url)) {
+        url = `https://${url}`;
+      }
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          return url;
+        }
+      } catch {
+        // Fall back to ID parsing if URL format failed
+      }
+    }
+
+    if (mtg.zoomMeetingId) {
+      const cleanId = String(mtg.zoomMeetingId).replace(/\D/g, '');
+      if (cleanId.length >= 8) {
+        const passParam = mtg.zoomPassword ? `?pwd=${encodeURIComponent(mtg.zoomPassword)}` : '';
+        return `https://zoom.us/j/${cleanId}${passParam}`;
+      }
+    }
+
+    return null;
+  };
+
   const joinMeeting = (mtg: TeamMeeting) => {
     setActiveMeetingRoom(mtg);
 
@@ -2118,13 +2150,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       updateTeamMeeting(mtg.id, { status: 'LIVE' });
     }
 
-    const zoomUrl = (currentRole === 'admin' && mtg.zoomStartUrl)
-      ? mtg.zoomStartUrl
-      : (mtg.zoomJoinUrl || (mtg.meetingLink?.includes('zoom.us') ? mtg.meetingLink : null));
+    const zoomUrl = normalizeMeetingUrl(mtg, currentRole);
 
     if (zoomUrl) {
       window.open(zoomUrl, '_blank', 'noopener,noreferrer');
-      triggerToast('🚀 Launching Zoom Meeting...');
+      triggerToast('🚀 Launching Zoom Video Meeting...');
     } else {
       setIsLiveRoomOpen(true);
     }
@@ -2305,9 +2335,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     triggerToast(`✓ Payment ${status === 'VERIFIED' ? 'Approved & Verified' : 'Rejected'}`);
   };
 
-  const generateBulkPayslips = async (month: string, year: string) => {
+  const generateBulkPayslips = async (month: string, year: string, employeeIds?: string[]) => {
     try {
-      const generated = await api.generateBulkPayslips(month, year);
+      const generated = await api.generateBulkPayslips(month, year, employeeIds);
       const generatedList = Array.isArray(generated) ? generated : [generated];
       
       const monthOrder: Record<string, number> = {
@@ -2330,10 +2360,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return combined;
       });
 
-      triggerToast(`✓ Generated ${month} ${year} payslips for ${generatedList.length} active employee${generatedList.length === 1 ? '' : 's'}!`);
+      triggerToast(`✓ Generated ${month} ${year} payslips for ${generatedList.length} employee${generatedList.length === 1 ? '' : 's'}!`);
     } catch (err: any) {
       console.warn('API generate bulk payslips error:', err);
       triggerToast(`✗ Failed to generate payslips: ${err.message || 'Error'}`);
+    }
+  };
+
+  const updatePayslip = async (id: string, updates: Partial<PayslipItem>) => {
+    setPayslips(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+    try {
+      const updated = await api.updatePayslip(id, updates);
+      if (updated) {
+        setPayslips(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p));
+      }
+      triggerToast(`✓ Payroll customized & saved successfully!`);
+    } catch (err: any) {
+      console.warn('API update payslip error:', err);
+      triggerToast(`✗ Failed to save customized payroll: ${err.message || 'Error'}`);
     }
   };
 
@@ -2787,6 +2831,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         toggleExitChecklist,
         verifyPayment,
         generateBulkPayslips,
+        updatePayslip,
         weeklyOffDays,
         setWeeklyOffDays,
         toggleWeeklyOffDay,

@@ -26,6 +26,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { TeamMeeting, TeamMember } from '../types';
+import { RejectedLeaveBanner } from '../components/common/RejectedLeaveBanner';
 import { Employee360ProfileView } from './Employee360ProfileView';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { MeetingTimePicker } from '../components/common/MeetingTimePicker';
@@ -319,6 +320,9 @@ export const TeamLeaderDashboardView: React.FC = () => {
       {/* Main Scrollable Content Area */}
       <main className="flex-1 p-3.5 sm:p-4 space-y-4 pt-2">
         
+        {/* Rejected Leave Escalation Banner */}
+        <RejectedLeaveBanner className="mb-2" />
+
         {/* --- TAB 1: HOME (Mobile Dashboard) --- */}
         {activeTab === 'home' && (
           <div className="space-y-4 animate-in fade-in duration-150">
@@ -454,6 +458,71 @@ export const TeamLeaderDashboardView: React.FC = () => {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Pending Leave Approvals Quick Action Card */}
+            {pendingLeaves.length > 0 && (
+              <div className="bg-amber-50/70 border-2 border-amber-300 rounded-2xl p-3.5 sm:p-4 space-y-3 shadow-xs animate-in slide-in-from-top-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center font-black text-xs shadow-2xs">
+                      {pendingLeaves.length}
+                    </div>
+                    <div>
+                      <h4 className="font-display font-black text-xs text-amber-950 uppercase tracking-wider">
+                        Pending Leave Requests
+                      </h4>
+                      <span className="text-[10px] text-amber-800">1-click approve &amp; escalate to HR</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('leaves')}
+                    className="text-[11px] font-bold text-amber-900 hover:underline cursor-pointer"
+                  >
+                    View All →
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {pendingLeaves.slice(0, 3).map((req) => (
+                    <div key={req.id} className="bg-white p-3 rounded-xl border border-amber-200 shadow-2xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <strong className="text-xs font-bold text-[#0A2540] block">{req.employeeName || 'Squad Member'}</strong>
+                          <span className="text-[10px] text-slate-500">{req.leaveType} • {req.fromDate} to {req.toDate} ({req.totalDays || 1} day(s))</span>
+                        </div>
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300">
+                          PENDING
+                        </span>
+                      </div>
+                      {req.reason && (
+                        <p className="text-[11px] text-slate-600 italic bg-slate-50 p-2 rounded-lg border border-slate-100">
+                          "{req.reason}"
+                        </p>
+                      )}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <button
+                          onClick={() => {
+                            approveLeaveRequest(req.id);
+                            triggerToast(`✓ Approved & forwarded leave for ${req.employeeName || 'Member'} to HR`);
+                          }}
+                          className="py-2 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs flex items-center justify-center gap-1 shadow-xs active:scale-95 transition-all cursor-pointer"
+                        >
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                          <span>Approve → HR</span>
+                        </button>
+                        <button
+                          onClick={() => setRejectingLeaveId(req.id)}
+                          className="py-2 rounded-xl bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-600 hover:text-rose-600 font-bold text-xs flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Reject</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
