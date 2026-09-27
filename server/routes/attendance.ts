@@ -39,7 +39,7 @@ function forViewer(row: any, isAdmin: boolean, requestingEmployeeId?: string) {
 // GET /api/attendance?role=admin&employeeId=...
 router.get('/', (req: Request, res: Response) => {
   try {
-    const isAdmin = String(req.query.role || '').toLowerCase() === 'admin';
+    const isAdmin = String(req.query.role || '').toLowerCase() === 'admin' || req.user?.role === 'admin';
     const employeeId = String(req.query.employeeId || '').trim();
     const records = employeeId
       ? db
