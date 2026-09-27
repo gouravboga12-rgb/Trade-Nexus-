@@ -133,10 +133,11 @@ router.post('/bulk', (req: Request, res: Response) => {
         if (!trimmedName || !trimmedPhone) {
           continue; // Safely skip invalid/incomplete rows
         }
-        const leadId = `asg-${Date.now()}-${i}`;
+        const leadId = lead.id || `asg-${Date.now()}-${i}`;
         const email = String(lead.email || '').trim();
         const company = String(lead.company || '').trim();
         const city = String(lead.city || '').trim();
+        const now = new Date().toISOString();
         insertLead.run(
           leadId, trimmedName, trimmedPhone, email,
           company, city,
@@ -167,15 +168,16 @@ router.post('/reassign-batch', (req: Request, res: Response) => {
       return res.status(400).json({ error: 'leadIds array and targetEmployeeId are required' });
     }
 
+    const now = new Date().toISOString();
     const reassignMany = db.transaction((ids: string[], empId: string, empName: string) => {
       const stmt = db.prepare(`
         UPDATE assigned_leads 
-        SET assignedToEmployeeId = ?, assignedToEmployeeName = ?
+        SET assignedToEmployeeId = ?, assignedToEmployeeName = ?, updatedAt = ?
         WHERE id = ?
       `);
       let updatedCount = 0;
       for (const id of ids) {
-        const info = stmt.run(empId, empName, id);
+        const info = stmt.run(empId, empName, now, id);
         if (info.changes > 0) updatedCount++;
       }
       return updatedCount;
@@ -198,19 +200,36 @@ router.put('/:id', (req: Request, res: Response) => {
     }
 
     const merged = { ...existing, ...req.body };
+    const now = new Date().toISOString();
     db.prepare(`
       UPDATE assigned_leads 
       SET name = ?, phone = ?, email = ?, company = ?, city = ?, 
           assignedToEmployeeId = ?, assignedToEmployeeName = ?, batchId = ?, 
           assignedDate = ?, status = ?, notes = ?, callCount = ?, 
-          lastCallTimestamp = ?, dealValue = ?, followUpDate = ?
+          lastCallTimestamp = ?, dealValue = ?, followUpDate = ?,
+          updatedAt = ?
       WHERE id = ?
     `).run(
       merged.name, merged.phone, merged.email, merged.company, merged.city,
       merged.assignedToEmployeeId, merged.assignedToEmployeeName, merged.batchId,
       merged.assignedDate, merged.status, merged.notes, merged.callCount,
-      merged.lastCallTimestamp, merged.dealValue, merged.followUpDate, id
+      merged.lastCallTimestamp, merged.dealValue, merged.followUpDate,
+      now, id
     );
+
+    // If deal is won with a deal value, credit sales to team member
+    if (merged.status === 'CONVERTED' && merged.dealValue && Number(merged.dealValue) > 0) {
+      try {
+        db.prepare(`
+          UPDATE team_members
+          SET salesAchieved = salesAchieved + ?,
+              interested = interested + 1
+          WHERE id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
+        `).run(Number(merged.dealValue), merged.assignedToEmployeeId, merged.assignedToEmployeeId, merged.assignedToEmployeeName || '');
+      } catch (err) {
+        console.warn('[assignedLeads] Failed to credit team member salesAchieved:', err);
+      }
+    }
 
     const updated = db.prepare('SELECT * FROM assigned_leads WHERE id = ?').get(id);
     return res.status(200).json(updated);

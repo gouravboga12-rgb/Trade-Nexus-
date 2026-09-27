@@ -18,6 +18,7 @@ export const DesktopClientsPipeline: React.FC = () => {
   const { 
     assignedLeads, 
     profile, 
+    currentUser,
     stats,
     triggerToast 
   } = useApp();
@@ -30,15 +31,19 @@ export const DesktopClientsPipeline: React.FC = () => {
 
   // Won leads converted by this telecaller
   const myWonLeads = useMemo(() => {
+    const validIds = new Set(
+      [currentUser?.id, currentUser?.employeeId, currentUser?.empCode, profile?.id, profile?.empCode]
+        .filter(Boolean)
+    );
+    const validName = (currentUser?.name || profile?.name || '').trim().toLowerCase();
+
     return assignedLeads.filter((l) => {
-      const isMine =
-        !l.assignedToEmployeeId ||
-        l.assignedToEmployeeId === profile.id ||
-        (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === profile.name.toLowerCase()) ||
-        l.assignedToEmployeeId === 'emp-101';
-      return isMine && l.status === 'CONVERTED';
+      const matchesId = validIds.has(l.assignedToEmployeeId);
+      const matchesName = validName && l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === validName;
+      const isMine = matchesId || matchesName || (!l.assignedToEmployeeId && validIds.has('emp-101'));
+      return isMine && (l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0));
     });
-  }, [assignedLeads, profile]);
+  }, [assignedLeads, profile, currentUser]);
 
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
   const yesterdayStr = useMemo(() => {
@@ -55,7 +60,9 @@ export const DesktopClientsPipeline: React.FC = () => {
         return false;
       }
 
-      const leadDateStr = lead.updatedAt ? lead.updatedAt.split('T')[0] : todayStr;
+      // Date filtering: supports both ISO ("2026-09-27T...") and SQL ("2026-09-27 ...")
+      const rawDate = lead.updatedAt || (lead as any).createdAt;
+      const leadDateStr = rawDate ? rawDate.split('T')[0].split(' ')[0] : todayStr;
 
       if (dateFilter === 'TODAY') return leadDateStr === todayStr;
       if (dateFilter === 'YESTERDAY') return leadDateStr === yesterdayStr;

@@ -1249,7 +1249,21 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
               onChange={(e) => setMoveFrom(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
             >
-              <option value="">— Choose employee —</option>
+              <option value="">— Choose employee or pool —</option>
+              {(() => {
+                const unassignedCount = assignedLeads.filter(
+                  (l) =>
+                    !l.assignedToEmployeeId ||
+                    l.assignedToEmployeeId === 'unassigned' ||
+                    l.assignedToEmployeeId === '' ||
+                    (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === 'unassigned')
+                ).length;
+                return unassignedCount > 0 ? (
+                  <option value="UNASSIGNED">
+                    ⚡ Unassigned Leads Pool ({unassignedCount} leads available)
+                  </option>
+                ) : null;
+              })()}
               {leadsPerEmployee
                 .filter((r) => r.total > 0)
                 .map((r) => (
@@ -1269,7 +1283,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
             >
               <option value="">— Choose employee —</option>
               {teamMembers
-                .filter((m) => m.id !== moveFrom && m.active !== 0)
+                .filter((m) => (moveFrom === 'UNASSIGNED' || m.id !== moveFrom) && m.active !== 0)
                 .map((m) => {
                   const heldCount = assignedLeads.filter(
                     (l) =>

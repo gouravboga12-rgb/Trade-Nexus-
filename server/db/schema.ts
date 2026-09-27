@@ -238,6 +238,7 @@ export function initializeDatabaseSchema() {
       lastCallTimestamp TEXT,
       dealValue REAL DEFAULT 0,
       followUpDate TEXT,
+      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -479,6 +480,8 @@ function runMigrations() {
     ).run('office-main', 'Head Office', null, null, 200);
     console.log('[SQLite DB] Migration: created office_settings (address not set yet)');
   }
+
+  addColumnIfMissing('assigned_leads', 'updatedAt', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
 
   // Hierarchy Company Calendar & Official Holidays
   db.exec(`

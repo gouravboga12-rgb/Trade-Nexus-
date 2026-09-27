@@ -946,17 +946,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [attendanceLogs, currentUser, profile.id, profile.name, resourceStatus.attendanceLogs]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('tnx_leaveRequests', JSON.stringify(leaveRequests));
-    } catch {}
-  }, [leaveRequests]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('tnx_payslips', JSON.stringify(payslips));
-    } catch {}
-  }, [payslips]);
 
   /** Drop every cached resource so the next screen re-fetches from the API. */
   const invalidateAll = useCallback(() => {
@@ -1024,6 +1014,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       status: 'PENDING',
       notes: `Imported via ${fileName}`,
       callCount: 0,
+      updatedAt: new Date().toISOString(),
     }));
 
     setLeadBatches(prev => [newBatch, ...prev]);
@@ -1031,7 +1022,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     triggerToast(`✓ Successfully allocated ${leads.length} leads to ${targetEmployeeName}!`);
 
     try {
-      await api.bulkImportAssignedLeads(fileName, targetEmployeeId, targetEmployeeName, leads);
+      const res = await api.bulkImportAssignedLeads(fileName, targetEmployeeId, targetEmployeeName, newAssignedItems);
+      if (res?.leads && res.leads.length > 0) {
+        setAssignedLeads(prev => [
+          ...res.leads,
+          ...prev.filter(l => l.batchId !== batchId)
+        ]);
+      }
     } catch (err) {
       console.warn('API bulk import error:', err);
     }
@@ -1044,108 +1041,117 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     dealValue?: number, 
     followUpDate?: string
   ) => {
-    let targetLead: AssignedLead | undefined;
-
-    setAssignedLeads(prev => prev.map(lead => {
-      if (lead.id === leadId) {
-        targetLead = {
-          ...lead,
-          status,
-          notes: notes || lead.notes,
-          callCount: lead.callCount + 1,
-          lastCallTimestamp: 'Just now',
-          dealValue: dealValue !== undefined ? dealValue : lead.dealValue,
-          followUpDate: followUpDate || lead.followUpDate,
-        };
-        return targetLead;
-      }
-      return lead;
-    }));
-
-    if (targetLead) {
-      // Also log as call item
-      const newCallItem: CallLogItem = {
-        id: `call-${Date.now()}`,
-        clientName: targetLead.name,
-        companyName: targetLead.company,
-        phoneNumber: targetLead.phone,
-        durationSec: 180,
-        outcome: status === 'CONVERTED' ? 'DEAL_CLOSED' : 
-                 status === 'INTERESTED' ? 'INTERESTED' : 
-                 status === 'CALLBACK' ? 'CALLBACK' : 
-                 status === 'NOT_INTERESTED' ? 'NOT_INTERESTED' : 'CONNECTED',
-        notes: notes || `Call outcome updated to ${status}`,
-        timestamp: 'Just now',
-        date: new Date().toISOString().split('T')[0],
-        createdAt: new Date().toISOString(),
-        followUpDate,
-      };
-
-      setCallLogs(prev => [newCallItem, ...prev]);
-
-      // Update Telecaller Stats
-      const updatedStats: TelecallerStats = {
-        ...stats,
-        dialsMade: stats.dialsMade + 1,
-        connected: status !== 'NOT_INTERESTED' ? stats.connected + 1 : stats.connected,
-        interested: (status === 'INTERESTED' || status === 'CONVERTED') ? stats.interested + 1 : stats.interested,
-        rejected: status === 'NOT_INTERESTED' ? stats.rejected + 1 : stats.rejected,
-      };
-      setStats(updatedStats);
-
-      // Update Team Member record for TL and HR live visibility (Revenue recognized upon HR payment audit)
-      setTeamMembers(prev => prev.map(m => {
-        if (m.name.toLowerCase() === (targetLead?.assignedToEmployeeName ?? '').toLowerCase() || m.id === targetLead?.assignedToEmployeeId) {
-          const newDials = m.dialsToday + 1;
-          const newConnected = status !== 'NOT_INTERESTED' ? m.connected + 1 : m.connected;
-          const newInterested = (status === 'INTERESTED' || status === 'CONVERTED') ? m.interested + 1 : m.interested;
-          const updatedM: TeamMember = {
-            ...m,
-            dialsToday: newDials,
-            connected: newConnected,
-            interested: newInterested,
-            conversionRate: Math.min(100, Math.round((newInterested / Math.max(1, newDials)) * 100)),
-          };
-          api.updateTeamMember(m.id, updatedM).catch(console.warn);
-          return updatedM;
-        }
-        return m;
-      }));
-
-      // If converted with deal value, record in payment verification list for HR
-      if (status === 'CONVERTED' && dealValue && dealValue > 0) {
-        const newPayment: PaymentVerificationItem = {
-          id: `pay-${Date.now()}`,
-          leadName: targetLead.name,
-          companyName: targetLead.company,
-          telecallerName: targetLead.assignedToEmployeeName,
-          dealAmount: dealValue,
-          utrNumber: `TXN${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-          paymentMode: 'Online Bank Transfer',
-          timestamp: 'Just now',
-          status: 'PENDING_HR_AUDIT',
-        };
-        setPaymentVerifications(prev => [newPayment, ...prev]);
-        api.createPayment(newPayment).catch(console.warn);
-      }
-
-      // SQLite API calls — then force-refresh so Admin/TL see the update immediately
-      try {
-        await Promise.allSettled([
-          api.updateAssignedLead(leadId, targetLead),
-          api.createCallLog(newCallItem),
-          api.updateStats(updatedStats),
-        ]);
-        // Force global refresh of leads, call logs, and payment verifications
-        // so all panels (Admin, TL, HR) reflect this change without waiting for
-        // the next polling cycle.
-        refreshResources(['assignedLeads', 'callLogs', 'paymentVerifications']);
-      } catch (err) {
-        console.warn('API sync error:', err);
-      }
+    const existingLead = assignedLeads.find(l => l.id === leadId);
+    if (!existingLead) {
+      console.warn(`Lead ${leadId} not found in state`);
+      return;
     }
 
-    triggerToast(`✓ Status updated: ${status.replace('_', ' ')} for ${targetLead?.name || 'Lead'}`);
+    const nowIso = new Date().toISOString();
+    const dealAmountNum = dealValue !== undefined ? dealValue : (existingLead.dealValue || 0);
+
+    const targetLead: AssignedLead = {
+      ...existingLead,
+      status,
+      notes: notes || existingLead.notes,
+      callCount: (existingLead.callCount || 0) + 1,
+      lastCallTimestamp: 'Just now',
+      dealValue: dealAmountNum,
+      followUpDate: followUpDate || existingLead.followUpDate,
+      updatedAt: nowIso,
+    };
+
+    // Optimistically update assignedLeads in state
+    setAssignedLeads(prev => prev.map(lead => lead.id === leadId ? targetLead : lead));
+
+    // Also log as call item
+    const newCallItem: CallLogItem = {
+      id: `call-${Date.now()}`,
+      clientName: targetLead.name,
+      companyName: targetLead.company,
+      phoneNumber: targetLead.phone,
+      durationSec: 180,
+      outcome: status === 'CONVERTED' ? 'DEAL_CLOSED' : 
+               status === 'INTERESTED' ? 'INTERESTED' : 
+               status === 'CALLBACK' ? 'CALLBACK' : 
+               status === 'NOT_INTERESTED' ? 'NOT_INTERESTED' : 'CONNECTED',
+      notes: notes || `Call outcome updated to ${status}`,
+      timestamp: 'Just now',
+      date: nowIso.split('T')[0],
+      createdAt: nowIso,
+      followUpDate,
+    };
+
+    setCallLogs(prev => [newCallItem, ...prev]);
+
+    // Update Telecaller Stats
+    const updatedStats: TelecallerStats = {
+      ...stats,
+      dialsMade: stats.dialsMade + 1,
+      connected: status !== 'NOT_INTERESTED' ? stats.connected + 1 : stats.connected,
+      interested: (status === 'INTERESTED' || status === 'CONVERTED') ? stats.interested + 1 : stats.interested,
+      rejected: status === 'NOT_INTERESTED' ? stats.rejected + 1 : stats.rejected,
+      monthlySalesAchieved: status === 'CONVERTED' ? (stats.monthlySalesAchieved || 0) + dealAmountNum : stats.monthlySalesAchieved,
+    };
+    setStats(updatedStats);
+
+    // Update Team Member record for TL and HR live visibility
+    setTeamMembers(prev => prev.map(m => {
+      const isTargetEmp =
+        (m.id && m.id === targetLead.assignedToEmployeeId) ||
+        (m.empCode && m.empCode === targetLead.assignedToEmployeeId) ||
+        (m.name && targetLead.assignedToEmployeeName && m.name.toLowerCase() === targetLead.assignedToEmployeeName.toLowerCase());
+
+      if (isTargetEmp) {
+        const newDials = m.dialsToday + 1;
+        const newConnected = status !== 'NOT_INTERESTED' ? m.connected + 1 : m.connected;
+        const newInterested = (status === 'INTERESTED' || status === 'CONVERTED') ? m.interested + 1 : m.interested;
+        const newSales = status === 'CONVERTED' ? (m.salesAchieved || 0) + dealAmountNum : m.salesAchieved;
+        const updatedM: TeamMember = {
+          ...m,
+          dialsToday: newDials,
+          connected: newConnected,
+          interested: newInterested,
+          salesAchieved: newSales,
+          conversionRate: Math.min(100, Math.round((newInterested / Math.max(1, newDials)) * 100)),
+        };
+        api.updateTeamMember(m.id, updatedM).catch(console.warn);
+        return updatedM;
+      }
+      return m;
+    }));
+
+    // If converted with deal value, record in payment verification list for HR and Admin Won Deals Ledger
+    if (status === 'CONVERTED') {
+      const newPayment: PaymentVerificationItem = {
+        id: `pay-${Date.now()}`,
+        leadName: targetLead.name,
+        companyName: targetLead.company,
+        telecallerName: targetLead.assignedToEmployeeName,
+        dealAmount: dealAmountNum,
+        utrNumber: `TXN${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+        paymentMode: 'Online Bank Transfer',
+        timestamp: 'Just now',
+        status: 'PENDING_HR_AUDIT',
+      };
+      setPaymentVerifications(prev => [newPayment, ...prev]);
+      api.createPayment(newPayment).catch(console.warn);
+    }
+
+    // Persist to AWS EC2 SQLite API
+    try {
+      await Promise.allSettled([
+        api.updateAssignedLead(leadId, targetLead),
+        api.createCallLog(newCallItem),
+        api.updateStats(updatedStats),
+      ]);
+      // Force global refresh so Admin, TL, and HR panels reflect this won deal immediately
+      refreshResources(['assignedLeads', 'callLogs', 'paymentVerifications', 'teamMembers', 'stats']);
+    } catch (err) {
+      console.warn('API sync error:', err);
+    }
+
+    triggerToast(`✓ Status updated: ${status.replace('_', ' ')} for ${targetLead.name || 'Lead'}`);
   };
 
   // Face Biometric Registration
@@ -1687,16 +1693,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
   const reassignLeadsBetween = async (fromEmployeeId: string, toEmployeeId: string, limit?: number) => {
-    const fromMember = teamMembers.find((m) => m.id === fromEmployeeId);
+    const isUnassigned = fromEmployeeId === 'UNASSIGNED';
+    const fromMember = isUnassigned ? null : teamMembers.find((m) => m.id === fromEmployeeId);
     const target = teamMembers.find((m) => m.id === toEmployeeId);
     if (!target) return;
 
-    let moving = assignedLeads.filter((l) => 
-      l.assignedToEmployeeId === fromEmployeeId ||
-      (fromMember && l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === fromMember.name.toLowerCase())
-    );
+    let moving = assignedLeads.filter((l) => {
+      if (isUnassigned) {
+        return (
+          !l.assignedToEmployeeId ||
+          l.assignedToEmployeeId === 'unassigned' ||
+          l.assignedToEmployeeId === '' ||
+          (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === 'unassigned')
+        );
+      }
+      return (
+        l.assignedToEmployeeId === fromEmployeeId ||
+        (fromMember && l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === fromMember.name.toLowerCase())
+      );
+    });
     if (!moving.length) {
-      triggerToast('That telecaller has no leads to move.');
+      triggerToast(isUnassigned ? 'No unassigned leads found to move.' : 'That telecaller has no leads to move.');
       return;
     }
 
@@ -1710,7 +1727,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       prev.map((l) => {
         const isMoving = movingIds.has(l.id);
         return isMoving
-          ? { ...l, assignedToEmployeeId: target.id, assignedToEmployeeName: target.name }
+          ? { ...l, assignedToEmployeeId: target.id, assignedToEmployeeName: target.name, updatedAt: new Date().toISOString() }
           : l;
       })
     );
@@ -1723,6 +1740,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         targetEmployeeId: target.id,
         targetEmployeeName: target.name,
       });
+      refreshResources(['assignedLeads']);
     } catch (err) {
       console.warn('Batch lead reassignment failed:', err);
       triggerToast('✗ Some leads could not be moved');

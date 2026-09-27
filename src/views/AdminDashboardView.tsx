@@ -2214,7 +2214,21 @@ export const AdminDashboardView: React.FC = () => {
                   onChange={(e) => setMoveFrom(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
                 >
-                  <option value="">From — choose employee</option>
+                  <option value="">From — choose employee or pool</option>
+                  {(() => {
+                    const unassignedCount = assignedLeads.filter(
+                      (l) =>
+                        !l.assignedToEmployeeId ||
+                        l.assignedToEmployeeId === 'unassigned' ||
+                        l.assignedToEmployeeId === '' ||
+                        (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === 'unassigned')
+                    ).length;
+                    return unassignedCount > 0 ? (
+                      <option value="UNASSIGNED">
+                        ⚡ Unassigned Leads Pool ({unassignedCount} leads available)
+                      </option>
+                    ) : null;
+                  })()}
                   {teamMembers
                     .filter((m) =>
                       assignedLeads.some(
@@ -2245,7 +2259,7 @@ export const AdminDashboardView: React.FC = () => {
                 >
                   <option value="">To — choose employee</option>
                   {teamMembers
-                    .filter((m) => m.id !== moveFrom && m.active !== 0)
+                    .filter((m) => (moveFrom === 'UNASSIGNED' || m.id !== moveFrom) && m.active !== 0)
                     .map((m) => {
                       const count = assignedLeads.filter(
                         (l) =>
