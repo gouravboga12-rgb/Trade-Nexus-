@@ -237,15 +237,8 @@ export function seedInitialDataIfEmpty() {
     insertLeave.run('leave-2', 'Gourav Boga', 'TNX-8275', 'Sick Leave', '05 Jun 2025', '06 Jun 2025', 2, 'Scheduled medical health checkup', 'PENDING', 'Today', null);
   }
 
-  // 9. Payslips
-  if (getTableCount('payslips') === 0) {
-    const insertPayslip = db.prepare(`
-      INSERT INTO payslips (id, month, year, basicSalary, hra, specialAllowance, incentives, pfDeduction, taxDeduction, netPay, generatedDate, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    insertPayslip.run('pay-2025-04', 'April', 2025, 28000, 12000, 6000, 14500, 2400, 1800, 56300, '01 May 2025', 'PAID');
-    insertPayslip.run('pay-2025-03', 'March', 2025, 28000, 12000, 6000, 18200, 2400, 2100, 59700, '01 Apr 2025', 'PAID');
-  }
+  // 9. Payslips — generated dynamically or via HR Payroll module
+  // No mock/orphaned payslips seeded without valid employee references
 
   // 10. Team Tasks
   if (getTableCount('team_tasks') === 0) {
@@ -331,14 +324,8 @@ export function seedInitialDataIfEmpty() {
     insertFace.run('emp-tc-nikhil', 'Nikhil Bill', '', '15 Mar 2024', 'REGISTERED');
   }
 
-  // 18. Offer Letters
-  if (getTableCount('offer_letters') === 0) {
-    const insertOffer = db.prepare(`
-      INSERT INTO offer_letters (id, candidateName, candidateEmail, candidatePhone, roleTitle, department, annualCtc, monthlyGross, joiningDate, reportingManager, location, issuedDate)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    insertOffer.run('off-1', 'Srihari Nair', 'srihari.n@gmail.com', '+91 98450 67890', 'Telecaller Executive', 'Sales & Client Acquisition', 360000, 30000, '01 Jun 2025', 'Team Leader', 'Bengaluru Corporate HQ', '28 May 2025');
-  }
+  // 18. Offer Letters — generated via HR module on demand
+  // No orphaned offer letters seeded for non-existent staff members
 
   // 19. Payment Verifications
   if (getTableCount('payment_verifications') === 0) {

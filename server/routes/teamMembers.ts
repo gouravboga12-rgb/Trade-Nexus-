@@ -31,14 +31,14 @@ router.get('/', (req: Request, res: Response) => {
 
       if (squadName) {
         const members = db.prepare(`
-          SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address 
+          SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address 
           FROM team_members 
           WHERE LOWER(groupName) = LOWER(?) OR id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
         `).all(squadName, leaderId, leaderEmpCode, leaderName);
         return res.status(200).json(members);
       } else {
         const members = db.prepare(`
-          SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address 
+          SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address 
           FROM team_members 
           WHERE id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
         `).all(leaderId, leaderEmpCode, leaderName);
@@ -46,7 +46,7 @@ router.get('/', (req: Request, res: Response) => {
       }
     }
 
-    const members = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address FROM team_members').all();
+    const members = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address FROM team_members').all();
     return res.status(200).json(members);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -226,16 +226,17 @@ router.post('/', (req: Request, res: Response) => {
 
     const createAtomic = db.transaction(() => {
       // 1. Insert Team Member
+      const finalPassword = password || 'Trade@1234';
       db.prepare(`
         INSERT INTO team_members (
           id, empCode, name, avatar, role, groupName, phone, attendanceStatus, 
           checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, 
-          salesAchieved, salesTarget, conversionRate, portal, email,
+          salesAchieved, salesTarget, conversionRate, portal, email, password,
           bankName, bankAccountNumber, bankIfscCode,
           panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl,
           salary, joiningDate, address
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         memberId, finalEmpCode, finalName,
         avatar || 'TM', finalRole, finalGroup,
@@ -244,7 +245,7 @@ router.post('/', (req: Request, res: Response) => {
         connected ? Number(connected) : 0, interested ? Number(interested) : 0,
         salesAchieved ? Number(salesAchieved) : 0, salesTarget ? Number(salesTarget) : 0,
         conversionRate ? Number(conversionRate) : 0,
-        finalPortal, finalEmail,
+        finalPortal, finalEmail, finalPassword,
         bankName || null, bankAccountNumber || null, bankIfscCode || null,
         panDocumentName || null, panDocumentUrl || null,
         aadhaarDocumentName || null, aadhaarDocumentUrl || null,
@@ -262,7 +263,7 @@ router.post('/', (req: Request, res: Response) => {
 
       // 3. Insert User Credentials for login (strictly avoid converting or overwriting existing user accounts)
       if (finalEmail) {
-        const rawPassword = password || 'nexus123';
+        const rawPassword = password || 'Trade@1234';
         const passHash = hashPassword(rawPassword);
         db.prepare(`
           INSERT INTO users (id, email, passwordHash, name, role, empCode, employeeId, active)
@@ -281,7 +282,7 @@ router.post('/', (req: Request, res: Response) => {
 
     createAtomic();
 
-    const created = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address FROM team_members WHERE id = ?').get(memberId);
+    const created = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address FROM team_members WHERE id = ?').get(memberId);
     return res.status(201).json(created);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -292,7 +293,7 @@ router.post('/', (req: Request, res: Response) => {
 router.put('/:id', (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const existing = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address FROM team_members WHERE id = ?').get(id) as any;
+    const existing = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address FROM team_members WHERE id = ?').get(id) as any;
     if (!existing) {
       return res.status(404).json({ error: 'Team member not found' });
     }
@@ -322,6 +323,7 @@ router.put('/:id', (req: Request, res: Response) => {
           attendanceStatus = ?, checkInTime = ?, checkInMethod = ?, dialsToday = ?, 
           goalCalls = ?, connected = ?, interested = ?, salesAchieved = ?, 
           salesTarget = ?, conversionRate = ?, portal = ?, email = ?,
+          password = ?,
           active = ?, deactivatedOn = ?,
           bankName = ?, bankAccountNumber = ?, bankIfscCode = ?,
           panDocumentName = ?, panDocumentUrl = ?,
@@ -334,6 +336,7 @@ router.put('/:id', (req: Request, res: Response) => {
       merged.goalCalls, merged.connected, merged.interested, merged.salesAchieved,
       merged.salesTarget, merged.conversionRate,
       merged.portal || 'telecaller', merged.email ?? null,
+      merged.password || existing.password || 'Trade@1234',
       merged.active === 0 ? 0 : 1, merged.deactivatedOn ?? null,
       merged.bankName ?? null, merged.bankAccountNumber ?? null, merged.bankIfscCode ?? null,
       merged.panDocumentName ?? null, merged.panDocumentUrl ?? null,
@@ -351,7 +354,23 @@ router.put('/:id', (req: Request, res: Response) => {
       `).run(merged.name, merged.role, merged.group, merged.group, merged.email, merged.phone, merged.joiningDate || null, id, merged.empCode);
     } catch {}
 
-    const updated = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address FROM team_members WHERE id = ?').get(id);
+    // Sync password to users table if a new plain-text password was provided
+    if (req.body.password) {
+      try {
+        const newHash = hashPassword(req.body.password);
+        // Update by employeeId first, then fall back to empCode
+        const affected = db.prepare(`
+          UPDATE users SET passwordHash = ?, name = ? WHERE employeeId = ?
+        `).run(newHash, merged.name, id);
+        if ((affected as any).changes === 0) {
+          db.prepare(`
+            UPDATE users SET passwordHash = ?, name = ? WHERE empCode = ?
+          `).run(newHash, merged.name, merged.empCode);
+        }
+      } catch (_) {}
+    }
+
+    const updated = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address FROM team_members WHERE id = ?').get(id);
     return res.status(200).json(updated);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -462,7 +481,23 @@ router.delete('/:id', (req: Request, res: Response) => {
         `).run(empCode, name);
       } catch (_) {}
 
-      // 12. Update team groups member count
+      // 12. Delete offer letters belonging to this candidate/employee
+      try {
+        db.prepare(`
+          DELETE FROM offer_letters 
+          WHERE LOWER(candidateName) = LOWER(?) OR (candidateEmail IS NOT NULL AND LOWER(candidateEmail) = LOWER(?))
+        `).run(name, email || '');
+      } catch (_) {}
+
+      // 13. Delete payslips belonging to this employee
+      try {
+        db.prepare(`
+          DELETE FROM payslips 
+          WHERE employeeId = ? OR empCode = ? OR LOWER(employeeName) = LOWER(?)
+        `).run(empId, empCode, name);
+      } catch (_) {}
+
+      // 14. Update team groups member count
       try {
         db.prepare(`
           UPDATE team_groups 

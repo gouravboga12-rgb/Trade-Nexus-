@@ -22,6 +22,19 @@ function metresBetween(lat1: number, lng1: number, lat2: number, lng2: number): 
   return Math.round(earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
+/** "09:05 AM" -> minutes since midnight, or null if unparseable. */
+function minutesOfDay(t?: string | null): number | null {
+  if (!t) return null;
+  const m = t.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  if (!m) return null;
+  let hours = parseInt(m[1], 10);
+  if (m[3]) {
+    hours %= 12;
+    if (m[3].toUpperCase() === 'PM') hours += 12;
+  }
+  return hours * 60 + parseInt(m[2], 10);
+}
+
 /**
  * Attendance rows carry a photo and coordinates.
  * Admin sees all. Employees see their own (Telecaller sees own).
@@ -273,6 +286,25 @@ router.post('/', (req: Request, res: Response) => {
       locationStatus = 'OFFICE_NOT_SET';
     }
 
+    // Evaluate shift cutoff: check if punch-in is after shiftStartTime + gracePeriodMinutes
+    let effectiveStatus = status;
+    if (!effectiveStatus || effectiveStatus === 'PRESENT') {
+      try {
+        const cal = db.prepare('SELECT shiftStartTime, gracePeriodMinutes FROM calendar_settings WHERE id = ?').get('settings-default') as any;
+        if (cal && cal.shiftStartTime) {
+          const shiftStartMin = minutesOfDay(cal.shiftStartTime);
+          const checkInMin = minutesOfDay(resolvedCheckIn);
+          const grace = Number(cal.gracePeriodMinutes) || 0;
+          if (shiftStartMin !== null && checkInMin !== null) {
+            effectiveStatus = checkInMin > shiftStartMin + grace ? 'LATE' : 'PRESENT';
+          }
+        }
+      } catch (e) {
+        console.warn('Shift cutoff evaluation failed:', e);
+      }
+    }
+    if (!effectiveStatus) effectiveStatus = 'PRESENT';
+
     db.prepare(`
       INSERT INTO attendance_records
         (id, date, dayNumber, status, checkIn, checkOut, workHours, method,
@@ -294,7 +326,7 @@ router.post('/', (req: Request, res: Response) => {
         disputedByAdmin = 0,
         disputeReason = NULL
     `).run(
-      recId, recDate, recDay, status || 'PRESENT', resolvedCheckIn, resolvedCheckOut,
+      recId, recDate, recDay, effectiveStatus, resolvedCheckIn, resolvedCheckOut,
       workHours || 'In Progress', method || 'Face ID Biometric',
       employeeId || null, employeeName || null, checkInPhoto || null,
       latitude ?? null, longitude ?? null, distance, locationStatus
@@ -304,7 +336,7 @@ router.post('/', (req: Request, res: Response) => {
     if (employeeId) {
       db.prepare(
         `UPDATE team_members SET attendanceStatus = ?, checkInTime = ?, checkInMethod = ? WHERE id = ? OR empCode = ?`
-      ).run(status || 'PRESENT', resolvedCheckIn, method || 'Face ID Biometric', employeeId, employeeId);
+      ).run(effectiveStatus, resolvedCheckIn, method || 'Face ID Biometric', employeeId, employeeId);
       try {
         db.prepare(
           `UPDATE employee_profiles SET faceIdStatus = 'VERIFIED_PRESENT', checkInTime = ? WHERE id = ? OR empCode = ?`
@@ -322,19 +354,6 @@ router.post('/', (req: Request, res: Response) => {
     return res.status(500).json({ error: (error as Error).message });
   }
 });
-
-/** "09:05 AM" -> minutes since midnight, or null if unparseable. */
-function minutesOfDay(t?: string | null): number | null {
-  if (!t) return null;
-  const m = t.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
-  if (!m) return null;
-  let hours = parseInt(m[1], 10);
-  if (m[3]) {
-    hours %= 12;
-    if (m[3].toUpperCase() === 'PM') hours += 12;
-  }
-  return hours * 60 + parseInt(m[2], 10);
-}
 
 // PUT /api/attendance/:id — check out, or correct a record
 router.put('/:id', (req: Request, res: Response) => {
@@ -416,7 +435,7 @@ router.put('/:id', (req: Request, res: Response) => {
           db.prepare(`UPDATE employee_profiles SET faceIdStatus = 'NOT_CHECKED_IN', checkInTime = '' WHERE id = ? OR empCode = ?`).run(
             merged.employeeId, merged.employeeId
           );
-        } else if (merged.status === 'PRESENT') {
+        } else if (merged.status === 'PRESENT' || merged.status === 'LATE') {
           db.prepare(`UPDATE employee_profiles SET faceIdStatus = 'VERIFIED_PRESENT', checkInTime = coalesce(?, checkInTime) WHERE id = ? OR empCode = ?`).run(
             merged.checkIn || null, merged.employeeId, merged.employeeId
           );

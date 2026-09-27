@@ -278,49 +278,36 @@ export const App: React.FC = () => {
 
   // 3. Full Workspace once authenticated
   const renderActiveView = (isDesktop: boolean = false) => {
-    let content: React.ReactNode = null;
-
-    if (currentRole === 'team_leader') {
-      content = <TeamLeaderDashboardView />;
-    } else if (currentRole === 'hr') {
-      content = <HrDashboardView />;
-    } else if (currentRole === 'admin') {
-      content = <AdminDashboardView />;
-    } else {
+    // ── Desktop: use full-width dedicated Desktop* components ──
+    if (isDesktop) {
+      if (currentRole === 'admin') return <DesktopAdminView />;
+      if (currentRole === 'hr') return <DesktopHrView />;
+      if (currentRole === 'team_leader') return <DesktopTeamLeaderView />;
+      // Telecaller desktop tabs
       switch (activeTab) {
-        case 'home':
-          content = <TelecallerHomeView />;
-          break;
-        case 'calling':
-          content = <DailyCallingView />;
-          break;
-        case 'clients':
-          content = <ClientsPipelineView />;
-          break;
-        case 'leaves':
-          content = <AttendanceLeavesView />;
-          break;
-        case 'profile':
-          content = <ProfileSelfServiceView />;
-          break;
-        case 'menu':
-          content = <AllModulesMenuView />;
-          break;
-        default:
-          content = <TelecallerHomeView />;
-          break;
+        case 'home':    return <DesktopTelecallerHome />;
+        case 'calling': return <DesktopDailyCalling />;
+        case 'clients': return <DesktopClientsPipeline />;
+        case 'leaves':  return <DesktopAttendanceLeaves />;
+        case 'profile': return <DesktopProfile />;
+        default:        return <DesktopTelecallerHome />;
       }
     }
 
-    if (isDesktop) {
-      return (
-        <div className="max-w-2xl mx-auto w-full pb-16">
-          {content}
-        </div>
-      );
-    }
+    // ── Mobile: use compact role/tab views ──
+    if (currentRole === 'team_leader') return <TeamLeaderDashboardView />;
+    if (currentRole === 'hr') return <HrDashboardView />;
+    if (currentRole === 'admin') return <AdminDashboardView />;
 
-    return content;
+    switch (activeTab) {
+      case 'home':    return <TelecallerHomeView />;
+      case 'calling': return <DailyCallingView />;
+      case 'clients': return <ClientsPipelineView />;
+      case 'leaves':  return <AttendanceLeavesView />;
+      case 'profile': return <ProfileSelfServiceView />;
+      case 'menu':    return <AllModulesMenuView />;
+      default:        return <TelecallerHomeView />;
+    }
   };
 
   const handleRoleSelect = (r: UserRole) => {
@@ -523,23 +510,27 @@ export const App: React.FC = () => {
             {/* Sidebar Bottom Widget dynamically tailored to current portal */}
             <div className="space-y-3">
               
-              {currentRole === 'telecaller' && (
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-500 font-bold">Calling Goal</span>
-                    <span className="font-mono font-black text-[#00A88B]">{Math.round((stats.dialsMade / stats.todayGoalCalls) * 100)}%</span>
+              {currentRole === 'telecaller' && (() => {
+                const effectiveGoal = (stats.todayGoalCalls && stats.todayGoalCalls > 0) ? stats.todayGoalCalls : 60;
+                const goalPct = Math.min(100, Math.round(((stats.dialsMade || 0) / effectiveGoal) * 100));
+                return (
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500 font-bold">Calling Goal</span>
+                      <span className="font-mono font-black text-[#00A88B]">{goalPct}%</span>
+                    </div>
+                    <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-[#00C9A7] rounded-full transition-all duration-500"
+                        style={{ width: `${goalPct}%` }}
+                      />
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-mono block text-center font-medium">
+                      {stats.dialsMade || 0} of {effectiveGoal} calls completed
+                    </span>
                   </div>
-                  <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-[#00C9A7] rounded-full transition-all duration-500"
-                      style={{ width: `${Math.round((stats.dialsMade / stats.todayGoalCalls) * 100)}%` }}
-                    />
-                  </div>
-                  <span className="text-[11px] text-slate-400 font-mono block text-center font-medium">
-                    {stats.dialsMade} of {stats.todayGoalCalls} calls completed
-                  </span>
-                </div>
-              )}
+                );
+              })()}
 
               {currentRole === 'team_leader' && (() => {
                 const totalSales = teamMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0);
@@ -565,7 +556,7 @@ export const App: React.FC = () => {
               })()}
 
               {currentRole === 'hr' && (() => {
-                const present = teamMembers.filter(m => m.attendanceStatus === 'PRESENT').length;
+                const present = teamMembers.filter(m => m.attendanceStatus === 'PRESENT' || m.attendanceStatus === 'LATE').length;
                 const percent = Math.round((present / Math.max(1, teamMembers.length)) * 100);
                 return (
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5">
@@ -587,7 +578,7 @@ export const App: React.FC = () => {
               })()}
 
               {currentRole === 'admin' && (() => {
-                const active = teamMembers.filter(m => m.attendanceStatus === 'PRESENT').length;
+                const active = teamMembers.filter(m => m.attendanceStatus === 'PRESENT' || m.attendanceStatus === 'LATE').length;
                 const percent = Math.round((active / Math.max(1, teamMembers.length)) * 100);
                 return (
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5">
@@ -602,7 +593,7 @@ export const App: React.FC = () => {
                       />
                     </div>
                     <span className="text-[11px] text-slate-400 font-mono block text-center font-medium">
-                      {active} active user accounts
+                      {active} active users on duty
                     </span>
                   </div>
                 );

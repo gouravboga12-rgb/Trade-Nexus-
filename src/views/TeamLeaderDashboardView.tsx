@@ -49,7 +49,11 @@ export const TeamLeaderDashboardView: React.FC = () => {
     openPunchIn,
     openPunchOut,
     triggerToast,
-    logout
+    logout,
+    companyHolidays,
+    weeklyOffDays,
+    callLogs,
+    paymentVerifications,
   } = useApp();
 
   useScreenData('teamLeaderDashboard');
@@ -68,10 +72,11 @@ export const TeamLeaderDashboardView: React.FC = () => {
     : 'TL';
 
   // Dispute state derived from profile and attendanceLogs
-  const today = new Date().toISOString().split('T')[0];
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayDate = new Date();
   const empId = currentUser?.employeeId || currentUser?.id || profile?.id;
   const todayAttendance = attendanceLogs?.find(
-    (a) => a.date === today && (a.employeeId === empId || a.employeeId === currentUser?.empCode || a.id?.includes(empId || '') || (a.employeeName && profile?.name && a.employeeName.toLowerCase() === profile.name.toLowerCase()))
+    (a) => a.date === todayStr && (a.employeeId === empId || a.employeeId === currentUser?.empCode || a.id?.includes(empId || '') || (a.employeeName && profile?.name && a.employeeName.toLowerCase() === profile.name.toLowerCase()))
   );
   const isAttendanceDisputed = Boolean(profile?.disputedByAdmin) || Boolean(todayAttendance?.disputedByAdmin);
   const attendanceDisputeReason = profile?.disputeReason || todayAttendance?.disputeReason || 'Your punch-in photo was flagged as suspicious.';
@@ -137,17 +142,24 @@ export const TeamLeaderDashboardView: React.FC = () => {
   const pendingLeaves = leaveRequests.filter(r => r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING'));
 
   // Calendar calculations driven by attendanceLogs
-  const latestLogDate = attendanceLogs.map((l) => l.date).sort().at(-1);
   const monthAnchor = useMemo(() => {
-    const base = latestLogDate ? new Date(`${latestLogDate}T00:00:00`) : new Date();
-    return new Date(base.getFullYear(), base.getMonth() + calendarMonthOffset, 1);
-  }, [latestLogDate, calendarMonthOffset]);
+    const base = new Date(todayDate.getFullYear(), todayDate.getMonth() + calendarMonthOffset, 1);
+    return base;
+  }, [calendarMonthOffset]);
 
+  const calYear  = monthAnchor.getFullYear();
+  const calMonth = monthAnchor.getMonth();
   const monthLabel = monthAnchor.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-  const daysInMonth = new Date(monthAnchor.getFullYear(), monthAnchor.getMonth() + 1, 0).getDate();
-  const leadingBlanks = new Date(monthAnchor.getFullYear(), monthAnchor.getMonth(), 1).getDay();
-  const statusByDay = useMemo(() => new Map(attendanceLogs.map((log) => [log.dayNumber, log.status])), [attendanceLogs]);
-  const latestDay = latestLogDate ? new Date(`${latestLogDate}T00:00:00`).getDate() : new Date().getDate();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const leadingBlanks = new Date(calYear, calMonth, 1).getDay();
+  const statusByDay = useMemo(() => new Map<number, string>(
+    attendanceLogs
+      .filter(l => {
+        const d = new Date(l.date + 'T00:00:00');
+        return d.getFullYear() === calYear && d.getMonth() === calMonth;
+      })
+      .map(l => [new Date(l.date + 'T00:00:00').getDate(), l.status])
+  ), [attendanceLogs, calYear, calMonth]);
 
   const countOf = (status: string) => attendanceLogs.filter((l) => l.status === status).length;
   const presentDays = countOf('PRESENT') + countOf('HALF_DAY');
@@ -164,17 +176,76 @@ export const TeamLeaderDashboardView: React.FC = () => {
     return `₹${amount.toLocaleString('en-IN')}`;
   };
 
-  // Timeframe calculation for Performance Reports
-  const tfMultiplier = reportsTimeframe === 'today' ? 1 : reportsTimeframe === 'week' ? 5 : 22;
-  const tfSalesMultiplier = reportsTimeframe === 'today' ? (1 / 22) : reportsTimeframe === 'week' ? (1 / 4) : 1;
+  // Performance Reports driven by timeframe selection ('today' | 'week' | 'month')
+  const { tfDials, tfSales, tfTarget, tfTargetPercent, tfConnectRate, membersByDials } = useMemo(() => {
+    const now = new Date();
+    const todayYMD = now.toISOString().split('T')[0];
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const tfDials = reportsTimeframe === 'today' ? totalActivities : Math.round(totalActivities * tfMultiplier);
-  const tfSales = reportsTimeframe === 'month' ? totalSales : Math.round(totalSales * tfSalesMultiplier);
-  const tfTarget = reportsTimeframe === 'month' ? targetTotal : Math.round(targetTotal * tfSalesMultiplier);
-  const tfTargetPercent = Math.min(100, Math.round((tfSales / Math.max(1, tfTarget)) * 100));
+    const isMatchTimeframe = (dateStr?: string) => {
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return false;
+      if (reportsTimeframe === 'today') {
+        return dateStr.startsWith(todayYMD);
+      } else if (reportsTimeframe === 'week') {
+        return d >= sevenDaysAgo;
+      } else {
+        return d >= startOfMonth;
+      }
+    };
 
-  // Copy before sorting
-  const membersByDials = [...teamMembers].sort((a, b) => b.dialsToday - a.dialsToday);
+    const filteredCalls = (callLogs || []).filter(c => isMatchTimeframe(c.date || c.createdAt));
+    let dials = filteredCalls.length;
+    if (dials === 0) {
+      dials = reportsTimeframe === 'today' ? totalActivities : reportsTimeframe === 'week' ? totalActivities * 5 : totalActivities * 22;
+    }
+
+    const verifiedPayments = (paymentVerifications || []).filter(p => p.status === 'VERIFIED');
+    const tfPayments = verifiedPayments.filter(p => isMatchTimeframe(p.timestamp));
+    let sales = tfPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
+    if (sales === 0) {
+      sales = reportsTimeframe === 'today' ? Math.round(totalSales / 22) : reportsTimeframe === 'week' ? Math.round(totalSales / 4) : totalSales;
+    }
+
+    const target = reportsTimeframe === 'today'
+      ? Math.round(targetTotal / 22)
+      : reportsTimeframe === 'week'
+      ? Math.round(targetTotal / 4)
+      : targetTotal;
+
+    const targetPct = target > 0 ? Math.min(100, Math.round((sales / target) * 100)) : 0;
+    const connectedCount = filteredCalls.filter(c => c.outcome === 'CONNECTED' || c.outcome === 'INTERESTED').length;
+    const connRate = dials > 0 ? Math.round((connectedCount > 0 ? (connectedCount / dials) * 100 : connectRate)) : connectRate;
+
+    const ranking = [...teamMembers].map(m => {
+      const empCalls = filteredCalls.filter(c =>
+        c.employeeId === m.id || c.employeeId === m.empCode || (c.clientName && c.clientName.toLowerCase() === m.name.toLowerCase())
+      ).length;
+      const callerDials = empCalls > 0 ? empCalls : (reportsTimeframe === 'today' ? m.dialsToday : reportsTimeframe === 'week' ? m.dialsToday * 5 : m.dialsToday * 22);
+
+      const empPayments = tfPayments.filter(p => p.telecallerName && p.telecallerName.toLowerCase() === m.name.toLowerCase());
+      const callerRev = empPayments.length > 0
+        ? empPayments.reduce((s, p) => s + (p.dealAmount || 0), 0)
+        : (reportsTimeframe === 'today' ? Math.round((m.salesAchieved || 0) / 22) : reportsTimeframe === 'week' ? Math.round((m.salesAchieved || 0) / 4) : m.salesAchieved);
+
+      return {
+        ...m,
+        callerDials,
+        callerSales: callerRev,
+      };
+    }).sort((a, b) => b.callerDials - a.callerDials);
+
+    return {
+      tfDials: dials,
+      tfSales: sales,
+      tfTarget: target,
+      tfTargetPercent: targetPct,
+      tfConnectRate: connRate,
+      membersByDials: ranking,
+    };
+  }, [reportsTimeframe, callLogs, paymentVerifications, totalActivities, totalSales, targetTotal, connectRate, teamMembers]);
 
   // Top active telecallers on floor right now from active SQLite team_members
   const activeFloorMembers = useMemo(() => {
@@ -1377,23 +1448,30 @@ export const TeamLeaderDashboardView: React.FC = () => {
                     {[...Array(daysInMonth)].map((_, i) => {
                       const day = i + 1;
                       const status = statusByDay.get(day);
-                      const isLatest = day === latestDay && calendarMonthOffset === 0;
+                      const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                      const dayOfWeek = new Date(calYear, calMonth, day).getDay();
+                      const holidayMatch = companyHolidays.find(h => h.date === dateStr);
+                      const isWeeklyOff = weeklyOffDays.includes(dayOfWeek);
+                      const isToday = dateStr === todayStr;
 
                       return (
                         <div
                           key={day}
+                          title={holidayMatch ? `Holiday: ${holidayMatch.name}` : isWeeklyOff ? 'Weekly Off' : status || undefined}
                           className={`h-10 rounded-xl flex flex-col items-center justify-center relative transition-all ${
-                            isLatest ? 'bg-[#00C9A7] text-[#0A2540] shadow-sm font-black' :
+                            isToday ? 'bg-[#00C9A7] text-[#0A2540] shadow-sm font-black ring-2 ring-[#00C9A7]/50' :
                             status === 'LEAVE' ? 'bg-amber-100 text-amber-900 border border-amber-300' :
                             status === 'ABSENT' ? 'bg-rose-100 text-rose-900 border border-rose-300' :
-                            status === 'HOLIDAY' ? 'bg-slate-50 text-slate-400' :
+                            holidayMatch || status === 'HOLIDAY' ? 'bg-purple-100 text-purple-900 border border-purple-300 font-extrabold' :
                             status === 'HALF_DAY' ? 'bg-sky-50 text-sky-900 border border-sky-200' :
                             status === 'PRESENT' ? 'bg-emerald-50/80 text-emerald-900 border border-emerald-200' :
+                            isWeeklyOff ? 'bg-slate-100 text-slate-400 border border-slate-200/80' :
                             'text-slate-400'
                           }`}
                         >
                           <span className="text-[11px] leading-none">{day}</span>
-                          {status === 'PRESENT' && !isLatest && (
+                          {holidayMatch && <span className="text-[8px] font-black leading-none text-purple-700 mt-0.5">★</span>}
+                          {status === 'PRESENT' && !isToday && (
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-0.5" />
                           )}
                           {status === 'LEAVE' && (
@@ -1401,6 +1479,9 @@ export const TeamLeaderDashboardView: React.FC = () => {
                           )}
                           {status === 'ABSENT' && (
                             <span className="w-1.5 h-1.5 rounded-full bg-rose-500 mt-0.5" />
+                          )}
+                          {isWeeklyOff && !holidayMatch && !status && (
+                            <span className="text-[8px] text-slate-400 mt-0.5 leading-none font-medium">OFF</span>
                           )}
                         </div>
                       );
@@ -1422,8 +1503,12 @@ export const TeamLeaderDashboardView: React.FC = () => {
                       Absent ({absentDays} Days)
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-slate-300" />
-                      Off ({holidayDays} Days)
+                      <span className="w-2 h-2 rounded-full bg-slate-400" />
+                      Weekly Off
+                    </span>
+                    <span className="flex items-center gap-1.5 col-span-2">
+                      <span className="w-2 h-2 rounded-full bg-purple-600" />
+                      Company Holiday
                     </span>
                   </div>
                 </div>
@@ -1469,7 +1554,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
               <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
                 <span className="text-[10px] text-slate-500 block font-semibold uppercase">Total Dials</span>
                 <span className="font-mono-nums font-black text-xl text-[#0A2540]">{tfDials} Calls</span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">{connectRate}% Connect Rate</span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">{tfConnectRate}% Connect Rate</span>
               </div>
               <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
                 <span className="text-[10px] text-slate-500 block font-semibold uppercase">Revenue Closed</span>
@@ -1484,8 +1569,8 @@ export const TeamLeaderDashboardView: React.FC = () => {
                 Caller Ranking ({reportsTimeframe})
               </span>
               {membersByDials.map((m, i) => {
-                const callerDials = reportsTimeframe === 'today' ? m.dialsToday : reportsTimeframe === 'week' ? Math.round(m.dialsToday * 5) : Math.round(m.dialsToday * 22);
-                const callerSales = reportsTimeframe === 'month' ? m.salesAchieved : Math.round(m.salesAchieved * tfSalesMultiplier);
+                const callerDials = (m as any).callerDials ?? m.dialsToday;
+                const callerSales = (m as any).callerSales ?? m.salesAchieved;
 
                 return (
                   <div 
@@ -1508,15 +1593,6 @@ export const TeamLeaderDashboardView: React.FC = () => {
                 );
               })}
             </div>
-
-            {/* ---- Logout Button ---- */}
-            <button
-              onClick={() => logout()}
-              className="w-full mt-4 mb-6 flex items-center justify-center gap-2.5 bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-400 text-red-600 hover:text-red-700 rounded-2xl p-4 font-bold text-sm transition-all active:scale-[0.98] cursor-pointer group shadow-xs"
-            >
-              <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              <span>Logout</span>
-            </button>
           </div>
         )}
 
@@ -1617,15 +1693,6 @@ export const TeamLeaderDashboardView: React.FC = () => {
                 ))
               )}
             </div>
-
-            {/* ---- Logout Button ---- */}
-            <button
-              onClick={() => logout()}
-              className="w-full mt-4 mb-8 flex items-center justify-center gap-2.5 bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-400 text-red-600 hover:text-red-700 rounded-2xl p-4 font-bold text-sm transition-all active:scale-[0.98] cursor-pointer group shadow-xs"
-            >
-              <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              <span>Logout</span>
-            </button>
           </div>
         )}
 

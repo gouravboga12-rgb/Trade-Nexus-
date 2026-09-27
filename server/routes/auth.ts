@@ -173,6 +173,15 @@ router.post('/change-password', (req: Request, res: Response) => {
     const newHash = hashPassword(newPassword);
     db.prepare('UPDATE users SET passwordHash = ? WHERE id = ?').run(newHash, user.id);
 
+    // Synchronize plain text password to team_members for HR display
+    try {
+      db.prepare(`
+        UPDATE team_members
+        SET password = ?
+        WHERE id = ? OR empCode = ? OR (email IS NOT NULL AND LOWER(email) = LOWER(?))
+      `).run(newPassword, user.employeeId || '', user.empCode || '', user.email || '');
+    } catch (_) {}
+
     return res.status(200).json({ ok: true });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -314,6 +323,15 @@ router.post('/forgot-password/reset-password', (req: Request, res: Response) => 
     // Hash and update the password
     const newHash = hashPassword(String(newPassword));
     db.prepare('UPDATE users SET passwordHash = ? WHERE id = ?').run(newHash, user.id);
+
+    // Synchronize plain text password to team_members for HR display
+    try {
+      db.prepare(`
+        UPDATE team_members
+        SET password = ?
+        WHERE id = ? OR empCode = ? OR (email IS NOT NULL AND LOWER(email) = LOWER(?))
+      `).run(String(newPassword), user.employeeId || '', user.empCode || '', cleanEmail);
+    } catch (_) {}
 
     // Clean up OTP records for this email
     db.prepare('DELETE FROM password_reset_otps WHERE LOWER(email) = ?').run(cleanEmail);

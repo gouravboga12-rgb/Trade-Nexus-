@@ -98,8 +98,10 @@ export const DesktopTelecallerHome: React.FC = () => {
   }, [stats.monthlySalesTarget]);
 
   const effectiveTodayGoal = useMemo(() => {
-    return (stats.todayGoalCalls && stats.todayGoalCalls > 0) ? stats.todayGoalCalls : 60;
-  }, [stats.todayGoalCalls]);
+    if (stats.todayGoalCalls && stats.todayGoalCalls > 0) return stats.todayGoalCalls;
+    if (userLeads && userLeads.length > 0) return userLeads.length;
+    return 60;
+  }, [stats.todayGoalCalls, userLeads]);
 
   const totalDialsCount = useMemo(() => {
     const fromLeads = userLeads.reduce((sum, l) => sum + (l.callCount || (l.status !== 'PENDING' ? 1 : 0)), 0);
@@ -118,7 +120,7 @@ export const DesktopTelecallerHome: React.FC = () => {
     return Math.max(fromLeads, fromLogs, stats.interested || 0);
   }, [userLeads, callLogs, stats.interested]);
 
-  const goalPercentage = Math.round((totalDialsCount / Math.max(1, effectiveTodayGoal)) * 100);
+  const goalPercentage = effectiveTodayGoal > 0 ? Math.min(100, Math.round((totalDialsCount / effectiveTodayGoal) * 100)) : 0;
   const tgtPercentage = Math.round((wonDealsRevenue / Math.max(1, effectiveMonthlyTarget)) * 100);
   const pendingCallbacks = clients.filter(c => c.status === 'Due Today' || c.status === 'Follow-up').length;
   const dialsRemaining = Math.max(0, effectiveTodayGoal - totalDialsCount);

@@ -130,6 +130,7 @@ export function initializeDatabaseSchema() {
       salesAchieved REAL NOT NULL DEFAULT 0,
       salesTarget REAL NOT NULL DEFAULT 200000,
       conversionRate REAL NOT NULL DEFAULT 0,
+      password TEXT DEFAULT 'Trade@1234',
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -372,6 +373,7 @@ function runMigrations() {
   addColumnIfMissing('team_members', 'salary', 'REAL');
   addColumnIfMissing('team_members', 'joiningDate', 'TEXT');
   addColumnIfMissing('team_members', 'address', 'TEXT');
+  addColumnIfMissing('team_members', 'password', "TEXT DEFAULT 'Trade@1234'");
   addColumnIfMissing('users', 'active', 'INTEGER NOT NULL DEFAULT 1');
 
   // Attendance is per employee, and each check-in carries proof of who and where.
@@ -560,5 +562,39 @@ function runMigrations() {
       insertHoliday.run(h.id, h.name, h.date, h.type, h.description);
     }
     console.log('[SQLite DB] Migration: seeded 15 official gazetted company_holidays');
+  }
+
+  // ── Runtime column migrations (safe: ALTER TABLE ADD COLUMN is idempotent in SQLite) ──
+  const columnMigrations: { table: string; column: string; definition: string }[] = [
+    { table: 'team_members', column: 'password',       definition: "TEXT DEFAULT 'Trade@1234'" },
+    { table: 'team_members', column: 'portal',         definition: 'TEXT DEFAULT \'\''},
+    { table: 'team_members', column: 'email',          definition: 'TEXT DEFAULT \'\''},
+    { table: 'team_members', column: 'bankName',       definition: 'TEXT' },
+    { table: 'team_members', column: 'bankAccountNumber', definition: 'TEXT' },
+    { table: 'team_members', column: 'bankIfscCode',   definition: 'TEXT' },
+    { table: 'team_members', column: 'panDocumentName',    definition: 'TEXT' },
+    { table: 'team_members', column: 'panDocumentUrl',     definition: 'TEXT' },
+    { table: 'team_members', column: 'aadhaarDocumentName', definition: 'TEXT' },
+    { table: 'team_members', column: 'aadhaarDocumentUrl',  definition: 'TEXT' },
+    { table: 'team_members', column: 'salary',         definition: 'REAL' },
+    { table: 'team_members', column: 'joiningDate',    definition: 'TEXT' },
+    { table: 'team_members', column: 'address',        definition: 'TEXT' },
+    { table: 'attendance_records', column: 'employeeId',   definition: 'TEXT' },
+    { table: 'attendance_records', column: 'employeeName', definition: 'TEXT' },
+    { table: 'leave_requests', column: 'approvalStage',    definition: "TEXT DEFAULT 'PENDING_HR'" },
+    { table: 'leave_requests', column: 'hrApprovedBy',     definition: 'TEXT' },
+    { table: 'leave_requests', column: 'hrApprovedAt',     definition: 'TEXT' },
+  ];
+
+  for (const { table, column, definition } of columnMigrations) {
+    try {
+      const cols = (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map(c => c.name);
+      if (!cols.includes(column)) {
+        db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run();
+        console.log(`[SQLite DB] Migration: added column ${table}.${column}`);
+      }
+    } catch (e) {
+      // Column may already exist or table may not yet exist — safe to ignore
+    }
   }
 }

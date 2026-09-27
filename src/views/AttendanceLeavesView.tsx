@@ -29,20 +29,37 @@ export const AttendanceLeavesView: React.FC = () => {
   useScreenData('attendanceLeaves');
   const [activeSubTab, setActiveSubTab] = useState<'attendance' | 'leaves'>('attendance');
 
-  // Calendar reflects the attendance records stored in SQLite
-  const latestLogDate = attendanceLogs.map((l) => l.date).sort().at(-1);
-  const monthAnchor = latestLogDate ? new Date(`${latestLogDate}T00:00:00`) : new Date();
-  const monthLabel = monthAnchor.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-  const daysInMonth = new Date(monthAnchor.getFullYear(), monthAnchor.getMonth() + 1, 0).getDate();
-  const leadingBlanks = new Date(monthAnchor.getFullYear(), monthAnchor.getMonth(), 1).getDay();
-  const statusByDay = new Map(attendanceLogs.map((log) => [log.dayNumber, log.status]));
-  const latestDay = monthAnchor.getDate();
+  // Navigable month calendar
+  const today = new Date();
+  const [calendarDate, setCalendarDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+  const prevMonth = () => setCalendarDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+  const nextMonth = () => setCalendarDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1));
+
+  const calYear  = calendarDate.getFullYear();
+  const calMonth = calendarDate.getMonth();
+  const monthLabel = calendarDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const leadingBlanks = new Date(calYear, calMonth, 1).getDay();
+
+  // Build status map from attendance logs (any month)
+  const statusByDay = new Map<number, string>(
+    attendanceLogs
+      .filter(l => {
+        const d = new Date(l.date + 'T00:00:00');
+        return d.getFullYear() === calYear && d.getMonth() === calMonth;
+      })
+      .map(l => [new Date(l.date + 'T00:00:00').getDate(), l.status])
+  );
+
+  const todayStr = today.toISOString().split('T')[0];
+  const todayIsCurrentMonth = today.getFullYear() === calYear && today.getMonth() === calMonth;
 
   const countOf = (status: string) => attendanceLogs.filter((l) => l.status === status).length;
   const presentDays = countOf('PRESENT') + countOf('HALF_DAY');
   const leaveDays = countOf('LEAVE');
   const absentDays = countOf('ABSENT');
   const holidayDays = countOf('HOLIDAY');
+
 
   const formatLogDate = (iso: string) => {
     const parsed = new Date(`${iso}T00:00:00`);
@@ -133,8 +150,12 @@ export const AttendanceLeavesView: React.FC = () => {
             <div className="flex items-center justify-between pb-1 border-b border-slate-100">
               <h4 className="font-display font-black text-base text-[#0A2540]">{monthLabel}</h4>
               <div className="flex items-center gap-1">
-                <button className="p-1 rounded-lg hover:bg-slate-100"><ChevronLeft className="w-4 h-4 text-slate-600" /></button>
-                <button className="p-1 rounded-lg hover:bg-slate-100"><ChevronRight className="w-4 h-4 text-slate-600" /></button>
+                <button onClick={prevMonth} className="p-1 rounded-lg hover:bg-slate-100 active:scale-95 transition-all"><ChevronLeft className="w-4 h-4 text-slate-600" /></button>
+                <button
+                  onClick={() => setCalendarDate(new Date(today.getFullYear(), today.getMonth(), 1))}
+                  className="text-[10px] font-bold px-2 py-0.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-all"
+                >Today</button>
+                <button onClick={nextMonth} className="p-1 rounded-lg hover:bg-slate-100 active:scale-95 transition-all"><ChevronRight className="w-4 h-4 text-slate-600" /></button>
               </div>
             </div>
 
@@ -151,21 +172,18 @@ export const AttendanceLeavesView: React.FC = () => {
               {[...Array(daysInMonth)].map((_, i) => {
                 const day = i + 1;
                 const status = statusByDay.get(day);
-                const isLatest = day === latestDay;
-
-                const year = monthAnchor.getFullYear();
-                const month = monthAnchor.getMonth();
-                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                const dayOfWeek = new Date(year, month, day).getDay();
+                const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dayOfWeek = new Date(calYear, calMonth, day).getDay();
                 const holidayMatch = companyHolidays.find((h) => h.date === dateStr);
                 const isWeeklyOff = weeklyOffDays.includes(dayOfWeek);
+                const isToday = dateStr === todayStr;
 
                 return (
                   <div
                     key={day}
                     title={holidayMatch ? `Holiday: ${holidayMatch.name}` : isWeeklyOff ? 'Weekly Off' : undefined}
                     className={`h-11 rounded-xl flex flex-col items-center justify-center relative transition-all ${
-                      isLatest ? 'bg-[#00C9A7] text-[#0A2540] shadow-md shadow-[#00C9A7]/30 font-extrabold ring-2 ring-[#00C9A7]/50' :
+                      isToday ? 'bg-[#00C9A7] text-[#0A2540] shadow-md shadow-[#00C9A7]/30 font-extrabold ring-2 ring-[#00C9A7]/50' :
                       status === 'LEAVE' ? 'bg-amber-100 text-amber-900 border border-amber-300' :
                       status === 'ABSENT' ? 'bg-rose-100 text-rose-900 border border-rose-300' :
                       status === 'PRESENT' ? 'bg-emerald-50/80 text-emerald-900 border border-emerald-200' :
@@ -181,7 +199,7 @@ export const AttendanceLeavesView: React.FC = () => {
                         ★
                       </span>
                     )}
-                    {status === 'PRESENT' && !isLatest && (
+                    {status === 'PRESENT' && !isToday && (
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1" />
                     )}
                     {status === 'LEAVE' && (
@@ -194,6 +212,7 @@ export const AttendanceLeavesView: React.FC = () => {
                 );
               })}
             </div>
+
 
             {/* Legend */}
             <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-bold text-slate-600 pt-3 border-t border-slate-100">

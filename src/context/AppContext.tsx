@@ -177,6 +177,7 @@ interface AppContextType {
   verifyPayment: (paymentId: string, status: 'VERIFIED' | 'REJECTED') => void;
   generateBulkPayslips: (month: string, year: string, employeeIds?: string[]) => void;
   updatePayslip: (id: string, updates: Partial<PayslipItem>) => Promise<void>;
+  deletePayslip: (id: string) => Promise<void>;
 
   // Company Calendar & Holidays (Hierarchy-wide)
   weeklyOffDays: number[];
@@ -235,6 +236,7 @@ interface AppContextType {
   isGenerateOfferLetterModalOpen: boolean;
   setIsGenerateOfferLetterModalOpen: (open: boolean) => void;
   generateOfferLetter: (data: Omit<OfferLetterData, 'id' | 'issuedDate'>) => Promise<void>;
+  deleteOfferLetter: (id: string) => Promise<void>;
   openOfferLetterModal: (letter?: OfferLetterData) => void;
   openGenerateOfferLetterModal: () => void;
 
@@ -498,6 +500,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch {
       triggerToast('✓ Updated calendar policies');
     }
+  };
+
+  const computeAttendanceStatus = (checkInTimeStr: string): 'PRESENT' | 'LATE' => {
+    try {
+      const parseTimeToMin = (tStr: string): number | null => {
+        if (!tStr) return null;
+        const clean = tStr.trim();
+        const match = clean.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$/i);
+        if (!match) return null;
+        let hours = parseInt(match[1], 10);
+        const minutes = parseInt(match[2], 10);
+        const meridiem = match[3]?.toUpperCase();
+        if (meridiem) {
+          if (meridiem === 'PM' && hours < 12) hours += 12;
+          if (meridiem === 'AM' && hours === 12) hours = 0;
+        }
+        return hours * 60 + minutes;
+      };
+
+      const shiftStartMin = parseTimeToMin(calendarSettings.shiftStartTime);
+      const checkInMin = parseTimeToMin(checkInTimeStr);
+      const grace = Number(calendarSettings.gracePeriodMinutes) || 0;
+
+      if (shiftStartMin !== null && checkInMin !== null) {
+        if (checkInMin > shiftStartMin + grace) {
+          return 'LATE';
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return 'PRESENT';
   };
 
   const addCompanyHoliday = async (holiday: Omit<CompanyHoliday, 'id'> & { id?: string; description?: string }) => {
@@ -1138,7 +1172,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       connected: (status !== 'NOT_INTERESTED' && status !== 'BUSY') ? stats.connected + 1 : stats.connected,
       interested: status === 'INTERESTED' ? stats.interested + 1 : stats.interested,
       rejected: (status === 'NOT_INTERESTED' || status === 'BUSY') ? stats.rejected + 1 : stats.rejected,
-      monthlySalesAchieved: status === 'CONVERTED' ? (stats.monthlySalesAchieved || 0) + dealAmountNum : stats.monthlySalesAchieved,
+      // Official sales revenue (monthlySalesAchieved) is credited upon verification in verifyPayment
     };
     setStats(updatedStats);
 
@@ -1153,7 +1187,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const newDials = m.dialsToday + 1;
         const newConnected = (status !== 'NOT_INTERESTED' && status !== 'BUSY') ? m.connected + 1 : m.connected;
         const newInterested = status === 'INTERESTED' ? m.interested + 1 : m.interested;
-        const newSales = status === 'CONVERTED' ? (m.salesAchieved || 0) + dealAmountNum : m.salesAchieved;
+        // Sales revenue is recognized when verified in verifyPayment to prevent double-counting
+        const newSales = m.salesAchieved;
         const updatedM: TeamMember = {
           ...m,
           dialsToday: newDials,
@@ -1254,13 +1289,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     setProfile(updatedProfile);
 
+    const calculatedStatus = computeAttendanceStatus(timeStr);
+
     const newAttendanceItem: AttendanceRecord = {
       id: `att-${today}-${targetId}`,
       employeeId: targetId,
       employeeName: profile.name,
       date: today,
       dayNumber: now.getDate(),
-      status: 'PRESENT',
+      status: calculatedStatus,
       checkIn: timeStr,
       workHours: 'In Progress',
       method: 'Face ID Biometric',
@@ -1273,7 +1310,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     setTeamMembers(prev => prev.map(m => {
       if (m.id === profile.id || m.name.toLowerCase() === profile.name.toLowerCase()) {
-        const updated = { ...m, attendanceStatus: 'PRESENT' as const, checkInTime: timeStr, checkInMethod: 'Face ID Biometric' as const };
+        const updated = { ...m, attendanceStatus: calculatedStatus, checkInTime: timeStr, checkInMethod: 'Face ID Biometric' as const };
         api.updateTeamMember(m.id, updated).catch(console.warn);
         return updated;
       }
@@ -1390,6 +1427,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         )
       );
     }
+
+    // Cascade remove local offer letters & payslips for deleted staff
+    setOfferLetters((prev) =>
+      prev.filter(
+        (o) =>
+          o.candidateName?.toLowerCase() !== member.name.toLowerCase() &&
+          (!member.email || o.candidateEmail?.toLowerCase() !== member.email.toLowerCase())
+      )
+    );
+    setPayslips((prev) =>
+      prev.filter(
+        (p) =>
+          p.employeeId !== id &&
+          p.empCode !== id &&
+          p.empCode !== member.empCode &&
+          p.employeeName?.toLowerCase() !== member.name.toLowerCase()
+      )
+    );
 
     try {
       await api.deleteTeamMember(id);
@@ -1555,11 +1610,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setStats({
       ...INITIAL_TELECALLER_STATS,
       dialsMade: targetMember.dialsToday || 0,
-      todayGoalCalls: targetMember.goalCalls || 0,
+      todayGoalCalls: (targetMember.goalCalls && targetMember.goalCalls > 0) ? targetMember.goalCalls : 60,
       connected: targetMember.connected || 0,
       interested: targetMember.interested || 0,
       monthlySalesAchieved: targetMember.salesAchieved || 0,
-      monthlySalesTarget: targetMember.salesTarget || 0
+      monthlySalesTarget: (targetMember.salesTarget && targetMember.salesTarget > 0) ? targetMember.salesTarget : 200000
     });
 
     setCurrentRole(targetMember.portal || 'telecaller');
@@ -1581,6 +1636,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       await api.createOfferLetter(newOffer);
     } catch (err) {
       console.warn('API create offer letter error:', err);
+    }
+  };
+
+  const deleteOfferLetter = async (id: string) => {
+    const target = offerLetters.find(o => o.id === id);
+    setOfferLetters(prev => prev.filter(o => o.id !== id));
+    try {
+      await api.deleteOfferLetter(id);
+      triggerToast(`✓ Offer letter for ${target?.candidateName || 'candidate'} deleted`);
+    } catch (err: any) {
+      console.warn('Delete offer letter error:', err);
+      if (target) setOfferLetters(prev => [target, ...prev]);
+      triggerToast('✗ Failed to delete offer letter');
     }
   };
 
@@ -2340,6 +2408,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const deletePayslip = async (id: string) => {
+    const target = payslips.find(p => p.id === id);
+    setPayslips(prev => prev.filter(p => p.id !== id));
+    try {
+      await api.deletePayslip(id);
+      triggerToast(`✓ Payslip for ${target?.employeeName || target?.month || 'employee'} deleted`);
+    } catch (err: any) {
+      console.warn('API delete payslip error:', err);
+      if (target) setPayslips(prev => [target, ...prev]);
+      triggerToast('✗ Failed to delete payslip');
+    }
+  };
+
   const logNewCall = async (data: {
     clientName: string;
     companyName: string;
@@ -2460,6 +2541,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const empName = currentUser?.name || profile.name || 'Employee';
     const recordId = `att-${today}-${empId}`;
 
+    const calculatedStatus = computeAttendanceStatus(timeStr);
+
     try {
       const rec = await api.recordAttendance({
         id: recordId,
@@ -2467,7 +2550,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         employeeName: empName,
         date: today,
         dayNumber: now.getDate(),
-        status: 'PRESENT',
+        status: calculatedStatus,
         checkIn: timeStr,
         workHours: 'In Progress',
         method: 'Face ID Biometric',
@@ -2489,6 +2572,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setProfile(updatedProfile);
 
       const finalRecId = (rec as any)?.id || recordId;
+      const resolvedStatus = (rec as any)?.status || calculatedStatus;
       setAttendanceLogs((prev) => [
         {
           id: finalRecId,
@@ -2496,7 +2580,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           employeeName: empName,
           date: today,
           dayNumber: now.getDate(),
-          status: 'PRESENT',
+          status: resolvedStatus,
           checkIn: timeStr,
           workHours: 'In Progress',
           method: 'Face ID Biometric',
@@ -2509,6 +2593,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         },
         ...prev.filter((item) => !(item.date === today && (item.employeeId === empId || item.id === finalRecId))),
       ]);
+
+      setTeamMembers((prev) =>
+        prev.map((m) => {
+          if (m.id === empId || m.empCode === empId || m.name.toLowerCase() === empName.toLowerCase()) {
+            return { ...m, attendanceStatus: resolvedStatus, checkInTime: timeStr, checkInMethod: 'Face ID Biometric' as const };
+          }
+          return m;
+        })
+      );
 
       triggerToast(`✓ Checked in at ${timeStr}`);
       await api.updateProfile(updatedProfile).catch(() => {});
@@ -2791,6 +2884,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         verifyPayment,
         generateBulkPayslips,
         updatePayslip,
+        deletePayslip,
         weeklyOffDays,
         setWeeklyOffDays,
         toggleWeeklyOffDay,
@@ -2844,6 +2938,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         isGenerateOfferLetterModalOpen,
         setIsGenerateOfferLetterModalOpen,
         generateOfferLetter,
+        deleteOfferLetter,
         openOfferLetterModal,
         openGenerateOfferLetterModal,
         experienceCerts,

@@ -23,8 +23,12 @@ export const DigitalIdCardModal: React.FC = () => {
     teamMembers, 
     triggerToast,
     selectedIdCardEmpId,
-    updateEmployeeAvatar
+    updateEmployeeAvatar,
+    currentRole,
   } = useApp();
+
+  // Only Admin and HR can edit/upload/switch employees on ID cards
+  const canEditIdCard = currentRole === 'admin' || currentRole === 'hr';
 
   const [selectedEmpId, setSelectedEmpId] = useState<string>(selectedIdCardEmpId || profile.id || 'emp-101');
   const [customPhotoUrl, setCustomPhotoUrl] = useState<string | null>(null);
@@ -117,15 +121,17 @@ export const DigitalIdCardModal: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                isEditing ? 'bg-[#00C9A7] text-[#0A2540]' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-              }`}
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              <span>{isEditing ? 'Done' : 'Edit'}</span>
-            </button>
+            {canEditIdCard && (
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  isEditing ? 'bg-[#00C9A7] text-[#0A2540]' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                }`}
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>{isEditing ? 'Done' : 'Edit'}</span>
+              </button>
+            )}
 
             <button 
               onClick={() => setIsIdCardModalOpen(false)}
@@ -136,18 +142,22 @@ export const DigitalIdCardModal: React.FC = () => {
           </div>
         </div>
 
-        {/* Employee Switcher & Photo Upload Controls */}
+        {/* Employee Switcher & Photo Upload Controls (Admin/HR only) */}
         <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2 text-xs print:hidden flex-shrink-0">
           <div className="flex-1">
-            <select
-              value={selectedEmpId}
-              onChange={(e) => setSelectedEmpId(e.target.value)}
-              className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 font-bold text-[#0A2540] text-xs focus:outline-none focus:border-[#00C9A7]"
-            >
-              {teamMembers.map(m => (
-                <option key={m.id} value={m.id}>{m.name} ({m.empCode} • {m.role})</option>
-              ))}
-            </select>
+            {canEditIdCard ? (
+              <select
+                value={selectedEmpId}
+                onChange={(e) => setSelectedEmpId(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 font-bold text-[#0A2540] text-xs focus:outline-none focus:border-[#00C9A7]"
+              >
+                {teamMembers.map(m => (
+                  <option key={m.id} value={m.id}>{m.name} ({m.empCode} • {m.role})</option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-xs font-bold text-[#0A2540] px-1">{customName} — {customEmpCode}</span>
+            )}
           </div>
 
           <input 
@@ -158,13 +168,15 @@ export const DigitalIdCardModal: React.FC = () => {
             className="hidden" 
           />
 
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="px-3 py-1.5 rounded-xl bg-white border border-slate-300 hover:border-[#00C9A7] text-slate-700 font-bold flex items-center gap-1.5 shadow-2xs transition-all flex-shrink-0"
-          >
-            <Upload className="w-3.5 h-3.5 text-[#00A88B]" />
-            <span>Upload Photo</span>
-          </button>
+          {canEditIdCard && (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-3 py-1.5 rounded-xl bg-white border border-slate-300 hover:border-[#00C9A7] text-slate-700 font-bold flex items-center gap-1.5 shadow-2xs transition-all flex-shrink-0"
+            >
+              <Upload className="w-3.5 h-3.5 text-[#00A88B]" />
+              <span>Upload Photo</span>
+            </button>
+          )}
         </div>
 
         {/* Edit fields collapsible drawer */}
@@ -285,12 +297,12 @@ export const DigitalIdCardModal: React.FC = () => {
               </div>
             </div>
 
-            {/* Circular Photo with Concentric Cyan Glowing Ring & Click-to-Upload */}
+            {/* Circular Photo with Concentric Cyan Glowing Ring */}
             <div className="flex justify-center my-2.5 relative z-10">
               <div 
-                onClick={() => fileInputRef.current?.click()}
-                title="Click to change or upload employee photo"
-                className="w-28 h-28 rounded-full p-1 shadow-2xl flex items-center justify-center cursor-pointer group relative"
+                onClick={() => canEditIdCard && fileInputRef.current?.click()}
+                title={canEditIdCard ? "Click to change or upload employee photo" : customName}
+                className={`w-28 h-28 rounded-full p-1 shadow-2xl flex items-center justify-center relative ${canEditIdCard ? 'cursor-pointer group' : 'cursor-default'}`}
                 style={{ 
                   background: 'linear-gradient(135deg, #00C9A7 0%, #2CD5B5 50%, #0A2540 100%)',
                   boxShadow: '0 8px 24px rgba(0, 201, 167, 0.35)'
@@ -314,11 +326,13 @@ export const DigitalIdCardModal: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Hover Upload Overlay */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[9px] font-bold">
-                    <Upload className="w-4 h-4 text-[#00C9A7] mb-0.5" />
-                    <span>Change</span>
-                  </div>
+                  {/* Hover Upload Overlay — Admin/HR only */}
+                  {canEditIdCard && (
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[9px] font-bold">
+                      <Upload className="w-4 h-4 text-[#00C9A7] mb-0.5" />
+                      <span>Change</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

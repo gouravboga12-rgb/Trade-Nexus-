@@ -20,8 +20,11 @@ export const ExperienceCertModal: React.FC = () => {
     setIsExperienceCertModalOpen, 
     selectedExperienceCert, 
     teamMembers, 
-    triggerToast 
+    triggerToast,
+    currentRole,
   } = useApp();
+
+  const canEditCert = currentRole === 'admin' || currentRole === 'hr';
 
   const [formData, setFormData] = useState<ExperienceCertData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -83,15 +86,17 @@ export const ExperienceCertModal: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                isEditing ? 'bg-[#00C9A7] text-[#0A2540]' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-              }`}
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              <span>{isEditing ? 'Done Editing' : 'Edit Fields'}</span>
-            </button>
+            {canEditCert && (
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  isEditing ? 'bg-[#00C9A7] text-[#0A2540]' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                }`}
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>{isEditing ? 'Done Editing' : 'Edit Fields'}</span>
+              </button>
+            )}
 
             <button
               onClick={handlePrint}
@@ -110,8 +115,8 @@ export const ExperienceCertModal: React.FC = () => {
           </div>
         </div>
 
-        {/* Quick Edit Bar if editing enabled */}
-        {isEditing && (
+        {/* Quick Edit Bar if editing enabled (Admin/HR only) */}
+        {canEditCert && isEditing && (
           <div className="p-4 bg-slate-50 border-b border-slate-200 text-xs space-y-3 print:hidden max-h-48 overflow-y-auto flex-shrink-0">
             <div className="flex items-center gap-2">
               <span className="font-bold text-slate-700">Quick Auto-Fill:</span>

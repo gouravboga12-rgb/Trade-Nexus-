@@ -49,7 +49,8 @@ import {
   Receipt,
   ExternalLink,
   LogOut,
-  FileEdit
+  FileEdit,
+  Trash2
 } from 'lucide-react';
 import { OnboardingEmployee, ExitEmployee, TeamMember, TeamGroup, PayslipItem } from '../types';
 import { AddEmployeeModal } from '../components/modals/AddEmployeeModal';
@@ -83,9 +84,11 @@ export const HrDashboardView: React.FC = () => {
     onboardingList,
     exitList,
     payslips,
+    deletePayslip,
     leaveRequests,
     paymentVerifications,
     offerLetters,
+    deleteOfferLetter,
     setSelectedOfferLetter,
     setIsOfferLetterModalOpen,
     openOfferLetterModal,
@@ -238,6 +241,10 @@ export const HrDashboardView: React.FC = () => {
     });
   }, [teamMembers, searchQuery, attendanceFilter]);
 
+  // Set of active employee names (lower-cased) for filtering docs belonging to deleted accounts
+  const activeEmpNames = useMemo(() => new Set(teamMembers.map(m => m.name.toLowerCase())), [teamMembers]);
+  const activeEmpCodes = useMemo(() => new Set(teamMembers.map(m => m.empCode.toLowerCase())), [teamMembers]);
+
   // Org stats derived from live backend data
   const totalTeams = teamGroups.length;
   const totalEmployees = teamMembers.length;
@@ -268,18 +275,29 @@ export const HrDashboardView: React.FC = () => {
   const totalSalesAchieved = teamMembers.reduce((sum, m) => sum + m.salesAchieved, 0);
   const targetAchievedPercent = Math.round((totalSalesAchieved / Math.max(1, totalSalesTarget)) * 100);
 
-  const pendingApprovalsCount =
-    leaveRequests.filter((r) => r.approvalStage === 'PENDING_HR' || (!r.approvalStage && r.status === 'PENDING')).length +
-    paymentVerifications.filter((p) => p.status === 'PENDING_HR_AUDIT').length;
+  const pendingLeavesCount =
+    leaveRequests.filter((r) => {
+      // Exclude deleted employees
+      if (r.employeeName && !activeEmpNames.has(r.employeeName.toLowerCase())) return false;
+      return r.approvalStage === 'PENDING_HR' || (!r.approvalStage && r.status === 'PENDING');
+    }).length;
+
+  const pendingPaymentsCount = paymentVerifications.filter((p) => p.status === 'PENDING_HR_AUDIT').length;
+  const pendingApprovalsCount = pendingLeavesCount + pendingPaymentsCount;
 
   // Leave Approvals & Sanctions States
   const [leaveApprovalTab, setLeaveApprovalTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [approvedCategoryFilter, setApprovedCategoryFilter] = useState<'ALL' | 'Casual Leave' | 'Sick Leave' | 'Earned / Paid Leave'>('ALL');
 
-  // HR only sees leaves pending at their stage (PENDING_HR)
-  const pendingLeaves = useMemo(() => leaveRequests.filter((r) => r.approvalStage === 'PENDING_HR' || (!r.approvalStage && r.status === 'PENDING')), [leaveRequests]);
-  const approvedLeaves = useMemo(() => leaveRequests.filter((r) => r.status === 'APPROVED'), [leaveRequests]);
-  const rejectedLeaves = useMemo(() => leaveRequests.filter((r) => r.status === 'REJECTED'), [leaveRequests]);
+  // HR only sees leaves pending at their stage (PENDING_HR) — filter out deleted employee requests
+  const activeLeaveRequests = useMemo(() => leaveRequests.filter(r => {
+    // Keep if employee name matches an active employee or no name filter available
+    if (!r.employeeName) return true;
+    return activeEmpNames.has(r.employeeName.toLowerCase());
+  }), [leaveRequests, activeEmpNames]);
+  const pendingLeaves = useMemo(() => activeLeaveRequests.filter((r) => r.approvalStage === 'PENDING_HR' || (!r.approvalStage && r.status === 'PENDING')), [activeLeaveRequests]);
+  const approvedLeaves = useMemo(() => activeLeaveRequests.filter((r) => r.status === 'APPROVED'), [activeLeaveRequests]);
+  const rejectedLeaves = useMemo(() => activeLeaveRequests.filter((r) => r.status === 'REJECTED'), [activeLeaveRequests]);
 
   const approvedCasualCount = useMemo(() => approvedLeaves.filter((r) => r.leaveType === 'Casual Leave').length, [approvedLeaves]);
   const approvedSickCount = useMemo(() => approvedLeaves.filter((r) => r.leaveType === 'Sick Leave').length, [approvedLeaves]);
@@ -970,7 +988,11 @@ export const HrDashboardView: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                {offerLetters.map((letter) => (
+                {offerLetters.filter((letter) => {
+                  // Hide orphaned offer letters from deleted employees
+                  if (!letter.candidateName) return true;
+                  return activeEmpNames.has(letter.candidateName.toLowerCase());
+                }).map((letter) => (
                   <div 
                     key={letter.id} 
                     onClick={() => {
@@ -2374,17 +2396,32 @@ export const HrDashboardView: React.FC = () => {
                           <span className="text-[10px] font-mono text-slate-400">
                             Issued: {letter.issuedDate}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedOfferLetter(letter);
-                              setIsOfferLetterModalOpen(true);
-                            }}
-                            className="px-2.5 py-1 rounded-lg bg-[#0A2540] text-white hover:bg-[#133353] font-bold text-[10px] inline-flex items-center gap-1 transition-all"
-                          >
-                            <FileText className="w-3 h-3 text-[#00C9A7]" />
-                            <span>View / Print Offer Letter</span>
-                          </button>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedOfferLetter(letter);
+                                setIsOfferLetterModalOpen(true);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-[#0A2540] text-white hover:bg-[#133353] font-bold text-[10px] inline-flex items-center gap-1 transition-all"
+                            >
+                              <FileText className="w-3 h-3 text-[#00C9A7]" />
+                              <span>View / Print</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm(`Delete offer letter for "${letter.candidateName}" permanently?`)) {
+                                  deleteOfferLetter(letter.id);
+                                }
+                              }}
+                              title="Delete offer letter"
+                              className="p-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ));
@@ -2421,12 +2458,22 @@ export const HrDashboardView: React.FC = () => {
 
                 <div className="space-y-2.5">
                   {(() => {
-                    const filtered = payslips.filter(ps => 
-                      (ps.employeeName && ps.employeeName.toLowerCase().includes(moreSearchQuery.toLowerCase())) ||
-                      (ps.employeeCode && ps.employeeCode.toLowerCase().includes(moreSearchQuery.toLowerCase())) ||
-                      (ps.month && ps.month.toLowerCase().includes(moreSearchQuery.toLowerCase())) ||
-                      (ps.year && ps.year.toString().includes(moreSearchQuery))
-                    );
+                    // Only show payslips for current active employees (filter out deleted account records)
+                    const filtered = payslips.filter(ps => {
+                      const nameMatch = Boolean(ps.employeeName && activeEmpNames.has(ps.employeeName.toLowerCase()));
+                      const codeMatch = Boolean(ps.employeeCode && activeEmpCodes.has(ps.employeeCode.toLowerCase()));
+                      const idMatch = Boolean(ps.employeeId && (activeEmpCodes.has(ps.employeeId.toLowerCase()) || activeEmpNames.has(ps.employeeId.toLowerCase())));
+                      const isActiveEmployee = nameMatch || codeMatch || idMatch;
+                      if (!isActiveEmployee) return false;
+                      // Then apply search filter
+                      if (!moreSearchQuery) return true;
+                      return (
+                        (ps.employeeName && ps.employeeName.toLowerCase().includes(moreSearchQuery.toLowerCase())) ||
+                        (ps.employeeCode && ps.employeeCode.toLowerCase().includes(moreSearchQuery.toLowerCase())) ||
+                        (ps.month && ps.month.toLowerCase().includes(moreSearchQuery.toLowerCase())) ||
+                        (ps.year && ps.year.toString().includes(moreSearchQuery))
+                      );
+                    });
 
                     if (filtered.length === 0) {
                       return (
@@ -2493,6 +2540,19 @@ export const HrDashboardView: React.FC = () => {
                               >
                                 <Receipt className="w-3 h-3" />
                                 <span>Inspect</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (window.confirm(`Delete payslip for ${ps.employeeName || 'this staff'} (${ps.month} ${ps.year})?`)) {
+                                    deletePayslip(ps.id);
+                                  }
+                                }}
+                                title="Delete payslip"
+                                className="p-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </div>
@@ -2793,8 +2853,8 @@ export const HrDashboardView: React.FC = () => {
             { id: 'home', label: 'Home', icon: Home },
             { id: 'attendance', label: 'Attendance', icon: CalendarCheck, badge: lateCount > 0 ? lateCount : undefined },
             { id: 'employees', label: 'Team', icon: Users },
-            { id: 'approvals', label: 'Leaves', icon: UserCheck, badge: pendingApprovalsCount },
-            { id: 'more', label: 'More', icon: MoreHorizontal },
+            { id: 'approvals', label: 'Leaves', icon: UserCheck, badge: pendingLeavesCount > 0 ? pendingLeavesCount : undefined },
+            { id: 'more', label: 'More', icon: MoreHorizontal, badge: pendingPaymentsCount > 0 ? pendingPaymentsCount : undefined },
           ].map((item) => {
             const Icon = item.icon;
             const isActive = activeHrNav === item.id;

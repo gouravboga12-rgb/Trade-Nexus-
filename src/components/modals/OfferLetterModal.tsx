@@ -15,6 +15,7 @@ import { OfferLetterData } from '../../types';
 
 export const OfferLetterModal: React.FC = () => {
   const { 
+    currentRole,
     isOfferLetterModalOpen, 
     setIsOfferLetterModalOpen, 
     selectedOfferLetter,
@@ -23,6 +24,7 @@ export const OfferLetterModal: React.FC = () => {
     triggerToast
   } = useApp();
 
+  const canEdit = currentRole === 'admin' || currentRole === 'hr';
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState<OfferLetterData | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -92,15 +94,17 @@ export const OfferLetterModal: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                isEditing ? 'bg-[#00C9A7] text-[#0A2540]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              <span>{isEditing ? 'Done' : 'Edit Fields'}</span>
-            </button>
+            {canEdit && (
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  isEditing ? 'bg-[#00C9A7] text-[#0A2540]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                }`}
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>{isEditing ? 'Done' : 'Edit Fields'}</span>
+              </button>
+            )}
 
             <button
               onClick={handlePrint}
@@ -120,7 +124,7 @@ export const OfferLetterModal: React.FC = () => {
         </div>
 
         {/* Quick Edit Drawer */}
-        {isEditing && (
+        {canEdit && isEditing && (
           <div className="p-3.5 bg-slate-50 border-b border-slate-200 text-xs space-y-2.5 print:hidden max-h-48 overflow-y-auto flex-shrink-0">
             {candidates.length > 0 && (
               <div className="flex items-center gap-2">

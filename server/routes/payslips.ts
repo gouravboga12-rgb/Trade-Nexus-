@@ -217,4 +217,18 @@ router.post('/bulk', (req: Request, res: Response) => {
   }
 });
 
+// DELETE /api/payslips/:id
+router.delete('/:id', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const info = db.prepare('DELETE FROM payslips WHERE id = ?').run(id);
+    if (info.changes === 0) {
+      return res.status(404).json({ error: 'Payslip not found' });
+    }
+    return res.status(200).json({ ok: true, id });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;

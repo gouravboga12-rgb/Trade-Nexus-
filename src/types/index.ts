@@ -101,7 +101,7 @@ export interface AttendanceRecord {
   checkOutLocationStatus?: 'AT_OFFICE' | 'AWAY' | 'NOT_SHARED' | 'OFFICE_NOT_SET';
   date: string;
   dayNumber: number;
-  status: 'PRESENT' | 'ABSENT' | 'LEAVE' | 'HOLIDAY' | 'HALF_DAY';
+  status: 'PRESENT' | 'LATE' | 'ABSENT' | 'LEAVE' | 'HOLIDAY' | 'HALF_DAY';
   checkIn?: string;
   checkOut?: string;
   workHours?: string;

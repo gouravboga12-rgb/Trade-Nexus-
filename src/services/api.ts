@@ -266,6 +266,8 @@ export const api = {
     request<PayslipItem>(`/payslips/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   generateBulkPayslips: (month: string, year: string, employeeIds?: string[]) => 
     request<PayslipItem[]>('/payslips/bulk', { method: 'POST', body: JSON.stringify({ month, year, employeeIds }) }),
+  deletePayslip: (id: string) =>
+    request<{ ok: boolean }>(`/payslips/${id}`, { method: 'DELETE' }),
 
   // Team Members
   getTeamMembers: () => request<TeamMember[]>('/team-members'),
@@ -373,6 +375,8 @@ export const api = {
   getOfferLetters: () => request<OfferLetterData[]>('/offer-letters'),
   createOfferLetter: (data: Omit<OfferLetterData, 'id'> & { id?: string }) => 
     request<OfferLetterData>('/offer-letters', { method: 'POST', body: JSON.stringify(data) }),
+  deleteOfferLetter: (id: string) =>
+    request<{ ok: boolean }>(`/offer-letters/${id}`, { method: 'DELETE' }),
 
   // Payments
   // Employee documents

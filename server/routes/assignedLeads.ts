@@ -230,18 +230,9 @@ router.put('/:id', (req: Request, res: Response) => {
       }
     }
 
-    // If deal is won with a deal value, credit sales to team member (do NOT increment interested)
-    if (merged.status === 'CONVERTED' && merged.dealValue && Number(merged.dealValue) > 0) {
-      try {
-        db.prepare(`
-          UPDATE team_members
-          SET salesAchieved = salesAchieved + ?
-          WHERE id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
-        `).run(Number(merged.dealValue), merged.assignedToEmployeeId, merged.assignedToEmployeeId, merged.assignedToEmployeeName || '');
-      } catch (err) {
-        console.warn('[assignedLeads] Failed to credit team member salesAchieved:', err);
-      }
-    } else if (merged.status === 'INTERESTED') {
+    // Note: Converted deals create a payment verification item audited by HR/Admin.
+    // Official sales revenue (salesAchieved) is credited upon verification in payments.ts to avoid double crediting.
+    if (merged.status === 'INTERESTED') {
       try {
         db.prepare(`
           UPDATE team_members
