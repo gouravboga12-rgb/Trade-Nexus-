@@ -481,7 +481,7 @@ function runMigrations() {
     console.log('[SQLite DB] Migration: created office_settings (address not set yet)');
   }
 
-  addColumnIfMissing('assigned_leads', 'updatedAt', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+  addColumnIfMissing('assigned_leads', 'updatedAt', 'TEXT');
 
   // Hierarchy Company Calendar & Official Holidays
   db.exec(`
