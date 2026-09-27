@@ -36,6 +36,8 @@ router.post('/', (req: Request, res: Response) => {
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }
+});
+
 // DELETE /api/offer-letters/:id
 router.delete('/:id', (req: Request, res: Response) => {
   try {
