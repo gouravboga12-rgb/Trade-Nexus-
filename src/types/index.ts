@@ -180,6 +180,16 @@ export interface TeamMember {
   password?: string;
   active?: number;
   deactivatedOn?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankIfscCode?: string;
+  panDocumentName?: string;
+  panDocumentUrl?: string;
+  aadhaarDocumentName?: string;
+  aadhaarDocumentUrl?: string;
+  salary?: number;
+  joiningDate?: string;
+  address?: string;
 }
 
 export interface TeamGroup {
@@ -352,7 +362,9 @@ export interface NewEmployeeInput {
   hra?: number;
   specialAllowance?: number;
   panDocumentName?: string;
+  panDocumentUrl?: string;
   aadhaarDocumentName?: string;
+  aadhaarDocumentUrl?: string;
   bankName: string;
   bankAccountNumber: string;
   bankIfscCode: string;

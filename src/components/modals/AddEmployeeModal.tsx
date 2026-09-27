@@ -58,7 +58,9 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
 
   // 6. Documents (PAN & Aadhaar) & Profile Photo
   const [panFile, setPanFile] = useState<string | null>(null);
+  const [panFileData, setPanFileData] = useState<string | null>(null);
   const [aadhaarFile, setAadhaarFile] = useState<string | null>(null);
+  const [aadhaarFileData, setAadhaarFileData] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
   // 7. Bank Details
@@ -103,12 +105,22 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
 
   const handlePanUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) setPanFile(file.name);
+    if (file) {
+      setPanFile(file.name);
+      const reader = new FileReader();
+      reader.onload = (ev) => setPanFileData(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleAadhaarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) setAadhaarFile(file.name);
+    if (file) {
+      setAadhaarFile(file.name);
+      const reader = new FileReader();
+      reader.onload = (ev) => setAadhaarFileData(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    }
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -167,7 +179,9 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
       hra,
       specialAllowance: allowance,
       panDocumentName: panFile || 'PAN_Card_Scanned.pdf',
+      panDocumentUrl: panFileData || undefined,
       aadhaarDocumentName: aadhaarFile || 'Aadhaar_Card_Verified.pdf',
+      aadhaarDocumentUrl: aadhaarFileData || undefined,
       bankName: bankName.trim(),
       bankAccountNumber: bankAccountNumber.trim() || '50100482910482',
       bankIfscCode: bankIfscCode.trim() || 'HDFC0001234',

@@ -361,6 +361,16 @@ function runMigrations() {
   addColumnIfMissing('team_members', 'active', 'INTEGER NOT NULL DEFAULT 1');
   addColumnIfMissing('team_members', 'email', 'TEXT');
   addColumnIfMissing('team_members', 'deactivatedOn', 'TEXT');
+  addColumnIfMissing('team_members', 'bankName', 'TEXT');
+  addColumnIfMissing('team_members', 'bankAccountNumber', 'TEXT');
+  addColumnIfMissing('team_members', 'bankIfscCode', 'TEXT');
+  addColumnIfMissing('team_members', 'panDocumentName', 'TEXT');
+  addColumnIfMissing('team_members', 'panDocumentUrl', 'TEXT');
+  addColumnIfMissing('team_members', 'aadhaarDocumentName', 'TEXT');
+  addColumnIfMissing('team_members', 'aadhaarDocumentUrl', 'TEXT');
+  addColumnIfMissing('team_members', 'salary', 'REAL');
+  addColumnIfMissing('team_members', 'joiningDate', 'TEXT');
+  addColumnIfMissing('team_members', 'address', 'TEXT');
   addColumnIfMissing('users', 'active', 'INTEGER NOT NULL DEFAULT 1');
 
   // Attendance is per employee, and each check-in carries proof of who and where.

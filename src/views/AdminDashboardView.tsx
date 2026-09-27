@@ -64,8 +64,9 @@ import { Employee360ProfileView } from './Employee360ProfileView';
 import { AdminCalendarConfig } from '../components/common/AdminCalendarConfig';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { LeafletGeofenceMap } from '../components/common/LeafletGeofenceMap';
+import { ManageEmployeesTab } from './admin/ManageEmployeesTab';
 
-type AdminTab = 'home' | 'people' | 'attendance' | 'leads' | 'revenue' | 'more' | 'approvals' | 'reports' | 'attendance_verification';
+type AdminTab = 'home' | 'people' | 'attendance' | 'leads' | 'revenue' | 'more' | 'approvals' | 'reports' | 'attendance_verification' | 'manage_employees';
 
 const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 
@@ -605,15 +606,15 @@ export const AdminDashboardView: React.FC = () => {
               </button>
             </div>
 
-            {/* 📹 Live & Scheduled Meeting Alerts for Super Admin */}
+            {/* 📹 Active LIVE Meeting Alerts for Super Admin — only truly live calls */}
             {(() => {
-              const activeMeetings = teamMeetings.filter(m => m.status !== 'COMPLETED');
-              if (activeMeetings.length === 0) return null;
+              const liveMeetings = teamMeetings.filter(m => m.status === 'LIVE');
+              if (liveMeetings.length === 0) return null;
               return (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between px-0.5">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                      Active Floor Calls ({activeMeetings.length})
+                      Active Floor Calls ({liveMeetings.length})
                     </span>
                     <button
                       type="button"
@@ -623,8 +624,8 @@ export const AdminDashboardView: React.FC = () => {
                       + Schedule Call
                     </button>
                   </div>
-                  {activeMeetings.slice(0, 5).map((mtg) => {
-                    const isLive = mtg.status === 'LIVE';
+                  {liveMeetings.slice(0, 5).map((mtg) => {
+                    const isLive = true; // Only LIVE meetings shown here
                     return (
                       <div 
                         key={mtg.id}
@@ -2429,12 +2430,34 @@ export const AdminDashboardView: React.FC = () => {
                       <h4 className="font-bold text-sm text-[#0A2540] group-hover:text-blue-600 transition-colors">
                         Attendance Photo Audit
                       </h4>
-                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-mono">New</span>
+                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-mono">Audit</span>
                     </div>
                     <span className="text-xs text-slate-500">Review punch-in photos & flag suspicious attendance</span>
                   </div>
                 </div>
                 <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-600 transition-colors" />
+              </div>
+
+              {/* Manage Employees (KYC, Bank Details, PAN & Aadhaar Files) */}
+              <div
+                onClick={() => setTab('manage_employees')}
+                className="bg-white border border-slate-200/90 hover:border-emerald-500 rounded-2xl p-4 shadow-2xs flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-sm text-[#0A2540] group-hover:text-emerald-600 transition-colors">
+                        Manage Employees
+                      </h4>
+                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-mono">KYC &amp; Bank</span>
+                    </div>
+                    <span className="text-xs text-slate-500">Inspect &amp; edit employee details, download PAN, Aadhaar &amp; photos</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-emerald-600 transition-colors" />
               </div>
 
               {/* Company Calendar & Holiday Configuration */}
@@ -3275,6 +3298,18 @@ export const AdminDashboardView: React.FC = () => {
               })}
             </div>
           </div>
+        )}
+
+        {/* --------------------------------------------------- Manage Employees */}
+        {tab === 'manage_employees' && (
+          <ManageEmployeesTab
+            teamMembers={teamMembers}
+            teamGroups={teamGroups}
+            onBack={() => setTab('more')}
+            onUpdateEmployee={updateEmployee}
+            onDeleteEmployee={deleteEmployee}
+            triggerToast={triggerToast}
+          />
         )}
       </main>
 

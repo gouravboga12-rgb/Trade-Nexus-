@@ -310,9 +310,9 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
         </div>
       </PageHead>
 
-      {/* 📹 Active & Scheduled Zoom Meetings Banner for Admin */}
+      {/* 🔴 Active LIVE Meetings Banner for Admin */}
       {(() => {
-        const activeMeetings = teamMeetings.filter(m => m.status !== 'COMPLETED');
+        const activeMeetings = teamMeetings.filter(m => m.status === 'LIVE');
         if (!activeMeetings.length) return null;
         return (
           <div className="space-y-3">

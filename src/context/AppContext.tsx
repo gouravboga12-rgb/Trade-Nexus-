@@ -1003,6 +1003,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         (a.employeeId === empId ||
           a.employeeId === currentUser?.id ||
           a.employeeId === currentUser?.empCode ||
+          a.employeeId === profile.empCode ||
+          a.id?.includes(empId) ||
           (a.employeeName && profile.name && a.employeeName.toLowerCase() === profile.name.toLowerCase())) &&
         a.date === today
     );
@@ -1443,6 +1445,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       email: data.email,
       password: data.password || 'Trade@1234',
       active: 1,
+      bankName: data.bankName,
+      bankAccountNumber: data.bankAccountNumber,
+      bankIfscCode: data.bankIfscCode,
+      panDocumentName: data.panDocumentName,
+      panDocumentUrl: data.panDocumentUrl,
+      aadhaarDocumentName: data.aadhaarDocumentName,
+      aadhaarDocumentUrl: data.aadhaarDocumentUrl,
+      salary: data.salary,
+      joiningDate: data.joiningDate,
+      address: data.address,
     };
     setTeamMembers(prev => [newMember, ...prev]);
 
@@ -2297,9 +2309,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       };
       setProfile(updatedProfile);
 
+      const finalRecId = (rec as any)?.id || recordId;
       setAttendanceLogs((prev) => [
         {
-          id: recordId,
+          id: finalRecId,
           employeeId: empId,
           employeeName: empName,
           date: today,
@@ -2315,7 +2328,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           disputedByAdmin: false,
           disputeReason: undefined,
         },
-        ...prev.filter((item) => item.dayNumber !== now.getDate()),
+        ...prev.filter((item) => !(item.date === today && (item.employeeId === empId || item.id === finalRecId))),
       ]);
 
       triggerToast(`✓ Checked in at ${timeStr}`);

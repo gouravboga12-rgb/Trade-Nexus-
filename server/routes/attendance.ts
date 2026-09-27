@@ -57,20 +57,23 @@ router.get('/', (req: Request, res: Response) => {
 // GET /api/attendance/today — check current shift status for employee
 router.get('/today', (req: Request, res: Response) => {
   try {
-    const employeeId = String(req.query.employeeId || '').trim();
+    const userEmpId = req.user?.employeeId || req.user?.id;
+    const userEmpCode = req.user?.empCode;
+    const targetEmpId = String(req.query.employeeId || '').trim() || userEmpId;
     const todayStr = new Date().toISOString().split('T')[0];
 
-    const record = employeeId
+    const record = targetEmpId
       ? db.prepare(`
           SELECT * FROM attendance_records 
-          WHERE (employeeId = ? OR id LIKE ?) AND date = ?
+          WHERE date = ? AND (
+            employeeId = ? OR
+            employeeId = ? OR
+            id = ? OR
+            (employeeName IS NOT NULL AND employeeName = ?)
+          )
           ORDER BY createdAt DESC LIMIT 1
-        `).get(employeeId, `%${todayStr}%`, todayStr)
-      : db.prepare(`
-          SELECT * FROM attendance_records 
-          WHERE date = ?
-          ORDER BY createdAt DESC LIMIT 1
-        `).get(todayStr);
+        `).get(todayStr, targetEmpId, userEmpCode || targetEmpId, `att-${todayStr}-${targetEmpId}`, req.user?.name || '')
+      : null;
 
     if (!record) {
       return res.status(200).json({
@@ -84,28 +87,29 @@ router.get('/today', (req: Request, res: Response) => {
     }
 
     const r = record as any;
-    const isCheckedOut = !!r.checkOut;
+    const isDisputed = Boolean(r.disputedByAdmin);
+    const isCheckedOut = !isDisputed && !!r.checkOut;
     return res.status(200).json({
       hasRecord: true,
-      checkedIn: !isCheckedOut && Boolean(r.checkIn),
+      checkedIn: !isDisputed && !isCheckedOut && Boolean(r.checkIn),
       id: r.id,
       date: r.date,
-      status: isCheckedOut ? 'SHIFT_COMPLETED' : 'ON_DUTY',
-      shiftStatus: isCheckedOut ? 'SHIFT_COMPLETED' : 'ON_DUTY',
-      faceIdStatus: isCheckedOut ? 'ON_BREAK' : 'VERIFIED_PRESENT',
-      checkIn: r.checkIn,
-      inTime: r.checkIn,
-      checkOut: r.checkOut,
-      outTime: r.checkOut,
-      workHours: r.workHours,
+      status: isDisputed ? 'ABSENT' : (isCheckedOut ? 'SHIFT_COMPLETED' : 'ON_DUTY'),
+      shiftStatus: isDisputed ? 'ABSENT' : (isCheckedOut ? 'SHIFT_COMPLETED' : 'ON_DUTY'),
+      faceIdStatus: isDisputed ? 'NOT_CHECKED_IN' : (isCheckedOut ? 'ON_BREAK' : 'VERIFIED_PRESENT'),
+      checkIn: isDisputed ? null : r.checkIn,
+      inTime: isDisputed ? null : r.checkIn,
+      checkOut: isDisputed ? null : r.checkOut,
+      outTime: isDisputed ? null : r.checkOut,
+      workHours: isDisputed ? null : r.workHours,
       method: r.method,
       locationStatus: r.locationStatus,
       checkInPhoto: r.checkInPhoto,
       checkInLat: r.checkInLat,
       checkInLng: r.checkInLng,
       checkInDistanceM: r.checkInDistanceM,
-      disputedByAdmin: Boolean(r.disputedByAdmin),
-      disputeReason: r.disputeReason || null
+      disputedByAdmin: isDisputed,
+      disputeReason: isDisputed ? (r.disputeReason || 'Suspicious punch-in photo flagged by admin.') : null
     });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -225,8 +229,20 @@ router.post('/', (req: Request, res: Response) => {
 
     const recDate = date || new Date().toISOString().split('T')[0];
     const recDay = dayNumber || new Date(recDate).getDate();
-    // One record per employee per day
-    const recId = id || `att-${recDate}-${employeeId || 'self'}`;
+
+    // Match any existing record for this employee today by employeeId, empCode, name or provided id
+    const existing = db.prepare(`
+      SELECT id FROM attendance_records
+      WHERE date = ? AND (
+        id = ? OR
+        employeeId = ? OR
+        (employeeId IS NOT NULL AND employeeId = ?) OR
+        (employeeName IS NOT NULL AND employeeName = ?)
+      )
+      ORDER BY createdAt DESC LIMIT 1
+    `).get(recDate, id || '', employeeId || '', req.user?.empCode || '', employeeName || '') as { id: string } | undefined;
+
+    const recId = existing?.id || id || `att-${recDate}-${employeeId || 'self'}`;
 
     // Judge the location against the office perimeter
     let distance: number | null = null;
@@ -261,8 +277,8 @@ router.post('/', (req: Request, res: Response) => {
       INSERT INTO attendance_records
         (id, date, dayNumber, status, checkIn, checkOut, workHours, method,
          employeeId, employeeName, checkInPhoto, checkInLat, checkInLng,
-         checkInDistanceM, locationStatus)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         checkInDistanceM, locationStatus, disputedByAdmin, disputeReason)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)
       ON CONFLICT(id) DO UPDATE SET
         status = excluded.status,
         checkIn = excluded.checkIn,
@@ -270,7 +286,7 @@ router.post('/', (req: Request, res: Response) => {
         workHours = coalesce(excluded.workHours, attendance_records.workHours),
         method = coalesce(excluded.method, attendance_records.method),
         employeeName = coalesce(excluded.employeeName, attendance_records.employeeName),
-        checkInPhoto = coalesce(excluded.checkInPhoto, attendance_records.checkInPhoto),
+        checkInPhoto = excluded.checkInPhoto,
         checkInLat = coalesce(excluded.checkInLat, attendance_records.checkInLat),
         checkInLng = coalesce(excluded.checkInLng, attendance_records.checkInLng),
         checkInDistanceM = coalesce(excluded.checkInDistanceM, attendance_records.checkInDistanceM),
@@ -373,11 +389,22 @@ router.put('/:id', (req: Request, res: Response) => {
       req.params.id
     );
 
-    // If an employeeId is present and status was updated, sync team_members table
+    // If an employeeId is present and status was updated, sync team_members and employee_profiles table
     if (merged.employeeId && merged.status) {
       db.prepare(`UPDATE team_members SET attendanceStatus = ? WHERE id = ? OR empCode = ?`).run(
         merged.status, merged.employeeId, merged.employeeId
       );
+      try {
+        if (merged.disputedByAdmin) {
+          db.prepare(`UPDATE employee_profiles SET faceIdStatus = 'NOT_CHECKED_IN', checkInTime = '' WHERE id = ? OR empCode = ?`).run(
+            merged.employeeId, merged.employeeId
+          );
+        } else if (merged.status === 'PRESENT') {
+          db.prepare(`UPDATE employee_profiles SET faceIdStatus = 'VERIFIED_PRESENT', checkInTime = coalesce(?, checkInTime) WHERE id = ? OR empCode = ?`).run(
+            merged.checkIn || null, merged.employeeId, merged.employeeId
+          );
+        }
+      } catch {}
     }
 
     return res.status(200).json(db.prepare('SELECT * FROM attendance_records WHERE id = ?').get(req.params.id));

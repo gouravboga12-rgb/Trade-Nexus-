@@ -31,14 +31,14 @@ router.get('/', (req: Request, res: Response) => {
 
       if (squadName) {
         const members = db.prepare(`
-          SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, active, deactivatedOn 
+          SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address 
           FROM team_members 
           WHERE LOWER(groupName) = LOWER(?) OR id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
         `).all(squadName, leaderId, leaderEmpCode, leaderName);
         return res.status(200).json(members);
       } else {
         const members = db.prepare(`
-          SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, active, deactivatedOn 
+          SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address 
           FROM team_members 
           WHERE id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
         `).all(leaderId, leaderEmpCode, leaderName);
@@ -46,7 +46,7 @@ router.get('/', (req: Request, res: Response) => {
       }
     }
 
-    const members = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, active, deactivatedOn FROM team_members').all();
+    const members = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address FROM team_members').all();
     return res.status(200).json(members);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -183,7 +183,10 @@ router.post('/', (req: Request, res: Response) => {
       id, empCode, name, avatar, role, group, phone, 
       attendanceStatus, checkInTime, checkInMethod, 
       dialsToday, goalCalls, connected, interested, 
-      salesAchieved, salesTarget, conversionRate, portal, email, password 
+      salesAchieved, salesTarget, conversionRate, portal, email, password,
+      bankName, bankAccountNumber, bankIfscCode,
+      panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl,
+      salary, joiningDate, address
     } = req.body;
 
     const memberId = id || `tm-${Date.now()}`;
@@ -198,8 +201,15 @@ router.post('/', (req: Request, res: Response) => {
     const createAtomic = db.transaction(() => {
       // 1. Insert Team Member
       db.prepare(`
-        INSERT INTO team_members (id, empCode, name, avatar, role, groupName, phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO team_members (
+          id, empCode, name, avatar, role, groupName, phone, attendanceStatus, 
+          checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, 
+          salesAchieved, salesTarget, conversionRate, portal, email,
+          bankName, bankAccountNumber, bankIfscCode,
+          panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl,
+          salary, joiningDate, address
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         memberId, finalEmpCode, finalName,
         avatar || 'TM', finalRole, finalGroup,
@@ -208,7 +218,11 @@ router.post('/', (req: Request, res: Response) => {
         connected ? Number(connected) : 0, interested ? Number(interested) : 0,
         salesAchieved ? Number(salesAchieved) : 0, salesTarget ? Number(salesTarget) : 0,
         conversionRate ? Number(conversionRate) : 0,
-        finalPortal, finalEmail
+        finalPortal, finalEmail,
+        bankName || null, bankAccountNumber || null, bankIfscCode || null,
+        panDocumentName || null, panDocumentUrl || null,
+        aadhaarDocumentName || null, aadhaarDocumentUrl || null,
+        salary ? Number(salary) : null, joiningDate || null, address || null
       );
 
       // 2. Insert or replace Employee Profile
@@ -217,7 +231,7 @@ router.post('/', (req: Request, res: Response) => {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         memberId, finalEmpCode, finalName, finalRole, finalGroup, finalGroup, '',
-        finalEmail, finalPhone, new Date().toISOString().split('T')[0], 'O+', 'NOT_CHECKED_IN', '', 14
+        finalEmail, finalPhone, joiningDate || new Date().toISOString().split('T')[0], 'O+', 'NOT_CHECKED_IN', '', 14
       );
 
       // 3. Insert or update User Credentials for login
@@ -246,7 +260,7 @@ router.post('/', (req: Request, res: Response) => {
 
     createAtomic();
 
-    const created = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, active, deactivatedOn FROM team_members WHERE id = ?').get(memberId);
+    const created = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address FROM team_members WHERE id = ?').get(memberId);
     return res.status(201).json(created);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -257,7 +271,7 @@ router.post('/', (req: Request, res: Response) => {
 router.put('/:id', (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const existing = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, active, deactivatedOn FROM team_members WHERE id = ?').get(id) as any;
+    const existing = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address FROM team_members WHERE id = ?').get(id) as any;
     if (!existing) {
       return res.status(404).json({ error: 'Team member not found' });
     }
@@ -287,7 +301,11 @@ router.put('/:id', (req: Request, res: Response) => {
           attendanceStatus = ?, checkInTime = ?, checkInMethod = ?, dialsToday = ?, 
           goalCalls = ?, connected = ?, interested = ?, salesAchieved = ?, 
           salesTarget = ?, conversionRate = ?, portal = ?, email = ?,
-          active = ?, deactivatedOn = ?
+          active = ?, deactivatedOn = ?,
+          bankName = ?, bankAccountNumber = ?, bankIfscCode = ?,
+          panDocumentName = ?, panDocumentUrl = ?,
+          aadhaarDocumentName = ?, aadhaarDocumentUrl = ?,
+          salary = ?, joiningDate = ?, address = ?
       WHERE id = ?
     `).run(
       merged.empCode, merged.name, merged.avatar, merged.role, merged.group, merged.phone,
@@ -296,10 +314,23 @@ router.put('/:id', (req: Request, res: Response) => {
       merged.salesTarget, merged.conversionRate,
       merged.portal || 'telecaller', merged.email ?? null,
       merged.active === 0 ? 0 : 1, merged.deactivatedOn ?? null,
+      merged.bankName ?? null, merged.bankAccountNumber ?? null, merged.bankIfscCode ?? null,
+      merged.panDocumentName ?? null, merged.panDocumentUrl ?? null,
+      merged.aadhaarDocumentName ?? null, merged.aadhaarDocumentUrl ?? null,
+      merged.salary != null ? Number(merged.salary) : null, merged.joiningDate ?? null, merged.address ?? null,
       id
     );
 
-    const updated = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, active, deactivatedOn FROM team_members WHERE id = ?').get(id);
+    // Also update employee_profiles if present
+    try {
+      db.prepare(`
+        UPDATE employee_profiles
+        SET name = ?, roleTitle = ?, department = ?, teamName = ?, email = ?, phone = ?, joinDate = coalesce(?, joinDate)
+        WHERE id = ? OR empCode = ?
+      `).run(merged.name, merged.role, merged.group, merged.group, merged.email, merged.phone, merged.joiningDate || null, id, merged.empCode);
+    } catch {}
+
+    const updated = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address FROM team_members WHERE id = ?').get(id);
     return res.status(200).json(updated);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });

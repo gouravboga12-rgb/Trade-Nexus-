@@ -84,7 +84,7 @@ export const SCREEN_RESOURCES = {
   faceScan: ['profile', 'faceProfiles'],
   attendanceSuccess: ['profile'],
 
-  telecallerHome: ['profile', 'stats', 'clients', 'callLogs', 'assignedLeads', 'teamMeetings'],
+  telecallerHome: ['profile', 'attendanceLogs', 'stats', 'clients', 'callLogs', 'assignedLeads', 'teamMeetings'],
   dailyCalling: ['profile', 'callLogs', 'stats', 'clients', 'assignedLeads'],
   clientsPipeline: ['clients', 'assignedLeads'],
   attendanceLeaves: ['profile', 'attendanceLogs', 'leaveRequests', 'companyHolidays', 'calendarSettings'],
@@ -93,6 +93,7 @@ export const SCREEN_RESOURCES = {
 
   teamLeaderDashboard: [
     'profile',
+    'attendanceLogs',
     'teamMembers',
     'teamGroups',
     'teamTasks',

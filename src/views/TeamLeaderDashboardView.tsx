@@ -20,7 +20,9 @@ import {
   Radio,
   UserCheck,
   Check,
-  X
+  X,
+  AlertTriangle,
+  Camera
 } from 'lucide-react';
 import { TeamMeeting, TeamMember } from '../types';
 import { Employee360ProfileView } from './Employee360ProfileView';
@@ -60,6 +62,15 @@ export const TeamLeaderDashboardView: React.FC = () => {
         .slice(0, 2)
         .toUpperCase()
     : 'TL';
+
+  // Dispute state derived from profile and attendanceLogs
+  const today = new Date().toISOString().split('T')[0];
+  const empId = currentUser?.employeeId || currentUser?.id || profile?.id;
+  const todayAttendance = attendanceLogs?.find(
+    (a) => a.date === today && (a.employeeId === empId || a.employeeId === currentUser?.empCode || a.id?.includes(empId || '') || (a.employeeName && profile?.name && a.employeeName.toLowerCase() === profile.name.toLowerCase()))
+  );
+  const isAttendanceDisputed = Boolean(profile?.disputedByAdmin) || Boolean(todayAttendance?.disputedByAdmin);
+  const attendanceDisputeReason = profile?.disputeReason || todayAttendance?.disputeReason || 'Your punch-in photo was flagged as suspicious.';
 
   const [activeTab, setActiveTab] = useState<'home' | 'team' | 'leaves' | 'reports' | 'meetings'>('home');
   const [leaveSubTab, setLeaveSubTab] = useState<'approvals' | 'calendar'>('approvals');
@@ -295,7 +306,8 @@ export const TeamLeaderDashboardView: React.FC = () => {
     );
   }
 
-  const activeMeetings = teamMeetings.filter(m => m.status !== 'COMPLETED');
+  // Only show LIVE meetings on home banner — upcoming ones belong in Meetings tab
+  const liveMeetings = teamMeetings.filter(m => m.status === 'LIVE');
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col justify-between max-w-lg mx-auto font-sans pb-28 selection:bg-[#00C9A7]/20">
@@ -371,10 +383,10 @@ export const TeamLeaderDashboardView: React.FC = () => {
 
             </div>
 
-            {/* Active & Scheduled Zoom Meetings Banner on Mobile */}
-            {activeMeetings.length > 0 && (
+            {/* Active LIVE Zoom Meetings Banner */}
+            {liveMeetings.length > 0 && (
               <div className="space-y-2">
-                {activeMeetings.map((mtg) => {
+                {liveMeetings.map((mtg) => {
                   const isLive = mtg.status === 'LIVE';
                   return (
                     <div 
@@ -432,43 +444,80 @@ export const TeamLeaderDashboardView: React.FC = () => {
               </div>
             )}
 
-            {/* Team Leader Attendance Punch Lifecycle Card */}
-            <div className="bg-white border border-[#00C9A7]/40 shadow-xs rounded-2xl p-3.5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#00C9A7]/15 text-[#00A88B] flex items-center justify-center flex-shrink-0">
-                  <UserCheck className="w-5 h-5" />
+            {/* ⚠️ Admin Dispute Banner — shown when admin flags TL's attendance */}
+            {isAttendanceDisputed && (
+              <div className="bg-rose-50 border-2 border-rose-400 rounded-3xl p-4 shadow-sm space-y-3 animate-in slide-in-from-top-2">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
+                    <AlertTriangle className="w-5 h-5 stroke-[2.5]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-rose-900">Attendance Flagged by Admin</span>
+                      <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-rose-200 text-rose-800">Punch In Required</span>
+                    </div>
+                    <p className="text-xs text-rose-700 font-semibold mt-1">
+                      Admin has flagged your punch-in as suspicious.
+                    </p>
+                    <div className="bg-white/90 border border-rose-200 rounded-xl px-3 py-2 mt-1.5 text-xs font-semibold text-rose-800 shadow-2xs">
+                      <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider block">Admin Reason:</span>
+                      "{attendanceDisputeReason}"
+                    </div>
+                    <p className="text-[11px] text-rose-600 mt-2 font-medium">
+                      Please punch in again with a clear face selfie so admin can verify your attendance.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-display font-bold text-xs text-[#0A2540]">My Attendance (TL Punch)</h4>
-                  <p className="text-[10px] text-slate-500 font-mono">
-                    {profile.checkInTime ? `Punched in: ${profile.checkInTime}` : 'Face scan required to check in'}
-                  </p>
-                </div>
-              </div>
-
-              {profile.checkInTime && profile.faceIdStatus === 'VERIFIED_PRESENT' ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    ✓ Present
-                  </span>
-                  <button
-                    type="button"
-                    onClick={openPunchOut}
-                    className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs border border-rose-200 transition-all active:scale-95 cursor-pointer"
-                  >
-                    Punch Out
-                  </button>
-                </div>
-              ) : (
                 <button
                   type="button"
                   onClick={openPunchIn}
-                  className="px-3.5 py-1.5 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs transition-all shadow-xs active:scale-95 cursor-pointer"
+                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-700 hover:to-rose-600 text-white font-black text-xs shadow-md shadow-rose-500/25 flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
                 >
-                  Punch In (Face ID)
+                  <Camera className="w-4 h-4" />
+                  <span>Punch In Again (Clear Face Photo)</span>
                 </button>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* Team Leader Attendance Punch Lifecycle Card */}
+            {!isAttendanceDisputed && (
+              <div className="bg-white border border-[#00C9A7]/40 shadow-xs rounded-2xl p-3.5 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#00C9A7]/15 text-[#00A88B] flex items-center justify-center flex-shrink-0">
+                    <UserCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-display font-bold text-xs text-[#0A2540]">My Attendance (TL Punch)</h4>
+                    <p className="text-[10px] text-slate-500 font-mono">
+                      {profile.checkInTime ? `Punched in: ${profile.checkInTime}` : 'Face scan required to check in'}
+                    </p>
+                  </div>
+                </div>
+
+                {profile.checkInTime && profile.faceIdStatus === 'VERIFIED_PRESENT' ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      ✓ Present
+                    </span>
+                    <button
+                      type="button"
+                      onClick={openPunchOut}
+                      className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs border border-rose-200 transition-all active:scale-95 cursor-pointer"
+                    >
+                      Punch Out
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={openPunchIn}
+                    className="px-3.5 py-1.5 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs transition-all shadow-xs active:scale-95 cursor-pointer"
+                  >
+                    Punch In (Face ID)
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Team Overview Section (Today's Summary) */}
             <div className="space-y-2">

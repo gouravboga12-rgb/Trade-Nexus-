@@ -306,9 +306,9 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
         </div>
       )}
 
-      {/* 📹 Active & Scheduled Meetings Banner for HR */}
+      {/* 🔴 Active LIVE Meetings Banner for HR */}
       {activeTab === 'home' && (() => {
-        const activeMeetings = teamMeetings.filter(m => m.status !== 'COMPLETED');
+        const activeMeetings = teamMeetings.filter(m => m.status === 'LIVE');
         if (!activeMeetings.length) return null;
         return (
           <div className="space-y-3">

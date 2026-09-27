@@ -133,18 +133,18 @@ export const HrDashboardView: React.FC = () => {
         .toUpperCase()
     : 'HR';
 
-  // --- Attendance dispute & punch state derived from profile ---
-  const isAttendanceDisputed = Boolean(profile?.disputedByAdmin);
-  const attendanceDisputeReason = profile?.disputeReason || 'Your punch-in photo was flagged as suspicious.';
+  // --- Attendance dispute & punch state derived from profile & attendance logs ---
   const today = new Date().toISOString().split('T')[0];
   const empId = currentUser?.employeeId || currentUser?.id || profile?.id;
   const todayAttendance = attendanceLogs.find(
-    (a) => a.date === today && (a.employeeId === empId || a.id?.includes(empId || ''))
+    (a) => a.date === today && (a.employeeId === empId || a.employeeId === currentUser?.empCode || a.id?.includes(empId || '') || (a.employeeName && profile?.name && a.employeeName.toLowerCase() === profile.name.toLowerCase()))
   );
+  const isAttendanceDisputed = Boolean(profile?.disputedByAdmin) || Boolean(todayAttendance?.disputedByAdmin);
+  const attendanceDisputeReason = profile?.disputeReason || todayAttendance?.disputeReason || 'Your punch-in photo was flagged as suspicious.';
   const isPunchedInToday =
     !isAttendanceDisputed &&
     (profile?.faceIdStatus === 'VERIFIED_PRESENT' || Boolean(todayAttendance?.checkIn && !todayAttendance?.checkOut));
-  const punchInTimeDisplay = profile?.checkInTime || todayAttendance?.checkIn || '';
+  const punchInTimeDisplay = isAttendanceDisputed ? '' : (profile?.checkInTime || todayAttendance?.checkIn || '');
 
   const [activeHrNav, setActiveHrNav] = useState<'home' | 'attendance' | 'employees' | 'approvals' | 'reports' | 'more'>('home');
   const [selectedTeamGroup, setSelectedTeamGroup] = useState<TeamGroup | null>(null);
@@ -499,9 +499,9 @@ export const HrDashboardView: React.FC = () => {
               </div>
             )}
 
-            {/* 🔴 Live & Scheduled Meetings for HR */}
+            {/* 🔴 Active LIVE Meetings for HR */}
             {(() => {
-              const liveMeetings = teamMeetings.filter(m => m.status !== 'COMPLETED');
+              const liveMeetings = teamMeetings.filter(m => m.status === 'LIVE');
               if (liveMeetings.length === 0) return null;
               return (
                 <div className="space-y-2">

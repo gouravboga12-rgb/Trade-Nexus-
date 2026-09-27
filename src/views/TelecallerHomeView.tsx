@@ -27,6 +27,7 @@ export const TelecallerHomeView: React.FC = () => {
     stats, 
     myLeads, 
     assignedLeads,
+    attendanceLogs,
     teamMeetings,
     joinMeeting,
     setIsFaceIdModalOpen, 
@@ -46,6 +47,14 @@ export const TelecallerHomeView: React.FC = () => {
   const empCode = currentUser?.empCode || profile.empCode;
   const empName = currentUser?.name || profile.name || 'Sales Rep';
   const empFirstName = empName.split(' ')[0] || 'Sales Rep';
+
+  // Dispute state derived from profile and attendanceLogs
+  const today = new Date().toISOString().split('T')[0];
+  const todayAttendance = attendanceLogs?.find(
+    (a) => a.date === today && (a.employeeId === empId || a.employeeId === empCode || a.id?.includes(empId || '') || (a.employeeName && profile.name && a.employeeName.toLowerCase() === profile.name.toLowerCase()))
+  );
+  const isAttendanceDisputed = Boolean(profile?.disputedByAdmin) || Boolean(todayAttendance?.disputedByAdmin);
+  const attendanceDisputeReason = profile?.disputeReason || todayAttendance?.disputeReason || 'Your punch-in photo was flagged as suspicious.';
 
   // Callback lead due today or first in queue from allocated leads
   const urgentLead = myLeads.find(c => c.status === 'Due Today') || myLeads[0];
@@ -119,13 +128,13 @@ export const TelecallerHomeView: React.FC = () => {
         </div>
       </div>
 
-      {/* 🔴 Active & Scheduled Zoom Floor Calls on Mobile */}
+      {/* 🔴 Active LIVE Zoom Floor Calls — only truly live, not upcoming */}
       {(() => {
-        const activeMeetings = teamMeetings.filter(m => m.status !== 'COMPLETED');
-        if (activeMeetings.length === 0) return null;
+        const liveMeetings = teamMeetings.filter(m => m.status === 'LIVE');
+        if (liveMeetings.length === 0) return null;
         return (
           <div className="space-y-2.5">
-            {activeMeetings.map((mtg) => {
+            {liveMeetings.map((mtg) => {
               const isLive = mtg.status === 'LIVE';
               return (
                 <div 
@@ -138,21 +147,13 @@ export const TelecallerHomeView: React.FC = () => {
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="relative flex h-3 w-3 flex-shrink-0">
-                      {isLive ? (
-                        <>
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600"></span>
-                        </>
-                      ) : (
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
-                      )}
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600"></span>
                     </span>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider ${
-                          isLive ? 'bg-emerald-200 text-emerald-900' : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {isLive ? '🔴 Live Zoom Call' : '📅 Scheduled Zoom Call'}
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider bg-emerald-200 text-emerald-900">
+                          🔴 Live Zoom Call
                         </span>
                         {mtg.zoomMeetingId && (
                           <span className="text-[9px] font-mono font-bold bg-blue-50 text-blue-800 border border-blue-200 px-1 rounded">
@@ -171,14 +172,10 @@ export const TelecallerHomeView: React.FC = () => {
 
                   <button
                     onClick={() => joinMeeting(mtg)}
-                    className={`px-3.5 py-2 font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md flex-shrink-0 active:scale-95 transition-all cursor-pointer ${
-                      isLive 
-                        ? 'bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] shadow-[#00C9A7]/30' 
-                        : 'bg-[#0A2540] hover:bg-slate-800 text-white shadow-slate-900/20'
-                    }`}
+                    className="px-3.5 py-2 font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md flex-shrink-0 active:scale-95 transition-all cursor-pointer bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] shadow-[#00C9A7]/30"
                   >
                     <Video className="w-3.5 h-3.5" />
-                    <span>{isLive ? 'Join Zoom' : 'Enter Call'}</span>
+                    <span>Join Live</span>
                   </button>
                 </div>
               );
@@ -186,6 +183,41 @@ export const TelecallerHomeView: React.FC = () => {
           </div>
         );
       })()}
+
+      {/* ⚠️ Admin Dispute Banner — shown when admin flags this account's attendance */}
+      {isAttendanceDisputed && (
+        <div className="bg-rose-50 border-2 border-rose-400 rounded-3xl p-4 shadow-sm space-y-3 animate-in slide-in-from-top-2">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-rose-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
+              <AlertTriangle className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-black uppercase tracking-wider text-rose-900">Attendance Flagged by Admin</span>
+                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-rose-200 text-rose-800">Punch In Required</span>
+              </div>
+              <p className="text-xs text-rose-700 font-semibold mt-1">
+                Admin has flagged your punch-in as suspicious.
+              </p>
+              <div className="bg-white/90 border border-rose-200 rounded-xl px-3 py-2 mt-1.5 text-xs font-semibold text-rose-800 shadow-2xs">
+                <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider block">Admin Reason:</span>
+                "{attendanceDisputeReason}"
+              </div>
+              <p className="text-[11px] text-rose-600 mt-2 font-medium">
+                Please punch in again with a clear face selfie so admin can verify your attendance.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={openPunchIn}
+            className="w-full py-3 rounded-2xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-700 hover:to-rose-600 text-white font-black text-xs shadow-md shadow-rose-500/25 flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+          >
+            <Camera className="w-4 h-4" />
+            <span>Punch In Again (Clear Face Photo)</span>
+          </button>
+        </div>
+      )}
 
       {/* 2. Clear Punch In / Punch Out Attendance Lifecycle */}
       {!isPunchedIn && !isShiftEnded && (
