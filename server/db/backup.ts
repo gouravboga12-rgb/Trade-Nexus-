@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { checkpointDatabase } from './connection.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,6 +14,9 @@ export function createDatabaseBackup(prefix: string = 'auto') {
     if (!fs.existsSync(dbPath)) {
       return;
     }
+
+    // Flush dirty WAL pages directly into main sqlite file before backup
+    checkpointDatabase('TRUNCATE');
 
     const stats = fs.statSync(dbPath);
     if (stats.size === 0) {

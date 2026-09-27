@@ -16,6 +16,15 @@ export const db = new Database(dbPath);
 
 // Enable WAL mode for high performance concurrent reads and writes
 db.pragma('journal_mode = WAL');
+db.pragma('synchronous = NORMAL');
 db.pragma('foreign_keys = ON');
+
+export function checkpointDatabase(mode: 'PASSIVE' | 'FULL' | 'RESTART' | 'TRUNCATE' = 'PASSIVE') {
+  try {
+    db.pragma(`wal_checkpoint(${mode})`);
+  } catch (e) {
+    console.warn('[SQLite DB] WAL checkpoint notice:', e);
+  }
+}
 
 export default db;

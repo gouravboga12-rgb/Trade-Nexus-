@@ -848,12 +848,20 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
   );
 
   const renderAttendance = () => {
-    // Record lookup based on selected date
-    const recordFor = (employeeId: string) =>
-      attendanceLogs.find((a) => a.employeeId === employeeId && a.date === attendanceDate);
+    // Record lookup based on selected date with robust multi-identifier matching
+    const recordFor = (employeeId: string, memberName?: string, memberCode?: string) =>
+      attendanceLogs.find(
+        (a) =>
+          a.date === attendanceDate &&
+          (a.employeeId === employeeId ||
+            (memberCode && a.employeeId === memberCode) ||
+            a.id === `att-${attendanceDate}-${employeeId}` ||
+            (memberName && a.employeeName && a.employeeName.toLowerCase().trim() === memberName.toLowerCase().trim()))
+      );
 
     const isProblem = (m: TeamMember, rec?: ReturnType<typeof recordFor>) => {
-      if (m.attendanceStatus === 'ABSENT' || m.attendanceStatus === 'LATE') return true;
+      const status = rec?.status || m.attendanceStatus;
+      if (status === 'ABSENT' || status === 'LATE') return true;
       if (rec && rec.locationStatus === 'AWAY') return true;
       return false;
     };
@@ -879,13 +887,21 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
       month: 'short',
       year: 'numeric',
     });
-    const late = teamMembers.filter((m) => m.attendanceStatus === 'LATE').length;
-    const onLeave = teamMembers.filter((m) => m.attendanceStatus === 'ON_LEAVE').length;
-    const absent = teamMembers.filter((m) => m.attendanceStatus === 'ABSENT').length;
-    const problemsCount = teamMembers.filter((m) => isProblem(m, recordFor(m.id))).length;
+
+    const membersWithRecs = teamMembers.map((m) => ({
+      m,
+      rec: recordFor(m.id, m.name, m.empCode),
+      status: recordFor(m.id, m.name, m.empCode)?.status || m.attendanceStatus,
+    }));
+
+    const presentToday = membersWithRecs.filter((x) => x.status === 'PRESENT').length;
+    const late = membersWithRecs.filter((x) => x.status === 'LATE').length;
+    const onLeave = membersWithRecs.filter((x) => x.status === 'ON_LEAVE' || x.status === 'LEAVE').length;
+    const absent = membersWithRecs.filter((x) => x.status === 'ABSENT').length;
+    const problemsCount = teamMembers.filter((m) => isProblem(m, recordFor(m.id, m.name, m.empCode))).length;
 
     const displayedMembers = attendanceFilter === 'PROBLEMS'
-      ? teamMembers.filter((m) => isProblem(m, recordFor(m.id)))
+      ? teamMembers.filter((m) => isProblem(m, recordFor(m.id, m.name, m.empCode)))
       : teamMembers;
 
     return (
@@ -1104,7 +1120,8 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {displayedMembers.map((m) => {
-                  const rec = recordFor(m.id);
+                  const rec = recordFor(m.id, m.name, m.empCode);
+                  const effectiveStatus = rec?.status || m.attendanceStatus;
                   return (
                   <tr key={m.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3 px-4">
@@ -1146,16 +1163,16 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                     <td className="py-3.5 px-4">
                       <span
                         className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
-                          m.attendanceStatus === 'PRESENT'
+                          effectiveStatus === 'PRESENT'
                             ? 'bg-emerald-50 text-emerald-700'
-                            : m.attendanceStatus === 'LATE'
+                            : effectiveStatus === 'LATE'
                             ? 'bg-amber-50 text-amber-700'
-                            : m.attendanceStatus === 'ON_LEAVE'
+                            : effectiveStatus === 'ON_LEAVE' || effectiveStatus === 'LEAVE'
                             ? 'bg-sky-50 text-sky-700'
                             : 'bg-rose-50 text-rose-700'
                         }`}
                       >
-                        {m.attendanceStatus.replace('_', ' ')}
+                        {String(effectiveStatus || 'ABSENT').replace('_', ' ')}
                       </span>
                     </td>
                   </tr>

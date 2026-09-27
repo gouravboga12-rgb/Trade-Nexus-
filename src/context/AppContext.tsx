@@ -372,41 +372,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, []);
 
-  // Hydrate session from backend /api/auth/me on app load
-  useEffect(() => {
-    const token = getAuthToken();
-    if (token) {
-      api.me()
-        .then(({ user }) => {
-          if (user) {
-            setCurrentUserState(user);
-            setStoredAuthUser(user);
-            if (user.role) {
-              setCurrentRole(user.role);
-              try {
-                localStorage.setItem('tnx_currentRole', user.role);
-              } catch {}
-            }
-            setProfile((prev) => ({
-              ...prev,
-              id: user.employeeId || user.id || prev.id,
-              empCode: user.empCode || prev.empCode,
-              name: user.name || prev.name,
-              email: user.email || prev.email,
-            }));
-          }
-        })
-        .catch((err) => {
-          console.warn('Session verification failed:', err);
-          if (err?.status === 401 || err?.status === 403) {
-            setAuthToken(null);
-            setStoredAuthUser(null);
-            setCurrentUserState(null);
-            setAuthStep('LOGIN');
-          }
-        });
-    }
-  }, []);
 
   // One-time purge: clear any stale data that was previously cached in localStorage.
   // All business data now lives exclusively in the AWS EC2 SQLite backend.
@@ -796,7 +761,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setBackendError(null);
         })
         .catch((err) => {
-          markStatus(key, 'loaded');
+          // Mark as 'error' so subsequent calls/polls retry fetching once backend is ready
+          markStatus(key, 'error');
           if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
             setBackendError(
               `Could not load "${key}" from the API on port 5001. Start it with: npm run server (${String(err)})`
@@ -832,6 +798,52 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     [loadResources]
   );
 
+  // Hydrate session from backend /api/auth/me on app load
+  useEffect(() => {
+    const token = getAuthToken();
+    if (token) {
+      api.me()
+        .then(({ user }) => {
+          if (user) {
+            setCurrentUserState(user);
+            setStoredAuthUser(user);
+            if (user.role) {
+              setCurrentRole(user.role);
+              try {
+                localStorage.setItem('tnx_currentRole', user.role);
+              } catch {}
+            }
+            setProfile((prev) => ({
+              ...prev,
+              id: user.employeeId || user.id || prev.id,
+              empCode: user.empCode || prev.empCode,
+              name: user.name || prev.name,
+              email: user.email || prev.email,
+            }));
+            setAuthStep('AUTHENTICATED');
+            loadResources([
+              'profile',
+              'attendanceLogs',
+              'teamMembers',
+              'assignedLeads',
+              'callLogs',
+              'paymentVerifications',
+              'teamMeetings'
+            ], { force: true });
+          }
+        })
+        .catch((err) => {
+          console.warn('Session verification failed:', err);
+          if (err?.status === 401 || err?.status === 403) {
+            setAuthToken(null);
+            setStoredAuthUser(null);
+            setCurrentUserState(null);
+            setAuthStep('LOGIN');
+          }
+        });
+    }
+  }, [loadResources]);
+
   const isDataLoading = ALL_RESOURCE_KEYS.some((k) => resourceStatus[k] === 'loading');
 
   // Only the selected portal is remembered locally; domain data is never cached
@@ -856,27 +868,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch {}
   }, [activeTab]);
 
-  // Live real-time background sync for team meetings so all accounts see scheduled meetings immediately
+  // Live real-time background sync for all 4 panels (Admin, TL, HR, Employee)
+  // Keeps attendance, leads, team roster, calls, payments, leaves, and meetings perfectly synchronized
   useEffect(() => {
     if (authStep !== 'AUTHENTICATED') return;
-    const syncMeetings = () => {
-      loadResources(['teamMeetings'], { force: true });
+    const syncAllPanels = () => {
+      loadResources([
+        'assignedLeads',
+        'attendanceLogs',
+        'teamMembers',
+        'callLogs',
+        'paymentVerifications',
+        'leaveRequests',
+        'teamMeetings'
+      ], { force: true });
     };
-    syncMeetings();
-    const interval = setInterval(syncMeetings, 6000);
-    return () => clearInterval(interval);
-  }, [authStep, loadResources]);
-
-  // Live real-time background sync for leads, call logs, and payments so
-  // Admin/TL/HR panels always reflect telecaller activity (won deals, updates, etc.)
-  useEffect(() => {
-    if (authStep !== 'AUTHENTICATED') return;
-    const syncLeads = () => {
-      loadResources(['assignedLeads', 'callLogs', 'paymentVerifications'], { force: true });
-    };
-    // Initial fetch immediately, then poll every 10 seconds
-    syncLeads();
-    const interval = setInterval(syncLeads, 10000);
+    // Initial fetch immediately, then poll every 8 seconds
+    syncAllPanels();
+    const interval = setInterval(syncAllPanels, 8000);
     return () => clearInterval(interval);
   }, [authStep, loadResources]);
 
@@ -891,13 +900,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const todayRec = attendanceLogs.find(
       (a) =>
+        a.date === today &&
         (a.employeeId === empId ||
-          a.employeeId === currentUser?.id ||
-          a.employeeId === currentUser?.empCode ||
-          a.employeeId === profile.empCode ||
-          a.id?.includes(empId) ||
-          (a.employeeName && profile.name && a.employeeName.toLowerCase() === profile.name.toLowerCase())) &&
-        a.date === today
+          (currentUser?.id && a.employeeId === currentUser.id) ||
+          (currentUser?.empCode && a.employeeId === currentUser.empCode) ||
+          (profile.empCode && a.employeeId === profile.empCode) ||
+          a.id === `att-${today}-${empId}` ||
+          (a.employeeName && profile.name && a.employeeName.toLowerCase().trim() === profile.name.toLowerCase().trim()) ||
+          (a.employeeName && currentUser?.name && a.employeeName.toLowerCase().trim() === currentUser.name.toLowerCase().trim()))
     );
 
     if (todayRec) {
@@ -933,7 +943,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           }));
         }
       }
-    } else if (resourceStatus.attendanceLogs === 'loaded') {
+    } else if (resourceStatus.attendanceLogs === 'loaded' && attendanceLogs.length > 0) {
+      // Only reset if attendanceLogs has verified records in DB and none exist for this employee today
       if (profile.checkInTime || profile.faceIdStatus === 'VERIFIED_PRESENT' || profile.disputedByAdmin) {
         setProfile((prev) => ({
           ...prev,
@@ -944,7 +955,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }));
       }
     }
-  }, [attendanceLogs, currentUser, profile.id, profile.name, resourceStatus.attendanceLogs]);
+  }, [attendanceLogs, currentUser, profile.id, profile.name, profile.empCode, resourceStatus.attendanceLogs]);
 
 
 

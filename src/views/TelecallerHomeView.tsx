@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useScreenData } from '../hooks/useScreenData';
+import { AssignedLead } from '../types';
 import { 
   CheckCircle2, 
   Phone, 
@@ -66,14 +67,27 @@ export const TelecallerHomeView: React.FC = () => {
   const remainingToTarget = Math.max(0, stats.monthlySalesTarget - stats.monthlySalesAchieved);
 
   // User's assigned leads & pipeline breakdown strictly for this authenticated employee
-  const userLeads = assignedLeads.filter(l => 
-    (empId && l.assignedToEmployeeId === empId) || 
-    (empCode && l.assignedToEmployeeId === empCode) || 
-    (empName && l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === empName.toLowerCase())
-  );
-  const wonCount = userLeads.filter(l => l.status === 'CONVERTED').length;
-  const followUpCount = userLeads.filter(l => l.status === 'CALLBACK').length;
-  const toCallCount = userLeads.filter(l => l.status === 'PENDING').length;
+  const userLeads = useMemo(() => {
+    if (currentUser?.role === 'telecaller' || currentUser?.role === 'employee') {
+      return assignedLeads;
+    }
+    const validIds = new Set(
+      [empId, empCode, currentUser?.id, currentUser?.employeeId, currentUser?.empCode, profile?.id, profile?.empCode]
+        .filter(Boolean)
+    );
+    const validName = (empName || currentUser?.name || profile?.name || '').trim().toLowerCase();
+
+    const filtered = assignedLeads.filter((l: AssignedLead) => {
+      const matchesId = validIds.has(l.assignedToEmployeeId);
+      const matchesName = validName && l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === validName;
+      return matchesId || matchesName;
+    });
+
+    return filtered.length > 0 ? filtered : assignedLeads;
+  }, [assignedLeads, currentUser, empId, empCode, empName, profile]);
+  const wonCount = userLeads.filter((l: AssignedLead) => l.status === 'CONVERTED').length;
+  const followUpCount = userLeads.filter((l: AssignedLead) => l.status === 'CALLBACK').length;
+  const toCallCount = userLeads.filter((l: AssignedLead) => l.status === 'PENDING').length;
 
   const isPunchedIn = profile.faceIdStatus === 'VERIFIED_PRESENT' && !!profile.checkInTime;
   const isShiftEnded = profile.faceIdStatus === 'ON_BREAK';

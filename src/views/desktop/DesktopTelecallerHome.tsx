@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useScreenData } from '../../hooks/useScreenData';
+import { AssignedLead } from '../../types';
 import { 
   Phone, 
   PhoneCall, 
@@ -27,6 +28,7 @@ import { RejectedLeaveBanner } from '../../components/common/RejectedLeaveBanner
 
 export const DesktopTelecallerHome: React.FC = () => {
   const { 
+    currentUser,
     profile, 
     stats, 
     myLeads: clients, 
@@ -65,15 +67,27 @@ export const DesktopTelecallerHome: React.FC = () => {
   const minsRemaining = Math.round((dialsRemaining * stats.averageCallDurationSec) / 60);
 
   // User's assigned leads & pipeline breakdown
-  const userLeads = assignedLeads.filter(l => 
-    !l.assignedToEmployeeId || 
-    l.assignedToEmployeeId === profile.id || 
-    (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === profile.name.toLowerCase()) || 
-    l.assignedToEmployeeId === 'emp-101'
-  );
-  const wonCount = userLeads.filter(l => l.status === 'CONVERTED').length;
-  const followUpCount = userLeads.filter(l => l.status === 'CALLBACK').length;
-  const toCallCount = userLeads.filter(l => l.status === 'PENDING').length;
+  const userLeads = useMemo(() => {
+    if (currentUser?.role === 'telecaller' || currentUser?.role === 'employee') {
+      return assignedLeads;
+    }
+    const validIds = new Set(
+      [currentUser?.id, currentUser?.employeeId, currentUser?.empCode, profile?.id, profile?.empCode]
+        .filter(Boolean)
+    );
+    const validName = (currentUser?.name || profile?.name || '').trim().toLowerCase();
+
+    const filtered = assignedLeads.filter((l: AssignedLead) => {
+      const matchesId = validIds.has(l.assignedToEmployeeId);
+      const matchesName = validName && l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === validName;
+      return matchesId || matchesName || l.assignedToEmployeeId === 'emp-101';
+    });
+
+    return filtered.length > 0 ? filtered : assignedLeads;
+  }, [assignedLeads, currentUser, profile]);
+  const wonCount = userLeads.filter((l: AssignedLead) => l.status === 'CONVERTED').length;
+  const followUpCount = userLeads.filter((l: AssignedLead) => l.status === 'CALLBACK').length;
+  const toCallCount = userLeads.filter((l: AssignedLead) => l.status === 'PENDING').length;
   const estRemaining = `${Math.floor(minsRemaining / 60)}h ${minsRemaining % 60}m`;
   const avgDuration = `${Math.floor(stats.averageCallDurationSec / 60)}m ${String(stats.averageCallDurationSec % 60).padStart(2, '0')}s`;
 

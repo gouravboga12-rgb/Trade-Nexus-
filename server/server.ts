@@ -113,12 +113,30 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 // Start Server
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`\n==================================================`);
     console.log(`🚀 Trade Nexus SQLite Server running on http://localhost:${PORT}`);
     console.log(`📊 Connected to SQLite local database.`);
     console.log(`==================================================\n`);
   });
+
+  const handleShutdown = (signal: string) => {
+    console.log(`[Server] Received ${signal}. Flushing SQLite WAL checkpoint before exit...`);
+    try {
+      import('./db/connection.js').then(({ checkpointDatabase }) => {
+        checkpointDatabase('TRUNCATE');
+        server.close(() => {
+          console.log('[Server] HTTP listener closed cleanly.');
+          process.exit(0);
+        });
+      }).catch(() => process.exit(0));
+    } catch (_) {
+      process.exit(0);
+    }
+  };
+
+  process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+  process.on('SIGINT', () => handleShutdown('SIGINT'));
 }
 
 export default app;

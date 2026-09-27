@@ -28,6 +28,7 @@ import { CallOutcome, AssignedLead, CallLogItem } from '../types';
 
 export const DailyCallingView: React.FC = () => {
   const { 
+    currentUser,
     callLogs, 
     stats, 
     assignedLeads,
@@ -50,14 +51,25 @@ export const DailyCallingView: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<DatePeriod>('TODAY');
   const [customDate, setCustomDate] = useState<string>('');
 
-  // Leads allocated to this telecaller (server already scopes, keep strict client match)
-  const myAssignedLeads = assignedLeads.filter((l) => {
-    return (
-      (profile.id && l.assignedToEmployeeId === profile.id) ||
-      (profile.empCode && l.assignedToEmployeeId === profile.empCode) ||
-      (l.assignedToEmployeeName && profile.name && l.assignedToEmployeeName.toLowerCase() === profile.name.toLowerCase())
+  // Leads allocated to this telecaller (server already scopes, keep robust fallback)
+  const myAssignedLeads = useMemo(() => {
+    if (currentUser?.role === 'telecaller' || currentUser?.role === 'employee') {
+      return assignedLeads;
+    }
+    const validIds = new Set(
+      [currentUser?.id, currentUser?.employeeId, currentUser?.empCode, profile?.id, profile?.empCode]
+        .filter(Boolean)
     );
-  });
+    const validName = (currentUser?.name || profile?.name || '').trim().toLowerCase();
+
+    const filtered = assignedLeads.filter((l: AssignedLead) => {
+      const matchesId = validIds.has(l.assignedToEmployeeId);
+      const matchesName = validName && l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === validName;
+      return matchesId || matchesName;
+    });
+
+    return filtered.length > 0 ? filtered : assignedLeads;
+  }, [assignedLeads, profile, currentUser]);
 
   const uncalledLeads = myAssignedLeads.filter((l) => l.status === 'PENDING');
   const callbackLeads = myAssignedLeads.filter((l) => l.status === 'CALLBACK');
