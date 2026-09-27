@@ -25,6 +25,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { RejectedLeaveBanner } from '../../components/common/RejectedLeaveBanner';
+import { getTodayDateIST } from '../../utils/dateUtils';
 
 export const DesktopTelecallerHome: React.FC = () => {
   const { 
@@ -33,6 +34,7 @@ export const DesktopTelecallerHome: React.FC = () => {
     stats, 
     myLeads: clients, 
     assignedLeads,
+    attendanceLogs,
     callLogs, 
     teamMeetings,
     joinMeeting,
@@ -46,6 +48,13 @@ export const DesktopTelecallerHome: React.FC = () => {
   } = useApp();
 
   const { isLoading } = useScreenData('telecallerHome');
+
+  const empId = currentUser?.employeeId || currentUser?.id || profile.id;
+  const empCode = currentUser?.empCode || profile.empCode;
+  const today = getTodayDateIST();
+  const todayAttendance = attendanceLogs?.find(
+    (a) => a.date === today && (a.employeeId === empId || a.employeeId === empCode || a.id?.includes(empId || '') || (a.employeeName && profile.name && a.employeeName.toLowerCase() === profile.name.toLowerCase()))
+  );
 
   // May be undefined while the pipeline loads, or when no leads are assigned yet
   const urgentLead = clients.find(c => c.status === 'Due Today') || clients[0];
@@ -151,11 +160,11 @@ export const DesktopTelecallerHome: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          {profile.faceIdStatus === 'VERIFIED_PRESENT' && profile.checkInTime ? (
+          {((profile.faceIdStatus === 'VERIFIED_PRESENT' && profile.checkInTime) || (todayAttendance?.checkIn && !todayAttendance?.checkOut)) ? (
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 bg-[#E6FAF6] border border-[#00C9A7]/30 text-[#00A88B] font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-xs">
                 <UserCheck className="w-4 h-4 text-emerald-600" />
-                <span>On Duty · In: {profile.checkInTime}</span>
+                <span>On Duty · In: {profile.checkInTime || todayAttendance?.checkIn}</span>
               </div>
               <button
                 onClick={openPunchOut}
@@ -166,11 +175,11 @@ export const DesktopTelecallerHome: React.FC = () => {
                 <span>Punch Out</span>
               </button>
             </div>
-          ) : profile.faceIdStatus === 'ON_BREAK' ? (
+          ) : (profile.faceIdStatus === 'ON_BREAK' || Boolean(todayAttendance?.checkOut)) ? (
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs px-3.5 py-2.5 rounded-xl">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Shift Ended ({profile.checkInTime} → {profile.checkOutTime || '06:30 PM'})</span>
+                <span>Shift Ended ({profile.checkInTime || todayAttendance?.checkIn || '09:00 AM'} → {profile.checkOutTime || todayAttendance?.checkOut || '06:30 PM'})</span>
               </div>
               <button
                 onClick={openPunchIn}

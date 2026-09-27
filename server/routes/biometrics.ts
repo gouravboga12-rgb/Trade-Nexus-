@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
+import { getTodayDateIST, getCurrentTimeIST } from '../utils/dateUtils.js';
 
 const router = Router();
 
@@ -75,30 +76,32 @@ router.post('/verify', (req: Request, res: Response) => {
       profile = db.prepare('SELECT * FROM face_biometric_profiles WHERE employeeId = ?').get(targetId);
     }
 
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const today = now.toISOString().split('T')[0];
+    const timeStr = getCurrentTimeIST();
+    const today = getTodayDateIST();
     const recId = `att-${today}-${targetId}`;
+    const dayNumber = parseInt(today.split('-')[2], 10) || new Date().getDate();
 
     const updateAttendanceAtomic = db.transaction(() => {
       // 1. Update Profile Status for THIS employee ONLY
       db.prepare(`
         UPDATE employee_profiles
-        SET faceIdStatus = 'VERIFIED_PRESENT', checkInTime = ?
+        SET faceIdStatus = 'VERIFIED_PRESENT', checkInTime = ?, checkOutTime = NULL
         WHERE id = ? OR empCode = ?
       `).run(timeStr, targetId, targetEmpCode);
 
       // 2. Record Attendance with employeeId composite key
       db.prepare(`
-        INSERT INTO attendance_records (id, date, dayNumber, status, checkIn, workHours, method, employeeId, employeeName)
-        VALUES (?, ?, ?, 'PRESENT', ?, 'In Progress', 'Face ID Biometric', ?, ?)
+        INSERT INTO attendance_records (id, date, dayNumber, status, checkIn, checkOut, workHours, method, employeeId, employeeName)
+        VALUES (?, ?, ?, 'PRESENT', ?, NULL, 'In Progress', 'Face ID Biometric', ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           status = 'PRESENT',
           checkIn = excluded.checkIn,
+          checkOut = NULL,
+          workHours = 'In Progress',
           method = 'Face ID Biometric',
           employeeId = excluded.employeeId,
           employeeName = excluded.employeeName
-      `).run(recId, today, now.getDate(), timeStr, targetId, empName);
+      `).run(recId, today, dayNumber, timeStr, targetId, empName);
 
       // 3. Update Team Member Status for THIS employee ONLY
       db.prepare(`

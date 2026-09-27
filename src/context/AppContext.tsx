@@ -1280,14 +1280,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const enrolled = faceProfiles.find(p => p.employeeId === targetId || p.employeeName.toLowerCase() === profile.name.toLowerCase());
     
     // Check-in
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const today = new Date().toISOString().split('T')[0];
+    const timeStr = getCurrentTimeIST();
+    const today = getTodayDateIST();
+    const dayNumber = parseInt(today.split('-')[2], 10) || new Date().getDate();
 
     const updatedProfile: EmployeeProfile = {
       ...profile,
       faceIdStatus: 'VERIFIED_PRESENT',
       checkInTime: timeStr,
+      checkOutTime: undefined,
     };
     setProfile(updatedProfile);
 
@@ -1298,16 +1299,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       employeeId: targetId,
       employeeName: profile.name,
       date: today,
-      dayNumber: now.getDate(),
+      dayNumber: dayNumber,
       status: calculatedStatus,
       checkIn: timeStr,
+      checkOut: undefined,
       workHours: 'In Progress',
       method: 'Face ID Biometric',
     };
 
     setAttendanceLogs(prev => [
       newAttendanceItem,
-      ...prev.filter(item => item.dayNumber !== now.getDate()),
+      ...prev.filter(item => item.id !== newAttendanceItem.id && item.date !== today),
     ]);
 
     setTeamMembers(prev => prev.map(m => {
@@ -1772,7 +1774,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Leads that Admin allocated to this employee. Admin writes them to
   // assigned_leads; the pipeline screens were built around ClientLead, so they
   // are mapped across rather than duplicating the screens.
-  const todayIso = new Date().toISOString().split('T')[0];
+  const todayIso = getTodayDateIST();
   const currentEmpId = currentUser?.employeeId || currentUser?.id || profile.id;
   const currentEmpCode = currentUser?.empCode || profile.empCode;
   const currentEmpName = (currentUser?.name || profile.name || '').trim().toLowerCase();
@@ -2431,7 +2433,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       notes: data.notes,
       followUpDate: data.followUpDate,
       timestamp: 'Just now',
-      date: new Date().toISOString().split('T')[0],
+      date: getTodayDateIST(),
       createdAt: new Date().toISOString(),
     };
 
@@ -2692,7 +2694,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const prefix = `${params.year}-${String(params.month).padStart(2, '0')}`;
           return prev.filter((r) => !r.date.startsWith(prefix));
         }
-        const today = new Date().toISOString().split('T')[0];
+        const today = getTodayDateIST();
         return prev.filter((r) => r.date !== today);
       });
       triggerToast(res?.message || '✓ Attendance records cleared successfully');
@@ -2715,7 +2717,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const disputeAttendanceRecord = async (recordId: string, employeeId: string, reason: string) => {
     setAttendanceLogs(prev => prev.map(rec => {
-      if (rec.id === recordId || (rec.employeeId === employeeId && rec.date === new Date().toISOString().split('T')[0])) {
+      if (rec.id === recordId || (rec.employeeId === employeeId && rec.date === getTodayDateIST())) {
         return {
           ...rec,
           status: 'ABSENT',

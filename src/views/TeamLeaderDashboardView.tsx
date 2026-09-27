@@ -185,7 +185,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
   // Performance Reports driven by timeframe selection ('today' | 'week' | 'month')
   const { tfDials, tfSales, tfTarget, tfTargetPercent, tfConnectRate, membersByDials } = useMemo(() => {
     const now = new Date();
-    const todayYMD = now.toISOString().split('T')[0];
+    const todayYMD = getTodayDateIST();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 

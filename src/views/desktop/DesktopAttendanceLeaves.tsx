@@ -13,6 +13,7 @@ import {
   FileText
 } from 'lucide-react';
 import { RejectedLeaveBanner } from '../../components/common/RejectedLeaveBanner';
+import { getTodayDateIST } from '../../utils/dateUtils';
 
 export const DesktopAttendanceLeaves: React.FC = () => {
   const { 
@@ -49,7 +50,7 @@ export const DesktopAttendanceLeaves: React.FC = () => {
       .map(l => [new Date(l.date + 'T00:00:00').getDate(), l.status])
   );
 
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = getTodayDateIST();
 
   const countOf = (status: string) => attendanceLogs.filter((l) => l.status === status).length;
   const presentDays = countOf('PRESENT') + countOf('HALF_DAY');

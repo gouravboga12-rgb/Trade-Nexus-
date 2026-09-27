@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
+import { getTodayDateIST } from '../utils/dateUtils.js';
 
 const router = Router();
 
@@ -38,7 +39,7 @@ router.get('/', (req: Request, res: Response) => {
     }
 
     // 3. Dynamically calculate dials today from live call_logs
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getTodayDateIST();
     let dialMetrics: any = null;
     if (targetId || targetEmpCode || user?.name) {
       dialMetrics = db.prepare(`

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
+import { getTodayDateIST } from '../utils/dateUtils.js';
 
 const router = Router();
 
@@ -108,7 +109,7 @@ function mergedProfile(user?: any, queryEmpId?: string) {
     : undefined;
 
   // Real-time synchronization with today's attendance in SQLite for this user
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getTodayDateIST();
   const todayAtt = db.prepare(`
     SELECT * FROM attendance_records 
     WHERE (employeeId = ? OR employeeId = ? OR id = ?) AND date = ?

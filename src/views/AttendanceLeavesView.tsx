@@ -13,6 +13,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { RejectedLeaveBanner } from '../components/common/RejectedLeaveBanner';
+import { getTodayDateIST } from '../utils/dateUtils';
 
 export const AttendanceLeavesView: React.FC = () => {
   const { 
@@ -51,7 +52,7 @@ export const AttendanceLeavesView: React.FC = () => {
       .map(l => [new Date(l.date + 'T00:00:00').getDate(), l.status])
   );
 
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = getTodayDateIST();
   const todayIsCurrentMonth = today.getFullYear() === calYear && today.getMonth() === calMonth;
 
   const countOf = (status: string) => attendanceLogs.filter((l) => l.status === status).length;
