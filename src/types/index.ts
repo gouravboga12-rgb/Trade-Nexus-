@@ -98,6 +98,8 @@ export interface AttendanceRecord {
   checkOut?: string;
   workHours?: string;
   method?: 'Face ID Biometric' | 'Geo-tagged';
+  disputedByAdmin?: boolean;
+  disputeReason?: string | null;
 }
 
 export interface LeaveRequest {
@@ -356,6 +358,7 @@ export interface NewEmployeeInput {
   password?: string;
   joiningDate: string;
   salaryDate: string;
+  avatar?: string;
 }
 
 export interface PaymentVerificationItem {

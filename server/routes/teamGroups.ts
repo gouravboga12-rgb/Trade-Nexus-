@@ -100,4 +100,32 @@ router.put('/:id', requireRole('admin', 'team_leader'), (req: Request, res: Resp
   }
 });
 
+// DELETE /api/team-groups/:id
+router.delete('/:id', requireRole('admin'), (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const existing = db.prepare('SELECT * FROM team_groups WHERE id = ?').get(id) as any;
+    if (!existing) {
+      return res.status(404).json({ error: 'Team group not found' });
+    }
+
+    // Unassign team members assigned to this group name so they are not orphaned
+    db.prepare(`
+      UPDATE team_members 
+      SET groupName = 'Unassigned' 
+      WHERE groupName = ?
+    `).run(existing.name);
+
+    db.prepare('DELETE FROM team_groups WHERE id = ?').run(id);
+
+    return res.status(200).json({ 
+      success: true, 
+      message: `Team "${existing.name}" deleted successfully`, 
+      id 
+    });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;

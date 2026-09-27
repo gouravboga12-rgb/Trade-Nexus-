@@ -79,14 +79,14 @@ export const OfferLetterModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[96vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-white/95 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[96vh]">
         
         {/* Modal Top Control Bar (Hidden on print) */}
-        <div className="bg-[#06152B] px-4 sm:px-6 py-3 text-white flex items-center justify-between border-b border-slate-800 print:hidden flex-shrink-0">
+        <div className="bg-white px-4 sm:px-6 py-3 text-slate-800 flex items-center justify-between border-b border-slate-200 print:hidden flex-shrink-0">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#00C9A7] animate-pulse" />
-            <span className="font-bold text-xs sm:text-sm tracking-wide text-slate-200">
+            <span className="font-bold text-xs sm:text-sm tracking-wide text-slate-800">
               Official Job Offer Letter Document
             </span>
           </div>
@@ -95,7 +95,7 @@ export const OfferLetterModal: React.FC = () => {
             <button
               onClick={() => setIsEditing(!isEditing)}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                isEditing ? 'bg-[#00C9A7] text-[#0A2540]' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                isEditing ? 'bg-[#00C9A7] text-[#0A2540]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
               }`}
             >
               <Edit3 className="w-3.5 h-3.5" />
@@ -104,15 +104,15 @@ export const OfferLetterModal: React.FC = () => {
 
             <button
               onClick={handlePrint}
-              className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
+              className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs border border-slate-200"
             >
-              <Printer className="w-3.5 h-3.5 text-[#00C9A7]" />
+              <Printer className="w-3.5 h-3.5 text-[#00A88B]" />
               <span className="hidden xs:inline">Print / PDF</span>
             </button>
 
             <button 
               onClick={() => setIsOfferLetterModalOpen(false)}
-              className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+              className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors border border-slate-200"
             >
               <X className="w-4 h-4" />
             </button>
@@ -199,7 +199,7 @@ export const OfferLetterModal: React.FC = () => {
         {/* Scrollable Document Container */}
         <div 
           ref={scrollContainerRef}
-          className="overflow-y-auto flex-1 p-2 sm:p-5 bg-slate-100/70 flex justify-center"
+          className="overflow-y-auto flex-1 p-2 sm:p-5 bg-white flex justify-center"
         >
           
           {/* Printable Letter Sheet (Exact Template matching 1.png) */}

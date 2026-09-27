@@ -18,7 +18,9 @@ import {
   Landmark,
   MapPin,
   Briefcase,
-  Hash
+  Hash,
+  Camera,
+  User,
 } from 'lucide-react';
 import { UserRole } from '../../types';
 
@@ -54,9 +56,10 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
   const [salary, setSalary] = useState<number>(35000);
   const [employeeType, setEmployeeType] = useState<'Full Time' | 'Intern' | 'Contract'>('Full Time');
 
-  // 6. Documents (PAN & Aadhaar)
+  // 6. Documents (PAN & Aadhaar) & Profile Photo
   const [panFile, setPanFile] = useState<string | null>(null);
   const [aadhaarFile, setAadhaarFile] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
   // 7. Bank Details
   const [bankName, setBankName] = useState('HDFC Bank');
@@ -106,6 +109,17 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
   const handleAadhaarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) setAadhaarFile(file.name);
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (uploadEvent) => {
+        setPhotoUrl(uploadEvent.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleRoleChange = (newRole: UserRole) => {
@@ -161,6 +175,7 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
       password,
       joiningDate: dateOfJoining,
       salaryDate,
+      avatar: photoUrl || undefined,
     });
 
     setCreatedCredentials({
@@ -267,6 +282,60 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
             <div className="flex items-center gap-2 text-xs font-bold text-[#0A2540] uppercase tracking-wider border-b border-slate-100 pb-1.5">
               <Users className="w-4 h-4 text-teal-600" />
               <span>1. Personal & Contact Details</span>
+            </div>
+
+            {/* Profile Photo Upload for Official Digital ID Card */}
+            <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3 sm:p-4 flex flex-col sm:flex-row items-center gap-4">
+              <div className="relative group">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-slate-200 border-2 border-[#00C9A7]/40 flex items-center justify-center shadow-xs">
+                  {photoUrl ? (
+                    <img src={photoUrl} alt="Employee Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-slate-400">
+                      <Camera className="w-6 h-6 text-slate-400" />
+                      <span className="text-[9px] font-bold mt-1 text-slate-400">ID Photo</span>
+                    </div>
+                  )}
+                </div>
+                {photoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setPhotoUrl(null)}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center hover:bg-rose-600 transition-colors shadow-xs"
+                    title="Remove Photo"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex-1 text-center sm:text-left space-y-1">
+                <div className="flex items-center justify-center sm:justify-start gap-2">
+                  <span className="text-xs font-bold text-[#0A2540]">Employee Profile Photo</span>
+                  <span className="text-[10px] bg-teal-100 text-teal-800 font-bold px-1.5 py-0.2 rounded-full">For ID Card</span>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-tight">
+                  Upload a clear portrait photo. This photo will be rendered on the employee's official Digital ID Card and company profile.
+                </p>
+                <div className="pt-1 flex items-center justify-center sm:justify-start gap-2">
+                  <label className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-100 text-[#0A2540] border border-slate-300 font-bold text-xs px-3 py-1.5 rounded-xl cursor-pointer transition-all shadow-2xs">
+                    <UploadCloud className="w-3.5 h-3.5 text-[#00A88B]" />
+                    <span>{photoUrl ? 'Change Photo' : 'Upload Photo'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  {photoUrl && (
+                    <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Photo Attached</span>
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

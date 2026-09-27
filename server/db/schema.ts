@@ -405,6 +405,8 @@ function runMigrations() {
   addColumnIfMissing('attendance_records', 'checkOutLng', 'REAL');
   addColumnIfMissing('attendance_records', 'checkOutDistanceM', 'REAL');
   addColumnIfMissing('attendance_records', 'checkOutLocationStatus', 'TEXT');
+  addColumnIfMissing('attendance_records', 'disputedByAdmin', 'INTEGER DEFAULT 0');
+  addColumnIfMissing('attendance_records', 'disputeReason', 'TEXT');
 
   // Individual employee documents — ID proofs, certificates, contracts (scope §11).
   db.exec(`

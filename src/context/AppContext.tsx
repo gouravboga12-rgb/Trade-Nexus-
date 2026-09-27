@@ -131,6 +131,8 @@ interface AppContextType {
   /** Move a telecaller's leads to someone else, optionally limited to a count. */
   reassignLeadsBetween: (fromEmployeeId: string, toEmployeeId: string, limit?: number) => Promise<void>;
   createTeamGroup: (data: { name: string; description: string; leaderName: string; monthlyTarget: number; color: string }, memberIds?: string[]) => void;
+  updateTeamGroup: (id: string, updates: Partial<TeamGroup>) => Promise<void>;
+  deleteTeamGroup: (id: string) => Promise<void>;
   assignTeamLeaderToGroup: (groupId: string, leaderName: string) => void;
   createTeamTask: (data: { title: string; assignedTo: string; group?: string; dueDate: string; priority: 'HIGH' | 'MEDIUM' | 'NORMAL' }) => void;
   toggleTaskStatus: (taskId: string) => void;
@@ -309,6 +311,8 @@ interface AppContextType {
     latitude: number | null;
     longitude: number | null;
   }) => Promise<void>;
+  disputeAttendanceRecord: (recordId: string, employeeId: string, reason: string) => Promise<void>;
+  verifyAttendanceRecord: (recordId: string, employeeId: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -1360,7 +1364,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       id: empId,
       empCode,
       name: data.name,
-      avatar: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`,
+      avatar: data.avatar || `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`,
       role: data.roleTitle || (data.role === 'telecaller' ? 'Telecaller Executive' : data.role === 'team_leader' ? 'Team Leader' : data.role.toUpperCase()),
       group: data.teamGroup || 'Alpha Growth Team',
       phone: data.phone,
@@ -1702,6 +1706,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       await api.createTeamGroup(newGroup);
     } catch (err) {
       console.warn('API create group error:', err);
+    }
+  };
+
+  const updateTeamGroup = async (id: string, updates: Partial<TeamGroup>) => {
+    const prevGroup = teamGroups.find(g => g.id === id);
+    setTeamGroups(prev => prev.map(g => g.id === id ? { ...g, ...updates } : g));
+    
+    if (updates.name && prevGroup && prevGroup.name !== updates.name) {
+      setTeamMembers(prev => prev.map(m => m.group === prevGroup.name ? { ...m, group: updates.name! } : m));
+    }
+
+    triggerToast(`✓ Team "${updates.name || prevGroup?.name || 'group'}" updated`);
+    try {
+      await api.updateTeamGroup(id, updates);
+    } catch (err) {
+      console.warn('API update team group error:', err);
+    }
+  };
+
+  const deleteTeamGroup = async (id: string) => {
+    const targetGroup = teamGroups.find(g => g.id === id);
+    const groupName = targetGroup?.name || 'Team';
+    
+    setTeamGroups(prev => prev.filter(g => g.id !== id));
+    setTeamMembers(prev => prev.map(m => m.group === groupName ? { ...m, group: 'Unassigned' } : m));
+    
+    triggerToast(`✓ Team "${groupName}" deleted. Members set to Unassigned.`);
+    try {
+      await api.deleteTeamGroup(id);
+    } catch (err) {
+      console.warn('API delete team group error:', err);
     }
   };
 
@@ -2263,6 +2298,69 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const disputeAttendanceRecord = async (recordId: string, employeeId: string, reason: string) => {
+    setAttendanceLogs(prev => prev.map(rec => {
+      if (rec.id === recordId || (rec.employeeId === employeeId && rec.date === new Date().toISOString().split('T')[0])) {
+        return {
+          ...rec,
+          status: 'ABSENT',
+          disputedByAdmin: true,
+          disputeReason: reason,
+        };
+      }
+      return rec;
+    }));
+
+    setTeamMembers(prev => prev.map(m => (m.id === employeeId || m.empCode === employeeId) ? { ...m, attendanceStatus: 'ABSENT' } : m));
+
+    if (currentUser?.employeeId === employeeId || currentUser?.id === employeeId || profile.id === employeeId) {
+      setProfile(p => ({
+        ...p,
+        faceIdStatus: 'ABSENT',
+      }));
+    }
+
+    triggerToast(`✓ Attendance changed to ABSENT (Reason noted)`);
+    try {
+      await api.updateAttendance(recordId, {
+        status: 'ABSENT',
+        disputedByAdmin: true,
+        disputeReason: reason,
+        employeeId,
+      });
+    } catch (err) {
+      console.warn('API update attendance dispute error:', err);
+    }
+  };
+
+  const verifyAttendanceRecord = async (recordId: string, employeeId: string) => {
+    setAttendanceLogs(prev => prev.map(rec => {
+      if (rec.id === recordId) {
+        return {
+          ...rec,
+          status: 'PRESENT',
+          disputedByAdmin: false,
+          disputeReason: null,
+        };
+      }
+      return rec;
+    }));
+
+    setTeamMembers(prev => prev.map(m => (m.id === employeeId || m.empCode === employeeId) ? { ...m, attendanceStatus: 'PRESENT' } : m));
+
+    triggerToast(`✓ Attendance marked PRESENT & verified`);
+    try {
+      await api.updateAttendance(recordId, {
+        status: 'PRESENT',
+        disputedByAdmin: false,
+        disputeReason: null,
+        employeeId,
+      });
+    } catch (err) {
+      console.warn('API verify attendance error:', err);
+    }
+  };
+
   const simulateFaceIdCheckIn = () => {
     verifyFaceAttendance();
     triggerToast(`✓ Face ID Biometric Verified! Check-in recorded.`);
@@ -2331,6 +2429,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         reassignLead,
         reassignLeadsBetween,
         createTeamGroup,
+        updateTeamGroup,
+        deleteTeamGroup,
         assignTeamLeaderToGroup,
         createTeamTask,
         toggleTaskStatus,
@@ -2449,6 +2549,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         simulateFaceIdCheckOut,
         recordCheckIn,
         recordCheckOut,
+        disputeAttendanceRecord,
+        verifyAttendanceRecord,
       }}
     >
       {children}

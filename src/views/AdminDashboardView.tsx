@@ -40,24 +40,31 @@ import {
   Building2,
   Trash2,
   LogOut,
+  Edit2,
+  Eye,
+  Camera,
+  AlertTriangle,
+  CameraOff,
 } from 'lucide-react';
 import { ExcelLeadUploadModal } from '../components/modals/ExcelLeadUploadModal';
 import { AddEmployeeModal } from '../components/modals/AddEmployeeModal';
 import { EmployeeRecordModal, PORTAL_LABEL } from '../components/modals/EmployeeRecordModal';
 import { CreateTeamModal } from '../components/modals/CreateTeamModal';
+import { EditTeamModal } from '../components/modals/EditTeamModal';
+import { DeleteTeamModal } from '../components/modals/DeleteTeamModal';
 import { ManageTeamMembersModal } from '../components/modals/ManageTeamMembersModal';
 import { AdminTargetSettingsModal } from '../components/modals/AdminTargetSettingsModal';
 import { AdminScheduleMeetingModal } from '../components/modals/AdminScheduleMeetingModal';
 import { GeofenceLocationModal } from '../components/modals/GeofenceLocationModal';
 import { InAppLiveMapModal } from '../components/modals/InAppLiveMapModal';
-import { OfficeSettings, TeamGroup, TeamMember, UserRole, LeaveRequest, PaymentVerificationItem } from '../types';
+import { OfficeSettings, TeamGroup, TeamMember, UserRole, LeaveRequest, PaymentVerificationItem, AttendanceRecord } from '../types';
 import { api } from '../services/api';
 import { Employee360ProfileView } from './Employee360ProfileView';
 import { AdminCalendarConfig } from '../components/common/AdminCalendarConfig';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { LeafletGeofenceMap } from '../components/common/LeafletGeofenceMap';
 
-type AdminTab = 'home' | 'people' | 'attendance' | 'leads' | 'revenue' | 'more' | 'approvals' | 'reports';
+type AdminTab = 'home' | 'people' | 'attendance' | 'leads' | 'revenue' | 'more' | 'approvals' | 'reports' | 'attendance_verification';
 
 const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 
@@ -101,6 +108,10 @@ export const AdminDashboardView: React.FC = () => {
     assignTeamLeaderToGroup,
     verifyPayment,
     reassignLeadsBetween,
+    updateTeamGroup,
+    deleteTeamGroup,
+    disputeAttendanceRecord,
+    verifyAttendanceRecord,
     triggerToast,
     logout,
   } = useApp();
@@ -131,6 +142,14 @@ export const AdminDashboardView: React.FC = () => {
   const [employeeToDelete, setEmployeeToDelete] = useState<TeamMember | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<TeamGroup | null>(null);
+  const [deletingTeam, setDeletingTeam] = useState<TeamGroup | null>(null);
+  const [verifySelectedDate, setVerifySelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [verifyStatusFilter, setVerifyStatusFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'DISPUTED'>('ALL');
+  const [verifySearchQuery, setVerifySearchQuery] = useState('');
+  const [suspiciousModalItem, setSuspiciousModalItem] = useState<AttendanceRecord | null>(null);
+  const [suspiciousReason, setSuspiciousReason] = useState<string>('Suspicious face photo / Proxy verification suspected');
+  const [zoomPhotoUrl, setZoomPhotoUrl] = useState<string | null>(null);
   const [managingSquad, setManagingSquad] = useState<TeamGroup | null>(null);
   const [moveFrom, setMoveFrom] = useState('');
   const [moveTo, setMoveTo] = useState('');
@@ -1050,9 +1069,33 @@ export const AdminDashboardView: React.FC = () => {
                                 </p>
                               </div>
                             </div>
-                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
-                              Target: {inr(g.monthlyTarget)}
-                            </span>
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
+                                Target: {inr(g.monthlyTarget)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingTeam(g);
+                                }}
+                                title="Edit Team"
+                                className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-teal-50 text-slate-500 hover:text-[#00A88B] border border-slate-200 flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeletingTeam(g);
+                                }}
+                                title="Delete Team"
+                                className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
                           </div>
 
                           {/* 4 Metric Columns */}
@@ -2363,6 +2406,28 @@ export const AdminDashboardView: React.FC = () => {
                 <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-purple-600 transition-colors" />
               </div>
 
+              {/* Attendance Photo Audit */}
+              <div
+                onClick={() => setTab('attendance_verification')}
+                className="bg-white border border-slate-200/90 hover:border-blue-400 rounded-2xl p-4 shadow-2xs flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <Camera className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-sm text-[#0A2540] group-hover:text-blue-600 transition-colors">
+                        Attendance Photo Audit
+                      </h4>
+                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 font-mono">New</span>
+                    </div>
+                    <span className="text-xs text-slate-500">Review punch-in photos & flag suspicious attendance</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-600 transition-colors" />
+              </div>
+
               {/* Company Calendar & Holiday Configuration */}
               <div
                 onClick={() => setShowCalendarConfig((v) => !v)}
@@ -2840,6 +2905,231 @@ export const AdminDashboardView: React.FC = () => {
         })()}
 
         {/* ---------------------------------------------------- Reports */}
+        {/* --------------------------------------------------- Attendance Verification */}
+        {tab === 'attendance_verification' && (() => {
+          const todayIso = new Date().toISOString().split('T')[0];
+          const verifyRecords = attendanceLogs.filter((r) => {
+            const matchDate = r.date === verifySelectedDate;
+            const matchStatus =
+              verifyStatusFilter === 'ALL'
+                ? true
+                : verifyStatusFilter === 'PRESENT'
+                ? r.status === 'PRESENT' && !r.disputedByAdmin
+                : verifyStatusFilter === 'LATE'
+                ? (r.status as string) === 'LATE'
+                : verifyStatusFilter === 'DISPUTED'
+                ? !!r.disputedByAdmin
+                : true;
+            const q = verifySearchQuery.toLowerCase();
+            const matchSearch =
+              !q ||
+              (r.employeeName || '').toLowerCase().includes(q) ||
+              (r.employeeId || '').toLowerCase().includes(q);
+            return matchDate && matchStatus && matchSearch;
+          });
+
+          return (
+            <div className="space-y-4 animate-in fade-in duration-150">
+              {/* Header */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setTab('more')}
+                  className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <div>
+                  <h2 className="font-display font-black text-xl text-[#0A2540] tracking-tight">Photo Audit</h2>
+                  <p className="text-[11px] text-slate-500">Review punch-in selfies & flag suspicious records</p>
+                </div>
+              </div>
+
+              {/* Filters */}
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={verifySelectedDate}
+                    onChange={(e) => setVerifySelectedDate(e.target.value)}
+                    className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-[#0A2540] bg-white focus:outline-none focus:ring-2 focus:ring-[#00A88B]/30 focus:border-[#00A88B]"
+                  />
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search employee…"
+                      value={verifySearchQuery}
+                      onChange={(e) => setVerifySearchQuery(e.target.value)}
+                      className="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#00A88B]/30 focus:border-[#00A88B]"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-1.5 overflow-x-auto pb-1">
+                  {(['ALL', 'PRESENT', 'LATE', 'DISPUTED'] as const).map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setVerifyStatusFilter(f)}
+                      className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                        verifyStatusFilter === f
+                          ? 'bg-[#0A2540] text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                      }`}
+                    >
+                      {f === 'DISPUTED' ? '🚩 Flagged' : f === 'PRESENT' ? '✓ Present' : f === 'LATE' ? '⏰ Late' : 'All'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Stats row */}
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: 'Present', val: attendanceLogs.filter(r => r.date === verifySelectedDate && r.status === 'PRESENT' && !r.disputedByAdmin).length, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                  { label: 'Flagged', val: attendanceLogs.filter(r => r.date === verifySelectedDate && r.disputedByAdmin).length, color: 'text-rose-600', bg: 'bg-rose-50' },
+                  { label: 'No Photo', val: attendanceLogs.filter(r => r.date === verifySelectedDate && r.status === 'PRESENT' && !r.checkInPhoto).length, color: 'text-amber-600', bg: 'bg-amber-50' },
+                ].map((s) => (
+                  <div key={s.label} className={`${s.bg} rounded-2xl p-3 text-center`}>
+                    <div className={`font-black text-xl ${s.color}`}>{s.val}</div>
+                    <div className="text-[10px] font-bold text-slate-500 mt-0.5">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Photo Cards */}
+              {verifyRecords.length === 0 ? (
+                <div className="text-center py-12 text-slate-400">
+                  <Camera className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm font-bold">No records found</p>
+                  <p className="text-xs mt-1">Try a different date or filter</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {verifyRecords.map((rec) => {
+                    const member = teamMembers.find(
+                      (m) => m.id === rec.employeeId || m.empCode === rec.employeeId
+                    );
+                    const name = rec.employeeName || member?.name || rec.employeeId || 'Unknown';
+                    const isFlagged = rec.disputedByAdmin;
+                    return (
+                      <div
+                        key={rec.id || `${rec.employeeId}-${rec.date}`}
+                        className={`bg-white border rounded-2xl p-3.5 shadow-2xs transition-all ${
+                          isFlagged ? 'border-rose-300 bg-rose-50/40' : 'border-slate-200/90'
+                        }`}
+                      >
+                        <div className="flex gap-3">
+                          {/* Photo */}
+                          <div
+                            className="relative w-16 h-16 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0 cursor-pointer group"
+                            onClick={() => rec.checkInPhoto && setZoomPhotoUrl(rec.checkInPhoto)}
+                          >
+                            {rec.checkInPhoto ? (
+                              <>
+                                <img
+                                  src={rec.checkInPhoto}
+                                  alt={`${name} check-in`}
+                                  className="w-full h-full object-cover"
+                                />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 flex items-center justify-center transition-all">
+                                  <Maximize2 className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </div>
+                              </>
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center">
+                                <CameraOff className="w-5 h-5 text-slate-300" />
+                                <span className="text-[9px] text-slate-300 mt-0.5">No photo</span>
+                              </div>
+                            )}
+                            {isFlagged && (
+                              <div className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-rose-500 flex items-center justify-center">
+                                <AlertTriangle className="w-2.5 h-2.5 text-white" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-1">
+                              <div className="min-w-0">
+                                <p className="font-bold text-sm text-[#0A2540] truncate">{name}</p>
+                                <p className="text-[10px] text-slate-400 font-mono">{rec.employeeId}</p>
+                              </div>
+                              <span className={`flex-shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                isFlagged
+                                  ? 'bg-rose-100 text-rose-700'
+                                  : rec.status === 'PRESENT'
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : (rec.status as string) === 'LATE'
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : 'bg-slate-100 text-slate-500'
+                              }`}>
+                                {isFlagged ? '🚩 Flagged' : rec.status}
+                              </span>
+                            </div>
+                            <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                              {rec.checkIn && (
+                                <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                                  <Clock className="w-3 h-3" /> {rec.checkIn}
+                                </span>
+                              )}
+                              {rec.locationStatus && (
+                                <span className={`text-[11px] flex items-center gap-1 ${
+                                  rec.locationStatus === 'AT_OFFICE' ? 'text-emerald-600' : 'text-amber-500'
+                                }`}>
+                                  <MapPin className="w-3 h-3" />
+                                  {rec.locationStatus === 'AT_OFFICE' ? 'At Office' : rec.locationStatus === 'AWAY' ? 'Away' : 'No GPS'}
+                                </span>
+                              )}
+                            </div>
+                            {isFlagged && rec.disputeReason && (
+                              <p className="mt-1 text-[10px] text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-2 py-1 line-clamp-2">
+                                🚩 {rec.disputeReason}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100">
+                          {!isFlagged ? (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setSuspiciousModalItem(rec);
+                                  setSuspiciousReason('Suspicious face photo / Proxy verification suspected');
+                                }}
+                                className="flex-1 flex items-center justify-center gap-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl py-2 text-[11px] font-bold transition-all cursor-pointer active:scale-95"
+                              >
+                                <AlertTriangle className="w-3.5 h-3.5" />
+                                Flag Suspicious
+                              </button>
+                              <button
+                                onClick={() => rec.id && rec.employeeId && verifyAttendanceRecord(rec.id, rec.employeeId)}
+                                className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-xl py-2 text-[11px] font-bold transition-all cursor-pointer active:scale-95"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                Verify OK
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => rec.id && rec.employeeId && verifyAttendanceRecord(rec.id, rec.employeeId)}
+                              className="flex-1 flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-xl py-2 text-[11px] font-bold transition-all cursor-pointer active:scale-95"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Restore as Present
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {tab === 'reports' && (
           <div className="space-y-4 animate-in fade-in duration-150">
             <button
@@ -2999,6 +3289,8 @@ export const AdminDashboardView: React.FC = () => {
       <AddEmployeeModal isOpen={isAddUserModalOpen} onClose={() => setIsAddUserModalOpen(false)} />
       <EmployeeRecordModal employee={openEmployee} onClose={() => setOpenEmployee(null)} />
       <CreateTeamModal isOpen={isCreateTeamOpen} onClose={() => setIsCreateTeamOpen(false)} />
+      <EditTeamModal isOpen={!!editingTeam} team={editingTeam} onClose={() => setEditingTeam(null)} />
+      <DeleteTeamModal isOpen={!!deletingTeam} team={deletingTeam} onClose={() => setDeletingTeam(null)} />
       <ManageTeamMembersModal
         team={managingSquad}
         isOpen={!!managingSquad}
@@ -3223,6 +3515,108 @@ export const AdminDashboardView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ---- Flag Suspicious Attendance Modal ---- */}
+      {suspiciousModalItem && (
+        <div
+          className="fixed inset-0 z-[60] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setSuspiciousModalItem(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-rose-100 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-display font-black text-base text-[#0A2540]">Flag as Suspicious?</h3>
+                <p className="text-xs text-slate-500">This will revert attendance to <strong>ABSENT</strong></p>
+              </div>
+            </div>
+
+            {/* Employee info */}
+            <div className="flex items-center gap-3 bg-slate-50 rounded-2xl p-3 border border-slate-200">
+              {suspiciousModalItem.checkInPhoto ? (
+                <img src={suspiciousModalItem.checkInPhoto} alt="" className="w-12 h-12 rounded-xl object-cover flex-shrink-0 border border-slate-200" />
+              ) : (
+                <div className="w-12 h-12 rounded-xl bg-slate-200 flex items-center justify-center flex-shrink-0">
+                  <CameraOff className="w-5 h-5 text-slate-400" />
+                </div>
+              )}
+              <div>
+                <p className="font-bold text-sm text-[#0A2540]">
+                  {suspiciousModalItem.employeeName || suspiciousModalItem.employeeId}
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  {suspiciousModalItem.date} · Check-in: {suspiciousModalItem.checkIn || '—'}
+                </p>
+              </div>
+            </div>
+
+            {/* Reason input */}
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1.5">Reason / Admin Note</label>
+              <textarea
+                value={suspiciousReason}
+                onChange={(e) => setSuspiciousReason(e.target.value)}
+                rows={3}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-rose-400/30 focus:border-rose-400 resize-none"
+                placeholder="Describe the suspicious activity…"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSuspiciousModalItem(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!suspiciousModalItem?.id || !suspiciousModalItem?.employeeId) return;
+                  await disputeAttendanceRecord(
+                    suspiciousModalItem.id,
+                    suspiciousModalItem.employeeId,
+                    suspiciousReason
+                  );
+                  setSuspiciousModalItem(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-xs"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                Confirm & Flag
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Zoom Photo Lightbox ---- */}
+      {zoomPhotoUrl && (
+        <div
+          className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-100"
+          onClick={() => setZoomPhotoUrl(null)}
+        >
+          <button
+            onClick={() => setZoomPhotoUrl(null)}
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <img
+            src={zoomPhotoUrl}
+            alt="Attendance check-in photo"
+            className="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <p className="absolute bottom-4 left-0 right-0 text-center text-white/50 text-xs">Tap outside to close</p>
+        </div>
+      )}
+
     </div>
   );
 };

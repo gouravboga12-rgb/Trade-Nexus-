@@ -268,6 +268,8 @@ export const api = {
     request<TeamGroup>('/team-groups', { method: 'POST', body: JSON.stringify(data) }),
   updateTeamGroup: (id: string, data: Partial<TeamGroup>) => 
     request<TeamGroup>(`/team-groups/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteTeamGroup: (id: string) =>
+    request<{ success: boolean; id: string }>(`/team-groups/${id}`, { method: 'DELETE' }),
 
   // Team Tasks
   getTeamTasks: () => request<TeamTask[]>('/team-tasks'),

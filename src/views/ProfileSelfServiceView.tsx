@@ -358,65 +358,79 @@ export const ProfileSelfServiceView: React.FC = () => {
             </button>
           </div>
 
-          {/* Card 3: Experience Certificate */}
-          <div 
-            onClick={() => openExperienceCertModal(myExperienceCert)}
-            className="rounded-3xl p-3.5 px-4 bg-white border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center justify-between cursor-pointer hover:border-slate-200 transition-all group active:scale-[0.99]"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center flex-shrink-0">
-                <Award className="w-4.5 h-4.5" />
-              </div>
-              <div>
-                <h4 className="font-display font-bold text-sm text-[#0A2540]">
-                  Experience Certificate
-                </h4>
-                <p className="text-[11px] text-slate-400 font-medium">
-                  {myExperienceCert ? `Ref: ${myExperienceCert.refNumber}` : 'Service Verification Record'}
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                openExperienceCertModal(myExperienceCert);
-              }}
-              className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-600 flex items-center justify-center transition-all shadow-2xs"
+          {/* Card 3: Experience Certificate — only visible when HR has generated it */}
+          {myExperienceCert ? (
+            <div 
+              onClick={() => openExperienceCertModal(myExperienceCert)}
+              className="rounded-3xl p-3.5 px-4 bg-white border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center justify-between cursor-pointer hover:border-slate-200 transition-all group active:scale-[0.99]"
             >
-              <Download className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Card 4: Relieving Letter (If issued or on-demand) */}
-          <div 
-            onClick={() => openRelievingLetterModal(myRelievingLetter)}
-            className="rounded-3xl p-3.5 px-4 bg-white border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center justify-between cursor-pointer hover:border-slate-200 transition-all group active:scale-[0.99]"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-teal-50 text-[#00A88B] border border-teal-100 flex items-center justify-center flex-shrink-0">
-                <Briefcase className="w-4.5 h-4.5" />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center flex-shrink-0">
+                  <Award className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h4 className="font-display font-bold text-sm text-[#0A2540]">Experience Certificate</h4>
+                  <p className="text-[11px] text-slate-400 font-medium">Ref: {myExperienceCert.refNumber}</p>
+                </div>
               </div>
-              <div>
-                <h4 className="font-display font-bold text-sm text-[#0A2540]">
-                  Relieving Letter
-                </h4>
-                <p className="text-[11px] text-slate-400 font-medium">
-                  {myRelievingLetter ? `LWD: ${myRelievingLetter.lastWorkingDate}` : 'Exit Clearance & Seal'}
-                </p>
-              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); openExperienceCertModal(myExperienceCert); }}
+                className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-600 flex items-center justify-center transition-all shadow-2xs"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
             </div>
+          ) : (
+            <div className="rounded-3xl p-3.5 px-4 bg-slate-50/80 border border-dashed border-slate-200 flex items-center justify-between opacity-60 select-none">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center flex-shrink-0">
+                  <Award className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h4 className="font-display font-bold text-sm text-slate-500">Experience Certificate</h4>
+                  <p className="text-[11px] text-slate-400 font-medium">⏳ Not yet issued by HR</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold text-slate-400 bg-slate-200 px-2 py-1 rounded-lg">Pending</span>
+            </div>
+          )}
 
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                openRelievingLetterModal(myRelievingLetter);
-              }}
-              className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-600 flex items-center justify-center transition-all shadow-2xs"
+          {/* Card 4: Relieving Letter — only visible when HR has generated it */}
+          {myRelievingLetter ? (
+            <div 
+              onClick={() => openRelievingLetterModal(myRelievingLetter)}
+              className="rounded-3xl p-3.5 px-4 bg-white border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center justify-between cursor-pointer hover:border-slate-200 transition-all group active:scale-[0.99]"
             >
-              <Download className="w-3.5 h-3.5" />
-            </button>
-          </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-teal-50 text-[#00A88B] border border-teal-100 flex items-center justify-center flex-shrink-0">
+                  <Briefcase className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h4 className="font-display font-bold text-sm text-[#0A2540]">Relieving Letter</h4>
+                  <p className="text-[11px] text-slate-400 font-medium">LWD: {myRelievingLetter.lastWorkingDate}</p>
+                </div>
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); openRelievingLetterModal(myRelievingLetter); }}
+                className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-600 flex items-center justify-center transition-all shadow-2xs"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-3xl p-3.5 px-4 bg-slate-50/80 border border-dashed border-slate-200 flex items-center justify-between opacity-60 select-none">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center flex-shrink-0">
+                  <Briefcase className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h4 className="font-display font-bold text-sm text-slate-500">Relieving Letter</h4>
+                  <p className="text-[11px] text-slate-400 font-medium">⏳ Not yet issued by HR</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold text-slate-400 bg-slate-200 px-2 py-1 rounded-lg">Pending</span>
+            </div>
+          )}
         </div>
       </div>
 

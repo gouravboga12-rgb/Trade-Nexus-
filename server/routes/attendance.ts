@@ -103,7 +103,9 @@ router.get('/today', (req: Request, res: Response) => {
       checkInPhoto: r.checkInPhoto,
       checkInLat: r.checkInLat,
       checkInLng: r.checkInLng,
-      checkInDistanceM: r.checkInDistanceM
+      checkInDistanceM: r.checkInDistanceM,
+      disputedByAdmin: Boolean(r.disputedByAdmin),
+      disputeReason: r.disputeReason || null
     });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -351,13 +353,25 @@ router.put('/:id', (req: Request, res: Response) => {
              checkOutPhoto = coalesce(?, checkOutPhoto),
              checkOutLat = coalesce(?, checkOutLat),
              checkOutLng = coalesce(?, checkOutLng),
-             checkOutDistanceM = ?, checkOutLocationStatus = ?
+             checkOutDistanceM = ?, checkOutLocationStatus = ?,
+             disputedByAdmin = coalesce(?, disputedByAdmin),
+             disputeReason = coalesce(?, disputeReason)
        WHERE id = ?`
     ).run(
       merged.status, merged.checkIn, merged.checkOut, workHours, merged.method,
       checkOutPhoto ?? null, latitude ?? null, longitude ?? null,
-      outDistance, outStatus, req.params.id
+      outDistance, outStatus,
+      merged.disputedByAdmin !== undefined ? (merged.disputedByAdmin ? 1 : 0) : null,
+      merged.disputeReason !== undefined ? merged.disputeReason : null,
+      req.params.id
     );
+
+    // If an employeeId is present and status was updated, sync team_members table
+    if (merged.employeeId && merged.status) {
+      db.prepare(`UPDATE team_members SET attendanceStatus = ? WHERE id = ? OR empCode = ?`).run(
+        merged.status, merged.employeeId, merged.employeeId
+      );
+    }
 
     return res.status(200).json(db.prepare('SELECT * FROM attendance_records WHERE id = ?').get(req.params.id));
   } catch (error) {
