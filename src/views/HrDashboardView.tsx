@@ -245,6 +245,16 @@ export const HrDashboardView: React.FC = () => {
   const activeEmpNames = useMemo(() => new Set(teamMembers.map(m => m.name.toLowerCase())), [teamMembers]);
   const activeEmpCodes = useMemo(() => new Set(teamMembers.map(m => m.empCode.toLowerCase())), [teamMembers]);
 
+  // Active payslips filtered to current existing workforce
+  const activePayslips = useMemo(() => {
+    return payslips.filter(ps => {
+      const nameMatch = Boolean(ps.employeeName && activeEmpNames.has(ps.employeeName.toLowerCase()));
+      const codeMatch = Boolean(ps.employeeCode && activeEmpCodes.has(ps.employeeCode.toLowerCase()));
+      const idMatch = Boolean(ps.employeeId && (activeEmpCodes.has(ps.employeeId.toLowerCase()) || activeEmpNames.has(ps.employeeId.toLowerCase())));
+      return nameMatch || codeMatch || idMatch;
+    });
+  }, [payslips, activeEmpNames, activeEmpCodes]);
+
   // Org stats derived from live backend data
   const totalTeams = teamGroups.length;
   const totalEmployees = teamMembers.length;
@@ -2097,7 +2107,7 @@ export const HrDashboardView: React.FC = () => {
                   id: 'payslips', 
                   label: 'Payslips', 
                   icon: Receipt, 
-                  badge: `${payslips.length}` 
+                  badge: `${activePayslips.length}` 
                 },
                 { 
                   id: 'meetings', 
@@ -2459,13 +2469,7 @@ export const HrDashboardView: React.FC = () => {
                 <div className="space-y-2.5">
                   {(() => {
                     // Only show payslips for current active employees (filter out deleted account records)
-                    const filtered = payslips.filter(ps => {
-                      const nameMatch = Boolean(ps.employeeName && activeEmpNames.has(ps.employeeName.toLowerCase()));
-                      const codeMatch = Boolean(ps.employeeCode && activeEmpCodes.has(ps.employeeCode.toLowerCase()));
-                      const idMatch = Boolean(ps.employeeId && (activeEmpCodes.has(ps.employeeId.toLowerCase()) || activeEmpNames.has(ps.employeeId.toLowerCase())));
-                      const isActiveEmployee = nameMatch || codeMatch || idMatch;
-                      if (!isActiveEmployee) return false;
-                      // Then apply search filter
+                    const filtered = activePayslips.filter(ps => {
                       if (!moreSearchQuery) return true;
                       return (
                         (ps.employeeName && ps.employeeName.toLowerCase().includes(moreSearchQuery.toLowerCase())) ||
@@ -2854,7 +2858,7 @@ export const HrDashboardView: React.FC = () => {
             { id: 'attendance', label: 'Attendance', icon: CalendarCheck, badge: lateCount > 0 ? lateCount : undefined },
             { id: 'employees', label: 'Team', icon: Users },
             { id: 'approvals', label: 'Leaves', icon: UserCheck, badge: pendingLeavesCount > 0 ? pendingLeavesCount : undefined },
-            { id: 'more', label: 'More', icon: MoreHorizontal, badge: pendingPaymentsCount > 0 ? pendingPaymentsCount : undefined },
+            { id: 'more', label: 'More', icon: MoreHorizontal },
           ].map((item) => {
             const Icon = item.icon;
             const isActive = activeHrNav === item.id;
