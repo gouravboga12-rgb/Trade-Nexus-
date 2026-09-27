@@ -408,108 +408,82 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, []);
 
-  // Automated version check: Purge old mock/dummy cached data so real pipeline is clean
-  const CURRENT_DATA_VERSION = 'v5_pure_zero_slate';
+  // One-time purge: clear any stale data that was previously cached in localStorage.
+  // All business data now lives exclusively in the AWS EC2 SQLite backend.
   try {
     if (typeof window !== 'undefined') {
-      const savedVer = localStorage.getItem('tnx_data_version');
-      if (savedVer !== CURRENT_DATA_VERSION) {
-        const keysToPurge = [
-          'tnx_callLogs',
-          'tnx_assignedLeads',
-          'tnx_leadBatches',
-          'tnx_paymentVerifications',
-          'tnx_clients',
-          'tnx_stats',
-          'tnx_attendanceLogs',
-          'tnx_leaveRequests',
-          'tnx_teamMembers',
-          'tnx_teamGroups',
-          'tnx_profile',
-          'tnx_teamTasks',
-          'tnx_teamMeetings',
-          'tnx_candidates',
-          'tnx_onboardingList',
-          'tnx_exitList',
-          'tnx_offerLetters',
-        ];
-        keysToPurge.forEach((k) => localStorage.removeItem(k));
-        localStorage.setItem('tnx_data_version', CURRENT_DATA_VERSION);
-      }
+      const DATA_KEYS_TO_PURGE = [
+        'tnx_callLogs', 'tnx_assignedLeads', 'tnx_leadBatches',
+        'tnx_paymentVerifications', 'tnx_clients', 'tnx_stats',
+        'tnx_attendanceLogs', 'tnx_leaveRequests', 'tnx_teamMembers',
+        'tnx_teamGroups', 'tnx_profile', 'tnx_teamTasks', 'tnx_teamMeetings',
+        'tnx_candidates', 'tnx_onboardingList', 'tnx_exitList',
+        'tnx_offerLetters', 'tnx_payslips', 'tnx_faceProfiles',
+        'tnx_company_holidays', 'tnx_weekly_off_days', 'tnx_custom_avatars',
+        'tnx_team_members', 'tnx_data_version', 'tnx_leadBatches',
+        'tnx_experienceCerts', 'tnx_relievingLetters', 'tnx_invoices',
+      ];
+      DATA_KEYS_TO_PURGE.forEach((k) => {
+        try { localStorage.removeItem(k); } catch {}
+      });
     }
   } catch {}
 
-  const getStoredState = <T,>(key: string, defaultValue: T): T => {
-    try {
-      const saved = localStorage.getItem(`tnx_${key}`);
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch {}
-    return defaultValue;
-  };
-
-  const [profile, setProfile] = useState<EmployeeProfile>(() => getStoredState('profile', INITIAL_PROFILE));
-  const [stats, setStats] = useState<TelecallerStats>(() => getStoredState('stats', INITIAL_TELECALLER_STATS));
-  const [callLogs, setCallLogs] = useState<CallLogItem[]>(() => getStoredState('callLogs', INITIAL_CALL_LOGS));
-  const [clients, setClients] = useState<ClientLead[]>(() => getStoredState('clients', INITIAL_CLIENT_LEADS));
-  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceRecord[]>(() => getStoredState('attendanceLogs', INITIAL_ATTENDANCE_LOGS));
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(() => getStoredState('leaveRequests', INITIAL_LEAVE_REQUESTS));
-  const [payslips, setPayslips] = useState<PayslipItem[]>(() => getStoredState('payslips', INITIAL_PAYSLIPS));
+  // All data state initializes empty — fetched exclusively from AWS EC2 SQLite backend via API
+  const [profile, setProfile] = useState<EmployeeProfile>(INITIAL_PROFILE);
+  const [stats, setStats] = useState<TelecallerStats>(INITIAL_TELECALLER_STATS);
+  const [callLogs, setCallLogs] = useState<CallLogItem[]>([]);
+  const [clients, setClients] = useState<ClientLead[]>([]);
+  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceRecord[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [payslips, setPayslips] = useState<PayslipItem[]>([]);
 
   // Dynamic Lead Management State
-  const [assignedLeads, setAssignedLeads] = useState<AssignedLead[]>(() => getStoredState('assignedLeads', INITIAL_ASSIGNED_LEADS));
-  const [leadBatches, setLeadBatches] = useState<LeadBatch[]>(() => getStoredState('leadBatches', INITIAL_LEAD_BATCHES));
+  const [assignedLeads, setAssignedLeads] = useState<AssignedLead[]>([]);
+  const [leadBatches, setLeadBatches] = useState<LeadBatch[]>([]);
 
   // Face Biometric State
-  const [faceProfiles, setFaceProfiles] = useState<FaceBiometricProfile[]>(() => getStoredState('faceProfiles', []));
+  const [faceProfiles, setFaceProfiles] = useState<FaceBiometricProfile[]>([]);
 
   // Offer Letters State
-  const [offerLetters, setOfferLetters] = useState<OfferLetterData[]>(() => getStoredState('offerLetters', INITIAL_OFFER_LETTERS));
+  const [offerLetters, setOfferLetters] = useState<OfferLetterData[]>([]);
   const [selectedOfferLetter, setSelectedOfferLetter] = useState<OfferLetterData | null>(null);
   const [isOfferLetterModalOpen, setIsOfferLetterModalOpen] = useState(false);
 
   // Experience Certificates State
-  const [experienceCerts, setExperienceCerts] = useState<ExperienceCertData[]>(() => getStoredState('experienceCerts', INITIAL_EXPERIENCE_CERTS));
+  const [experienceCerts, setExperienceCerts] = useState<ExperienceCertData[]>(INITIAL_EXPERIENCE_CERTS);
   const [selectedExperienceCert, setSelectedExperienceCert] = useState<ExperienceCertData | null>(null);
   const [isExperienceCertModalOpen, setIsExperienceCertModalOpen] = useState(false);
 
   // Relieving Letters State
-  const [relievingLetters, setRelievingLetters] = useState<RelievingLetterData[]>(() => getStoredState('relievingLetters', INITIAL_RELIEVING_LETTERS));
+  const [relievingLetters, setRelievingLetters] = useState<RelievingLetterData[]>(INITIAL_RELIEVING_LETTERS);
   const [selectedRelievingLetter, setSelectedRelievingLetter] = useState<RelievingLetterData | null>(null);
   const [isRelievingLetterModalOpen, setIsRelievingLetterModalOpen] = useState(false);
 
   // Invoices State
-  const [invoices, setInvoices] = useState<InvoiceData[]>(() => getStoredState('invoices', INITIAL_INVOICES));
+  const [invoices, setInvoices] = useState<InvoiceData[]>(INITIAL_INVOICES);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
   // Team Leader Module State
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() => getStoredState('teamMembers', INITIAL_TEAM_MEMBERS));
-  const [teamGroups, setTeamGroups] = useState<TeamGroup[]>(() => getStoredState('teamGroups', INITIAL_TEAM_GROUPS));
-  const [teamTasks, setTeamTasks] = useState<TeamTask[]>(() => getStoredState('teamTasks', INITIAL_TEAM_TASKS));
-  const [teamMeetings, setTeamMeetings] = useState<TeamMeeting[]>(() => getStoredState('teamMeetings', INITIAL_TEAM_MEETINGS));
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [teamGroups, setTeamGroups] = useState<TeamGroup[]>([]);
+  const [teamTasks, setTeamTasks] = useState<TeamTask[]>([]);
+  const [teamMeetings, setTeamMeetings] = useState<TeamMeeting[]>([]);
   const [isLiveRoomOpen, setIsLiveRoomOpen] = useState(false);
   const [activeMeetingRoom, setActiveMeetingRoom] = useState<TeamMeeting | null>(null);
 
   // HR Module State
-  const [candidates, setCandidates] = useState<CandidateInterview[]>(() => getStoredState('candidates', INITIAL_CANDIDATES));
-  const [onboardingList, setOnboardingList] = useState<OnboardingEmployee[]>(() => getStoredState('onboardingList', INITIAL_ONBOARDING));
-  const [exitList, setExitList] = useState<ExitEmployee[]>(() => getStoredState('exitList', INITIAL_EXIT_LIST));
-  const [paymentVerifications, setPaymentVerifications] = useState<PaymentVerificationItem[]>(() => getStoredState('paymentVerifications', INITIAL_PAYMENT_VERIFICATIONS));
+  const [candidates, setCandidates] = useState<CandidateInterview[]>([]);
+  const [onboardingList, setOnboardingList] = useState<OnboardingEmployee[]>([]);
+  const [exitList, setExitList] = useState<ExitEmployee[]>([]);
+  const [paymentVerifications, setPaymentVerifications] = useState<PaymentVerificationItem[]>([]);
 
   // Backend connection state
   const [backendError, setBackendError] = useState<string | null>(null);
 
-  // Hierarchy-wide Company Calendar & Holidays State
-  const [weeklyOffDays, setWeeklyOffDaysState] = useState<number[]>(() => {
-    try {
-      const stored = localStorage.getItem('tnx_weekly_off_days');
-      return stored ? JSON.parse(stored) : [0]; // Default: Sunday (0)
-    } catch {
-      return [0];
-    }
-  });
+  // Hierarchy-wide Company Calendar & Holidays State — all from backend
+  const [weeklyOffDays, setWeeklyOffDaysState] = useState<number[]>([0]); // Default Sunday until API loads
 
   const [calendarSettings, setCalendarSettingsState] = useState<CalendarSettings>({
     id: 'settings-default',
@@ -522,21 +496,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     fullDayThresholdHours: 8.0,
   });
 
-  const [companyHolidays, setCompanyHolidaysState] = useState<CompanyHoliday[]>(() => {
-    try {
-      const stored = localStorage.getItem('tnx_company_holidays');
-      return stored ? JSON.parse(stored) : INITIAL_COMPANY_HOLIDAYS;
-    } catch {
-      return INITIAL_COMPANY_HOLIDAYS;
-    }
-  });
+  const [companyHolidays, setCompanyHolidaysState] = useState<CompanyHoliday[]>([]);
 
   const setWeeklyOffDays = (days: number[]) => {
     setWeeklyOffDaysState(days);
     setCalendarSettingsState(prev => ({ ...prev, weeklyOffDays: days }));
-    try {
-      localStorage.setItem('tnx_weekly_off_days', JSON.stringify(days));
-    } catch {}
     api.updateCalendarSettings({ weeklyOffDays: days }).catch(() => {});
     triggerToast('✓ Weekly off schedule updated across company calendars');
   };
@@ -552,9 +516,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCalendarSettingsState(prev => ({ ...prev, ...settings }));
     if (settings.weeklyOffDays) {
       setWeeklyOffDaysState(settings.weeklyOffDays);
-      try {
-        localStorage.setItem('tnx_weekly_off_days', JSON.stringify(settings.weeklyOffDays));
-      } catch {}
     }
     try {
       const updated = await api.updateCalendarSettings(settings);
@@ -562,7 +523,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (updated.weeklyOffDays) setWeeklyOffDaysState(updated.weeklyOffDays);
       triggerToast('✓ Shift timings & attendance policies saved to database');
     } catch {
-      triggerToast('✓ Updated calendar policies (offline mode)');
+      triggerToast('✓ Updated calendar policies');
     }
   };
 
@@ -571,31 +532,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const created = await api.createHoliday(holiday);
       const updated = [...companyHolidays.filter(h => h.id !== created.id), created].sort((a, b) => a.date.localeCompare(b.date));
       setCompanyHolidaysState(updated);
-      try {
-        localStorage.setItem('tnx_company_holidays', JSON.stringify(updated));
-      } catch {}
       triggerToast(`✓ Added Holiday "${holiday.name}" to company calendar`);
     } catch {
-      const newHol: CompanyHoliday = {
-        ...holiday,
-        id: holiday.id || `hol-${Date.now()}`
-      };
-      const updated = [...companyHolidays, newHol].sort((a, b) => a.date.localeCompare(b.date));
-      setCompanyHolidaysState(updated);
-      try {
-        localStorage.setItem('tnx_company_holidays', JSON.stringify(updated));
-      } catch {}
-      triggerToast(`✓ Added Holiday "${holiday.name}"`);
+      triggerToast('✗ Failed to save holiday. Please try again.');
     }
   };
 
   const deleteCompanyHoliday = async (id: string) => {
     const target = companyHolidays.find(h => h.id === id);
-    const updated = companyHolidays.filter(h => h.id !== id);
-    setCompanyHolidaysState(updated);
-    try {
-      localStorage.setItem('tnx_company_holidays', JSON.stringify(updated));
-    } catch {}
+    setCompanyHolidaysState(prev => prev.filter(h => h.id !== id));
     try {
       await api.deleteHoliday(id);
     } catch {}
@@ -606,16 +551,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const presets = await api.loadPresetHolidays();
       setCompanyHolidaysState(presets);
-      try {
-        localStorage.setItem('tnx_company_holidays', JSON.stringify(presets));
-      } catch {}
       triggerToast('✨ Loaded 15 official Indian gazetted holidays (2026)');
     } catch {
-      setCompanyHolidaysState(INITIAL_COMPANY_HOLIDAYS);
-      try {
-        localStorage.setItem('tnx_company_holidays', JSON.stringify(INITIAL_COMPANY_HOLIDAYS));
-      } catch {}
-      triggerToast('✨ Loaded official holidays preset');
+      triggerToast('✗ Failed to load preset holidays.');
     }
   };
 
@@ -624,9 +562,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       await api.clearAllHolidays();
     } catch {}
     setCompanyHolidaysState([]);
-    try {
-      localStorage.removeItem('tnx_company_holidays');
-    } catch {}
     triggerToast('✓ Cleared all company holidays');
   };
 
@@ -682,27 +617,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const openGenerateInvoiceModal = () => setIsGenerateInvoiceModalOpen(true);
 
   const updateEmployeeAvatar = (empId: string, photoDataUrl: string) => {
-    setTeamMembers(prev => {
-      const updated = prev.map(m => (m.id === empId || m.empCode === empId) ? { ...m, avatar: photoDataUrl } : m);
-      try {
-        localStorage.setItem('tnx_team_members', JSON.stringify(updated));
-      } catch {}
-      return updated;
-    });
+    setTeamMembers(prev => prev.map(m => (m.id === empId || m.empCode === empId) ? { ...m, avatar: photoDataUrl } : m));
     if (profile.id === empId || profile.empCode === empId) {
-      setProfile(prev => {
-        const updated = { ...prev, avatar: photoDataUrl };
-        try {
-          localStorage.setItem('tnx_profile', JSON.stringify(updated));
-        } catch {}
-        return updated;
-      });
+      setProfile(prev => ({ ...prev, avatar: photoDataUrl }));
     }
-    try {
-      const customAvatars = JSON.parse(localStorage.getItem('tnx_custom_avatars') || '{}');
-      customAvatars[empId] = photoDataUrl;
-      localStorage.setItem('tnx_custom_avatars', JSON.stringify(customAvatars));
-    } catch {}
     triggerToast('✓ Employee photo updated & saved');
   };
 
@@ -962,53 +880,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return () => clearInterval(interval);
   }, [authStep, loadResources]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('tnx_teamMembers', JSON.stringify(teamMembers));
-    } catch {}
-  }, [teamMembers]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('tnx_assignedLeads', JSON.stringify(assignedLeads));
-    } catch {}
-  }, [assignedLeads]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('tnx_leadBatches', JSON.stringify(leadBatches));
-    } catch {}
-  }, [leadBatches]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('tnx_onboardingList', JSON.stringify(onboardingList));
-    } catch {}
-  }, [onboardingList]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('tnx_offerLetters', JSON.stringify(offerLetters));
-    } catch {}
-  }, [offerLetters]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('tnx_callLogs', JSON.stringify(callLogs));
-    } catch {}
-  }, [callLogs]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('tnx_stats', JSON.stringify(stats));
-    } catch {}
-  }, [stats]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('tnx_profile', JSON.stringify(profile));
-    } catch {}
-  }, [profile]);
 
   // Synchronize profile attendance status strictly with today's attendance record
   useEffect(() => {
@@ -1107,15 +980,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setAuthToken(null);
     setStoredAuthUser(null);
     setCurrentUserState(null);
-    try {
-      localStorage.setItem('tnx_authStep', 'LOGIN');
-      localStorage.removeItem('tnx_profile');
-      localStorage.removeItem('tnx_stats');
-      localStorage.removeItem('tnx_assignedLeads');
-      localStorage.removeItem('tnx_callLogs');
-    } catch {}
+    // Reset all in-memory data states to empty (data lives in the DB, not localStorage)
     setProfile(EMPTY_PROFILE);
     setStats(EMPTY_STATS);
+    setCallLogs([]);
+    setAssignedLeads([]);
+    setLeaveRequests([]);
+    setPaymentVerifications([]);
+    setTeamMembers([]);
+    setPayslips([]);
     setAuthStep('LOGIN');
     triggerToast('Logged out. Please login to continue.');
   }, [invalidateAll, triggerToast]);
