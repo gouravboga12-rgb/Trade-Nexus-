@@ -43,6 +43,7 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
   const [roleFilter, setRoleFilter] = useState<'ALL' | UserRole>('ALL');
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const [previewDoc, setPreviewDoc] = useState<{
+    empId?: string;
     title: string;
     url?: string;
     fileName: string;
@@ -85,10 +86,93 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
     setEditBankName(member.bankName || 'HDFC Bank');
     setEditBankAccount(member.bankAccountNumber || '50100482910482');
     setEditBankIfsc(member.bankIfscCode || 'HDFC0001234');
-    setEditPanName(member.panDocumentName || 'PAN_Card_Verified.pdf');
+    setEditPanName(member.panDocumentName || '');
     setEditPanUrl(member.panDocumentUrl);
-    setEditAadhaarName(member.aadhaarDocumentName || 'Aadhaar_Card_Verified.pdf');
+    setEditAadhaarName(member.aadhaarDocumentName || '');
     setEditAadhaarUrl(member.aadhaarDocumentUrl);
+  };
+
+  // Direct file upload handler from employee cards or preview modal
+  const handleDirectUpload = async (
+    memberId: string,
+    docType: 'PAN' | 'AADHAAR',
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 12 * 1024 * 1024) {
+      triggerToast('✗ File is too large. Maximum size is 12MB.');
+      return;
+    }
+
+    try {
+      let dataUrl: string;
+      if (file.type.startsWith('image/')) {
+        dataUrl = await new Promise((resolve, reject) => {
+          const img = new Image();
+          const objUrl = URL.createObjectURL(file);
+          img.onload = () => {
+            URL.revokeObjectURL(objUrl);
+            const maxDim = 1400;
+            let { width, height } = img;
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL('image/jpeg', 0.85));
+            } else {
+              const reader = new FileReader();
+              reader.onload = (ev) => resolve(ev.target?.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            }
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(objUrl);
+            const reader = new FileReader();
+            reader.onload = (ev) => resolve(ev.target?.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          };
+          img.src = objUrl;
+        });
+      } else {
+        dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => resolve(ev.target?.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      if (docType === 'PAN') {
+        await onUpdateEmployee(memberId, {
+          panDocumentName: file.name,
+          panDocumentUrl: dataUrl,
+        });
+        triggerToast(`✓ PAN Card uploaded successfully for employee`);
+      } else {
+        await onUpdateEmployee(memberId, {
+          aadhaarDocumentName: file.name,
+          aadhaarDocumentUrl: dataUrl,
+        });
+        triggerToast(`✓ Aadhaar Card uploaded successfully for employee`);
+      }
+    } catch (err: any) {
+      triggerToast(`✗ Failed to upload ${docType}: ${err.message || 'Error'}`);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -108,9 +192,9 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
         bankName: editBankName.trim(),
         bankAccountNumber: editBankAccount.trim(),
         bankIfscCode: editBankIfsc.trim().toUpperCase(),
-        panDocumentName: editPanName.trim(),
+        panDocumentName: editPanName.trim() || undefined,
         panDocumentUrl: editPanUrl,
-        aadhaarDocumentName: editAadhaarName.trim(),
+        aadhaarDocumentName: editAadhaarName.trim() || undefined,
         aadhaarDocumentUrl: editAadhaarUrl,
       });
       triggerToast(`✓ Employee ${editName} updated successfully`);
@@ -133,11 +217,15 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
     if (url && (url.startsWith('data:') || url.startsWith('http') || url.startsWith('blob:'))) {
       const a = document.createElement('a');
       a.href = url;
-      a.download = fileName || `${empCode}_${docType}.png`;
+      let safeName = fileName || `${empCode}_${docType.replace(/\s+/g, '_')}`;
+      if (url.startsWith('data:application/pdf') && !safeName.toLowerCase().endsWith('.pdf')) {
+        safeName += '.pdf';
+      }
+      a.download = safeName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      triggerToast(`✓ Downloading ${fileName || docType}`);
+      triggerToast(`✓ Downloading ${safeName}`);
       return;
     }
 
@@ -151,8 +239,8 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
         <text x="50" y="140" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#0A2540">Document: ${docType}</text>
         <text x="50" y="180" font-family="Arial, sans-serif" font-size="16" fill="#4A5568">Employee Name: <tspan font-weight="bold" fill="#0A2540">${empName}</tspan></text>
         <text x="50" y="220" font-family="Arial, sans-serif" font-size="16" fill="#4A5568">Employee Code: <tspan font-weight="bold" fill="#0A2540">${empCode}</tspan></text>
-        <text x="50" y="260" font-family="Arial, sans-serif" font-size="16" fill="#4A5568">File Name: <tspan font-weight="bold" fill="#0A2540">${fileName || docType + '_Verified.pdf'}</tspan></text>
-        <text x="50" y="300" font-family="Arial, sans-serif" font-size="16" fill="#4A5568">Status: <tspan font-weight="bold" fill="#10B981">✓ VERIFIED & DIGITALLY ARCHIVED</tspan></text>
+        <text x="50" y="260" font-family="Arial, sans-serif" font-size="16" fill="#4A5568">File Name: <tspan font-weight="bold" fill="#0A2540">${fileName || docType + '_Pending.pdf'}</tspan></text>
+        <text x="50" y="300" font-family="Arial, sans-serif" font-size="16" fill="#4A5568">Status: <tspan font-weight="bold" fill="#F59E0B">PENDING DIGITAL ATTACHMENT</tspan></text>
         <text x="50" y="340" font-family="Arial, sans-serif" font-size="14" fill="#718096">Archived by HR Operations & Super Admin Control Panel</text>
         <line x1="50" y1="380" x2="750" y2="380" stroke="#E2E8F0" stroke-width="2"/>
         <text x="50" y="420" font-family="Arial, sans-serif" font-size="12" fill="#A0AEC0">Trade Nexus Systems Ltd. • Confidential Employee KYC File</text>
@@ -168,7 +256,7 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(downloadUrl);
-    triggerToast(`✓ Downloaded ${docType} for ${empName}`);
+    triggerToast(`✓ Generated KYC placeholder card for ${empName}`);
   };
 
   const filteredMembers = teamMembers.filter((m) => {
@@ -269,8 +357,10 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
       ) : (
         <div className="space-y-3.5">
           {filteredMembers.map((member) => {
-            const panName = member.panDocumentName || 'PAN_Card_Verified.pdf';
-            const aadhaarName = member.aadhaarDocumentName || 'Aadhaar_Card_Verified.pdf';
+            const hasPan = Boolean(member.panDocumentUrl);
+            const panName = member.panDocumentName || (hasPan ? `${member.empCode}_PAN.pdf` : 'No PAN Uploaded');
+            const hasAadhaar = Boolean(member.aadhaarDocumentUrl);
+            const aadhaarName = member.aadhaarDocumentName || (hasAadhaar ? `${member.empCode}_Aadhaar.pdf` : 'No Aadhaar Uploaded');
             const bankName = member.bankName || 'HDFC Bank';
             const bankAccount = member.bankAccountNumber || '50100482910482';
             const bankIfsc = member.bankIfscCode || 'HDFC0001234';
@@ -423,96 +513,168 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
                     {/* 1. PAN Card */}
                     <div className="bg-white border border-slate-200 rounded-xl p-2.5 flex flex-col justify-between gap-2 shadow-2xs">
                       <div className="flex items-start justify-between gap-1.5">
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <span className="text-[10px] font-black uppercase text-slate-400 block">PAN Card</span>
-                          <span className="font-bold text-xs text-[#0A2540] truncate block" title={panName}>
-                            {panName}
-                          </span>
+                          {hasPan ? (
+                            <span className="font-bold text-xs text-[#0A2540] truncate block" title={panName}>
+                              {panName}
+                            </span>
+                          ) : (
+                            <span className="text-xs font-semibold text-amber-600 italic block">
+                              Not Uploaded
+                            </span>
+                          )}
                         </div>
-                        <span className="text-[9px] font-black bg-blue-50 text-blue-700 px-1 rounded">PAN</span>
+                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
+                          hasPan ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                        }`}>
+                          {hasPan ? '✓ Verified' : 'Pending'}
+                        </span>
                       </div>
-                      <div className="flex gap-1.5 pt-1 border-t border-slate-100">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPreviewDoc({
-                              title: 'PAN Card Document',
-                              url: member.panDocumentUrl,
-                              fileName: panName,
-                              empName: member.name,
-                              empCode: member.empCode,
-                              type: 'PAN',
-                            })
-                          }
-                          className="flex-1 py-1 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer"
-                        >
-                          <Eye className="w-3 h-3 text-slate-500" />
-                          <span>View</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            triggerDownload(
-                              panName,
-                              member.panDocumentUrl,
-                              member.empCode,
-                              member.name,
-                              'PAN Card'
-                            )
-                          }
-                          className="flex-1 py-1 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border border-emerald-200"
-                        >
-                          <Download className="w-3 h-3 text-emerald-600" />
-                          <span>Download</span>
-                        </button>
+
+                      <div className="pt-1 border-t border-slate-100">
+                        {hasPan ? (
+                          <div className="flex gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPreviewDoc({
+                                  empId: member.id,
+                                  title: 'PAN Card Document',
+                                  url: member.panDocumentUrl,
+                                  fileName: panName,
+                                  empName: member.name,
+                                  empCode: member.empCode,
+                                  type: 'PAN',
+                                })
+                              }
+                              className="flex-1 py-1 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer"
+                            >
+                              <Eye className="w-3 h-3 text-slate-500" />
+                              <span>View</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                triggerDownload(
+                                  panName,
+                                  member.panDocumentUrl,
+                                  member.empCode,
+                                  member.name,
+                                  'PAN Card'
+                                )
+                              }
+                              className="flex-1 py-1 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border border-emerald-200"
+                            >
+                              <Download className="w-3 h-3 text-emerald-600" />
+                              <span>Download</span>
+                            </button>
+                            <label className="p-1 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-800 border border-slate-200 cursor-pointer transition-colors" title="Replace PAN File">
+                              <Upload className="w-3 h-3" />
+                              <input
+                                type="file"
+                                accept=".pdf,.png,.jpg,.jpeg"
+                                className="hidden"
+                                onChange={(e) => handleDirectUpload(member.id, 'PAN', e)}
+                              />
+                            </label>
+                          </div>
+                        ) : (
+                          <label className="w-full py-1 px-2 rounded-lg bg-teal-50 hover:bg-teal-100 text-[#00A88B] font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border border-teal-200 shadow-2xs">
+                            <Upload className="w-3 h-3" />
+                            <span>Upload PAN Card</span>
+                            <input
+                              type="file"
+                              accept=".pdf,.png,.jpg,.jpeg"
+                              className="hidden"
+                              onChange={(e) => handleDirectUpload(member.id, 'PAN', e)}
+                            />
+                          </label>
+                        )}
                       </div>
                     </div>
 
                     {/* 2. Aadhaar Card */}
                     <div className="bg-white border border-slate-200 rounded-xl p-2.5 flex flex-col justify-between gap-2 shadow-2xs">
                       <div className="flex items-start justify-between gap-1.5">
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <span className="text-[10px] font-black uppercase text-slate-400 block">Aadhaar Card</span>
-                          <span className="font-bold text-xs text-[#0A2540] truncate block" title={aadhaarName}>
-                            {aadhaarName}
-                          </span>
+                          {hasAadhaar ? (
+                            <span className="font-bold text-xs text-[#0A2540] truncate block" title={aadhaarName}>
+                              {aadhaarName}
+                            </span>
+                          ) : (
+                            <span className="text-xs font-semibold text-amber-600 italic block">
+                              Not Uploaded
+                            </span>
+                          )}
                         </div>
-                        <span className="text-[9px] font-black bg-teal-50 text-teal-700 px-1 rounded">UID</span>
+                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
+                          hasAadhaar ? 'bg-teal-50 text-teal-700 border border-teal-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                        }`}>
+                          {hasAadhaar ? '✓ Verified' : 'Pending'}
+                        </span>
                       </div>
-                      <div className="flex gap-1.5 pt-1 border-t border-slate-100">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPreviewDoc({
-                              title: 'Aadhaar Card Document',
-                              url: member.aadhaarDocumentUrl,
-                              fileName: aadhaarName,
-                              empName: member.name,
-                              empCode: member.empCode,
-                              type: 'AADHAAR',
-                            })
-                          }
-                          className="flex-1 py-1 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer"
-                        >
-                          <Eye className="w-3 h-3 text-slate-500" />
-                          <span>View</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            triggerDownload(
-                              aadhaarName,
-                              member.aadhaarDocumentUrl,
-                              member.empCode,
-                              member.name,
-                              'Aadhaar Card'
-                            )
-                          }
-                          className="flex-1 py-1 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border border-emerald-200"
-                        >
-                          <Download className="w-3 h-3 text-emerald-600" />
-                          <span>Download</span>
-                        </button>
+
+                      <div className="pt-1 border-t border-slate-100">
+                        {hasAadhaar ? (
+                          <div className="flex gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPreviewDoc({
+                                  empId: member.id,
+                                  title: 'Aadhaar Card Document',
+                                  url: member.aadhaarDocumentUrl,
+                                  fileName: aadhaarName,
+                                  empName: member.name,
+                                  empCode: member.empCode,
+                                  type: 'AADHAAR',
+                                })
+                              }
+                              className="flex-1 py-1 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer"
+                            >
+                              <Eye className="w-3 h-3 text-slate-500" />
+                              <span>View</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                triggerDownload(
+                                  aadhaarName,
+                                  member.aadhaarDocumentUrl,
+                                  member.empCode,
+                                  member.name,
+                                  'Aadhaar Card'
+                                )
+                              }
+                              className="flex-1 py-1 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border border-emerald-200"
+                            >
+                              <Download className="w-3 h-3 text-emerald-600" />
+                              <span>Download</span>
+                            </button>
+                            <label className="p-1 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-800 border border-slate-200 cursor-pointer transition-colors" title="Replace Aadhaar File">
+                              <Upload className="w-3 h-3" />
+                              <input
+                                type="file"
+                                accept=".pdf,.png,.jpg,.jpeg"
+                                className="hidden"
+                                onChange={(e) => handleDirectUpload(member.id, 'AADHAAR', e)}
+                              />
+                            </label>
+                          </div>
+                        ) : (
+                          <label className="w-full py-1 px-2 rounded-lg bg-teal-50 hover:bg-teal-100 text-[#00A88B] font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border border-teal-200 shadow-2xs">
+                            <Upload className="w-3 h-3" />
+                            <span>Upload Aadhaar</span>
+                            <input
+                              type="file"
+                              accept=".pdf,.png,.jpg,.jpeg"
+                              className="hidden"
+                              onChange={(e) => handleDirectUpload(member.id, 'AADHAAR', e)}
+                            />
+                          </label>
+                        )}
                       </div>
                     </div>
 
@@ -824,7 +986,7 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
       {/* ================= DOCUMENT PREVIEW MODAL ================= */}
       {previewDoc && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-in zoom-in-95">
             <div className="bg-[#0A2540] text-white p-4 flex items-center justify-between">
               <div>
                 <h3 className="font-display font-black text-sm text-white">{previewDoc.title}</h3>
@@ -841,31 +1003,72 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
               </button>
             </div>
 
-            <div className="p-5 flex flex-col items-center justify-center bg-slate-50 min-h-[260px] max-h-[60vh] overflow-y-auto">
+            <div className="p-4 sm:p-5 flex flex-col items-center justify-center bg-slate-50 min-h-[320px] max-h-[75vh] overflow-y-auto">
               {previewDoc.url && previewDoc.url.length > 10 ? (
-                <img
-                  src={previewDoc.url}
-                  alt={previewDoc.title}
-                  className="max-h-[350px] w-auto object-contain rounded-2xl shadow-md border border-slate-200"
-                />
+                previewDoc.url.startsWith('data:application/pdf') || previewDoc.fileName?.toLowerCase().endsWith('.pdf') ? (
+                  <div className="w-full space-y-2">
+                    <iframe
+                      src={previewDoc.url}
+                      title={previewDoc.title}
+                      className="w-full h-[450px] rounded-2xl border border-slate-200 bg-white shadow-xs"
+                    />
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
+                      <span>Previewing PDF document. Scroll inside the box to view all pages.</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const w = window.open();
+                          if (w) {
+                            w.document.write(`<iframe src="${previewDoc.url}" frameborder="0" style="border:0; position:absolute; top:0; left:0; width:100%; height:100%;" allowfullscreen></iframe>`);
+                          }
+                        }}
+                        className="text-[#00A88B] font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Open Full Screen</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <img
+                    src={previewDoc.url}
+                    alt={previewDoc.title}
+                    className="max-h-[420px] w-auto max-w-full object-contain rounded-2xl shadow-md border border-slate-200"
+                  />
+                )
               ) : (
-                <div className="bg-white border-2 border-dashed border-slate-300 rounded-3xl p-6 text-center space-y-3 w-full max-w-xs shadow-xs">
-                  <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center">
-                    <CheckCircle2 className="w-8 h-8" />
+                <div className="bg-white border-2 border-dashed border-amber-300 rounded-3xl p-6 text-center space-y-3 w-full max-w-sm shadow-xs">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 mx-auto flex items-center justify-center">
+                    <AlertCircle className="w-8 h-8" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-sm text-[#0A2540]">{previewDoc.type} Document Verified</h4>
+                    <h4 className="font-bold text-sm text-[#0A2540]">No {previewDoc.type} Document File</h4>
                     <p className="font-mono text-xs text-slate-500 mt-1">{previewDoc.fileName}</p>
+                    <p className="text-xs text-slate-400 mt-1">This employee was registered without a raw document file.</p>
                   </div>
-                  <div className="bg-emerald-50 text-emerald-800 text-[11px] font-bold py-1 px-3 rounded-lg border border-emerald-200">
-                    Archived on Onboarding
-                  </div>
+                  {previewDoc.empId && (previewDoc.type === 'PAN' || previewDoc.type === 'AADHAAR') && (
+                    <div className="pt-2">
+                      <label className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-[#00A88B] font-bold text-xs border border-teal-200 cursor-pointer transition-colors shadow-2xs">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload {previewDoc.type} File Now</span>
+                        <input
+                          type="file"
+                          accept=".pdf,.png,.jpg,.jpeg"
+                          className="hidden"
+                          onChange={(e) => {
+                            handleDirectUpload(previewDoc.empId!, previewDoc.type as 'PAN' | 'AADHAAR', e);
+                            setPreviewDoc(null);
+                          }}
+                        />
+                      </label>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
             <div className="bg-white p-4 border-t border-slate-200 flex items-center justify-between">
-              <span className="text-xs text-slate-500 font-mono">{previewDoc.fileName}</span>
+              <span className="text-xs text-slate-500 font-mono truncate max-w-[200px]">{previewDoc.fileName}</span>
               <button
                 type="button"
                 onClick={() => {
@@ -880,7 +1083,7 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
                 className="px-4 py-2 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Download Document</span>
+                <span>{previewDoc.url ? 'Download Document' : 'Download KYC Certificate'}</span>
               </button>
             </div>
           </div>

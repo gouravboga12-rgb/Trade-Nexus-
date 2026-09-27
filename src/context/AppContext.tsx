@@ -1417,6 +1417,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const createNewEmployee = async (data: NewEmployeeInput) => {
+    // 0. Pre-validate: Email and Phone uniqueness
+    const cleanEmail = (data.email || '').trim().toLowerCase();
+    const cleanDigits = (data.phone || '').replace(/[^0-9]/g, '');
+    const phoneLast10 = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : '';
+
+    if (cleanEmail) {
+      const dupEmail = teamMembers.find(m => m.email && m.email.trim().toLowerCase() === cleanEmail);
+      if (dupEmail) {
+        triggerToast(`✗ Email "${cleanEmail}" is already registered to ${dupEmail.name} (${dupEmail.empCode}). Please use a different email.`);
+        throw new Error(`Email already registered to ${dupEmail.name}`);
+      }
+    }
+
+    if (phoneLast10) {
+      const dupPhone = teamMembers.find(m => {
+        const d = (m.phone || '').replace(/[^0-9]/g, '');
+        return d.length >= 10 && d.slice(-10) === phoneLast10;
+      });
+      if (dupPhone) {
+        triggerToast(`✗ Phone number "${data.phone}" is already registered to ${dupPhone.name} (${dupPhone.empCode}). Please use a different phone number.`);
+        throw new Error(`Phone number already registered to ${dupPhone.name}`);
+      }
+    }
+
     const empCode = data.empCode || `TNX-${Math.floor(8000 + Math.random() * 999)}`;
     const empId = `emp-${Date.now()}`;
     const monthlyGross = data.salary || ((data.basicSalary || 20000) + (data.hra || 10000) + (data.specialAllowance || 5000));

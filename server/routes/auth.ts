@@ -111,20 +111,19 @@ router.post('/users', authenticate, requireRole('admin', 'hr'), (req: Request, r
 
     const tempPassword = password || 'nexus123';
     const hash = hashPassword(tempPassword);
-    const userId = `usr-${Date.now()}`;
+    const cleanEmail = email.toLowerCase().trim();
+    const existing = db.prepare('SELECT id, email, name, role, empCode FROM users WHERE LOWER(email) = LOWER(?)').get(cleanEmail) as any;
+    if (existing) {
+      return res.status(400).json({ error: `An account with email "${cleanEmail}" already exists for ${existing.name}. Please use a different email.` });
+    }
 
+    const userId = `usr-${Date.now()}`;
     db.prepare(`
       INSERT INTO users (id, email, passwordHash, name, role, empCode, employeeId, active)
       VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-      ON CONFLICT(email) DO UPDATE SET
-        name = excluded.name,
-        role = excluded.role,
-        empCode = excluded.empCode,
-        employeeId = excluded.employeeId,
-        passwordHash = excluded.passwordHash
     `).run(
       userId,
-      email.toLowerCase().trim(),
+      cleanEmail,
       hash,
       name,
       role || 'employee',

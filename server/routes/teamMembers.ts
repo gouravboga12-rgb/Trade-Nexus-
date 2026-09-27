@@ -198,6 +198,32 @@ router.post('/', (req: Request, res: Response) => {
     const finalEmail = email ? email.toLowerCase().trim() : `${finalEmpCode.toLowerCase()}@tradenexus.com`;
     const finalPortal = portal || 'telecaller';
 
+    // 0. Validate uniqueness: Check if email or phone is already in use by an existing employee
+    if (finalEmail) {
+      const existingEmailMember = db.prepare('SELECT id, empCode, name, email FROM team_members WHERE LOWER(email) = LOWER(?)').get(finalEmail) as any;
+      const existingEmailUser = db.prepare('SELECT id, email, name, role, empCode FROM users WHERE LOWER(email) = LOWER(?)').get(finalEmail) as any;
+      if (existingEmailMember || existingEmailUser) {
+        const match = existingEmailMember || existingEmailUser;
+        return res.status(400).json({ 
+          error: `Cannot create employee: Email "${finalEmail}" is already registered to ${match.name} (${match.empCode || 'Existing Account'}). Please use a different email address.` 
+        });
+      }
+    }
+
+    const cleanDigitsPhone = finalPhone.replace(/[^0-9]/g, '');
+    if (cleanDigitsPhone.length >= 10) {
+      const phoneLast10 = cleanDigitsPhone.slice(-10);
+      const existingPhoneMember = db.prepare(`
+        SELECT id, empCode, name, phone FROM team_members 
+        WHERE replace(replace(replace(replace(replace(phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE '%' || ?
+      `).get(phoneLast10) as any;
+      if (existingPhoneMember) {
+        return res.status(400).json({ 
+          error: `Cannot create employee: Phone number "${finalPhone}" is already registered to ${existingPhoneMember.name} (${existingPhoneMember.empCode}). Please use a different phone number.` 
+        });
+      }
+    }
+
     const createAtomic = db.transaction(() => {
       // 1. Insert Team Member
       db.prepare(`
@@ -225,27 +251,22 @@ router.post('/', (req: Request, res: Response) => {
         salary ? Number(salary) : null, joiningDate || null, address || null
       );
 
-      // 2. Insert or replace Employee Profile
+      // 2. Insert Employee Profile
       db.prepare(`
-        INSERT OR REPLACE INTO employee_profiles (id, empCode, name, roleTitle, department, teamName, teamLeaderName, email, phone, joinDate, bloodGroup, faceIdStatus, checkInTime, totalLeaveBalance)
+        INSERT INTO employee_profiles (id, empCode, name, roleTitle, department, teamName, teamLeaderName, email, phone, joinDate, bloodGroup, faceIdStatus, checkInTime, totalLeaveBalance)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         memberId, finalEmpCode, finalName, finalRole, finalGroup, finalGroup, '',
         finalEmail, finalPhone, joiningDate || new Date().toISOString().split('T')[0], 'O+', 'NOT_CHECKED_IN', '', 14
       );
 
-      // 3. Insert or update User Credentials for login
+      // 3. Insert User Credentials for login (strictly avoid converting or overwriting existing user accounts)
       if (finalEmail) {
         const rawPassword = password || 'nexus123';
         const passHash = hashPassword(rawPassword);
         db.prepare(`
           INSERT INTO users (id, email, passwordHash, name, role, empCode, employeeId, active)
           VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-          ON CONFLICT(email) DO UPDATE SET
-            name = excluded.name,
-            role = excluded.role,
-            empCode = excluded.empCode,
-            employeeId = excluded.employeeId
         `).run(
           `usr-${Date.now()}`,
           finalEmail,

@@ -21,6 +21,9 @@ import {
   Hash,
   Camera,
   User,
+  AlertCircle,
+  Loader2,
+  Trash2,
 } from 'lucide-react';
 import { UserRole } from '../../types';
 
@@ -30,7 +33,7 @@ interface AddEmployeeModalProps {
 }
 
 export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onClose }) => {
-  const { teamGroups, createNewEmployee } = useApp();
+  const { teamMembers, teamGroups, createNewEmployee, triggerToast } = useApp();
 
   // 1. Name
   const [firstName, setFirstName] = useState('');
@@ -59,8 +62,10 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
   // 6. Documents (PAN & Aadhaar) & Profile Photo
   const [panFile, setPanFile] = useState<string | null>(null);
   const [panFileData, setPanFileData] = useState<string | null>(null);
+  const [isReadingPan, setIsReadingPan] = useState(false);
   const [aadhaarFile, setAadhaarFile] = useState<string | null>(null);
   const [aadhaarFileData, setAadhaarFileData] = useState<string | null>(null);
+  const [isReadingAadhaar, setIsReadingAadhaar] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
   // 7. Bank Details
@@ -101,36 +106,129 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
     }
   }, [role, leaderOfChosenTeam]);
 
-  if (!isOpen) return null;
+  // Live duplicate checking against active team members
+  const trimmedEmail = emailAddress.trim().toLowerCase();
+  const rawDigitsPhone = mobileNumber.replace(/[^0-9]/g, '');
+  const last10Phone = rawDigitsPhone.length >= 10 ? rawDigitsPhone.slice(-10) : '';
 
-  const handlePanUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const emailInUseMember = trimmedEmail
+    ? teamMembers.find((m) => m.email && m.email.trim().toLowerCase() === trimmedEmail)
+    : null;
+
+  const phoneInUseMember = last10Phone
+    ? teamMembers.find((m) => {
+        const mDigits = (m.phone || '').replace(/[^0-9]/g, '');
+        return mDigits.length >= 10 && mDigits.slice(-10) === last10Phone;
+      })
+    : null;
+
+  // Optimized file reader for documents (handles images with canvas downscaling and PDFs cleanly)
+  const processDocumentFile = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (file.type.startsWith('image/')) {
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(objectUrl);
+          const maxDim = 1400;
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.85));
+          } else {
+            const reader = new FileReader();
+            reader.onload = (ev) => resolve(ev.target?.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          }
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          const reader = new FileReader();
+          reader.onload = (ev) => resolve(ev.target?.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        };
+        img.src = objectUrl;
+      } else {
+        // PDF or other documents
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve(ev.target?.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      }
+    });
+  };
+
+  const handlePanUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 12 * 1024 * 1024) {
+        triggerToast('✗ PAN file is too large. Maximum allowed size is 12MB.');
+        return;
+      }
       setPanFile(file.name);
-      const reader = new FileReader();
-      reader.onload = (ev) => setPanFileData(ev.target?.result as string);
-      reader.readAsDataURL(file);
+      setIsReadingPan(true);
+      try {
+        const dataUrl = await processDocumentFile(file);
+        setPanFileData(dataUrl);
+        triggerToast(`✓ PAN Card loaded: ${file.name}`);
+      } catch {
+        triggerToast('✗ Failed to process PAN file');
+        setPanFile(null);
+        setPanFileData(null);
+      } finally {
+        setIsReadingPan(false);
+      }
     }
   };
 
-  const handleAadhaarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAadhaarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 12 * 1024 * 1024) {
+        triggerToast('✗ Aadhaar file is too large. Maximum allowed size is 12MB.');
+        return;
+      }
       setAadhaarFile(file.name);
-      const reader = new FileReader();
-      reader.onload = (ev) => setAadhaarFileData(ev.target?.result as string);
-      reader.readAsDataURL(file);
+      setIsReadingAadhaar(true);
+      try {
+        const dataUrl = await processDocumentFile(file);
+        setAadhaarFileData(dataUrl);
+        triggerToast(`✓ Aadhaar Card loaded: ${file.name}`);
+      } catch {
+        triggerToast('✗ Failed to process Aadhaar file');
+        setAadhaarFile(null);
+        setAadhaarFileData(null);
+      } finally {
+        setIsReadingAadhaar(false);
+      }
     }
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (uploadEvent) => {
-        setPhotoUrl(uploadEvent.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const dataUrl = await processDocumentFile(file);
+        setPhotoUrl(dataUrl);
+        triggerToast(`✓ Profile Photo loaded`);
+      } catch {
+        triggerToast('✗ Failed to process Profile Photo');
+      }
     }
   };
 
@@ -155,6 +253,21 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
     e.preventDefault();
     if (!firstName.trim()) return;
 
+    if (emailInUseMember) {
+      triggerToast(`✗ Cannot create employee: Email "${emailAddress}" is already registered to ${emailInUseMember.name} (${emailInUseMember.empCode}). Please use another email.`);
+      return;
+    }
+
+    if (phoneInUseMember) {
+      triggerToast(`✗ Cannot create employee: Phone "${mobileNumber}" is already registered to ${phoneInUseMember.name} (${phoneInUseMember.empCode}). Please use another phone number.`);
+      return;
+    }
+
+    if (isReadingPan || isReadingAadhaar) {
+      triggerToast('Please wait for document files to finish loading...');
+      return;
+    }
+
     const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
     const finalEmail = emailAddress.trim() || `${firstName.toLowerCase()}.${lastName.toLowerCase()}@tradenexus.io`;
     const basic = Math.round(salary * 0.5);
@@ -178,9 +291,9 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
       basicSalary: basic,
       hra,
       specialAllowance: allowance,
-      panDocumentName: panFile || 'PAN_Card_Scanned.pdf',
+      panDocumentName: panFile || undefined,
       panDocumentUrl: panFileData || undefined,
-      aadhaarDocumentName: aadhaarFile || 'Aadhaar_Card_Verified.pdf',
+      aadhaarDocumentName: aadhaarFile || undefined,
       aadhaarDocumentUrl: aadhaarFileData || undefined,
       bankName: bankName.trim(),
       bankAccountNumber: bankAccountNumber.trim() || '50100482910482',
@@ -201,6 +314,8 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
       position,
     });
   };
+
+  if (!isOpen) return null;
 
   // If credentials just generated, render the Dispatch Card
   if (createdCredentials) {
@@ -387,9 +502,21 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
                     placeholder="+91 98450 12345"
                     value={mobileNumber}
                     onChange={(e) => setMobileNumber(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono"
+                    className={`w-full bg-slate-50 border rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 font-mono ${
+                      phoneInUseMember
+                        ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/40 text-rose-900'
+                        : 'border-slate-300 focus:ring-teal-500'
+                    }`}
                   />
                 </div>
+                {phoneInUseMember && (
+                  <div className="mt-1.5 p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-medium leading-tight flex items-start gap-1.5 animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Phone Already In Use:</strong> Registered to <strong>{phoneInUseMember.name}</strong> ({phoneInUseMember.empCode} • {phoneInUseMember.role}). Please enter a different phone number.
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -402,9 +529,21 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
                     placeholder="srihari.n@tradenexus.io"
                     value={emailAddress}
                     onChange={(e) => setEmailAddress(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className={`w-full bg-slate-50 border rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 ${
+                      emailInUseMember
+                        ? 'border-rose-400 focus:ring-rose-400 bg-rose-50/40 text-rose-900'
+                        : 'border-slate-300 focus:ring-teal-500'
+                    }`}
                   />
                 </div>
+                {emailInUseMember && (
+                  <div className="mt-1.5 p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-medium leading-tight flex items-start gap-1.5 animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Email Already In Use:</strong> Registered to <strong>{emailInUseMember.name}</strong> ({emailInUseMember.empCode} • {emailInUseMember.role}). Please use a different email address.
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -647,32 +786,100 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* PAN Upload */}
-              <label className="border-2 border-dashed border-slate-300 hover:border-teal-500 bg-slate-50/80 hover:bg-teal-50/30 rounded-2xl p-3.5 flex items-center gap-3 cursor-pointer transition-colors">
-                <input type="file" accept=".pdf,.png,.jpg,.jpeg" className="hidden" onChange={handlePanUpload} />
-                <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center shrink-0">
-                  <UploadCloud className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-[11px] font-bold text-slate-800 block">PAN CARD UPLOAD</span>
-                  <span className="text-[10px] text-slate-500 truncate block">
-                    {panFile ? `✓ ${panFile}` : 'Upload PDF / PNG / JPG'}
-                  </span>
-                </div>
-              </label>
+              <div className={`border-2 rounded-2xl p-3.5 transition-all ${
+                panFileData 
+                  ? 'border-emerald-400 bg-emerald-50/30' 
+                  : isReadingPan 
+                  ? 'border-teal-300 bg-teal-50/20' 
+                  : 'border-dashed border-slate-300 bg-slate-50/80 hover:border-teal-500'
+              }`}>
+                {panFileData ? (
+                  <div className="flex items-center gap-3">
+                    {panFileData.startsWith('data:image/') ? (
+                      <img src={panFileData} alt="PAN Preview" className="w-12 h-12 rounded-xl object-cover border border-emerald-300 shadow-2xs" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-red-100 text-red-700 flex flex-col items-center justify-center font-bold text-[9px] shadow-2xs">
+                        <FileText className="w-5 h-5 mb-0.5 text-red-600" />
+                        <span>PDF</span>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[10px] font-black uppercase text-emerald-700 block">✓ PAN ATTACHED</span>
+                      <p className="text-xs font-bold text-[#0A2540] truncate" title={panFile || ''}>{panFile}</p>
+                      <span className="text-[10px] text-slate-500">Ready to save with employee profile</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setPanFile(null); setPanFileData(null); }}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                      title="Remove PAN"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="file" accept=".pdf,.png,.jpg,.jpeg" className="hidden" onChange={handlePanUpload} />
+                    <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center shrink-0">
+                      {isReadingPan ? <Loader2 className="w-5 h-5 animate-spin" /> : <UploadCloud className="w-5 h-5" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[11px] font-bold text-slate-800 block">PAN CARD UPLOAD</span>
+                      <span className="text-[10px] text-slate-500 truncate block">
+                        {isReadingPan ? 'Processing document...' : 'Upload PDF / PNG / JPG'}
+                      </span>
+                    </div>
+                  </label>
+                )}
+              </div>
 
               {/* Aadhaar Upload */}
-              <label className="border-2 border-dashed border-slate-300 hover:border-teal-500 bg-slate-50/80 hover:bg-teal-50/30 rounded-2xl p-3.5 flex items-center gap-3 cursor-pointer transition-colors">
-                <input type="file" accept=".pdf,.png,.jpg,.jpeg" className="hidden" onChange={handleAadhaarUpload} />
-                <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center shrink-0">
-                  <UploadCloud className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-[11px] font-bold text-slate-800 block">AADHAAR CARD UPLOAD</span>
-                  <span className="text-[10px] text-slate-500 truncate block">
-                    {aadhaarFile ? `✓ ${aadhaarFile}` : 'Upload PDF / PNG / JPG'}
-                  </span>
-                </div>
-              </label>
+              <div className={`border-2 rounded-2xl p-3.5 transition-all ${
+                aadhaarFileData 
+                  ? 'border-emerald-400 bg-emerald-50/30' 
+                  : isReadingAadhaar 
+                  ? 'border-teal-300 bg-teal-50/20' 
+                  : 'border-dashed border-slate-300 bg-slate-50/80 hover:border-teal-500'
+              }`}>
+                {aadhaarFileData ? (
+                  <div className="flex items-center gap-3">
+                    {aadhaarFileData.startsWith('data:image/') ? (
+                      <img src={aadhaarFileData} alt="Aadhaar Preview" className="w-12 h-12 rounded-xl object-cover border border-emerald-300 shadow-2xs" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-red-100 text-red-700 flex flex-col items-center justify-center font-bold text-[9px] shadow-2xs">
+                        <FileText className="w-5 h-5 mb-0.5 text-red-600" />
+                        <span>PDF</span>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[10px] font-black uppercase text-emerald-700 block">✓ AADHAAR ATTACHED</span>
+                      <p className="text-xs font-bold text-[#0A2540] truncate" title={aadhaarFile || ''}>{aadhaarFile}</p>
+                      <span className="text-[10px] text-slate-500">Ready to save with employee profile</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setAadhaarFile(null); setAadhaarFileData(null); }}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                      title="Remove Aadhaar"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="file" accept=".pdf,.png,.jpg,.jpeg" className="hidden" onChange={handleAadhaarUpload} />
+                    <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center shrink-0">
+                      {isReadingAadhaar ? <Loader2 className="w-5 h-5 animate-spin" /> : <UploadCloud className="w-5 h-5" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[11px] font-bold text-slate-800 block">AADHAAR CARD UPLOAD</span>
+                      <span className="text-[10px] text-slate-500 truncate block">
+                        {isReadingAadhaar ? 'Processing document...' : 'Upload PDF / PNG / JPG'}
+                      </span>
+                    </div>
+                  </label>
+                )}
+              </div>
             </div>
           </div>
 
@@ -734,10 +941,31 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
             
             <button
               type="submit"
-              className="flex-1 max-w-sm flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-black shadow-lg shadow-teal-600/25 transition-all text-xs active:scale-98 uppercase tracking-wider"
+              disabled={!!emailInUseMember || !!phoneInUseMember || isReadingPan || isReadingAadhaar}
+              className={`flex-1 max-w-sm flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-white font-black shadow-lg transition-all text-xs active:scale-98 uppercase tracking-wider ${
+                emailInUseMember || phoneInUseMember
+                  ? 'bg-slate-400 cursor-not-allowed shadow-none opacity-60'
+                  : isReadingPan || isReadingAadhaar
+                  ? 'bg-teal-500 cursor-wait opacity-80'
+                  : 'bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 shadow-teal-600/25 cursor-pointer'
+              }`}
             >
-              <Sparkles className="w-4 h-4" />
-              <span>CREATE EMPLOYEE</span>
+              {isReadingPan || isReadingAadhaar ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Processing Files...</span>
+                </>
+              ) : emailInUseMember || phoneInUseMember ? (
+                <>
+                  <AlertCircle className="w-4 h-4" />
+                  <span>Duplicate Email/Phone</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  <span>CREATE EMPLOYEE</span>
+                </>
+              )}
             </button>
           </div>
 
