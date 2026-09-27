@@ -57,6 +57,7 @@ import { DigitalIdCardModal } from '../components/modals/DigitalIdCardModal';
 import { FaceRegistrationModal } from '../components/modals/FaceRegistrationModal';
 import { Employee360ProfileView } from './Employee360ProfileView';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
+import { MeetingTimePicker } from '../components/common/MeetingTimePicker';
 
 const formatInLakhs = (val: number) => {
   if (val >= 100000) {
@@ -499,13 +500,13 @@ export const HrDashboardView: React.FC = () => {
               </div>
             )}
 
-            {/* 🔴 Active LIVE Meetings for HR */}
+            {/* 🔴 Active LIVE & Scheduled Upcoming Meetings for HR */}
             {(() => {
-              const liveMeetings = teamMeetings.filter(m => m.status === 'LIVE');
-              if (liveMeetings.length === 0) return null;
+              const activeMeetings = teamMeetings.filter(m => m.status === 'LIVE' || m.status === 'UPCOMING');
+              if (activeMeetings.length === 0) return null;
               return (
                 <div className="space-y-2">
-                  {liveMeetings.slice(0, 2).map((mtg) => {
+                  {activeMeetings.slice(0, 3).map((mtg) => {
                     const isLive = mtg.status === 'LIVE';
                     return (
                       <div 
@@ -513,7 +514,7 @@ export const HrDashboardView: React.FC = () => {
                         className={`p-3.5 border-2 rounded-2xl flex items-center justify-between gap-3 shadow-xs animate-in slide-in-from-top-2 ${
                           isLive 
                             ? 'bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border-emerald-500' 
-                            : 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-400'
+                            : 'bg-white border-blue-200'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -524,19 +525,19 @@ export const HrDashboardView: React.FC = () => {
                                 <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600"></span>
                               </>
                             ) : (
-                              <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
                             )}
                           </span>
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md ${
-                                isLive ? 'text-emerald-900 bg-emerald-200' : 'text-amber-900 bg-amber-200'
+                                isLive ? 'text-emerald-900 bg-emerald-200' : 'text-blue-900 bg-blue-100'
                               }`}>
-                                {isLive ? '🔴 Live Meeting' : 'Upcoming Session'}
+                                {isLive ? '🔴 Live Meeting' : '📅 Scheduled'}
                               </span>
                               {mtg.zoomMeetingId && (
-                                <span className="text-[9px] font-mono font-bold bg-blue-100 text-blue-800 px-1 rounded">
-                                  Zoom
+                                <span className="text-[9px] font-mono font-bold bg-blue-50 text-blue-800 border border-blue-200 px-1 rounded">
+                                  Zoom ID: {mtg.zoomMeetingId}
                                 </span>
                               )}
                             </div>
@@ -544,16 +545,16 @@ export const HrDashboardView: React.FC = () => {
                               {mtg.title}
                             </h4>
                             <span className="text-[10px] text-slate-500 block truncate">
-                              Host: {mtg.hostName || 'Floor'} · {mtg.invitedMemberName ? `Target: ${mtg.invitedMemberName}` : 'Company Room'}
+                              {mtg.dateTime ? `📅 ${mtg.dateTime} · ` : ''}Host: {mtg.hostName || 'HR'} · {mtg.invitedMemberName ? `Target: ${mtg.invitedMemberName}` : 'All Staff'}
                             </span>
                           </div>
                         </div>
                         <button
                           onClick={() => joinMeeting(mtg)}
-                          className="px-3.5 py-2 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs rounded-xl flex items-center gap-1.5 shadow-sm active:scale-95 transition-all flex-shrink-0"
+                          className="px-3.5 py-2 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs rounded-xl flex items-center gap-1.5 shadow-sm active:scale-95 transition-all flex-shrink-0 cursor-pointer"
                         >
                           <Video className="w-3.5 h-3.5" />
-                          <span>{isLive ? 'Join' : 'Start'}</span>
+                          <span>{isLive ? 'Join Live' : 'Start / Join'}</span>
                         </button>
                       </div>
                     );
@@ -3186,22 +3187,11 @@ export const HrDashboardView: React.FC = () => {
                 </div>
               )}
 
-              {/* Date & Time Slot */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Meeting Time</label>
-                <select
-                  value={hrMeetingTime}
-                  onChange={(e) => setHrMeetingTime(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold text-xs"
-                >
-                  <option value="Today • 11:30 AM">Today • 11:30 AM (Morning Sync)</option>
-                  <option value="Today • 02:30 PM">Today • 02:30 PM (Midday Review)</option>
-                  <option value="Today • 04:00 PM">Today • 04:00 PM (Afternoon Alignment)</option>
-                  <option value="Today • 05:30 PM">Today • 05:30 PM (Wrap-Up)</option>
-                  <option value="Tomorrow • 11:00 AM">Tomorrow • 11:00 AM</option>
-                  <option value="Tomorrow • 03:00 PM">Tomorrow • 03:00 PM</option>
-                </select>
-              </div>
+              {/* Date, Exact Time & Duration Scheduler */}
+              <MeetingTimePicker
+                onChange={(formatted) => setHrMeetingTime(formatted)}
+                accentColor="blue"
+              />
 
               {/* 👑 Request Super Admin to Join Toggle (Core requirement) */}
               <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-300 flex items-center justify-between gap-3">

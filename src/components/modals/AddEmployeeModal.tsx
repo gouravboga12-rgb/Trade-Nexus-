@@ -122,15 +122,15 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
       })
     : null;
 
-  // Optimized file reader for documents (handles images with canvas downscaling and PDFs cleanly)
-  const processDocumentFile = (file: File): Promise<string> => {
+  // Optimized file reader for documents & photos (handles images with canvas downscaling and PDFs cleanly)
+  const processDocumentFile = (file: File, targetMaxDim = 1200): Promise<string> => {
     return new Promise((resolve, reject) => {
       if (file.type.startsWith('image/')) {
         const img = new Image();
         const objectUrl = URL.createObjectURL(file);
         img.onload = () => {
           URL.revokeObjectURL(objectUrl);
-          const maxDim = 1400;
+          const maxDim = targetMaxDim;
           let { width, height } = img;
           if (width > maxDim || height > maxDim) {
             if (width > height) {
@@ -147,7 +147,7 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.85));
+            resolve(canvas.toDataURL('image/jpeg', targetMaxDim <= 500 ? 0.82 : 0.85));
           } else {
             const reader = new FileReader();
             reader.onload = (ev) => resolve(ev.target?.result as string);
@@ -223,7 +223,7 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
     const file = e.target.files?.[0];
     if (file) {
       try {
-        const dataUrl = await processDocumentFile(file);
+        const dataUrl = await processDocumentFile(file, 400);
         setPhotoUrl(dataUrl);
         triggerToast(`✓ Profile Photo loaded`);
       } catch {
@@ -274,6 +274,36 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
     const hra = Math.round(salary * 0.3);
     const allowance = salary - (basic + hra);
 
+    const finalPanUrl = panFileData || (panFile ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="600" height="380" viewBox="0 0 600 380">
+        <rect width="600" height="380" fill="#0A2540" rx="16"/>
+        <rect x="15" y="15" width="570" height="350" fill="#ffffff" rx="12"/>
+        <rect x="15" y="15" width="570" height="60" fill="#00C9A7" rx="12"/>
+        <text x="35" y="52" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#0A2540">TRADE NEXUS • OFFICIAL PAN CARD RECORD</text>
+        <text x="35" y="120" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#4A5568">Card Holder: <tspan fill="#0A2540">${fullName}</tspan></text>
+        <text x="35" y="160" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#4A5568">Employee Code: <tspan fill="#0A2540">${employeeId}</tspan></text>
+        <text x="35" y="200" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#4A5568">File Name: <tspan fill="#0A2540">${panFile}</tspan></text>
+        <text x="35" y="240" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#4A5568">Status: <tspan fill="#059669">DIGITALLY ATTACHED KYC</tspan></text>
+        <line x1="35" y1="280" x2="565" y2="280" stroke="#E2E8F0" stroke-width="1.5"/>
+        <text x="35" y="320" font-family="Arial, sans-serif" font-size="11" fill="#718096">Official Onboarding Document Record • Trade Nexus Systems Ltd.</text>
+      </svg>
+    `.trim())}` : undefined);
+
+    const finalAadhaarUrl = aadhaarFileData || (aadhaarFile ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="600" height="380" viewBox="0 0 600 380">
+        <rect width="600" height="380" fill="#0A2540" rx="16"/>
+        <rect x="15" y="15" width="570" height="350" fill="#ffffff" rx="12"/>
+        <rect x="15" y="15" width="570" height="60" fill="#00C9A7" rx="12"/>
+        <text x="35" y="52" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#0A2540">TRADE NEXUS • OFFICIAL AADHAAR CARD RECORD</text>
+        <text x="35" y="120" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#4A5568">Card Holder: <tspan fill="#0A2540">${fullName}</tspan></text>
+        <text x="35" y="160" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#4A5568">Employee Code: <tspan fill="#0A2540">${employeeId}</tspan></text>
+        <text x="35" y="200" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#4A5568">File Name: <tspan fill="#0A2540">${aadhaarFile}</tspan></text>
+        <text x="35" y="240" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#4A5568">Status: <tspan fill="#059669">DIGITALLY ATTACHED KYC</tspan></text>
+        <line x1="35" y1="280" x2="565" y2="280" stroke="#E2E8F0" stroke-width="1.5"/>
+        <text x="35" y="320" font-family="Arial, sans-serif" font-size="11" fill="#718096">Official Onboarding Document Record • Trade Nexus Systems Ltd.</text>
+      </svg>
+    `.trim())}` : undefined);
+
     createNewEmployee({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
@@ -292,9 +322,9 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
       hra,
       specialAllowance: allowance,
       panDocumentName: panFile || undefined,
-      panDocumentUrl: panFileData || undefined,
+      panDocumentUrl: finalPanUrl,
       aadhaarDocumentName: aadhaarFile || undefined,
-      aadhaarDocumentUrl: aadhaarFileData || undefined,
+      aadhaarDocumentUrl: finalAadhaarUrl,
       bankName: bankName.trim(),
       bankAccountNumber: bankAccountNumber.trim() || '50100482910482',
       bankIfscCode: bankIfscCode.trim() || 'HDFC0001234',

@@ -44,6 +44,7 @@ import { TeamMeeting, TeamMember } from '../../types';
 import { TelecallerDetailDrawer } from '../../components/modals/TelecallerDetailDrawer';
 import { Employee360ProfileView } from '../Employee360ProfileView';
 import { EmployeeAvatar } from '../../components/common/EmployeeAvatar';
+import { MeetingTimePicker } from '../../components/common/MeetingTimePicker';
 
 interface DesktopTeamLeaderViewProps {
   currentTab?: string;
@@ -1696,30 +1697,11 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="font-bold text-slate-600 block mb-1">Date & Time</label>
-                  <input
-                    type="text"
-                    value={meetingTime}
-                    onChange={(e) => setMeetingTime(e.target.value)}
-                    placeholder="Today • 04:30 PM"
-                    className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-medium"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-slate-600 block mb-1">Meeting Platform</label>
-                  <input
-                    type="text"
-                    value={meetingLocation}
-                    onChange={(e) => setMeetingLocation(e.target.value)}
-                    placeholder="In-App Video Room"
-                    className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-medium"
-                  />
-                </div>
-              </div>
+              {/* Date, Exact Time & Duration Scheduler */}
+              <MeetingTimePicker
+                onChange={(formatted) => setMeetingTime(formatted)}
+                accentColor="teal"
+              />
 
               <div>
                 <label className="font-bold text-slate-600 block mb-1">Agenda / Discussion Goals</label>

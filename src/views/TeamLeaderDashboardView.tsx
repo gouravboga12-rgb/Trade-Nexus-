@@ -27,6 +27,7 @@ import {
 import { TeamMeeting, TeamMember } from '../types';
 import { Employee360ProfileView } from './Employee360ProfileView';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
+import { MeetingTimePicker } from '../components/common/MeetingTimePicker';
 
 export const TeamLeaderDashboardView: React.FC = () => {
   const { 
@@ -306,8 +307,8 @@ export const TeamLeaderDashboardView: React.FC = () => {
     );
   }
 
-  // Only show LIVE meetings on home banner — upcoming ones belong in Meetings tab
-  const liveMeetings = teamMeetings.filter(m => m.status === 'LIVE');
+  // Show both LIVE and upcoming scheduled meetings so leaders & reps can see the time and join
+  const activeMeetings = teamMeetings.filter(m => m.status === 'LIVE' || m.status === 'UPCOMING');
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col justify-between max-w-lg mx-auto font-sans pb-28 selection:bg-[#00C9A7]/20">
@@ -383,10 +384,10 @@ export const TeamLeaderDashboardView: React.FC = () => {
 
             </div>
 
-            {/* Active LIVE Zoom Meetings Banner */}
-            {liveMeetings.length > 0 && (
+            {/* Active LIVE & Upcoming Zoom Meetings Banner */}
+            {activeMeetings.length > 0 && (
               <div className="space-y-2">
-                {liveMeetings.map((mtg) => {
+                {activeMeetings.map((mtg) => {
                   const isLive = mtg.status === 'LIVE';
                   return (
                     <div 
@@ -423,7 +424,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
                           </div>
                           <strong className="text-xs font-bold text-[#0A2540] block truncate mt-0.5">{mtg.title}</strong>
                           <span className="text-[10px] text-slate-500 font-medium block truncate">
-                            {mtg.dateTime ? `${mtg.dateTime} · ` : ''}{mtg.hostName || 'Floor Manager'}
+                            {mtg.dateTime ? `📅 ${mtg.dateTime} · ` : ''}{mtg.hostName || 'Floor Manager'}
                           </span>
                         </div>
                       </div>
@@ -436,7 +437,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
                         }`}
                       >
                         <Video className="w-3 h-3" />
-                        <span>{isLive ? 'Join Call' : 'Start'}</span>
+                        <span>{isLive ? 'Join Call' : 'Start / Join'}</span>
                       </button>
                     </div>
                   );
@@ -1604,16 +1605,11 @@ export const TeamLeaderDashboardView: React.FC = () => {
                 </div>
               )}
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Date &amp; Time Slot</label>
-                <input
-                  type="text"
-                  value={meetingTime}
-                  onChange={(e) => setMeetingTime(e.target.value)}
-                  placeholder="Today • 04:30 PM"
-                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-semibold"
-                />
-              </div>
+              {/* Date, Exact Time & Duration Scheduler */}
+              <MeetingTimePicker
+                onChange={(formatted) => setMeetingTime(formatted)}
+                accentColor="teal"
+              />
 
               {/* 👑 Request Super Admin to Join Toggle */}
               <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-300 flex items-center justify-between gap-3">

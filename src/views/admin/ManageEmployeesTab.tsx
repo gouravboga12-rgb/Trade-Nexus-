@@ -172,6 +172,10 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
       }
     } catch (err: any) {
       triggerToast(`✗ Failed to upload ${docType}: ${err.message || 'Error'}`);
+    } finally {
+      if (e.target) {
+        e.target.value = '';
+      }
     }
   };
 
@@ -357,9 +361,9 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
       ) : (
         <div className="space-y-3.5">
           {filteredMembers.map((member) => {
-            const hasPan = Boolean(member.panDocumentUrl);
+            const hasPan = Boolean(member.panDocumentUrl || (member.panDocumentName && member.panDocumentName !== 'No PAN Uploaded'));
             const panName = member.panDocumentName || (hasPan ? `${member.empCode}_PAN.pdf` : 'No PAN Uploaded');
-            const hasAadhaar = Boolean(member.aadhaarDocumentUrl);
+            const hasAadhaar = Boolean(member.aadhaarDocumentUrl || (member.aadhaarDocumentName && member.aadhaarDocumentName !== 'No Aadhaar Uploaded'));
             const aadhaarName = member.aadhaarDocumentName || (hasAadhaar ? `${member.empCode}_Aadhaar.pdf` : 'No Aadhaar Uploaded');
             const bankName = member.bankName || 'HDFC Bank';
             const bankAccount = member.bankAccountNumber || '50100482910482';
@@ -526,9 +530,13 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
                           )}
                         </div>
                         <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
-                          hasPan ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          member.panDocumentUrl 
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                            : hasPan 
+                            ? 'bg-teal-50 text-teal-700 border border-teal-200' 
+                            : 'bg-amber-50 text-amber-700 border border-amber-200'
                         }`}>
-                          {hasPan ? '✓ Verified' : 'Pending'}
+                          {member.panDocumentUrl ? '✓ Verified' : hasPan ? '✓ Attached' : 'Pending'}
                         </span>
                       </div>
 
@@ -610,9 +618,13 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
                           )}
                         </div>
                         <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
-                          hasAadhaar ? 'bg-teal-50 text-teal-700 border border-teal-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          member.aadhaarDocumentUrl 
+                            ? 'bg-teal-50 text-teal-700 border border-teal-200' 
+                            : hasAadhaar 
+                            ? 'bg-teal-50 text-teal-700 border border-teal-200' 
+                            : 'bg-amber-50 text-amber-700 border border-amber-200'
                         }`}>
-                          {hasAadhaar ? '✓ Verified' : 'Pending'}
+                          {member.aadhaarDocumentUrl ? '✓ Verified' : hasAadhaar ? '✓ Attached' : 'Pending'}
                         </span>
                       </div>
 

@@ -128,13 +128,13 @@ export const TelecallerHomeView: React.FC = () => {
         </div>
       </div>
 
-      {/* 🔴 Active LIVE Zoom Floor Calls — only truly live, not upcoming */}
+      {/* 🔴 Active LIVE & 📅 Scheduled Zoom Meetings for Employees */}
       {(() => {
-        const liveMeetings = teamMeetings.filter(m => m.status === 'LIVE');
-        if (liveMeetings.length === 0) return null;
+        const activeMeetings = teamMeetings.filter(m => m.status === 'LIVE' || m.status === 'UPCOMING');
+        if (activeMeetings.length === 0) return null;
         return (
           <div className="space-y-2.5">
-            {liveMeetings.map((mtg) => {
+            {activeMeetings.map((mtg) => {
               const isLive = mtg.status === 'LIVE';
               return (
                 <div 
@@ -147,13 +147,21 @@ export const TelecallerHomeView: React.FC = () => {
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="relative flex h-3 w-3 flex-shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600"></span>
+                      {isLive ? (
+                        <>
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600"></span>
+                        </>
+                      ) : (
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
+                      )}
                     </span>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider bg-emerald-200 text-emerald-900">
-                          🔴 Live Zoom Call
+                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider ${
+                          isLive ? 'bg-emerald-200 text-emerald-900' : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {isLive ? '🔴 Live Zoom Call' : '📅 Scheduled Call'}
                         </span>
                         {mtg.zoomMeetingId && (
                           <span className="text-[9px] font-mono font-bold bg-blue-50 text-blue-800 border border-blue-200 px-1 rounded">
@@ -165,17 +173,21 @@ export const TelecallerHomeView: React.FC = () => {
                         {mtg.title}
                       </h4>
                       <p className="text-[10px] text-slate-500 truncate">
-                        {mtg.dateTime ? `${mtg.dateTime} · ` : ''}Host: {mtg.hostName || 'Floor Manager'}
+                        {mtg.dateTime ? `📅 ${mtg.dateTime} · ` : ''}Host: {mtg.hostName || 'Floor Manager'}
                       </p>
                     </div>
                   </div>
 
                   <button
                     onClick={() => joinMeeting(mtg)}
-                    className="px-3.5 py-2 font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md flex-shrink-0 active:scale-95 transition-all cursor-pointer bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] shadow-[#00C9A7]/30"
+                    className={`px-3.5 py-2 font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md flex-shrink-0 active:scale-95 transition-all cursor-pointer ${
+                      isLive 
+                        ? 'bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] shadow-[#00C9A7]/30' 
+                        : 'bg-[#0A2540] hover:bg-slate-800 text-white shadow-slate-900/20'
+                    }`}
                   >
                     <Video className="w-3.5 h-3.5" />
-                    <span>Join Live</span>
+                    <span>{isLive ? 'Join Live' : 'Join Call'}</span>
                   </button>
                 </div>
               );

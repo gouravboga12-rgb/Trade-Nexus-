@@ -1352,7 +1352,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     triggerToast(`\u2713 ${updated.name} updated`);
 
     try {
-      await api.updateTeamMember(id, updated);
+      await api.updateTeamMember(id, changes);
     } catch (err) {
       console.warn('Employee update failed:', err);
       triggerToast('\u2717 Could not save those changes');

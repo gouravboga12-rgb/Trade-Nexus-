@@ -38,6 +38,7 @@ import { CandidateInterview, OnboardingEmployee, ExitEmployee, PaymentVerificati
 import { AddEmployeeModal } from '../../components/modals/AddEmployeeModal';
 import { Employee360ProfileView } from '../Employee360ProfileView';
 import { EmployeeAvatar } from '../../components/common/EmployeeAvatar';
+import { MeetingTimePicker } from '../../components/common/MeetingTimePicker';
 
 interface DesktopHrViewProps {
   currentTab?: string;
@@ -1762,21 +1763,11 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                 </div>
               )}
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">Meeting Time Slot</label>
-                <select
-                  value={hrMeetingTime}
-                  onChange={(e) => setHrMeetingTime(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold"
-                >
-                  <option value="Today • 11:30 AM">Today • 11:30 AM (Morning Sync)</option>
-                  <option value="Today • 02:30 PM">Today • 02:30 PM (Midday Review)</option>
-                  <option value="Today • 04:00 PM">Today • 04:00 PM (Afternoon Alignment)</option>
-                  <option value="Today • 05:30 PM">Today • 05:30 PM (Wrap-Up)</option>
-                  <option value="Tomorrow • 11:00 AM">Tomorrow • 11:00 AM</option>
-                  <option value="Tomorrow • 03:00 PM">Tomorrow • 03:00 PM</option>
-                </select>
-              </div>
+              {/* Date, Exact Time & Duration Scheduler */}
+              <MeetingTimePicker
+                onChange={(formatted) => setHrMeetingTime(formatted)}
+                accentColor="blue"
+              />
 
               {/* 👑 Request Super Admin to Join Toggle */}
               <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-300 flex items-center justify-between gap-3">

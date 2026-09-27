@@ -18,6 +18,7 @@ import {
 import confetti from 'canvas-confetti';
 import { useApp } from '../../context/AppContext';
 import { EmployeeAvatar } from '../common/EmployeeAvatar';
+import { MeetingTimePicker } from '../common/MeetingTimePicker';
 
 interface AdminScheduleMeetingModalProps {
   isOpen: boolean;
@@ -43,9 +44,8 @@ export const AdminScheduleMeetingModal: React.FC<AdminScheduleMeetingModalProps>
   const [selectedTeam, setSelectedTeam] = useState<string>(teamGroups[0]?.name || 'HNI Closers');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(teamMembers[0]?.id || '');
   const [employeeSearch, setEmployeeSearch] = useState('');
-  const [dateOption, setDateOption] = useState<'today' | 'tomorrow' | 'custom'>('today');
-  const [customDate, setCustomDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [time, setTime] = useState('11:00 AM');
+  const [scheduledDateTime, setScheduledDateTime] = useState('Today at 11:00 AM');
+  const [scheduledDuration, setScheduledDuration] = useState(30);
   const [locationType, setLocationType] = useState<'IN_APP' | 'BOARDROOM' | 'EXTERNAL'>('IN_APP');
   const [externalLink, setExternalLink] = useState('');
   const [priority, setPriority] = useState<'NORMAL' | 'HIGH' | 'MANDATORY'>('MANDATORY');
@@ -104,13 +104,7 @@ export const AdminScheduleMeetingModal: React.FC<AdminScheduleMeetingModalProps>
 
     setIsSubmitting(true);
 
-    const resolvedDate = dateOption === 'today' 
-      ? 'Today' 
-      : dateOption === 'tomorrow' 
-        ? 'Tomorrow' 
-        : customDate;
-
-    const formattedDateTime = `${resolvedDate}, ${time}`;
+    const formattedDateTime = scheduledDateTime;
 
     let resolvedLocation = 'In-App Digital Video Room';
     let resolvedLink = '';
@@ -428,72 +422,14 @@ export const AdminScheduleMeetingModal: React.FC<AdminScheduleMeetingModalProps>
             )}
           </div>
 
-          {/* Date, Time & Priority Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Date Picker */}
-            <div>
-              <label className="font-black text-slate-700 block mb-1 flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5 text-slate-400" /> When (Date)
-              </label>
-              <div className="grid grid-cols-3 gap-1">
-                <button
-                  type="button"
-                  onClick={() => setDateOption('today')}
-                  className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer text-center ${
-                    dateOption === 'today' ? 'bg-[#0A2540] text-[#00C9A7] border-[#0A2540]' : 'bg-slate-50 text-slate-600 border-slate-200'
-                  }`}
-                >
-                  Today
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDateOption('tomorrow')}
-                  className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer text-center ${
-                    dateOption === 'tomorrow' ? 'bg-[#0A2540] text-[#00C9A7] border-[#0A2540]' : 'bg-slate-50 text-slate-600 border-slate-200'
-                  }`}
-                >
-                  Tomorrow
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDateOption('custom')}
-                  className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer text-center ${
-                    dateOption === 'custom' ? 'bg-[#0A2540] text-[#00C9A7] border-[#0A2540]' : 'bg-slate-50 text-slate-600 border-slate-200'
-                  }`}
-                >
-                  Custom
-                </button>
-              </div>
-              {dateOption === 'custom' && (
-                <input
-                  type="date"
-                  value={customDate}
-                  onChange={(e) => setCustomDate(e.target.value)}
-                  className="mt-1.5 w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold"
-                />
-              )}
-            </div>
-
-            {/* Time Picker */}
-            <div>
-              <label className="font-black text-slate-700 block mb-1 flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5 text-slate-400" /> Time Slot
-              </label>
-              <select
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold focus:outline-none focus:border-[#00C9A7]"
-              >
-                <option value="09:30 AM">09:30 AM (Morning Kickoff)</option>
-                <option value="10:30 AM">10:30 AM</option>
-                <option value="11:30 AM">11:30 AM (Floor Sync)</option>
-                <option value="02:00 PM">02:00 PM (Post-Lunch Review)</option>
-                <option value="04:00 PM">04:00 PM</option>
-                <option value="05:30 PM">05:30 PM (Evening Wrap-Up)</option>
-                <option value="06:30 PM">06:30 PM</option>
-              </select>
-            </div>
-          </div>
+          {/* Meeting Date, Exact Time & Duration Scheduler */}
+          <MeetingTimePicker
+            onChange={(formatted, details) => {
+              setScheduledDateTime(formatted);
+              setScheduledDuration(details.duration);
+            }}
+            accentColor="teal"
+          />
 
           {/* Location / Video Room Option */}
           <div>
