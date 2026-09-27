@@ -1201,29 +1201,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
           </button>
         </PageHead>
 
-        {/* 1-Tap Quick Action: Auto-Distribute Fresh Leads */}
-        <div className="bg-[#E8FAF6] border border-[#00C9A7]/40 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm">
-          <div className="min-w-0">
-            <span className="text-sm font-black text-[#0A2540] block">
-              {freshLeadsCount > 0
-                ? `${freshLeadsCount} fresh leads waiting to be called`
-                : 'All fresh leads distributed evenly'}
-            </span>
-            <span className="text-xs text-slate-500 font-semibold block mt-0.5">
-              {freshLeadsCount > 0
-                ? 'Distribute evenly among active employees with 1-tap'
-                : 'Every active rep has fresh lead allocations ready to dial'}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={handleAutoDistribute}
-            disabled={isDistributing}
-            className="py-2.5 px-5 rounded-xl bg-[#0A2540] hover:bg-[#123659] text-white font-extrabold text-xs active:scale-95 transition-all flex-shrink-0 cursor-pointer disabled:opacity-60 shadow-sm"
-          >
-            {isDistributing ? 'Distributing...' : '1-Tap Distribute'}
-          </button>
-        </div>
+
 
         <div className="nexus-card bg-white border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">

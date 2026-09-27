@@ -2157,28 +2157,7 @@ export const AdminDashboardView: React.FC = () => {
               </div>
 
               {/* 1-Tap Quick Action: Auto-Distribute Fresh Leads (Always Kept per User Spec) */}
-              <div className="bg-[#E8FAF6] border border-[#00C9A7]/40 rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-2xs">
-                <div className="min-w-0">
-                  <span className="text-xs sm:text-sm font-black text-[#0A2540] block truncate">
-                    {freshLeadsCount > 0
-                      ? `${freshLeadsCount} fresh leads waiting to be called`
-                      : 'All fresh leads distributed evenly'}
-                  </span>
-                  <span className="text-[10px] sm:text-[11px] text-slate-500 font-semibold block truncate mt-0.5">
-                    {freshLeadsCount > 0
-                      ? 'Distribute evenly among active employees'
-                      : 'Every active rep has fresh lead allocations ready'}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAutoDistribute}
-                  disabled={isDistributing}
-                  className="py-2 px-4 rounded-xl bg-[#0A2540] hover:bg-[#123659] text-white font-extrabold text-xs active:scale-95 transition-all flex-shrink-0 cursor-pointer disabled:opacity-60 shadow-xs"
-                >
-                  {isDistributing ? 'Distributing...' : '1-Tap Distribute'}
-                </button>
-              </div>
+
 
               {/* Employee Holding Breakdown */}
               <SectionTitle>Employee Lead Allocations</SectionTitle>
