@@ -1395,26 +1395,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     resourceSeq.current['teamMembers'] = (resourceSeq.current['teamMembers'] || 0) + 1;
     resourceSeq.current['teamGroups'] = (resourceSeq.current['teamGroups'] || 0) + 1;
 
-    let updated: TeamMember | undefined;
+    // Resolve target employee synchronously from current state
+    const currentMember = teamMembers.find(m => m.id === id || m.empCode === id);
+    const targetId = currentMember?.id || id;
+    const targetEmpCode = currentMember?.empCode || (changes.empCode || id);
+
+    // Optimistic local state update
     setTeamMembers((prev) =>
       prev.map((m) => {
-        if (m.id !== id && m.empCode !== id) return m;
-        updated = { ...m, ...changes };
-        return updated;
+        if (m.id !== id && m.empCode !== id && m.id !== targetId) return m;
+        return { ...m, ...changes };
       })
     );
-
-    if (!updated) return;
 
     // ── Global sync: if admin edits the currently logged-in employee, update profile too ──
     const currentEmpIdForSync = currentUser?.employeeId || currentUser?.id || profile.id;
     const isCurrentUser = id === currentEmpIdForSync ||
-      (profile.empCode && profile.empCode === (updated as TeamMember).empCode);
+      targetId === currentEmpIdForSync ||
+      (profile.empCode && profile.empCode === targetEmpCode);
 
     if (isCurrentUser) {
       setProfile(prev => ({
         ...prev,
         ...(changes.name !== undefined && { name: changes.name }),
+        ...(changes.role !== undefined && { roleTitle: changes.role }),
         ...(changes.phone !== undefined && { phone: changes.phone }),
         ...(changes.email !== undefined && { email: changes.email }),
         ...(changes.address !== undefined && { address: changes.address }),
@@ -1426,27 +1430,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         ...(changes.panDocumentUrl !== undefined && { panDocumentUrl: changes.panDocumentUrl }),
         ...(changes.aadhaarDocumentName !== undefined && { aadhaarDocumentName: changes.aadhaarDocumentName }),
         ...(changes.aadhaarDocumentUrl !== undefined && { aadhaarDocumentUrl: changes.aadhaarDocumentUrl }),
+        ...(changes.bloodGroup !== undefined && { bloodGroup: changes.bloodGroup }),
+        ...(changes.dob !== undefined && { dob: changes.dob }),
+        ...(changes.avatar !== undefined && { avatar: changes.avatar }),
       }));
     }
 
     // ── Sync payslips: update employee name on existing payslips if name changed ──
     if (changes.name) {
       setPayslips(prev => prev.map(p =>
-        (p.employeeId === id || p.empCode === id) ? { ...p, employeeName: changes.name! } : p
+        (p.employeeId === id || p.empCode === id || p.employeeId === targetId) ? { ...p, employeeName: changes.name! } : p
       ));
     }
 
     // ── Sync assignedLeads: update assignee name if it changed ──
     if (changes.name) {
       setAssignedLeads(prev => prev.map(l =>
-        (l.assignedToEmployeeId === id || l.assignedToEmployeeId === (updated as TeamMember).id) ? { ...l, assignedToEmployeeName: changes.name! } : l
+        (l.assignedToEmployeeId === id || l.assignedToEmployeeId === targetId) ? { ...l, assignedToEmployeeName: changes.name! } : l
       ));
     }
 
     try {
-      const saved = await api.updateTeamMember(id, changes);
+      const saved = await api.updateTeamMember(targetId, changes);
       if (saved) {
-        setTeamMembers(prev => prev.map(m => (m.id === id || m.empCode === id || m.id === saved.id) ? { ...m, ...saved } : m));
+        setTeamMembers(prev => prev.map(m => (m.id === targetId || m.empCode === targetId || m.id === saved.id || m.empCode === saved.empCode || m.id === id || m.empCode === id) ? { ...m, ...saved } : m));
       }
       refreshResources(['teamMembers', 'teamGroups']).catch(() => {});
     } catch (err) {

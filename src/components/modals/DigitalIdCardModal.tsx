@@ -36,6 +36,7 @@ export const DigitalIdCardModal: React.FC = () => {
   const [selectedEmpId, setSelectedEmpId] = useState<string>(defaultEmpId);
   const [customPhotoUrl, setCustomPhotoUrl] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isSendingEmail, setIsSendingEmail] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,12 +58,13 @@ export const DigitalIdCardModal: React.FC = () => {
   }, [selectedIdCardEmpId, isIdCardModalOpen, canEditIdCard, teamMembers, selectedEmpId]);
 
   useEffect(() => {
+    if (isEditing) return; // Prevent background polls from wiping user's uncommitted edits
     const matched = teamMembers.find(m => m.id === selectedEmpId || m.empCode === selectedEmpId);
     if (matched) {
-      setCustomName(matched.name);
-      setCustomRole(matched.role);
-      setCustomEmpCode(matched.empCode);
-      setCustomEmpType((matched as any).empType || 'Full - Time');
+      setCustomName(matched.name || '');
+      setCustomRole(matched.role || '');
+      setCustomEmpCode(matched.empCode || '');
+      setCustomEmpType((matched as any).employeeType || (matched as any).empType || 'Full - Time');
       setCustomBloodGroup((matched as any).bloodGroup || 'O+ ve');
       setCustomDob((matched as any).dob || '05/11/1997');
       setCustomPhone((matched as any).emergencyPhone || matched.phone || '9876543210');
@@ -77,7 +79,22 @@ export const DigitalIdCardModal: React.FC = () => {
       setCustomPhone(profile.phone || '9876543210');
       setCustomPhotoUrl(profile.avatar || null);
     }
-  }, [selectedEmpId, teamMembers, profile, isIdCardModalOpen]);
+  }, [selectedEmpId, teamMembers, profile, isIdCardModalOpen, isEditing]);
+
+  const handleSelectEmployee = (empId: string) => {
+    setSelectedEmpId(empId);
+    const matched = teamMembers.find(m => m.id === empId || m.empCode === empId);
+    if (matched) {
+      setCustomName(matched.name || '');
+      setCustomRole(matched.role || '');
+      setCustomEmpCode(matched.empCode || '');
+      setCustomEmpType((matched as any).employeeType || (matched as any).empType || 'Full - Time');
+      setCustomBloodGroup((matched as any).bloodGroup || 'O+ ve');
+      setCustomDob((matched as any).dob || '05/11/1997');
+      setCustomPhone((matched as any).emergencyPhone || matched.phone || '9876543210');
+      setCustomPhotoUrl(matched.avatar ? matched.avatar : null);
+    }
+  };
 
   if (!isIdCardModalOpen) return null;
 
@@ -132,7 +149,10 @@ export const DigitalIdCardModal: React.FC = () => {
           empCode: customEmpCode,
           bloodGroup: customBloodGroup,
           phone: customPhone,
+          emergencyPhone: customPhone,
           dob: customDob,
+          employeeType: customEmpType,
+          empType: customEmpType,
           avatar: customPhotoUrl || undefined,
         } as any);
       }
@@ -154,6 +174,7 @@ export const DigitalIdCardModal: React.FC = () => {
 
   const handleToggleEdit = async () => {
     if (isEditing && selectedEmpId) {
+      setIsSaving(true);
       try {
         await updateEmployee(selectedEmpId, {
           name: customName,
@@ -161,13 +182,22 @@ export const DigitalIdCardModal: React.FC = () => {
           empCode: customEmpCode,
           bloodGroup: customBloodGroup,
           phone: customPhone,
+          emergencyPhone: customPhone,
           dob: customDob,
+          employeeType: customEmpType,
+          empType: customEmpType,
           avatar: customPhotoUrl || undefined,
         } as any);
         triggerToast(`✓ Saved ID card details for ${customName}`);
-      } catch (err) {
+        setIsEditing(false);
+      } catch (err: any) {
         console.warn('Failed to save ID card edits:', err);
+        triggerToast(`⚠️ Failed to save: ${err.message || 'Server error'}`);
+        // Keep isEditing true so user doesn't lose their input
+      } finally {
+        setIsSaving(false);
       }
+      return;
     }
     setIsEditing(!isEditing);
   };
@@ -187,12 +217,21 @@ export const DigitalIdCardModal: React.FC = () => {
             {canEditIdCard && (
               <button
                 onClick={handleToggleEdit}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  isEditing ? 'bg-[#00C9A7] text-[#0A2540]' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                disabled={isSaving}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  isSaving 
+                    ? 'bg-amber-400 text-slate-900 opacity-90' 
+                    : isEditing 
+                    ? 'bg-[#00C9A7] text-[#0A2540] hover:bg-[#00b093]' 
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
                 }`}
               >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>{isEditing ? 'Save & Done' : 'Edit'}</span>
+                {isSaving ? (
+                  <div className="w-3.5 h-3.5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Edit3 className="w-3.5 h-3.5" />
+                )}
+                <span>{isSaving ? 'Saving...' : isEditing ? 'Save & Done' : 'Edit'}</span>
               </button>
             )}
 
@@ -213,8 +252,8 @@ export const DigitalIdCardModal: React.FC = () => {
                 <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">Employee:</span>
                 <select
                   value={selectedEmpId}
-                  onChange={(e) => setSelectedEmpId(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 font-bold text-[#0A2540] text-xs focus:outline-none focus:border-[#00C9A7] truncate"
+                  onChange={(e) => handleSelectEmployee(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 font-bold text-[#0A2540] text-xs focus:outline-none focus:border-[#00C9A7] truncate cursor-pointer"
                 >
                   {teamMembers.map(m => (
                     <option key={m.id} value={m.id}>{m.name} ({m.empCode} • {m.role})</option>

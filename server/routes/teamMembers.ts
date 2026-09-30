@@ -304,8 +304,8 @@ router.put('/:id', (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const existing = db.prepare(`
-      SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, 
-             checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, 
+      SELECT id, empCode, name, avatar, role, groupName as "group", phone, emergencyPhone, dob, employeeType, 
+             attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, 
              salesAchieved, salesTarget, conversionRate, portal, email, password, active, 
              deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, 
              panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, 
@@ -339,7 +339,32 @@ router.put('/:id', (req: Request, res: Response) => {
       ? req.body.group 
       : (req.body.groupName !== undefined ? req.body.groupName : (existing.group || 'Unassigned'));
 
-    const merged = { ...existing, ...req.body, group: targetGroup };
+    const finalEmployeeType = req.body.employeeType !== undefined 
+      ? req.body.employeeType 
+      : (req.body.empType !== undefined ? req.body.empType : (existing.employeeType || 'Full Time'));
+
+    const finalEmergencyPhone = req.body.emergencyPhone !== undefined
+      ? req.body.emergencyPhone
+      : (req.body.phone !== undefined ? req.body.phone : (existing.emergencyPhone || existing.phone || null));
+
+    const finalBloodGroup = req.body.bloodGroup !== undefined
+      ? req.body.bloodGroup
+      : (existing.bloodGroup || 'O+');
+
+    const finalDob = req.body.dob !== undefined
+      ? req.body.dob
+      : (existing.dob || null);
+
+    const merged = { 
+      ...existing, 
+      ...req.body, 
+      group: targetGroup,
+      employeeType: finalEmployeeType,
+      emergencyPhone: finalEmergencyPhone,
+      bloodGroup: finalBloodGroup,
+      dob: finalDob,
+    };
+
     db.prepare(`
       UPDATE team_members 
       SET empCode = ?, name = ?, avatar = ?, role = ?, groupName = ?, phone = ?, 
@@ -366,10 +391,10 @@ router.put('/:id', (req: Request, res: Response) => {
       merged.panDocumentName ?? null, merged.panDocumentUrl ?? null,
       merged.aadhaarDocumentName ?? null, merged.aadhaarDocumentUrl ?? null,
       merged.salary != null ? Number(merged.salary) : null, merged.joiningDate ?? null, merged.address ?? null,
-      merged.bloodGroup || existing.bloodGroup || 'O+',
-      merged.dob ?? existing.dob ?? null,
-      merged.emergencyPhone ?? existing.emergencyPhone ?? merged.phone ?? null,
-      merged.employeeType ?? existing.employeeType ?? 'Full Time',
+      finalBloodGroup,
+      finalDob,
+      finalEmergencyPhone,
+      finalEmployeeType,
       existing.id, existing.empCode
     );
 
@@ -379,7 +404,7 @@ router.put('/:id', (req: Request, res: Response) => {
         UPDATE employee_profiles
         SET name = ?, roleTitle = ?, department = ?, teamName = ?, email = ?, phone = ?, joinDate = coalesce(?, joinDate), bloodGroup = coalesce(?, bloodGroup), dob = coalesce(?, dob), avatar = coalesce(?, avatar), emergencyPhone = coalesce(?, emergencyPhone)
         WHERE id = ? OR empCode = ?
-      `).run(merged.name, merged.role, targetGroup, targetGroup, merged.email, merged.phone, merged.joiningDate || null, merged.bloodGroup || null, merged.dob || null, merged.avatar || null, merged.emergencyPhone || null, existing.id, existing.empCode);
+      `).run(merged.name, merged.role, targetGroup, targetGroup, merged.email, merged.phone, merged.joiningDate || null, finalBloodGroup, finalDob, merged.avatar || null, finalEmergencyPhone, existing.id, existing.empCode);
     } catch {}
 
     // Synchronize squad member counts in team_groups
@@ -410,7 +435,15 @@ router.put('/:id', (req: Request, res: Response) => {
       } catch (_) {}
     }
 
-    const updated = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup FROM team_members WHERE id = ? OR empCode = ?').get(existing.id, existing.empCode);
+    const updated = db.prepare(`
+      SELECT id, empCode, name, avatar, role, groupName as "group", phone, emergencyPhone, dob, employeeType, 
+             attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, 
+             salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, 
+             bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, 
+             aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup 
+      FROM team_members 
+      WHERE id = ? OR empCode = ?
+    `).get(existing.id, merged.empCode || existing.empCode);
     return res.status(200).json(updated);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });

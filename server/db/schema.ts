@@ -409,10 +409,12 @@ function runMigrations() {
   addColumnIfMissing('team_members', 'dob', 'TEXT');
   addColumnIfMissing('team_members', 'emergencyPhone', 'TEXT');
   addColumnIfMissing('team_members', 'employeeType', "TEXT DEFAULT 'Full Time'");
+  addColumnIfMissing('team_members', 'bloodGroup', "TEXT DEFAULT 'O+'");
   addColumnIfMissing('team_members', 'password', "TEXT DEFAULT 'Trade@1234'");
   addColumnIfMissing('employee_profiles', 'dob', 'TEXT');
   addColumnIfMissing('employee_profiles', 'avatar', 'TEXT');
   addColumnIfMissing('employee_profiles', 'emergencyPhone', 'TEXT');
+  addColumnIfMissing('employee_profiles', 'bloodGroup', "TEXT DEFAULT 'O+'");
   addColumnIfMissing('users', 'active', 'INTEGER NOT NULL DEFAULT 1');
 
   // Attendance is per employee, and each check-in carries proof of who and where.

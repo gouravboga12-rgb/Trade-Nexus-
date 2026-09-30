@@ -230,6 +230,7 @@ export interface TeamMember {
   dob?: string;
   emergencyPhone?: string;
   employeeType?: string;
+  empType?: string;
 }
 
 export interface TeamGroup {
