@@ -1,4 +1,56 @@
 import PDFDocument from 'pdfkit';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const FONT_PATH = path.resolve(__dirname, '../assets/fonts/GreatVibes.ttf');
+
+/**
+ * Register cursive signature font if available, fallback to Times-Italic
+ */
+function registerSignatureFont(doc: InstanceType<typeof PDFDocument>): string {
+  try {
+    if (fs.existsSync(FONT_PATH)) {
+      doc.registerFont('SignatureScript', FONT_PATH);
+      return 'SignatureScript';
+    }
+  } catch (err) {
+    console.warn('[PDF] Could not register signature font:', err);
+  }
+  return 'Times-Italic';
+}
+
+/**
+ * Draw an authentic cursive executive signature with natural pen flourish
+ */
+function drawCursiveSignature(
+  doc: InstanceType<typeof PDFDocument>,
+  name: string,
+  x: number,
+  y: number,
+  fontSize: number = 22,
+  color: string = '#051326',
+  flourishWidth: number = 100
+) {
+  const fontName = registerSignatureFont(doc);
+  doc.save();
+  doc.rotate(-3, { origin: [x, y] });
+  doc.font(fontName).fontSize(fontSize).fillColor(color).text(name, x, y);
+
+  // Natural pen flourish stroke under signature
+  doc.moveTo(x, y + fontSize + 2)
+     .bezierCurveTo(
+       x + flourishWidth * 0.35, y + fontSize,
+       x + flourishWidth * 0.7, y + fontSize + 3,
+       x + flourishWidth, y + fontSize - 1
+     )
+     .lineWidth(0.75)
+     .strokeColor(color)
+     .stroke();
+  doc.restore();
+}
 
 /**
  * Utility to convert a streaming PDFDocument instance into a Buffer Promise
@@ -170,15 +222,15 @@ export async function generateOfferLetterPdf(data: {
   const sigY = currentY + 38;
   doc.fontSize(8.5).font('Helvetica').fillColor('#475569').text('Warm Regards,', 42, sigY);
 
-  // Script signature representing cursive T. Vidhya sagar
-  doc.fontSize(22).font('Times-Italic').fillColor('#0A2540').text('T. Vidhya sagar', 42, sigY + 16);
+  // Authentic cursive signature
+  drawCursiveSignature(doc, 'T. Vidhya sagar', 42, sigY + 16, 24, '#0A2540', 120);
 
   const signatory = data.signatoryName || 'T .Vidhya Sagar';
   const signatoryRole = data.signatoryRole || 'Chief executive Officer';
 
-  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#00A88B').text(signatory, 42, sigY + 44);
-  doc.fontSize(8).font('Helvetica').fillColor('#475569').text(signatoryRole, 42, sigY + 56);
-  doc.fontSize(8).font('Helvetica').fillColor('#64748B').text('Trade Nexus', 42, sigY + 68);
+  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#00A88B').text(signatory, 42, sigY + 50);
+  doc.fontSize(8).font('Helvetica').fillColor('#475569').text(signatoryRole, 42, sigY + 62);
+  doc.fontSize(8).font('Helvetica').fillColor('#64748B').text('Trade Nexus', 42, sigY + 74);
 
   // ── Bottom Navy Footer Bar (matching OfferLetterModal.tsx) ──
   const footerH = 34;
@@ -352,7 +404,7 @@ export async function generateIdCardPdf(employee: any, cardData?: any): Promise<
   // Contact details on the left
   const contactY = cardBottomY + 10;
   doc.circle(badgeX + 18, contactY + 5, 4).fill('#051326');
-  doc.fontSize(6).font('Helvetica-Bold').fillColor('#334155').text('123 Business Avenue, Financial District, 500001', badgeX + 26, contactY + 2, { width: 140 });
+  doc.fontSize(5.5).font('Helvetica-Bold').fillColor('#334155').text('123 Business Avenue,\nFinancial District, 500001', badgeX + 26, contactY, { width: 110 });
 
   doc.circle(badgeX + 18, contactY + 20, 4).fill('#051326');
   doc.fontSize(6.5).font('Helvetica-Bold').fillColor('#334155').text('info@tradenexus.com', badgeX + 26, contactY + 17);
@@ -363,12 +415,12 @@ export async function generateIdCardPdf(employee: any, cardData?: any): Promise<
   doc.circle(badgeX + 18, contactY + 48, 4).fill('#051326');
   doc.fontSize(6.5).font('Helvetica-Bold').fillColor('#334155').text('+91 98765 43210', badgeX + 26, contactY + 45);
 
-  // Signature Block on the right
-  const sigRightX = badgeX + badgeW - 90;
-  doc.fontSize(14).font('Times-Italic').fillColor('#051326').text('T. Vidhya sagar', sigRightX, cardBottomY + 14);
-  doc.fontSize(7).font('Helvetica-Bold').fillColor('#0A2540').text('T. Vidhya Sagar', sigRightX, cardBottomY + 34);
-  doc.fontSize(6).font('Helvetica').fillColor('#64748B').text('Chief executive Officer', sigRightX, cardBottomY + 43);
-  doc.text('Trade Nexus', sigRightX, cardBottomY + 51);
+  // Signature Block on the right of the bottom white card
+  const sigRightX = badgeX + badgeW - 122;
+  drawCursiveSignature(doc, 'T. Vidhya sagar', sigRightX, cardBottomY + 12, 17, '#051326', 85);
+  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#0A2540').text('T. Vidhya Sagar', sigRightX, cardBottomY + 38);
+  doc.fontSize(6.5).font('Helvetica').fillColor('#64748B').text('Chief executive Officer', sigRightX, cardBottomY + 48);
+  doc.text('Trade Nexus', sigRightX, cardBottomY + 57);
 
   // Bottom Notice Bar
   doc.rect(badgeX, cardBottomY + cardBottomH - 18, badgeW, 18).fill('#051326');
@@ -556,8 +608,8 @@ export async function generatePayslipPdf(employee: any, payslip: any): Promise<B
   // Right Signatory
   doc.fontSize(8).font('Helvetica').fillColor('#64748B').text('Authorized by:', 360, sumY);
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text('Finance Manager – Trade Nexus', 360, sumY + 12);
-  doc.fontSize(18).font('Times-Italic').fillColor('#0A2540').text('Muhammad Patel', 360, sumY + 26);
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text('Muhammad Patel', 360, sumY + 48);
+  drawCursiveSignature(doc, 'Muhammad Patel', 360, sumY + 24, 20, '#0A2540', 110);
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text('Muhammad Patel', 360, sumY + 50);
 
   // ── Bottom Navy Footer Bar ──
   const footerH = 34;
@@ -679,8 +731,8 @@ export async function generateRelievingLetterPdf(employee: any, relievingLetter:
   doc.fontSize(5.5).font('Helvetica-Bold').fillColor('#0A2540').text('TRADE NEXUS', stampX + 14, stampY + 18);
   doc.fontSize(5).font('Helvetica-Bold').fillColor('#00A88B').text('TRADE SMART', stampX + 15, stampY + 40);
 
-  // Script signature overlaid
-  doc.fontSize(18).font('Times-Italic').fillColor('#0A2540').text('T. Vidhya sagar', stampX + 2, stampY + 24);
+  // Script signature overlaid across stamp
+  drawCursiveSignature(doc, 'T. Vidhya sagar', stampX - 2, stampY + 20, 20, '#0A2540', 80);
 
   const signatory = relievingLetter.signatoryName || 'T .Vidhya Sagar';
   const sigRole = relievingLetter.signatoryRole || 'Chief Executive Officer';
@@ -805,13 +857,13 @@ export async function generateExperienceCertPdf(employee: any, cert: any): Promi
   doc.fontSize(9).font('Helvetica-Bold').fillColor('#0A2540').text('For: Trade Nexus', 42, sigY + 12);
 
   // Script signature
-  doc.fontSize(22).font('Times-Italic').fillColor('#0A2540').text('T. Vidhya sagar', 42, sigY + 28);
+  drawCursiveSignature(doc, 'T. Vidhya sagar', 42, sigY + 26, 24, '#0A2540', 120);
 
   const signatory = cert.signatoryName || 'T .Vidhya Sagar';
   const sigRole = cert.signatoryRole || 'Chief Executive Officer';
 
-  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0A2540').text(signatory, 42, sigY + 56);
-  doc.fontSize(8).font('Helvetica').fillColor('#64748B').text(sigRole, 42, sigY + 68);
+  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0A2540').text(signatory, 42, sigY + 58);
+  doc.fontSize(8).font('Helvetica').fillColor('#64748B').text(sigRole, 42, sigY + 70);
 
   // ── Bottom Navy Footer Bar ──
   const footerH = 34;
@@ -1009,9 +1061,9 @@ export async function generateTaxInvoicePdf(invoice: any): Promise<Buffer> {
   doc.fontSize(6.5).font('Helvetica').fillColor('#94A3B8').text('We appreciate your business', rightBoxX + 10, signY + 24);
 
   // Script signature
-  doc.fontSize(16).font('Times-Italic').fillColor('#0A2540').text('Samira Hadid', rightBoxX + halfW - 95, signY + 4);
-  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#0A2540').text('Samira Hadid', rightBoxX + halfW - 95, signY + 24);
-  doc.fontSize(6.5).font('Helvetica').fillColor('#64748B').text('Head of Finance & Accounts', rightBoxX + halfW - 95, signY + 33);
+  drawCursiveSignature(doc, 'Samira Hadid', rightBoxX + halfW - 100, signY + 2, 20, '#0A2540', 90);
+  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#0A2540').text('Samira Hadid', rightBoxX + halfW - 100, signY + 26);
+  doc.fontSize(6.5).font('Helvetica').fillColor('#64748B').text('Head of Finance & Accounts', rightBoxX + halfW - 100, signY + 36);
 
   // ── Bottom Navy Footer Bar ──
   const footerH = 34;
