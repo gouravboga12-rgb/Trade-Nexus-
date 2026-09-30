@@ -59,8 +59,8 @@ export const DigitalIdCardModal: React.FC = () => {
       setCustomEmpCode(matched.empCode);
       setCustomEmpType('Full - Time');
       setCustomBloodGroup((matched as any).bloodGroup || 'O+ ve');
-      setCustomDob((matched as any).dob || '05/11/1997');
-      setCustomPhone(matched.phone || '9876543210');
+      setCustomDob((matched as any).dob || '');
+      setCustomPhone((matched as any).emergencyPhone || matched.phone || '9876543210');
       setCustomPhotoUrl(matched.avatar ? matched.avatar : null);
     } else if (profile) {
       setCustomName(profile.name || 'Employee');
@@ -123,8 +123,8 @@ export const DigitalIdCardModal: React.FC = () => {
     triggerToast(`Dispatching official ID Card PDF to ${targetEmail}...`);
     try {
       const res = await api.sendIdCardEmail(
-        { id: selectedEmpId, email: targetEmail, name: customName, empCode: customEmpCode, role: customRole, phone: customPhone, bloodGroup: customBloodGroup },
-        { name: customName, role: customRole, empCode: customEmpCode, bloodGroup: customBloodGroup, dob: customDob, phone: customPhone, email: targetEmail }
+        { id: selectedEmpId, email: targetEmail, name: customName, empCode: customEmpCode, role: customRole, phone: customPhone, bloodGroup: customBloodGroup, dob: customDob, avatar: customPhotoUrl || undefined },
+        { name: customName, role: customRole, empCode: customEmpCode, bloodGroup: customBloodGroup, dob: customDob, phone: customPhone, email: targetEmail, avatar: customPhotoUrl || undefined }
       );
       if (res.success) {
         triggerToast(`✓ Official ID Card PDF successfully dispatched to ${targetEmail}!`);
@@ -147,6 +147,8 @@ export const DigitalIdCardModal: React.FC = () => {
           empCode: customEmpCode,
           bloodGroup: customBloodGroup,
           phone: customPhone,
+          dob: customDob,
+          avatar: customPhotoUrl || undefined,
         });
         triggerToast(`✓ Saved ID card details for ${customName}`);
       } catch (err) {

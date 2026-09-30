@@ -423,12 +423,54 @@ export async function generateIdCardPdf(employee: any, cardData?: any): Promise<
 
   // Employee Photo Circle Placeholder / Avatar
   const avatarY = badgeY + 100;
-  doc.circle(badgeX + badgeW / 2, avatarY + 38, 36).lineWidth(3).stroke('#00C9A7');
-  doc.circle(badgeX + badgeW / 2, avatarY + 38, 33).fill('#0A2540');
+  const centerX = badgeX + badgeW / 2;
+  const centerY = avatarY + 38;
+  const radius = 33;
+
+  doc.circle(centerX, centerY, 36).lineWidth(3).stroke('#00C9A7');
+  doc.circle(centerX, centerY, radius).fill('#0A2540');
 
   const empName = cardData?.name || employee.name || 'Staff Member';
-  const initials = empName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
-  doc.fontSize(20).font('Helvetica-Bold').fillColor('#00C9A7').text(initials, badgeX + badgeW / 2 - 16, avatarY + 28);
+  const initials = empName.split(' ').filter(Boolean).map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() || 'TN';
+
+  let drewImage = false;
+  const rawAvatar = cardData?.avatar || employee.avatar;
+  if (rawAvatar && typeof rawAvatar === 'string') {
+    try {
+      let imgBuffer: Buffer | null = null;
+      if (rawAvatar.startsWith('data:image/')) {
+        const base64Content = rawAvatar.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '');
+        imgBuffer = Buffer.from(base64Content, 'base64');
+      } else if (rawAvatar.startsWith('http://') || rawAvatar.startsWith('https://')) {
+        try {
+          const res = await fetch(rawAvatar);
+          if (res.ok) {
+            imgBuffer = Buffer.from(await res.arrayBuffer());
+          }
+        } catch (fetchErr) {
+          console.warn('[PDF Warning] Failed to fetch avatar from URL:', fetchErr);
+        }
+      }
+
+      if (imgBuffer && imgBuffer.length > 0) {
+        doc.save();
+        doc.circle(centerX, centerY, radius).clip();
+        doc.image(imgBuffer, centerX - radius, centerY - radius, {
+          cover: [radius * 2, radius * 2],
+          align: 'center',
+          valign: 'center'
+        });
+        doc.restore();
+        drewImage = true;
+      }
+    } catch (imgErr) {
+      console.warn('[PDF Warning] Failed to render avatar image, falling back to initials:', imgErr);
+    }
+  }
+
+  if (!drewImage) {
+    doc.fontSize(20).font('Helvetica-Bold').fillColor('#00C9A7').text(initials, centerX - 16, centerY - 10);
+  }
 
   // Employee Name & Role
   const role = cardData?.role || employee.role || employee.roleTitle || 'Executive';
@@ -449,8 +491,21 @@ export async function generateIdCardPdf(employee: any, cardData?: any): Promise<
   const gridY = avatarY + 124;
   const empCode = cardData?.empCode || employee.empCode || 'TNX-001';
   const blood = cardData?.bloodGroup || employee.bloodGroup || 'O+';
-  const dob = cardData?.dob || employee.dob || '05/11/1997';
-  const phone = cardData?.phone || employee.phone || '+91 98765 43210';
+  const rawDob = cardData?.dob || employee.dob || '';
+  let dob = '—';
+  if (rawDob) {
+    const clean = String(rawDob).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+      const [y, m, d] = clean.split('-');
+      dob = `${d}/${m}/${y}`;
+    } else {
+      dob = clean;
+    }
+  }
+
+  const rawEmpType = cardData?.employeeType || employee.employeeType || 'Full Time';
+  const empTypeDisplay = rawEmpType === 'Intern' ? 'Internship Personnel' : rawEmpType === 'Contract' ? 'Contract Specialist' : 'Full-Time Regular';
+  const phone = cardData?.emergencyPhone || cardData?.phone || employee.emergencyPhone || employee.phone || '+91 98765 43210';
 
   const drawBadgeField = (label: string, val: string, yPos: number) => {
     doc.fontSize(7).font('Helvetica-Bold').fillColor('#64748B').text(label, badgeX + 30, yPos);
@@ -458,7 +513,7 @@ export async function generateIdCardPdf(employee: any, cardData?: any): Promise<
   };
 
   drawBadgeField('Emp ID:', empCode, gridY);
-  drawBadgeField('Emp Type:', 'Full-Time Regular', gridY + 15);
+  drawBadgeField('Emp Type:', empTypeDisplay, gridY + 15);
   drawBadgeField('Blood Group:', blood, gridY + 30);
   drawBadgeField('Date of Birth:', dob, gridY + 45);
   drawBadgeField('Emergency Ph:', phone, gridY + 60);

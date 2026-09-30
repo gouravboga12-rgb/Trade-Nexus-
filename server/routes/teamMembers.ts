@@ -33,14 +33,14 @@ router.get('/', (req: Request, res: Response) => {
 
       if (squadName) {
         const members = db.prepare(`
-          SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup 
+          SELECT id, empCode, name, avatar, role, groupName as "group", phone, emergencyPhone, dob, employeeType, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup 
           FROM team_members 
           WHERE LOWER(groupName) = LOWER(?) OR id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
         `).all(squadName, leaderId, leaderEmpCode, leaderName);
         return res.status(200).json(members);
       } else {
         const members = db.prepare(`
-          SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup 
+          SELECT id, empCode, name, avatar, role, groupName as "group", phone, emergencyPhone, dob, employeeType, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup 
           FROM team_members 
           WHERE id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
         `).all(leaderId, leaderEmpCode, leaderName);
@@ -48,7 +48,7 @@ router.get('/', (req: Request, res: Response) => {
       }
     }
 
-    const members = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup FROM team_members').all();
+    const members = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, emergencyPhone, dob, employeeType, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup FROM team_members').all();
     return res.status(200).json(members);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -230,6 +230,11 @@ router.post('/', (req: Request, res: Response) => {
       // 1. Insert Team Member
       const finalPassword = password || 'Trade@1234';
       const finalBloodGroup = req.body.bloodGroup || 'O+';
+      const finalDob = req.body.dob || null;
+      const finalEmergencyPhone = req.body.emergencyPhone || finalPhone;
+      const finalEmployeeType = req.body.employeeType || 'Full Time';
+      const finalAvatar = avatar || req.body.avatar || 'TM';
+
       db.prepare(`
         INSERT INTO team_members (
           id, empCode, name, avatar, role, groupName, phone, attendanceStatus, 
@@ -237,12 +242,12 @@ router.post('/', (req: Request, res: Response) => {
           salesAchieved, salesTarget, conversionRate, portal, email, password,
           bankName, bankAccountNumber, bankIfscCode,
           panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl,
-          salary, joiningDate, address, bloodGroup
+          salary, joiningDate, address, bloodGroup, dob, emergencyPhone, employeeType
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         memberId, finalEmpCode, finalName,
-        avatar || 'TM', finalRole, finalGroup,
+        finalAvatar, finalRole, finalGroup,
         finalPhone, attendanceStatus || 'ABSENT', checkInTime || null, checkInMethod || '',
         dialsToday ? Number(dialsToday) : 0, goalCalls ? Number(goalCalls) : 0,
         connected ? Number(connected) : 0, interested ? Number(interested) : 0,
@@ -253,16 +258,17 @@ router.post('/', (req: Request, res: Response) => {
         panDocumentName || null, panDocumentUrl || null,
         aadhaarDocumentName || null, aadhaarDocumentUrl || null,
         salary ? Number(salary) : null, joiningDate || null, address || null,
-        finalBloodGroup
+        finalBloodGroup, finalDob, finalEmergencyPhone, finalEmployeeType
       );
 
       // 2. Insert Employee Profile
       db.prepare(`
-        INSERT INTO employee_profiles (id, empCode, name, roleTitle, department, teamName, teamLeaderName, email, phone, joinDate, bloodGroup, faceIdStatus, checkInTime, totalLeaveBalance)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO employee_profiles (id, empCode, name, roleTitle, department, teamName, teamLeaderName, email, phone, joinDate, bloodGroup, faceIdStatus, checkInTime, totalLeaveBalance, dob, avatar, emergencyPhone)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         memberId, finalEmpCode, finalName, finalRole, finalGroup, finalGroup, '',
-        finalEmail, finalPhone, joiningDate || new Date().toISOString().split('T')[0], finalBloodGroup, 'NOT_CHECKED_IN', '', 14
+        finalEmail, finalPhone, joiningDate || new Date().toISOString().split('T')[0], finalBloodGroup, 'NOT_CHECKED_IN', '', 14,
+        finalDob, finalAvatar, finalEmergencyPhone
       );
 
       // 3. Insert User Credentials for login (strictly avoid converting or overwriting existing user accounts)
@@ -286,7 +292,7 @@ router.post('/', (req: Request, res: Response) => {
 
     createAtomic();
 
-    const created = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup FROM team_members WHERE id = ?').get(memberId);
+    const created = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, emergencyPhone, dob, employeeType, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup FROM team_members WHERE id = ?').get(memberId);
     return res.status(201).json(created);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -345,7 +351,8 @@ router.put('/:id', (req: Request, res: Response) => {
           bankName = ?, bankAccountNumber = ?, bankIfscCode = ?,
           panDocumentName = ?, panDocumentUrl = ?,
           aadhaarDocumentName = ?, aadhaarDocumentUrl = ?,
-          salary = ?, joiningDate = ?, address = ?, bloodGroup = ?
+          salary = ?, joiningDate = ?, address = ?, bloodGroup = ?,
+          dob = ?, emergencyPhone = ?, employeeType = ?
       WHERE id = ? OR empCode = ?
     `).run(
       merged.empCode, merged.name, merged.avatar, merged.role, targetGroup, merged.phone,
@@ -360,6 +367,9 @@ router.put('/:id', (req: Request, res: Response) => {
       merged.aadhaarDocumentName ?? null, merged.aadhaarDocumentUrl ?? null,
       merged.salary != null ? Number(merged.salary) : null, merged.joiningDate ?? null, merged.address ?? null,
       merged.bloodGroup || existing.bloodGroup || 'O+',
+      merged.dob ?? existing.dob ?? null,
+      merged.emergencyPhone ?? existing.emergencyPhone ?? merged.phone ?? null,
+      merged.employeeType ?? existing.employeeType ?? 'Full Time',
       existing.id, existing.empCode
     );
 
@@ -367,9 +377,9 @@ router.put('/:id', (req: Request, res: Response) => {
     try {
       db.prepare(`
         UPDATE employee_profiles
-        SET name = ?, roleTitle = ?, department = ?, teamName = ?, email = ?, phone = ?, joinDate = coalesce(?, joinDate), bloodGroup = coalesce(?, bloodGroup)
+        SET name = ?, roleTitle = ?, department = ?, teamName = ?, email = ?, phone = ?, joinDate = coalesce(?, joinDate), bloodGroup = coalesce(?, bloodGroup), dob = coalesce(?, dob), avatar = coalesce(?, avatar), emergencyPhone = coalesce(?, emergencyPhone)
         WHERE id = ? OR empCode = ?
-      `).run(merged.name, merged.role, targetGroup, targetGroup, merged.email, merged.phone, merged.joiningDate || null, merged.bloodGroup || null, existing.id, existing.empCode);
+      `).run(merged.name, merged.role, targetGroup, targetGroup, merged.email, merged.phone, merged.joiningDate || null, merged.bloodGroup || null, merged.dob || null, merged.avatar || null, merged.emergencyPhone || null, existing.id, existing.empCode);
     } catch {}
 
     // Synchronize squad member counts in team_groups

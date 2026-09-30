@@ -1560,6 +1560,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       joiningDate: data.joiningDate,
       address: data.address,
       bloodGroup: data.bloodGroup || 'O+',
+      dob: data.dob,
+      emergencyPhone: data.emergencyPhone || data.phone,
+      employeeType: data.employeeType,
     };
     setTeamMembers(prev => [newMember, ...prev]);
 

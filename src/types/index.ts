@@ -184,6 +184,8 @@ export interface EmployeeProfile {
   checkInTime: string;
   checkOutTime?: string;
   avatar?: string;
+  dob?: string;
+  emergencyPhone?: string;
   totalLeaveBalance: number;
   disputedByAdmin?: boolean;
   disputeReason?: string | null;
@@ -225,6 +227,9 @@ export interface TeamMember {
   joiningDate?: string;
   address?: string;
   bloodGroup?: string;
+  dob?: string;
+  emergencyPhone?: string;
+  employeeType?: string;
 }
 
 export interface TeamGroup {
@@ -416,6 +421,8 @@ export interface NewEmployeeInput {
   salaryDate: string;
   avatar?: string;
   bloodGroup?: string;
+  dob?: string;
+  emergencyPhone?: string;
 }
 
 export interface PaymentVerificationItem {

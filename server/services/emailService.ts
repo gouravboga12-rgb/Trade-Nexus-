@@ -336,7 +336,11 @@ export async function sendEmployeeOnboardingEmail(
       role: roleTitle,
       empCode,
       phone: employee.phone,
+      emergencyPhone: employee.emergencyPhone || employee.phone,
       bloodGroup: employee.bloodGroup || 'O+',
+      dob: employee.dob,
+      avatar: employee.avatar,
+      employeeType: employee.employeeType || 'Full Time',
     });
     attachments.push({
       filename: `Trade_Nexus_ID_Card_${(employee.name || 'Staff').replace(/\s+/g, '_')}.pdf`,

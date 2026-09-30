@@ -19,6 +19,7 @@ export const OfferLetterModal: React.FC = () => {
     isOfferLetterModalOpen, 
     setIsOfferLetterModalOpen, 
     selectedOfferLetter,
+    setSelectedOfferLetter,
     teamMembers,
     candidates,
     triggerToast
@@ -96,13 +97,19 @@ export const OfferLetterModal: React.FC = () => {
           <div className="flex items-center gap-2">
             {canEdit && (
               <button
-                onClick={() => setIsEditing(!isEditing)}
+                onClick={() => {
+                  if (isEditing && formData) {
+                    setSelectedOfferLetter(formData);
+                    triggerToast(`✓ Offer letter updated for ${formData.candidateName}`);
+                  }
+                  setIsEditing(!isEditing);
+                }}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                   isEditing ? 'bg-[#00C9A7] text-[#0A2540]' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                 }`}
               >
                 <Edit3 className="w-3.5 h-3.5" />
-                <span>{isEditing ? 'Done' : 'Edit Fields'}</span>
+                <span>{isEditing ? 'Save & Close' : 'Edit Fields'}</span>
               </button>
             )}
 
