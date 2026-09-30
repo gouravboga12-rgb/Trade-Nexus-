@@ -115,24 +115,106 @@
   font-family: 'Caveat', 'Great Vibes', 'Dancing Script', cursive;
 }
 
-/* Print Styles: Force full color background & graphic printing */
+/* Print Styles: Strict Isolation Engine for Seamless A4 Edge-to-Edge Corporate Documents */
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
   body, html {
     background: #FFFFFF !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: visible !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
   }
   
-  * {
+  *, *::before, *::after {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
   }
 
-  @page {
-    size: A4 portrait;
-    margin: 0;
+  /* Hide entire application background, headers, navigation and modal chrome */
+  header, nav, aside, .print\:hidden {
+    display: none !important;
+  }
+
+  /* Reset fixed modal overlay during print */
+  .fixed.inset-0 {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+  }
+
+  /* Target all printable document sheets for seamless full A4 bleed */
+  #offer-letter-sheet,
+  #experience-certificate-sheet,
+  #relieving-letter-sheet,
+  #printable-invoice {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    min-height: 297mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background-color: #FFFFFF !important;
+    overflow: visible !important;
+    page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  /* Clean A4 layout for ID card */
+  #digital-id-card-print-container {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    min-height: 297mm !important;
+    margin: 0 !important;
+    padding: 20mm !important;
+    border: none !important;
+    box-shadow: none !important;
+    background-color: #FFFFFF !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+  }
+
+  /* Ensure modal dialog card containing the sheet doesn't constrain or add shadows/borders */
+  .printable-modal-dialog {
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #FFFFFF !important;
+    overflow: visible !important;
+  }
+
+  .printable-scroll-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #FFFFFF !important;
+    overflow: visible !important;
+    display: block !important;
   }
 }
 

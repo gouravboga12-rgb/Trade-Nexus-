@@ -70,8 +70,8 @@ export const ExperienceCertModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[96vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 print:p-0 print:bg-white print:static">
+      <div className="bg-white rounded-none sm:rounded-3xl shadow-xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[96vh] printable-modal-dialog print:max-w-none print:rounded-none print:border-none print:shadow-none print:max-h-none">
         
         {/* Top Header Bar */}
         <div className="bg-[#06152B] px-4 sm:px-6 py-3.5 text-white flex items-center justify-between border-b border-slate-800 print:hidden flex-shrink-0">
@@ -194,13 +194,13 @@ export const ExperienceCertModal: React.FC = () => {
         {/* Printable Document Sheet Container */}
         <div 
           ref={scrollRef}
-          className="overflow-y-auto flex-1 p-3 sm:p-6 bg-slate-100/80 flex justify-center"
+          className="overflow-y-auto flex-1 p-0 sm:p-6 bg-slate-50/60 flex justify-center printable-scroll-container print:p-0 print:bg-white"
         >
           
           {/* Certificate Letterhead matching 2.png */}
           <div 
             id="experience-certificate-sheet"
-            className="w-full bg-white text-slate-800 shadow-xl rounded-xl sm:rounded-2xl overflow-hidden relative border border-slate-200 flex flex-col justify-between"
+            className="w-full bg-white text-slate-800 rounded-none overflow-hidden relative border-0 sm:border sm:border-slate-200/60 flex flex-col justify-between shadow-none sm:shadow-xs print:border-none print:shadow-none"
             style={{ 
               minHeight: '780px',
               WebkitPrintColorAdjust: 'exact',
@@ -210,7 +210,7 @@ export const ExperienceCertModal: React.FC = () => {
             
             {/* Top Navy Header with Teal Angled Accent (Exact 2.png Header) */}
             <div 
-              className="relative text-white px-5 sm:px-7 pt-5 sm:pt-6 pb-4 sm:pb-5 overflow-hidden flex-shrink-0"
+              className="relative text-white px-5 sm:px-8 pt-6 pb-5 overflow-hidden flex-shrink-0 rounded-none"
               style={{ 
                 backgroundColor: '#06152B',
                 WebkitPrintColorAdjust: 'exact',
@@ -346,7 +346,7 @@ export const ExperienceCertModal: React.FC = () => {
 
             {/* Bottom Footer Bar (Matching 2.png) */}
             <div 
-              className="text-white px-4 sm:px-6 py-2.5 sm:py-3 border-t-2 border-[#00A88B] flex items-center justify-between text-[9px] sm:text-[11px] gap-2 font-medium flex-shrink-0"
+              className="text-white px-5 sm:px-8 py-3 border-t-2 border-[#00A88B] flex items-center justify-between text-[9px] sm:text-[11px] gap-2 font-medium flex-shrink-0 rounded-none"
               style={{ 
                 backgroundColor: '#06152B',
                 WebkitPrintColorAdjust: 'exact',

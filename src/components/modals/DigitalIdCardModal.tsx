@@ -110,8 +110,8 @@ export const DigitalIdCardModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col max-h-[96vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 print:p-0 print:bg-white print:static">
+      <div className="bg-white rounded-none sm:rounded-3xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col max-h-[96vh] printable-modal-dialog print:max-w-none print:rounded-none print:border-none print:shadow-none print:max-h-none">
         
         {/* Top Header */}
         <div className="bg-[#06152B] px-5 py-3.5 text-white flex items-center justify-between border-b border-slate-800 print:hidden flex-shrink-0">
@@ -240,11 +240,18 @@ export const DigitalIdCardModal: React.FC = () => {
         )}
 
         {/* Vertical Printable ID Card (Exact Template matching tradenexus-id.png) */}
-        <div className="p-4 sm:p-6 overflow-y-auto bg-slate-200/70 flex justify-center items-center flex-1">
+        <div id="digital-id-card-print-container" className="p-4 sm:p-6 overflow-y-auto bg-slate-100/60 flex flex-col justify-center items-center flex-1 printable-scroll-container print:p-0 print:bg-white">
           
+          {/* Print-Only Official A4 Document Header */}
+          <div className="hidden print:flex flex-col items-center justify-center text-center pb-8 pt-4">
+            <h1 className="font-display font-black text-xl text-[#0A2540] tracking-widest uppercase">TRADE NEXUS</h1>
+            <p className="text-[11px] font-bold text-[#00A88B] tracking-wider mt-0.5 uppercase">Official Employee Identity Card</p>
+            <p className="text-[9px] text-slate-400 mt-1">Authorized personnel badge · Please cut along the outer card boundaries for laminated badge ID</p>
+          </div>
+
           <div 
             id="digital-id-card-sheet"
-            className="w-[340px] text-white rounded-[32px] overflow-hidden shadow-2xl relative flex flex-col justify-between"
+            className="w-[340px] text-white rounded-[32px] overflow-hidden shadow-xl print:shadow-none relative flex flex-col justify-between print:border print:border-slate-300 print:my-0 flex-shrink-0"
             style={{ 
               backgroundColor: '#051326',
               minHeight: '580px',
@@ -477,6 +484,11 @@ export const DigitalIdCardModal: React.FC = () => {
 
             </div>
 
+          </div>
+
+          {/* Print-Only Official Footer */}
+          <div className="hidden print:block text-center pt-8 text-[10px] text-slate-400 tracking-wide">
+            Trade Nexus Corporate HQ · 123 Business Avenue, Financial District · Verification: www.tradenexus.com
           </div>
 
         </div>

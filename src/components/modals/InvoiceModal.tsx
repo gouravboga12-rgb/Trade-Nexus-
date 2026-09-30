@@ -140,8 +140,8 @@ export const InvoiceModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[96vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 print:p-0 print:bg-white print:static">
+      <div className="bg-white rounded-none sm:rounded-3xl shadow-xl border border-slate-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[96vh] printable-modal-dialog print:max-w-none print:rounded-none print:border-none print:shadow-none print:max-h-none">
         
         {/* Top Header Bar */}
         <div className="bg-[#06152B] px-4 sm:px-6 py-3.5 text-white flex items-center justify-between border-b border-slate-800 print:hidden flex-shrink-0">
@@ -192,12 +192,12 @@ export const InvoiceModal: React.FC = () => {
         </div>
 
         {/* Scrollable Document Container */}
-        <div ref={scrollRef} className="overflow-y-auto flex-1 p-3 sm:p-8 bg-slate-100/80 flex justify-center">
+        <div ref={scrollRef} className="overflow-y-auto flex-1 p-0 sm:p-6 bg-slate-50/60 flex justify-center printable-scroll-container print:p-0 print:bg-white">
           
           {/* Printable Invoice Sheet matching Template 5 (5.png) */}
           <div 
             id="printable-invoice"
-            className="w-full max-w-[720px] bg-white text-slate-800 shadow-xl rounded-xl sm:rounded-2xl overflow-hidden relative border border-slate-200 font-sans print:shadow-none print:border-none print:m-0 print:p-0 print:rounded-none"
+            className="w-full max-w-[720px] bg-white text-slate-800 rounded-none overflow-hidden relative border-0 sm:border sm:border-slate-200/60 font-sans shadow-none sm:shadow-xs print:shadow-none print:border-none print:m-0 print:p-0 print:rounded-none print:max-w-none"
             style={{ 
               minHeight: '940px',
               WebkitPrintColorAdjust: 'exact',
@@ -205,7 +205,7 @@ export const InvoiceModal: React.FC = () => {
             }}
           >
             {/* Top Navy/Teal Geometric Header matching 5.png */}
-            <div className="relative bg-[#06152B] text-white p-6 sm:p-8 pb-10 overflow-hidden">
+            <div className="relative bg-[#06152B] text-white p-6 sm:p-8 pb-10 overflow-hidden rounded-none">
               {/* Decorative background polygon */}
               <div 
                 className="absolute right-0 top-0 bottom-0 w-2/5 bg-gradient-to-l from-[#00C9A7]/20 to-transparent pointer-events-none" 
@@ -505,7 +505,7 @@ export const InvoiceModal: React.FC = () => {
             </div>
 
             {/* Bottom Navy Wave and Contact Footer Bar matching Template 5 */}
-            <div className="mt-8 bg-[#06152B] text-white px-6 py-4 flex flex-wrap items-center justify-between gap-3 text-[10px] border-t-2 border-[#00C9A7]">
+            <div className="mt-8 bg-[#06152B] text-white px-6 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-3 text-[10px] border-t-2 border-[#00C9A7] rounded-none">
               <div className="flex items-center gap-1.5 text-slate-300">
                 <MapPin className="w-3.5 h-3.5 text-[#00C9A7]" />
                 <span>Level 12, Nexus Cyber Tower, HITEC City, Hyderabad</span>
