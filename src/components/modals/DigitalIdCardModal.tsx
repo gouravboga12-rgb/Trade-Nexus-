@@ -34,6 +34,7 @@ export const DigitalIdCardModal: React.FC = () => {
   const [selectedEmpId, setSelectedEmpId] = useState<string>(selectedIdCardEmpId || profile.id || 'emp-101');
   const [customPhotoUrl, setCustomPhotoUrl] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [isSendingEmail, setIsSendingEmail] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Editable fields state
@@ -109,8 +110,6 @@ export const DigitalIdCardModal: React.FC = () => {
       window.print();
     }, 100);
   };
-
-  const [isSendingEmail, setIsSendingEmail] = useState<boolean>(false);
 
   const handleSendEmail = async () => {
     const matched = teamMembers.find(m => m.id === selectedEmpId || m.empCode === selectedEmpId);
