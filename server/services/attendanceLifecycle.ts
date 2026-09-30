@@ -81,7 +81,13 @@ export function sweepUnclosedAttendance(): number {
  * - If member is on approved leave TODAY -> ON_LEAVE
  * - If member has NO punch-in today -> ABSENT, checkInTime cleared
  */
-export function syncDailyRosterStatus(): void {
+let lastRosterSync = 0;
+
+export function syncDailyRosterStatus(force = false): void {
+  const now = Date.now();
+  if (!force && now - lastRosterSync < 60000) return;
+  lastRosterSync = now;
+
   try {
     const today = getTodayDateIST();
 

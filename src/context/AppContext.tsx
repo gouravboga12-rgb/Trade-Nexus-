@@ -811,6 +811,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setResourceStatus((prev) => (prev[key] === status ? prev : { ...prev, [key]: status }));
   }, []);
 
+  const resourceSeq = useRef<Record<string, number>>({});
+
   const fetchResource = useCallback(
     (key: ResourceKey): Promise<void> => {
       const existing = inFlight.current.get(key);
@@ -818,13 +820,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       markStatus(key, 'loading');
 
+      const seq = (resourceSeq.current[key] || 0) + 1;
+      resourceSeq.current[key] = seq;
+
       const request = RESOURCE_FETCHERS[key]()
         .then((value) => {
+          // Guard against race conditions: if a newer request or mutation happened while this request was in flight, discard it
+          if (resourceSeq.current[key] !== seq) {
+            return;
+          }
           if (value !== undefined && value !== null) setters.current[key](value);
           markStatus(key, 'loaded');
           setBackendError(null);
         })
         .catch((err) => {
+          if (resourceSeq.current[key] !== seq) return;
           // Mark as 'error' so subsequent calls/polls retry fetching once backend is ready
           markStatus(key, 'error');
           if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
@@ -1360,6 +1370,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Employee Creation & Onboarding (HR & Admin)
   const updateEmployee = async (id: string, changes: Partial<TeamMember>) => {
+    // Invalidate any in-flight background polls so they cannot overwrite this update
+    resourceSeq.current['teamMembers'] = (resourceSeq.current['teamMembers'] || 0) + 1;
+    resourceSeq.current['teamGroups'] = (resourceSeq.current['teamGroups'] || 0) + 1;
+
     let updated: TeamMember | undefined;
     setTeamMembers((prev) =>
       prev.map((m) => {

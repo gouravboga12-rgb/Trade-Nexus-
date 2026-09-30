@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { X, Users, UserPlus, UserMinus, Check, Shield, Layers, ArrowRight } from 'lucide-react';
+import { X, Users, UserPlus, UserMinus, Check, Shield, Layers, ArrowRight, Loader2 } from 'lucide-react';
 import { TeamGroup, TeamMember } from '../../types';
 
 interface ManageTeamMembersModalProps {
@@ -16,6 +16,7 @@ export const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({
 }) => {
   const { teamMembers, updateEmployee, triggerToast } = useApp();
   const [selectedToAddId, setSelectedToAddId] = useState('');
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   if (!isOpen || !team) return null;
 
@@ -30,24 +31,32 @@ export const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({
   );
 
   const handleAddMember = async (memberId: string) => {
+    if (processingId) return;
     const member = teamMembers.find((m) => m.id === memberId || m.empCode === memberId);
     if (!member) return;
 
+    setProcessingId(memberId);
     try {
       await updateEmployee(member.id, { group: team.name });
       triggerToast(`✓ Added ${member.name} to ${team.name}`);
       setSelectedToAddId('');
     } catch {
       triggerToast(`✗ Failed to add ${member.name} to ${team.name}`);
+    } finally {
+      setProcessingId(null);
     }
   };
 
   const handleRemoveMember = async (member: TeamMember) => {
+    if (processingId) return;
+    setProcessingId(member.id);
     try {
       await updateEmployee(member.id, { group: 'Unassigned' });
       triggerToast(`✓ Removed ${member.name} from ${team.name}`);
     } catch {
       triggerToast(`✗ Failed to remove ${member.name} from ${team.name}`);
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -112,11 +121,15 @@ export const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({
               </select>
               <button
                 type="button"
-                disabled={!selectedToAddId}
+                disabled={!selectedToAddId || !!processingId}
                 onClick={() => handleAddMember(selectedToAddId)}
-                className="w-full sm:w-auto flex-shrink-0 bg-[#00C9A7] hover:bg-[#00B4D8] disabled:bg-slate-200 disabled:text-slate-400 text-[#0A2540] font-black px-4 py-2 rounded-xl transition-all active:scale-95 shadow-xs whitespace-nowrap cursor-pointer"
+                className="w-full sm:w-auto flex-shrink-0 bg-[#00C9A7] hover:bg-[#00B4D8] disabled:bg-slate-200 disabled:text-slate-400 text-[#0A2540] font-black px-4 py-2 rounded-xl transition-all active:scale-95 shadow-xs whitespace-nowrap cursor-pointer flex items-center justify-center min-w-[110px]"
               >
-                Add to Squad
+                {processingId === selectedToAddId ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-[#0A2540]" />
+                ) : (
+                  'Add to Squad'
+                )}
               </button>
             </div>
           </div>
@@ -166,11 +179,18 @@ export const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({
 
                       <button
                         onClick={() => handleRemoveMember(m)}
+                        disabled={processingId === m.id}
                         title={`Remove ${m.name} from squad`}
-                        className="flex-shrink-0 flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer active:scale-95"
+                        className="flex-shrink-0 flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed px-2.5 py-1.5 rounded-lg transition-all cursor-pointer active:scale-95 min-w-[75px] justify-center"
                       >
-                        <UserMinus className="w-3.5 h-3.5" />
-                        <span>Remove</span>
+                        {processingId === m.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-600" />
+                        ) : (
+                          <>
+                            <UserMinus className="w-3.5 h-3.5" />
+                            <span>Remove</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   );
