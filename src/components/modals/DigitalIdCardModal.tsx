@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { api } from '../../services/api';
 import { 
   X, 
   Download, 
@@ -107,6 +108,34 @@ export const DigitalIdCardModal: React.FC = () => {
     setTimeout(() => {
       window.print();
     }, 100);
+  };
+
+  const [isSendingEmail, setIsSendingEmail] = useState<boolean>(false);
+
+  const handleSendEmail = async () => {
+    const matched = teamMembers.find(m => m.id === selectedEmpId || m.empCode === selectedEmpId);
+    const targetEmail = matched?.email || profile.email;
+    if (!targetEmail) {
+      triggerToast('⚠️ No registered email address found for this employee');
+      return;
+    }
+    setIsSendingEmail(true);
+    triggerToast(`Dispatching official ID Card PDF to ${targetEmail}...`);
+    try {
+      const res = await api.sendIdCardEmail(
+        { id: selectedEmpId, email: targetEmail, name: customName, empCode: customEmpCode, role: customRole, phone: customPhone },
+        { name: customName, role: customRole, empCode: customEmpCode, bloodGroup: customBloodGroup, dob: customDob, phone: customPhone, email: targetEmail }
+      );
+      if (res.success) {
+        triggerToast(`✓ Official ID Card PDF successfully dispatched to ${targetEmail}!`);
+      } else {
+        triggerToast(`⚠️ Failed to dispatch: ${(res as any).error || 'Server error'}`);
+      }
+    } catch (err: any) {
+      triggerToast(`⚠️ Email dispatch failed: ${err.message || 'Network error'}`);
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   return (
@@ -504,6 +533,16 @@ export const DigitalIdCardModal: React.FC = () => {
           </button>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={isSendingEmail}
+              onClick={handleSendEmail}
+              className="px-3.5 py-2 rounded-xl border border-[#00C9A7]/40 bg-[#E6FAF6] hover:bg-[#D0F7F0] font-bold text-[#00897B] text-xs flex items-center gap-1.5 transition-all shadow-2xs disabled:opacity-50"
+            >
+              <Mail className="w-3.5 h-3.5 text-[#00A88B]" />
+              <span>{isSendingEmail ? 'Sending...' : 'Email PDF'}</span>
+            </button>
+
             <button
               type="button"
               onClick={handlePrint}

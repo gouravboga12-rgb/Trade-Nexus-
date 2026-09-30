@@ -432,6 +432,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ employee, cert }),
     }),
+  sendIdCardEmail: (employee: Partial<TeamMember>, cardData?: any) =>
+    request<{ success: boolean; messageId?: string }>('/employee-documents/send-id-card-email', {
+      method: 'POST',
+      body: JSON.stringify({ employee, cardData }),
+    }),
 
   // Company Calendar & Holidays
   getHolidays: () => request<CompanyHoliday[]>('/calendar/holidays'),

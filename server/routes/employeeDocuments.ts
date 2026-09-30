@@ -129,4 +129,20 @@ router.post('/send-experience-email', async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/employee-documents/send-id-card-email
+router.post('/send-id-card-email', async (req: Request, res: Response) => {
+  try {
+    const { employee, cardData } = req.body;
+    const targetEmail = employee?.email || cardData?.email;
+    if (!targetEmail) {
+      return res.status(400).json({ error: 'Employee email address is required' });
+    }
+    const { sendEmployeeIdCardEmail } = await import('../services/emailService.js');
+    const result = await sendEmployeeIdCardEmail(employee || {}, cardData);
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;
