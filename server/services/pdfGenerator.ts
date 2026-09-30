@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const FONT_PATH = path.resolve(__dirname, '../assets/fonts/GreatVibes.ttf');
+const FONT_PATH = path.resolve(__dirname, '../assets/fonts/Caveat.ttf');
 
 /**
  * Register cursive signature font if available, fallback to Times-Italic
@@ -16,6 +16,11 @@ function registerSignatureFont(doc: InstanceType<typeof PDFDocument>): string {
       doc.registerFont('SignatureScript', FONT_PATH);
       return 'SignatureScript';
     }
+    const greatVibesPath = path.resolve(__dirname, '../assets/fonts/GreatVibes.ttf');
+    if (fs.existsSync(greatVibesPath)) {
+      doc.registerFont('SignatureScript', greatVibesPath);
+      return 'SignatureScript';
+    }
   } catch (err) {
     console.warn('[PDF] Could not register signature font:', err);
   }
@@ -23,32 +28,20 @@ function registerSignatureFont(doc: InstanceType<typeof PDFDocument>): string {
 }
 
 /**
- * Draw an authentic cursive executive signature with natural pen flourish
+ * Draw authentic signature matching the modal template (Caveat font, -3 deg tilt)
  */
 function drawCursiveSignature(
   doc: InstanceType<typeof PDFDocument>,
   name: string,
   x: number,
   y: number,
-  fontSize: number = 22,
-  color: string = '#051326',
-  flourishWidth: number = 100
+  fontSize: number = 28,
+  color: string = '#0A2540'
 ) {
   const fontName = registerSignatureFont(doc);
   doc.save();
   doc.rotate(-3, { origin: [x, y] });
   doc.font(fontName).fontSize(fontSize).fillColor(color).text(name, x, y);
-
-  // Natural pen flourish stroke under signature
-  doc.moveTo(x, y + fontSize + 2)
-     .bezierCurveTo(
-       x + flourishWidth * 0.35, y + fontSize,
-       x + flourishWidth * 0.7, y + fontSize + 3,
-       x + flourishWidth, y + fontSize - 1
-     )
-     .lineWidth(0.75)
-     .strokeColor(color)
-     .stroke();
   doc.restore();
 }
 
@@ -222,8 +215,8 @@ export async function generateOfferLetterPdf(data: {
   const sigY = currentY + 38;
   doc.fontSize(8.5).font('Helvetica').fillColor('#475569').text('Warm Regards,', 42, sigY);
 
-  // Authentic cursive signature
-  drawCursiveSignature(doc, 'T. Vidhya sagar', 42, sigY + 16, 24, '#0A2540', 120);
+  // Authentic handwritten cursive signature matching template
+  drawCursiveSignature(doc, 'T. Vidhya sagar', 42, sigY + 14, 28, '#0A2540');
 
   const signatory = data.signatoryName || 'T .Vidhya Sagar';
   const signatoryRole = data.signatoryRole || 'Chief executive Officer';
@@ -608,7 +601,7 @@ export async function generatePayslipPdf(employee: any, payslip: any): Promise<B
   // Right Signatory
   doc.fontSize(8).font('Helvetica').fillColor('#64748B').text('Authorized by:', 360, sumY);
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text('Finance Manager – Trade Nexus', 360, sumY + 12);
-  drawCursiveSignature(doc, 'Muhammad Patel', 360, sumY + 24, 20, '#0A2540', 110);
+  drawCursiveSignature(doc, 'Muhammad Patel', 360, sumY + 24, 22, '#0A2540');
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text('Muhammad Patel', 360, sumY + 50);
 
   // ── Bottom Navy Footer Bar ──
@@ -732,7 +725,7 @@ export async function generateRelievingLetterPdf(employee: any, relievingLetter:
   doc.fontSize(5).font('Helvetica-Bold').fillColor('#00A88B').text('TRADE SMART', stampX + 15, stampY + 40);
 
   // Script signature overlaid across stamp
-  drawCursiveSignature(doc, 'T. Vidhya sagar', stampX - 2, stampY + 20, 20, '#0A2540', 80);
+  drawCursiveSignature(doc, 'T. Vidhya sagar', stampX - 2, stampY + 20, 22, '#0A2540');
 
   const signatory = relievingLetter.signatoryName || 'T .Vidhya Sagar';
   const sigRole = relievingLetter.signatoryRole || 'Chief Executive Officer';
@@ -857,7 +850,7 @@ export async function generateExperienceCertPdf(employee: any, cert: any): Promi
   doc.fontSize(9).font('Helvetica-Bold').fillColor('#0A2540').text('For: Trade Nexus', 42, sigY + 12);
 
   // Script signature
-  drawCursiveSignature(doc, 'T. Vidhya sagar', 42, sigY + 26, 24, '#0A2540', 120);
+  drawCursiveSignature(doc, 'T. Vidhya sagar', 42, sigY + 24, 28, '#0A2540');
 
   const signatory = cert.signatoryName || 'T .Vidhya Sagar';
   const sigRole = cert.signatoryRole || 'Chief Executive Officer';
