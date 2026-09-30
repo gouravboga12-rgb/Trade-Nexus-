@@ -24,6 +24,14 @@ export const QuickCallLogModal: React.FC = () => {
   const [followUpDate, setFollowUpDate] = useState('');
   const [dealAmount, setDealAmount] = useState<string>('');
 
+  // Customer Banking & UPI details on Won Deal
+  const [customerName, setCustomerName] = useState('');
+  const [payMethod, setPayMethod] = useState<'BANK' | 'UPI'>('BANK');
+  const [customerBankName, setCustomerBankName] = useState('');
+  const [customerAccountNumber, setCustomerAccountNumber] = useState('');
+  const [customerIfscCode, setCustomerIfscCode] = useState('');
+  const [customerUpiId, setCustomerUpiId] = useState('');
+
   const resetForm = () => {
     setClientName('');
     setCompanyName('');
@@ -33,6 +41,12 @@ export const QuickCallLogModal: React.FC = () => {
     setDealAmount('');
     setDurationMin('2');
     setOutcome('INTERESTED');
+    setCustomerName('');
+    setPayMethod('BANK');
+    setCustomerBankName('');
+    setCustomerAccountNumber('');
+    setCustomerIfscCode('');
+    setCustomerUpiId('');
   };
 
   useEffect(() => {
@@ -41,6 +55,12 @@ export const QuickCallLogModal: React.FC = () => {
       setCompanyName(activeCallingLead.company);
       setPhone(activeCallingLead.phone);
       setNotes(activeCallingLead.notes || '');
+      setCustomerName(activeCallingLead.customerName || activeCallingLead.name || '');
+      setCustomerBankName(activeCallingLead.customerBankName || '');
+      setCustomerAccountNumber(activeCallingLead.customerAccountNumber || '');
+      setCustomerIfscCode(activeCallingLead.customerIfscCode || '');
+      setCustomerUpiId(activeCallingLead.customerUpiId || '');
+      if (activeCallingLead.customerUpiId) setPayMethod('UPI');
       setOutcome(
         activeCallingLead.status === 'CONVERTED'
           ? 'DEAL_CLOSED'
@@ -101,7 +121,14 @@ export const QuickCallLogModal: React.FC = () => {
         mappedStatus,
         notes,
         mappedStatus === 'CONVERTED' ? numericDeal || 0 : undefined,
-        mappedStatus === 'CALLBACK' ? followUpDate || 'Tomorrow, 11:00 AM' : undefined
+        mappedStatus === 'CALLBACK' ? followUpDate || 'Tomorrow, 11:00 AM' : undefined,
+        mappedStatus === 'CONVERTED' ? {
+          customerName: customerName.trim() || activeCallingLead.name,
+          customerBankName: payMethod === 'BANK' ? customerBankName.trim() : undefined,
+          customerAccountNumber: payMethod === 'BANK' ? customerAccountNumber.trim() : undefined,
+          customerIfscCode: payMethod === 'BANK' ? customerIfscCode.trim().toUpperCase() : undefined,
+          customerUpiId: payMethod === 'UPI' ? customerUpiId.trim() : undefined,
+        } : undefined
       );
     } else {
       logNewCall({
@@ -292,21 +319,126 @@ export const QuickCallLogModal: React.FC = () => {
 
           {/* Conditional Input: If Won Deal */}
           {outcome === 'DEAL_CLOSED' && (
-            <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-3 space-y-1.5 animate-in fade-in zoom-in-95">
-              <label className="block text-[11px] font-black text-emerald-900">
-                Deal Amount Closed (₹ INR) *
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={dealAmount}
-                onChange={(e) => setDealAmount(e.target.value)}
-                placeholder="e.g. 50000"
-                className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-emerald-600"
-                required
-              />
-              <p className="text-[10px] text-emerald-700 font-medium">
-                ✓ Will submit to HR & Admin for payment verification and update your monthly sales quota.
+            <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-3.5 space-y-3 animate-in fade-in zoom-in-95">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-black text-emerald-950 mb-1">
+                    Deal Amount (₹ INR) *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={dealAmount}
+                    onChange={(e) => setDealAmount(e.target.value)}
+                    placeholder="e.g. 50000"
+                    className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-emerald-600 shadow-2xs"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-black text-emerald-950 mb-1">
+                    Customer Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="e.g. Rajesh Kumar"
+                    className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-600 shadow-2xs"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Payment Mode Selector: Bank A/C or UPI */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-emerald-900 mb-1.5">
+                  Customer Settlement Account Details:
+                </label>
+                <div className="grid grid-cols-2 gap-2 bg-emerald-100/70 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setPayMethod('BANK')}
+                    className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      payMethod === 'BANK'
+                        ? 'bg-white text-emerald-900 shadow-xs'
+                        : 'text-emerald-800 hover:text-emerald-950'
+                    }`}
+                  >
+                    🏦 Bank A/C &amp; IFSC
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPayMethod('UPI')}
+                    className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      payMethod === 'UPI'
+                        ? 'bg-white text-emerald-900 shadow-xs'
+                        : 'text-emerald-800 hover:text-emerald-950'
+                    }`}
+                  >
+                    📱 UPI ID
+                  </button>
+                </div>
+              </div>
+
+              {/* Bank Details Inputs */}
+              {payMethod === 'BANK' && (
+                <div className="space-y-2 bg-white/80 p-2.5 rounded-xl border border-emerald-200">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Account Number *</label>
+                      <input
+                        type="text"
+                        value={customerAccountNumber}
+                        onChange={(e) => setCustomerAccountNumber(e.target.value)}
+                        placeholder="e.g. 50200084920"
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-emerald-600"
+                        required={payMethod === 'BANK'}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 mb-0.5">IFSC Code *</label>
+                      <input
+                        type="text"
+                        value={customerIfscCode}
+                        onChange={(e) => setCustomerIfscCode(e.target.value.toUpperCase())}
+                        placeholder="e.g. HDFC0001234"
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-emerald-600 uppercase"
+                        required={payMethod === 'BANK'}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Bank Name (Optional)</label>
+                    <input
+                      type="text"
+                      value={customerBankName}
+                      onChange={(e) => setCustomerBankName(e.target.value)}
+                      placeholder="e.g. HDFC Bank, SBI, ICICI"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* UPI ID Input */}
+              {payMethod === 'UPI' && (
+                <div className="bg-white/80 p-2.5 rounded-xl border border-emerald-200">
+                  <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Customer UPI ID / VPA *</label>
+                  <input
+                    type="text"
+                    value={customerUpiId}
+                    onChange={(e) => setCustomerUpiId(e.target.value)}
+                    placeholder="e.g. rajesh@okhdfcbank or 9876543210@upi"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-emerald-600"
+                    required={payMethod === 'UPI'}
+                  />
+                </div>
+              )}
+
+              <p className="text-[10px] text-emerald-800 font-medium">
+                ✓ Bank details &amp; deal amount will sync directly to HR &amp; Admin Audit Ledgers.
               </p>
             </div>
           )}

@@ -33,7 +33,8 @@ import {
   ExternalLink,
   QrCode,
   Layers,
-  FileEdit
+  FileEdit,
+  Mail
 } from 'lucide-react';
 import { CandidateInterview, OnboardingEmployee, ExitEmployee, PaymentVerificationItem, TeamMember, PayslipItem } from '../../types';
 import { AddEmployeeModal } from '../../components/modals/AddEmployeeModal';
@@ -42,6 +43,7 @@ import { RejectedLeaveBanner } from '../../components/common/RejectedLeaveBanner
 import { Employee360ProfileView } from '../Employee360ProfileView';
 import { EmployeeAvatar } from '../../components/common/EmployeeAvatar';
 import { MeetingTimePicker } from '../../components/common/MeetingTimePicker';
+import { InvoicesLedger } from '../../components/common/InvoicesLedger';
 
 interface DesktopHrViewProps {
   currentTab?: string;
@@ -63,6 +65,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
     exitList, 
     paymentVerifications, 
     payslips,
+    attendanceLogs,
     approveLeaveRequest, 
     rejectLeaveRequest, 
     scheduleInterview, 
@@ -87,11 +90,17 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
     openGenerateInvoiceModal,
     openPayslipModal,
     setIsIdCardModalOpen,
+    selectedIdCardEmpId,
     setSelectedIdCardEmpId,
     offerLetters,
     experienceCerts,
     relievingLetters,
-    invoices
+    invoices,
+    sendExperienceCertEmailToEmployee,
+    sendRelievingLetterEmailToEmployee,
+    sendPayslipEmailToEmployee,
+    sendOnboardingEmailToEmployee,
+    resendInvoiceEmail,
   } = useApp();
 
   useScreenData('hrDashboard');
@@ -721,7 +730,8 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                     <th className="pb-3">Group</th>
                     <th className="pb-3">Contact</th>
                     <th className="pb-3">Attendance</th>
-                    <th className="pb-3">Check-in Time</th>
+                    <th className="pb-3">Punch In</th>
+                    <th className="pb-3">Punch Out</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -770,7 +780,18 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                           {emp.attendanceStatus}
                         </span>
                       </td>
-                      <td className="py-3.5 font-mono text-slate-500">{emp.checkInTime || 'Not checked in'}</td>
+                      <td className="py-3.5 font-mono text-slate-700">{emp.checkInTime || '—'}</td>
+                      <td className="py-3.5 font-mono text-slate-700">
+                        {emp.checkOutTime ? (
+                          <span>{emp.checkOutTime}</span>
+                        ) : emp.checkInTime ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Active on floor
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
                       <td className="py-3.5 text-right pr-2">
                         <span className="text-[#00A88B] font-bold text-xs group-hover:underline inline-flex items-center gap-1">
                           View 360° Profile →
@@ -1219,6 +1240,142 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
           )}
 
           {/* Specific Active Tab Documents Registries */}
+          {(documentsSubTab === 'id_cards' || documentsSubTab === 'all') && (
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="font-display font-black text-base text-[#0A2540]">Employee ID Cards Registry</h3>
+                  <p className="text-xs text-slate-400">Official biometric credentials & dual-sided ID badges</p>
+                </div>
+                <button
+                  onClick={() => {
+                    const first = teamMembers[0]?.id || '';
+                    setSelectedIdCardEmpId(first);
+                    setIsIdCardModalOpen(true);
+                  }}
+                  className="px-3.5 py-1.5 bg-[#00C9A7] text-[#0A2540] font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Preview ID Card</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      <th className="pb-3">Employee</th>
+                      <th className="pb-3">Role & Dept</th>
+                      <th className="pb-3">Contact</th>
+                      <th className="pb-3">Status</th>
+                      <th className="pb-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {teamMembers.map((emp) => (
+                      <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 font-bold text-[#0A2540]">{emp.name} ({emp.empCode})</td>
+                        <td className="py-3 text-slate-700">{emp.role} · <span className="text-slate-500">{emp.group}</span></td>
+                        <td className="py-3 font-mono text-slate-600">{emp.email || emp.phone}</td>
+                        <td className="py-3">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            ACTIVE
+                          </span>
+                        </td>
+                        <td className="py-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => sendOnboardingEmailToEmployee(emp)}
+                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold text-xs rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                              title={`Email ID Card credentials & welcome packet to ${emp.email}`}
+                            >
+                              <Mail className="w-3 h-3 text-emerald-700" />
+                              <span>Email ID</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedIdCardEmpId(emp.id);
+                                setIsIdCardModalOpen(true);
+                              }}
+                              className="px-3 py-1 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-lg transition-all cursor-pointer"
+                            >
+                              Open ID
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {(documentsSubTab === 'offers' || documentsSubTab === 'all') && (
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="font-display font-black text-base text-[#0A2540]">Job Offer Letters Registry</h3>
+                  <p className="text-xs text-slate-400">Formal employment offers & appointment letters</p>
+                </div>
+                <button
+                  onClick={() => openGenerateOfferLetterModal()}
+                  className="px-3.5 py-1.5 bg-[#00C9A7] text-[#0A2540] font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                  <span>New Job Offer</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      <th className="pb-3">Candidate</th>
+                      <th className="pb-3">Designation</th>
+                      <th className="pb-3">Annual CTC</th>
+                      <th className="pb-3">Joining Date</th>
+                      <th className="pb-3">Issued Date</th>
+                      <th className="pb-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {offerLetters.map((offer) => (
+                      <tr key={offer.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 font-bold text-[#0A2540]">{offer.candidateName}</td>
+                        <td className="py-3 text-slate-700">{offer.roleTitle}</td>
+                        <td className="py-3 font-mono font-bold text-[#00A88B]">₹{Number(offer.annualCtc).toLocaleString('en-IN')}</td>
+                        <td className="py-3 text-slate-600">{offer.joiningDate}</td>
+                        <td className="py-3 text-slate-500">{offer.issuedDate}</td>
+                        <td className="py-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => {
+                                const emp = { name: offer.candidateName, email: offer.candidateEmail, phone: offer.candidatePhone, roleTitle: offer.roleTitle };
+                                sendOnboardingEmailToEmployee(emp, offer);
+                              }}
+                              className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-300 font-bold text-xs rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                              title={`Email Offer Letter to ${offer.candidateEmail}`}
+                            >
+                              <Mail className="w-3 h-3 text-indigo-700" />
+                              <span>Email</span>
+                            </button>
+                            <button
+                              onClick={() => openOfferLetterModal(offer)}
+                              className="px-3 py-1 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-lg transition-all cursor-pointer"
+                            >
+                              Open / Print
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {(documentsSubTab === 'experience' || documentsSubTab === 'all') && (
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -1256,12 +1413,25 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                         <td className="py-3 font-medium text-slate-600">{cert.startDate} to {cert.endDate}</td>
                         <td className="py-3 text-slate-500">{cert.issuedDate}</td>
                         <td className="py-3 text-right">
-                          <button
-                            onClick={() => openExperienceCertModal(cert)}
-                            className="px-3 py-1 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-lg transition-all"
-                          >
-                            Open / Print
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => {
+                                const emp = teamMembers.find(m => m.empCode === cert.empCode || m.name.toLowerCase() === cert.employeeName.toLowerCase()) || { name: cert.employeeName, email: 'employee@tradenexus.com' };
+                                sendExperienceCertEmailToEmployee(emp, cert);
+                              }}
+                              className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                              title="Email Experience Certificate to employee on record"
+                            >
+                              <Mail className="w-3 h-3 text-amber-700" />
+                              <span>Email</span>
+                            </button>
+                            <button
+                              onClick={() => openExperienceCertModal(cert)}
+                              className="px-3 py-1 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-lg transition-all cursor-pointer"
+                            >
+                              Open / Print
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1308,12 +1478,25 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                         <td className="py-3 font-medium text-slate-600">{letter.lastWorkingDate}</td>
                         <td className="py-3 text-slate-500">{letter.issuedDate}</td>
                         <td className="py-3 text-right">
-                          <button
-                            onClick={() => openRelievingLetterModal(letter)}
-                            className="px-3 py-1 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-lg transition-all"
-                          >
-                            Open / Print
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => {
+                                const emp = teamMembers.find(m => m.empCode === letter.empCode || m.name.toLowerCase() === letter.employeeName.toLowerCase()) || { name: letter.employeeName, email: 'employee@tradenexus.com' };
+                                sendRelievingLetterEmailToEmployee(emp, letter);
+                              }}
+                              className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-300 font-bold text-xs rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                              title="Email Relieving Letter to employee on record"
+                            >
+                              <Mail className="w-3 h-3 text-teal-700" />
+                              <span>Email</span>
+                            </button>
+                            <button
+                              onClick={() => openRelievingLetterModal(letter)}
+                              className="px-3 py-1 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-lg transition-all cursor-pointer"
+                            >
+                              Open / Print
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1369,12 +1552,22 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                           </span>
                         </td>
                         <td className="py-3 text-right">
-                          <button
-                            onClick={() => openInvoiceModal(inv)}
-                            className="px-3 py-1 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-lg transition-all"
-                          >
-                            Open / Print
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => resendInvoiceEmail(inv.id)}
+                              className="px-2.5 py-1 bg-cyan-50 hover:bg-cyan-100 text-cyan-900 border border-cyan-300 font-bold text-xs rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                              title={`Email Commercial Invoice to ${inv.clientEmail || 'client'}`}
+                            >
+                              <Mail className="w-3 h-3 text-cyan-700" />
+                              <span>Email</span>
+                            </button>
+                            <button
+                              onClick={() => openInvoiceModal(inv)}
+                              className="px-3 py-1 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-lg transition-all cursor-pointer"
+                            >
+                              Open / Print
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1453,15 +1646,23 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                       <td className="py-3.5 text-right font-sans">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
+                            onClick={() => sendPayslipEmailToEmployee(ps.id, ps.email)}
+                            className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold text-xs rounded-xl flex items-center gap-1 transition-all cursor-pointer"
+                            title={`Email Payslip to employee (${ps.email || 'on record'})`}
+                          >
+                            <Mail className="w-3.5 h-3.5 text-emerald-700" />
+                            <span>Email</span>
+                          </button>
+                          <button
                             onClick={() => setSelectedPayslipForEdit(ps)}
-                            className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-xl flex items-center gap-1 transition-all"
+                            className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-xl flex items-center gap-1 transition-all cursor-pointer"
                           >
                             <FileEdit className="w-3.5 h-3.5" />
                             <span>Edit Salary</span>
                           </button>
                           <button
                             onClick={() => openPayslipModal(ps)}
-                            className="px-2.5 py-1.5 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-xl transition-all"
+                            className="px-2.5 py-1.5 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-xl transition-all cursor-pointer"
                           >
                             View
                           </button>
@@ -1548,6 +1749,16 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* --- TAB: INVOICES & BILLING --- */}
+      {activeTab === 'invoices' && (
+        <div className="max-w-7xl mx-auto py-2">
+          <InvoicesLedger
+            panelTitle="HR Commercial Invoices & Billing"
+            panelSubtitle="Create, dispatch to customer email, and audit billing ledger"
+          />
         </div>
       )}
 

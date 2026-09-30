@@ -51,7 +51,7 @@ export const AttendanceSuccessView: React.FC = () => {
           </div>
           <div>
             <span className="font-display font-black text-xs text-[#0A2540] tracking-wider block leading-tight">TRADE NEXUS</span>
-            <span className="text-[9px] font-mono font-bold text-[#00A88B] block leading-tight">Attendance Verified</span>
+            <span className="text-[9px] font-mono font-extrabold text-[#00A88B] block leading-tight">TRADE SMART · Attendance Verified</span>
           </div>
         </div>
 

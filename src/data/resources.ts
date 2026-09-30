@@ -63,6 +63,7 @@ export const RESOURCE_FETCHERS = {
   paymentVerifications: () => api.getPayments(),
   companyHolidays: () => api.getHolidays(),
   calendarSettings: () => api.getCalendarSettings(),
+  invoices: () => api.getInvoices(),
 } as const;
 
 export type ResourceKey = keyof typeof RESOURCE_FETCHERS;
@@ -122,6 +123,7 @@ export const SCREEN_RESOURCES = {
     'teamMeetings',
     'companyHolidays',
     'calendarSettings',
+    'invoices',
   ],
 
   adminDashboard: [
@@ -137,6 +139,7 @@ export const SCREEN_RESOURCES = {
     'teamMeetings',
     'companyHolidays',
     'calendarSettings',
+    'invoices',
   ],
 } as const satisfies Record<string, readonly ResourceKey[]>;
 

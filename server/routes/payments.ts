@@ -71,18 +71,26 @@ router.get('/', (req: Request, res: Response) => {
 // POST /api/payments
 router.post('/', (req: Request, res: Response) => {
   try {
-    const { id, leadName, companyName, telecallerName, dealAmount, utrNumber, paymentMode, timestamp, status, receiptUrl } = req.body;
+    const { 
+      id, leadName, companyName, telecallerName, dealAmount, utrNumber, paymentMode, timestamp, status, receiptUrl,
+      customerName, customerBankName, customerAccountNumber, customerIfscCode, customerUpiId
+    } = req.body;
     const payId = id || `pay-${Date.now()}`;
     const callerName = telecallerName || req.user?.name || 'Employee';
 
     db.prepare(`
-      INSERT INTO payment_verifications (id, leadName, companyName, telecallerName, dealAmount, utrNumber, paymentMode, timestamp, status, receiptUrl)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO payment_verifications (
+        id, leadName, companyName, telecallerName, dealAmount, utrNumber, paymentMode, timestamp, status, receiptUrl,
+        customerName, customerBankName, customerAccountNumber, customerIfscCode, customerUpiId
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      payId, leadName || 'Client', companyName || 'Company', callerName,
+      payId, leadName || customerName || 'Client', companyName || 'Company', callerName,
       dealAmount ? Number(dealAmount) : 0, utrNumber || `TXN${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-      paymentMode || 'Online Bank Transfer', timestamp || 'Just now',
-      status || 'PENDING_HR_AUDIT', receiptUrl || null
+      paymentMode || (customerUpiId ? 'UPI Transfer' : 'Online Bank Transfer'), timestamp || 'Just now',
+      status || 'PENDING_HR_AUDIT', receiptUrl || null,
+      customerName || leadName || null, customerBankName || null, customerAccountNumber || null,
+      customerIfscCode || null, customerUpiId || null
     );
 
     const created = db.prepare('SELECT * FROM payment_verifications WHERE id = ?').get(payId);

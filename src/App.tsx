@@ -77,7 +77,8 @@ import {
   UserPlus,
   Video,
   DollarSign,
-  RotateCw
+  RotateCw,
+  Receipt
 } from 'lucide-react';
 import { NavTab, UserRole } from './types';
 
@@ -206,6 +207,7 @@ export const App: React.FC = () => {
         { id: 'interviews', label: 'Interviews & Hiring', icon: UserCheck },
         { id: 'documents', label: 'Documents Studio', icon: Award },
         { id: 'payroll', label: 'Payroll & Payslips', icon: FileText },
+        { id: 'invoices', label: 'Invoices & Billing', icon: Receipt },
         { id: 'clearances', label: 'Clearances & Approvals', icon: ShieldCheck, badge: pendingLeaves + pendingPays },
       ];
     }
@@ -218,6 +220,7 @@ export const App: React.FC = () => {
         { id: 'attendance', label: 'Attendance Report', icon: CalendarCheck },
         { id: 'leads', label: 'Lead Allocation', icon: FileSpreadsheet },
         { id: 'revenue', label: 'Revenue & Won Deals', icon: DollarSign },
+        { id: 'invoices', label: 'Invoices & Billing', icon: Receipt },
         { id: 'approvals', label: 'Approvals & Audits', icon: CheckCircle2, badge: awaitingApproval },
         { id: 'reports', label: 'Reports', icon: TrendingUp },
       ];
@@ -280,9 +283,9 @@ export const App: React.FC = () => {
   const renderActiveView = (isDesktop: boolean = false) => {
     // ── Desktop: use full-width dedicated Desktop* components ──
     if (isDesktop) {
-      if (currentRole === 'admin') return <DesktopAdminView />;
-      if (currentRole === 'hr') return <DesktopHrView />;
-      if (currentRole === 'team_leader') return <DesktopTeamLeaderView />;
+      if (currentRole === 'admin') return <DesktopAdminView currentTab={activeTab} onTabChange={(t) => setActiveTab(t as any)} />;
+      if (currentRole === 'hr') return <DesktopHrView currentTab={activeTab} onTabChange={(t) => setActiveTab(t as any)} />;
+      if (currentRole === 'team_leader') return <DesktopTeamLeaderView currentTab={activeTab} onTabChange={(t) => setActiveTab(t as any)} />;
       // Telecaller desktop tabs
       switch (activeTab) {
         case 'home':    return <DesktopTelecallerHome />;

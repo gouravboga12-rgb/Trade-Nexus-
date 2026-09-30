@@ -145,6 +145,7 @@ export interface PayslipItem {
   employeeName?: string;
   employeeCode?: string;
   empCode?: string;
+  email?: string;
   roleTitle?: string;
   department?: string;
   month: string;
@@ -326,8 +327,10 @@ export interface AssignedLead {
   city?: string;
   assignedToEmployeeId: string;
   assignedToEmployeeName: string;
+  assignedTo?: string;
   batchId: string;
   assignedDate: string;
+  createdAt?: string;
   status: 'PENDING' | 'CONNECTED' | 'INTERESTED' | 'CALLBACK' | 'NOT_INTERESTED' | 'CONVERTED' | 'BUSY';
   notes: string;
   callCount: number;
@@ -335,6 +338,11 @@ export interface AssignedLead {
   dealValue?: number;
   followUpDate?: string;
   updatedAt?: string;
+  customerName?: string;
+  customerBankName?: string;
+  customerAccountNumber?: string;
+  customerIfscCode?: string;
+  customerUpiId?: string;
 }
 
 export interface LeadBatch {
@@ -416,6 +424,11 @@ export interface PaymentVerificationItem {
   timestamp: string;
   status: 'PENDING_HR_AUDIT' | 'VERIFIED' | 'REJECTED';
   receiptUrl?: string;
+  customerName?: string;
+  customerBankName?: string;
+  customerAccountNumber?: string;
+  customerIfscCode?: string;
+  customerUpiId?: string;
 }
 
 export interface OfficeSettings {
@@ -471,6 +484,7 @@ export interface InvoiceData {
   invoiceNumber: string;
   date: string;
   dueDate?: string;
+  createdAt?: string;
   // Bill To
   clientName: string;
   clientCompany?: string;
@@ -488,6 +502,7 @@ export interface InvoiceData {
   subTotal: number;
   taxRate?: number;
   taxAmount?: number;
+  tax?: number;
   grandTotal: number;
   note?: string;
   // Payment Info

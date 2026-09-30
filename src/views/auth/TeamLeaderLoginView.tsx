@@ -77,8 +77,8 @@ export const TeamLeaderLoginView: React.FC = () => {
               <h1 className="font-display font-black text-xl text-white tracking-wider leading-tight">
                 TRADE NEXUS
               </h1>
-              <p className="text-xs text-[#00C9A7] font-bold tracking-wide">
-                Team Leader
+              <p className="text-[10px] text-[#00C9A7] font-extrabold tracking-widest uppercase">
+                TRADE SMART · Team Leader
               </p>
             </div>
           </div>

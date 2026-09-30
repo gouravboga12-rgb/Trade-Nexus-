@@ -74,8 +74,8 @@ export const AdminLoginView: React.FC = () => {
               <h1 className="font-display font-black text-xl text-white tracking-wider leading-tight">
                 TRADE NEXUS
               </h1>
-              <p className="text-xs text-[#00C9A7] font-bold tracking-wide">
-                Admin Console
+              <p className="text-[10px] text-[#00C9A7] font-extrabold tracking-widest uppercase">
+                TRADE SMART · Admin Console
               </p>
             </div>
           </div>

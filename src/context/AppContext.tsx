@@ -98,7 +98,14 @@ interface AppContextType {
     status: AssignedLead['status'], 
     notes: string, 
     dealValue?: number, 
-    followUpDate?: string
+    followUpDate?: string,
+    customerDetails?: {
+      customerName?: string;
+      customerBankName?: string;
+      customerAccountNumber?: string;
+      customerIfscCode?: string;
+      customerUpiId?: string;
+    }
   ) => void;
   activeCallingLead: AssignedLead | null;
   setActiveCallingLead: (lead: AssignedLead | null) => void;
@@ -270,9 +277,14 @@ interface AppContextType {
   setIsInvoiceModalOpen: (open: boolean) => void;
   isGenerateInvoiceModalOpen: boolean;
   setIsGenerateInvoiceModalOpen: (open: boolean) => void;
-  generateInvoice: (data: Omit<InvoiceData, 'id'>) => void;
+  generateInvoice: (data: Omit<InvoiceData, 'id'>) => Promise<void>;
   openInvoiceModal: (invoice?: InvoiceData) => void;
   openGenerateInvoiceModal: () => void;
+  resendInvoiceEmail: (id: string) => Promise<boolean>;
+  sendPayslipEmailToEmployee: (payslipId: string, email?: string) => Promise<boolean>;
+  sendRelievingLetterEmailToEmployee: (employee: Partial<TeamMember>, letter: Partial<RelievingLetterData>) => Promise<boolean>;
+  sendExperienceCertEmailToEmployee: (employee: Partial<TeamMember>, cert: Partial<ExperienceCertData>) => Promise<boolean>;
+  sendOnboardingEmailToEmployee: (employee: Partial<TeamMember>, offerLetter?: Partial<OfferLetterData>) => Promise<boolean>;
 
   updateEmployeeAvatar: (empId: string, photoDataUrl: string) => void;
   
@@ -782,6 +794,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setWeeklyOffDaysState(settings.weeklyOffDays);
       }
     },
+    invoices: setInvoices,
   });
 
   const [resourceStatus, setResourceStatus] = useState<Record<ResourceKey, ResourceStatus>>(
@@ -1119,7 +1132,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     status: AssignedLead['status'], 
     notes: string, 
     dealValue?: number, 
-    followUpDate?: string
+    followUpDate?: string,
+    customerDetails?: {
+      customerName?: string;
+      customerBankName?: string;
+      customerAccountNumber?: string;
+      customerIfscCode?: string;
+      customerUpiId?: string;
+    }
   ) => {
     const existingLead = assignedLeads.find(l => l.id === leadId);
     if (!existingLead) {
@@ -1138,6 +1158,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       lastCallTimestamp: 'Just now',
       dealValue: dealAmountNum,
       followUpDate: followUpDate || existingLead.followUpDate,
+      customerName: customerDetails?.customerName || existingLead.customerName || existingLead.name,
+      customerBankName: customerDetails?.customerBankName || existingLead.customerBankName,
+      customerAccountNumber: customerDetails?.customerAccountNumber || existingLead.customerAccountNumber,
+      customerIfscCode: customerDetails?.customerIfscCode || existingLead.customerIfscCode,
+      customerUpiId: customerDetails?.customerUpiId || existingLead.customerUpiId,
       updatedAt: nowIso,
     };
 
@@ -1189,7 +1214,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const newDials = m.dialsToday + 1;
         const newConnected = (status !== 'NOT_INTERESTED' && status !== 'BUSY') ? m.connected + 1 : m.connected;
         const newInterested = status === 'INTERESTED' ? m.interested + 1 : m.interested;
-        // Sales revenue is recognized when verified in verifyPayment to prevent double-counting
         const newSales = m.salesAchieved;
         const updatedM: TeamMember = {
           ...m,
@@ -1214,9 +1238,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         telecallerName: targetLead.assignedToEmployeeName,
         dealAmount: dealAmountNum,
         utrNumber: `TXN${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-        paymentMode: 'Online Bank Transfer',
+        paymentMode: targetLead.customerUpiId ? 'UPI Transfer' : 'Online Bank Transfer',
         timestamp: 'Just now',
         status: 'PENDING_HR_AUDIT',
+        customerName: targetLead.customerName || targetLead.name,
+        customerBankName: targetLead.customerBankName,
+        customerAccountNumber: targetLead.customerAccountNumber,
+        customerIfscCode: targetLead.customerIfscCode,
+        customerUpiId: targetLead.customerUpiId,
       };
       setPaymentVerifications(prev => [newPayment, ...prev]);
       api.createPayment(newPayment).catch(console.warn);
@@ -1572,8 +1601,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       await Promise.all([
         api.createTeamMember(newMember),
         api.createOnboarding(newOnboarding),
-        api.createOfferLetter(newOfferLetter)
+        api.createOfferLetter(newOfferLetter),
       ]);
+      api.sendOnboardingEmail(newMember, newOfferLetter).catch(console.warn);
     } catch (err) {
       console.warn('API error creating employee:', err);
     }
@@ -1666,6 +1696,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSelectedExperienceCert(newCert);
     setIsExperienceCertModalOpen(true);
     triggerToast(`✓ Experience Certificate generated for ${data.employeeName}`);
+
+    // Look up employee and email
+    const targetEmp = teamMembers.find(
+      m => m.name.toLowerCase() === data.employeeName.toLowerCase() || m.empCode === data.empCode
+    );
+    if (targetEmp?.email) {
+      api.sendExperienceEmail(targetEmp, newCert).catch(console.warn);
+    }
   };
 
   const generateRelievingLetter = (data: Omit<RelievingLetterData, 'id' | 'issuedDate'>) => {
@@ -1678,9 +1716,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSelectedRelievingLetter(newLetter);
     setIsRelievingLetterModalOpen(true);
     triggerToast(`✓ Relieving Letter generated for ${data.employeeName}`);
+
+    // Look up employee and email
+    const targetEmp = teamMembers.find(
+      m => m.name.toLowerCase() === data.employeeName.toLowerCase() || m.empCode === data.empCode
+    );
+    if (targetEmp?.email) {
+      api.sendRelievingEmail(targetEmp, newLetter).catch(console.warn);
+    }
   };
 
-  const generateInvoice = (data: Omit<InvoiceData, 'id'>) => {
+  const generateInvoice = async (data: Omit<InvoiceData, 'id'>) => {
     const newInvoice: InvoiceData = {
       ...data,
       id: `inv-${Date.now()}`,
@@ -1688,7 +1734,88 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setInvoices(prev => [newInvoice, ...prev]);
     setSelectedInvoice(newInvoice);
     setIsInvoiceModalOpen(true);
-    triggerToast(`✓ Invoice ${data.invoiceNumber} generated for ${data.clientName}`);
+    triggerToast(`✓ Invoice ${data.invoiceNumber} generated & sent to ${data.clientEmail}`);
+    try {
+      await api.createInvoice(newInvoice);
+      refreshResources(['invoices']);
+    } catch (err) {
+      console.warn('API invoice save error:', err);
+    }
+  };
+
+  const resendInvoiceEmail = async (id: string): Promise<boolean> => {
+    try {
+      const res = await api.resendInvoice(id);
+      if (res.success) {
+        triggerToast('✓ Invoice re-sent to client email successfully');
+        return true;
+      }
+      triggerToast('✗ Failed to dispatch email. Check SMTP settings.');
+      return false;
+    } catch (err) {
+      triggerToast('✗ Failed to re-send invoice email.');
+      return false;
+    }
+  };
+
+  const sendPayslipEmailToEmployee = async (payslipId: string, email?: string): Promise<boolean> => {
+    try {
+      const res = await api.sendPayslipEmail(payslipId, email);
+      if (res.success) {
+        triggerToast('✓ Payslip dispatched to employee email');
+        return true;
+      }
+      triggerToast('✗ Could not send payslip email.');
+      return false;
+    } catch {
+      triggerToast('✗ Failed to send payslip email.');
+      return false;
+    }
+  };
+
+  const sendRelievingLetterEmailToEmployee = async (employee: Partial<TeamMember>, letter: Partial<RelievingLetterData>): Promise<boolean> => {
+    try {
+      const res = await api.sendRelievingEmail(employee, letter);
+      if (res.success) {
+        triggerToast(`✓ Relieving letter emailed to ${employee.email}`);
+        return true;
+      }
+      triggerToast('✗ Could not send relieving letter email.');
+      return false;
+    } catch {
+      triggerToast('✗ Failed to send relieving letter email.');
+      return false;
+    }
+  };
+
+  const sendExperienceCertEmailToEmployee = async (employee: Partial<TeamMember>, cert: Partial<ExperienceCertData>): Promise<boolean> => {
+    try {
+      const res = await api.sendExperienceEmail(employee, cert);
+      if (res.success) {
+        triggerToast(`✓ Experience certificate emailed to ${employee.email}`);
+        return true;
+      }
+      triggerToast('✗ Could not send experience cert email.');
+      return false;
+    } catch {
+      triggerToast('✗ Failed to send experience cert email.');
+      return false;
+    }
+  };
+
+  const sendOnboardingEmailToEmployee = async (employee: Partial<TeamMember>, offerLetter?: Partial<OfferLetterData>): Promise<boolean> => {
+    try {
+      const res = await api.sendOnboardingEmail(employee, offerLetter);
+      if (res.success) {
+        triggerToast(`✓ Offer letter & ID credentials emailed to ${employee.email}`);
+        return true;
+      }
+      triggerToast('✗ Could not send offer email.');
+      return false;
+    } catch {
+      triggerToast('✗ Failed to send offer email.');
+      return false;
+    }
   };
 
   // Team Leader Assignment
@@ -2967,6 +3094,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         generateInvoice,
         openInvoiceModal,
         openGenerateInvoiceModal,
+        resendInvoiceEmail,
+        sendPayslipEmailToEmployee,
+        sendRelievingLetterEmailToEmployee,
+        sendExperienceCertEmailToEmployee,
+        sendOnboardingEmailToEmployee,
         updateEmployeeAvatar,
         isDataLoading,
         backendError,

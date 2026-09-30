@@ -29,9 +29,13 @@ import {
   Award,
   ArrowRight,
   Trash2,
+  Building2,
+  Receipt,
+  Calendar,
 } from 'lucide-react';
 import { OfficeSettings, TeamMember, UserRole } from '../../types';
 import { api } from '../../services/api';
+import { InvoicesLedger } from '../../components/common/InvoicesLedger';
 import { ExcelLeadUploadModal } from '../../components/modals/ExcelLeadUploadModal';
 import { AddEmployeeModal } from '../../components/modals/AddEmployeeModal';
 import { EmployeeRecordModal, PORTAL_LABEL } from '../../components/modals/EmployeeRecordModal';
@@ -127,6 +131,11 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     name: string;
   } | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+
+  // Leads day-wise filter state
+  const [leadsDateFilter, setLeadsDateFilter] = useState<'ALL' | 'TODAY' | 'YESTERDAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'CUSTOM'>('ALL');
+  const [leadsCustomStart, setLeadsCustomStart] = useState<string>(() => getTodayDateIST());
+  const [leadsCustomEnd, setLeadsCustomEnd] = useState<string>(() => getTodayDateIST());
 
   useEffect(() => {
     api.getOffice().then(setOffice).catch(() => setOffice(null));
@@ -235,8 +244,41 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     return matchesSearch && matchesRole;
   });
 
+  const todayYMD = getTodayDateIST();
+  const yesterdayObj = new Date();
+  yesterdayObj.setDate(yesterdayObj.getDate() - 1);
+  const yesterdayYMD = yesterdayObj.toISOString().slice(0, 10);
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const filteredAssignedLeadsByDate = assignedLeads.filter((l) => {
+    if (leadsDateFilter === 'ALL') return true;
+    const leadDate = l.assignedDate || (l.updatedAt || l.createdAt || '').slice(0, 10);
+    if (leadsDateFilter === 'TODAY') {
+      return leadDate === todayYMD || (l.updatedAt || '').startsWith(todayYMD);
+    }
+    if (leadsDateFilter === 'YESTERDAY') {
+      return leadDate === yesterdayYMD;
+    }
+    if (leadsDateFilter === 'THIS_WEEK') {
+      const d = new Date(leadDate || l.updatedAt || '');
+      return !isNaN(d.getTime()) && d >= sevenDaysAgo;
+    }
+    if (leadsDateFilter === 'THIS_MONTH') {
+      const d = new Date(leadDate || l.updatedAt || '');
+      return !isNaN(d.getTime()) && d >= startOfMonth;
+    }
+    if (leadsDateFilter === 'CUSTOM') {
+      return leadDate >= leadsCustomStart && leadDate <= leadsCustomEnd;
+    }
+    return true;
+  });
+
   const leadsPerEmployee = teamMembers.map((m) => {
-    const mine = assignedLeads.filter(
+    const mine = filteredAssignedLeadsByDate.filter(
       (l) =>
         l.assignedToEmployeeId === m.id ||
         (l.assignedToEmployeeName &&
@@ -1196,7 +1238,10 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
   };
 
   const renderLeads = () => {
-    const freshLeadsCount = assignedLeads.filter((l) => l.callCount === 0).length;
+    const totalLeadsCount = filteredAssignedLeadsByDate.length;
+    const freshLeadsCount = filteredAssignedLeadsByDate.filter((l) => l.callCount === 0).length;
+    const pipelineLeadsCount = filteredAssignedLeadsByDate.filter((l) => l.callCount > 0 && l.status !== 'CONVERTED').length;
+    const convertedLeadsCount = filteredAssignedLeadsByDate.filter((l) => l.status === 'CONVERTED').length;
 
     const handleAutoDistribute = async () => {
       setIsDistributing(true);
@@ -1218,6 +1263,74 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
             <span>Upload Leads</span>
           </button>
         </PageHead>
+
+        {/* Day-Wise Filter Bar */}
+        <div className="nexus-card bg-white border border-slate-200 shadow-sm p-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 overflow-x-auto">
+              {(['ALL', 'TODAY', 'YESTERDAY', 'THIS_WEEK', 'THIS_MONTH', 'CUSTOM'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setLeadsDateFilter(mode)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    leadsDateFilter === mode
+                      ? 'bg-[#0A2540] text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {mode === 'ALL' ? 'All Time' :
+                   mode === 'TODAY' ? 'Today' :
+                   mode === 'YESTERDAY' ? 'Yesterday' :
+                   mode === 'THIS_WEEK' ? 'This Week' :
+                   mode === 'THIS_MONTH' ? 'This Month' : 'Custom'}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-slate-400 font-bold">
+                {totalLeadsCount} records in view
+              </span>
+              {freshLeadsCount > 0 && (
+                <button
+                  onClick={handleAutoDistribute}
+                  disabled={isDistributing}
+                  className="flex items-center gap-1.5 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs px-3.5 py-1.5 rounded-xl transition-all cursor-pointer"
+                >
+                  <span>Auto-Distribute ({freshLeadsCount})</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {leadsDateFilter === 'CUSTOM' && (
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              <Calendar className="w-4 h-4 text-slate-400" />
+              <span className="font-semibold text-xs">Custom Range:</span>
+              <input
+                type="date"
+                value={leadsCustomStart}
+                onChange={(e) => setLeadsCustomStart(e.target.value)}
+                className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+              />
+              <span>to</span>
+              <input
+                type="date"
+                value={leadsCustomEnd}
+                onChange={(e) => setLeadsCustomEnd(e.target.value)}
+                className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* 4 Dynamic Metric Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card label="Total Leads in Scope" value={String(totalLeadsCount)} tone="plain" />
+          <Card label="Fresh / Uncalled" value={String(freshLeadsCount)} tone={freshLeadsCount ? 'warn' : 'plain'} />
+          <Card label="In Dialing Pipeline" value={String(pipelineLeadsCount)} tone="plain" />
+          <Card label="Converted Deals" value={String(convertedLeadsCount)} tone="good" />
+        </div>
 
 
 
@@ -1664,6 +1777,13 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                         <div className="space-y-0.5">
                           <strong className="font-bold text-xs text-[#0A2540] block">{p.companyName}</strong>
                           <span className="text-[11px] text-slate-500 font-medium">Contact: {p.leadName}</span>
+                          {(p.customerName || p.customerBankName || p.customerAccountNumber || p.customerUpiId) && (
+                            <div className="mt-1 pt-1 border-t border-slate-100 text-[10px] text-slate-600 space-y-0.5">
+                              {p.customerName && <div>Client: <span className="font-bold text-slate-800">{p.customerName}</span></div>}
+                              {p.customerBankName && <div>Bank: {p.customerBankName} {p.customerAccountNumber ? `(${p.customerAccountNumber})` : ''} {p.customerIfscCode ? `IFSC: ${p.customerIfscCode}` : ''}</div>}
+                              {p.customerUpiId && <div>UPI: <span className="font-mono font-bold text-[#00A88B]">{p.customerUpiId}</span></div>}
+                            </div>
+                          )}
                         </div>
                       </td>
 
@@ -1815,6 +1935,19 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                           Closed by {p.telecallerName} · {p.paymentMode} · {p.timestamp}
                         </span>
                         <span className="text-[11px] font-mono text-slate-400 block">UTR {p.utrNumber}</span>
+
+                        {(p.customerName || p.customerBankName || p.customerAccountNumber || p.customerUpiId) && (
+                          <div className="mt-2.5 p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 text-[11px] space-y-1">
+                            <div className="font-bold text-[#0A2540] flex items-center gap-1.5">
+                              <Building2 className="w-3.5 h-3.5 text-[#00A88B]" />
+                              <span>Won Customer Remittance Details:</span>
+                            </div>
+                            {p.customerName && <div className="text-slate-700">Account Holder: <strong className="font-semibold text-slate-900">{p.customerName}</strong></div>}
+                            {p.customerBankName && <div className="text-slate-700">Bank: <strong className="font-semibold text-slate-900">{p.customerBankName}</strong> (IFSC: <span className="font-mono text-slate-900">{p.customerIfscCode || 'N/A'}</span>)</div>}
+                            {p.customerAccountNumber && <div className="text-slate-700">Account No: <span className="font-mono font-bold text-slate-900">{p.customerAccountNumber}</span></div>}
+                            {p.customerUpiId && <div className="text-slate-700">UPI ID: <span className="font-mono font-bold text-[#00A88B]">{p.customerUpiId}</span></div>}
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-2 flex-shrink-0">
@@ -1934,6 +2067,14 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                       <span className="text-[11px] text-slate-500 block">
                         Closed by {p.telecallerName} · Mode: {p.paymentMode} · UTR: <strong className="font-mono text-slate-700">{p.utrNumber}</strong>
                       </span>
+                      {(p.customerName || p.customerBankName || p.customerAccountNumber || p.customerUpiId) && (
+                        <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">
+                          Customer: <span className="font-semibold text-slate-700">{p.customerName || 'N/A'}</span>
+                          {p.customerBankName ? ` · ${p.customerBankName}` : ''}
+                          {p.customerAccountNumber ? ` (${p.customerAccountNumber})` : ''}
+                          {p.customerUpiId ? ` · UPI: ${p.customerUpiId}` : ''}
+                        </span>
+                      )}
                     </div>
 
                     <div className="text-right flex-shrink-0">
@@ -2107,6 +2248,14 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
       {activeTab === 'attendance' && renderAttendance()}
       {activeTab === 'leads' && renderLeads()}
       {activeTab === 'revenue' && renderRevenue()}
+      {activeTab === 'invoices' && (
+        <div className="max-w-7xl mx-auto py-2">
+          <InvoicesLedger
+            panelTitle="Admin Global Commercial Invoices & Billing"
+            panelSubtitle="Comprehensive billing ledger, day-wise filters, customer email dispatch, and audit trail"
+          />
+        </div>
+      )}
       {activeTab === 'approvals' && renderApprovals()}
       {activeTab === 'reports' && renderReports()}
 

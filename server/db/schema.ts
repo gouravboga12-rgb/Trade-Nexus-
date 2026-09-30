@@ -328,10 +328,43 @@ export function initializeDatabaseSchema() {
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_password_reset_otps_email ON password_reset_otps(email);
+
+    -- 22. Commercial Tax Invoices
+    CREATE TABLE IF NOT EXISTS invoices (
+      id TEXT PRIMARY KEY,
+      invoiceNumber TEXT NOT NULL,
+      clientName TEXT NOT NULL,
+      clientCompany TEXT,
+      clientEmail TEXT NOT NULL,
+      clientPhone TEXT,
+      clientAddress TEXT,
+      fromName TEXT,
+      fromRole TEXT,
+      fromPhone TEXT,
+      fromEmail TEXT,
+      fromAddress TEXT,
+      items TEXT NOT NULL,
+      subTotal REAL NOT NULL,
+      taxRate REAL DEFAULT 18,
+      taxAmount REAL DEFAULT 0,
+      grandTotal REAL NOT NULL,
+      note TEXT,
+      bankName TEXT,
+      accountNumber TEXT,
+      ifscCode TEXT,
+      paymentEmail TEXT,
+      status TEXT NOT NULL DEFAULT 'PENDING',
+      date TEXT NOT NULL,
+      dueDate TEXT,
+      createdBy TEXT,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_invoices_client_email ON invoices(clientEmail);
+    CREATE INDEX IF NOT EXISTS idx_invoices_created_at ON invoices(createdAt);
   `);
 
   runMigrations();
-  console.log('[SQLite DB] All 20 database tables initialized successfully.');
+  console.log('[SQLite DB] All database tables initialized successfully.');
 }
 
 // CREATE TABLE IF NOT EXISTS never alters an existing table, so columns added
@@ -586,6 +619,16 @@ function runMigrations() {
     { table: 'leave_requests', column: 'approvalStage',    definition: "TEXT DEFAULT 'PENDING_HR'" },
     { table: 'leave_requests', column: 'hrApprovedBy',     definition: 'TEXT' },
     { table: 'leave_requests', column: 'hrApprovedAt',     definition: 'TEXT' },
+    { table: 'assigned_leads', column: 'customerName',     definition: 'TEXT' },
+    { table: 'assigned_leads', column: 'customerBankName', definition: 'TEXT' },
+    { table: 'assigned_leads', column: 'customerAccountNumber', definition: 'TEXT' },
+    { table: 'assigned_leads', column: 'customerIfscCode', definition: 'TEXT' },
+    { table: 'assigned_leads', column: 'customerUpiId',    definition: 'TEXT' },
+    { table: 'payment_verifications', column: 'customerName',     definition: 'TEXT' },
+    { table: 'payment_verifications', column: 'customerBankName', definition: 'TEXT' },
+    { table: 'payment_verifications', column: 'customerAccountNumber', definition: 'TEXT' },
+    { table: 'payment_verifications', column: 'customerIfscCode', definition: 'TEXT' },
+    { table: 'payment_verifications', column: 'customerUpiId',    definition: 'TEXT' },
   ];
 
   for (const { table, column, definition } of columnMigrations) {

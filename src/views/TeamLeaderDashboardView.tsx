@@ -192,9 +192,12 @@ export const TeamLeaderDashboardView: React.FC = () => {
     const isMatchTimeframe = (dateStr?: string) => {
       if (!dateStr) return false;
       const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return false;
+      if (isNaN(d.getTime())) {
+        if (reportsTimeframe === 'today') return dateStr.startsWith(todayYMD);
+        return false;
+      }
       if (reportsTimeframe === 'today') {
-        return dateStr.startsWith(todayYMD);
+        return dateStr.startsWith(todayYMD) || d.toISOString().startsWith(todayYMD);
       } else if (reportsTimeframe === 'week') {
         return d >= sevenDaysAgo;
       } else {
@@ -202,19 +205,55 @@ export const TeamLeaderDashboardView: React.FC = () => {
       }
     };
 
+    // Filter actual call logs matching timeframe
     const filteredCalls = (callLogs || []).filter(c => isMatchTimeframe(c.date || c.createdAt));
-    let dials = filteredCalls.length;
-    if (dials === 0) {
-      dials = reportsTimeframe === 'today' ? totalActivities : reportsTimeframe === 'week' ? totalActivities * 5 : totalActivities * 22;
-    }
 
-    const verifiedPayments = (paymentVerifications || []).filter(p => p.status === 'VERIFIED');
-    const tfPayments = verifiedPayments.filter(p => isMatchTimeframe(p.timestamp));
-    let sales = tfPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
-    if (sales === 0) {
-      sales = reportsTimeframe === 'today' ? Math.round(totalSales / 22) : reportsTimeframe === 'week' ? Math.round(totalSales / 4) : totalSales;
-    }
+    // Verified payments matching timeframe
+    const verifiedPayments = (paymentVerifications || []).filter(p => p.status === 'VERIFIED' && isMatchTimeframe(p.timestamp));
+    
+    // Converted assigned leads matching timeframe
+    const convertedLeads = (assignedLeads || []).filter(l => l.status === 'CONVERTED' && isMatchTimeframe(l.updatedAt || l.assignedDate));
 
+    const ranking = [...teamMembers].map(m => {
+      // Find calls logged for this employee in timeframe
+      const empCalls = filteredCalls.filter(c =>
+        c.employeeId === m.id || c.employeeId === m.empCode || (c.clientName && c.clientName.toLowerCase() === m.name.toLowerCase())
+      ).length;
+      
+      // If timeframe is today and no granular call logs found, fall back to m.dialsToday
+      const callerDials = reportsTimeframe === 'today'
+        ? Math.max(empCalls, m.dialsToday || 0)
+        : empCalls;
+
+      // Authentic sales for this caller in timeframe
+      const empPayments = verifiedPayments.filter(p => p.telecallerName && p.telecallerName.toLowerCase() === m.name.toLowerCase());
+      const pRevenue = empPayments.reduce((s, p) => s + (p.dealAmount || 0), 0);
+
+      const empWonLeads = convertedLeads.filter(l => 
+        l.assignedTo === m.name || l.assignedTo === m.id || l.assignedTo === m.empCode
+      );
+      const lRevenue = empWonLeads.reduce((s, l) => s + (l.dealValue || 0), 0);
+
+      let callerSales = Math.max(pRevenue, lRevenue);
+      // For full month view only, if no granular logs exist yet, member's monthly achieved sales is authentic
+      if (reportsTimeframe === 'month' && callerSales === 0 && (m.salesAchieved || 0) > 0) {
+        callerSales = m.salesAchieved;
+      }
+
+      return {
+        ...m,
+        callerDials,
+        callerSales,
+      };
+    }).sort((a, b) => b.callerDials - a.callerDials || b.callerSales - a.callerSales);
+
+    // Total dials aggregated across members or calls
+    const dials = ranking.reduce((sum, m) => sum + m.callerDials, 0);
+
+    // Total sales aggregated across members
+    const sales = ranking.reduce((sum, m) => sum + m.callerSales, 0);
+
+    // Target pacing: monthly total target, paced cleanly without inflating dials/sales
     const target = reportsTimeframe === 'today'
       ? Math.round(targetTotal / 22)
       : reportsTimeframe === 'week'
@@ -222,26 +261,12 @@ export const TeamLeaderDashboardView: React.FC = () => {
       : targetTotal;
 
     const targetPct = target > 0 ? Math.min(100, Math.round((sales / target) * 100)) : 0;
+    
+    // Connected calls rate
     const connectedCount = filteredCalls.filter(c => c.outcome === 'CONNECTED' || c.outcome === 'INTERESTED').length;
-    const connRate = dials > 0 ? Math.round((connectedCount > 0 ? (connectedCount / dials) * 100 : connectRate)) : connectRate;
-
-    const ranking = [...teamMembers].map(m => {
-      const empCalls = filteredCalls.filter(c =>
-        c.employeeId === m.id || c.employeeId === m.empCode || (c.clientName && c.clientName.toLowerCase() === m.name.toLowerCase())
-      ).length;
-      const callerDials = empCalls > 0 ? empCalls : (reportsTimeframe === 'today' ? m.dialsToday : reportsTimeframe === 'week' ? m.dialsToday * 5 : m.dialsToday * 22);
-
-      const empPayments = tfPayments.filter(p => p.telecallerName && p.telecallerName.toLowerCase() === m.name.toLowerCase());
-      const callerRev = empPayments.length > 0
-        ? empPayments.reduce((s, p) => s + (p.dealAmount || 0), 0)
-        : (reportsTimeframe === 'today' ? Math.round((m.salesAchieved || 0) / 22) : reportsTimeframe === 'week' ? Math.round((m.salesAchieved || 0) / 4) : m.salesAchieved);
-
-      return {
-        ...m,
-        callerDials,
-        callerSales: callerRev,
-      };
-    }).sort((a, b) => b.callerDials - a.callerDials);
+    const connRate = dials > 0 
+      ? Math.round((connectedCount / dials) * 100) 
+      : (reportsTimeframe === 'today' ? connectRate : 0);
 
     return {
       tfDials: dials,
@@ -251,7 +276,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
       tfConnectRate: connRate,
       membersByDials: ranking,
     };
-  }, [reportsTimeframe, callLogs, paymentVerifications, totalActivities, totalSales, targetTotal, connectRate, teamMembers]);
+  }, [reportsTimeframe, callLogs, paymentVerifications, assignedLeads, targetTotal, connectRate, teamMembers]);
 
   // Top active telecallers on floor right now from active SQLite team_members
   const activeFloorMembers = useMemo(() => {

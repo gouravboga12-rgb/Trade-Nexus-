@@ -22,6 +22,9 @@ import {
   CompanyHoliday,
   CalendarSettings,
   AuthUser,
+  InvoiceData,
+  RelievingLetterData,
+  ExperienceCertData,
 } from '../types';
 
 export type { AuthUser };
@@ -395,6 +398,40 @@ export const api = {
     request<PaymentVerificationItem>('/payments', { method: 'POST', body: JSON.stringify(data) }),
   updatePayment: (id: string, data: Partial<PaymentVerificationItem>) => 
     request<PaymentVerificationItem>(`/payments/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Invoices & Billing
+  getInvoices: (params?: { startDate?: string; endDate?: string; clientEmail?: string }) => {
+    const q = new URLSearchParams(params as any).toString();
+    return request<InvoiceData[]>(`/invoices${q ? `?${q}` : ''}`);
+  },
+  createInvoice: (data: Omit<InvoiceData, 'id'> & { id?: string }) =>
+    request<InvoiceData>('/invoices', { method: 'POST', body: JSON.stringify(data) }),
+  resendInvoice: (id: string) =>
+    request<{ success: boolean; emailResult?: any }>(`/invoices/${id}/resend`, { method: 'POST' }),
+  deleteInvoice: (id: string) =>
+    request<{ deleted: string }>(`/invoices/${id}`, { method: 'DELETE' }),
+
+  // Document Email Dispatchers
+  sendOnboardingEmail: (employee: Partial<TeamMember>, offerLetter?: Partial<OfferLetterData>) =>
+    request<{ success: boolean; messageId?: string }>('/employee-documents/send-onboarding-email', {
+      method: 'POST',
+      body: JSON.stringify({ employee, offerLetter }),
+    }),
+  sendPayslipEmail: (payslipId: string, email?: string) =>
+    request<{ success: boolean; emailResult?: any }>(`/payslips/${payslipId}/send-email`, {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  sendRelievingEmail: (employee: Partial<TeamMember>, relievingLetter: Partial<RelievingLetterData>) =>
+    request<{ success: boolean; messageId?: string }>('/employee-documents/send-relieving-email', {
+      method: 'POST',
+      body: JSON.stringify({ employee, relievingLetter }),
+    }),
+  sendExperienceEmail: (employee: Partial<TeamMember>, cert: Partial<ExperienceCertData>) =>
+    request<{ success: boolean; messageId?: string }>('/employee-documents/send-experience-email', {
+      method: 'POST',
+      body: JSON.stringify({ employee, cert }),
+    }),
 
   // Company Calendar & Holidays
   getHolidays: () => request<CompanyHoliday[]>('/calendar/holidays'),

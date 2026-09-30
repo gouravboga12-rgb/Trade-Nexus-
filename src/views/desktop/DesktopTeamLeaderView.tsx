@@ -40,6 +40,7 @@ import {
   Trash2,
   UserPlus
 } from 'lucide-react';
+import { getTodayDateIST } from '../../utils/dateUtils';
 import { TeamMeeting, TeamMember } from '../../types';
 import { RejectedLeaveBanner } from '../../components/common/RejectedLeaveBanner';
 import { TelecallerDetailDrawer } from '../../components/modals/TelecallerDetailDrawer';
@@ -64,6 +65,9 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
     teamTasks, 
     teamMeetings, 
     leaveRequests, 
+    assignedLeads,
+    callLogs,
+    paymentVerifications,
     approveLeaveRequest, 
     rejectLeaveRequest, 
     scheduleTeamMeeting, 
@@ -1079,15 +1083,82 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
         const isMonth = reportsTimeframe === 'month';
 
         const tfLabel = isToday ? 'Today' : isWeek ? 'This Week' : 'This Month';
-        const tfMultiplier = isToday ? 1 : isWeek ? 5 : 22;
-        const tfSalesMultiplier = isToday ? (1 / 22) : isWeek ? (1 / 4) : 1;
+        const now = new Date();
+        const todayYMD = getTodayDateIST();
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-        const tfDials = isToday ? totalActivities : Math.round(totalActivities * tfMultiplier);
-        const tfConnected = isToday ? totalConnectedCalls : Math.round(totalConnectedCalls * tfMultiplier);
-        const tfSales = isMonth ? totalSales : Math.round(totalSales * tfSalesMultiplier);
-        const tfTarget = isMonth ? targetTotal : Math.round(targetTotal * tfSalesMultiplier);
-        const tfTargetPercentage = Math.min(100, Math.round((tfSales / Math.max(1, tfTarget)) * 100));
-        const tfInterested = isToday ? totalInterested : Math.round(totalInterested * (isWeek ? 5 : 20));
+        const isMatchTimeframe = (dateStr?: string) => {
+          if (!dateStr) return false;
+          const d = new Date(dateStr);
+          if (isNaN(d.getTime())) {
+            if (isToday) return dateStr.startsWith(todayYMD);
+            return false;
+          }
+          if (isToday) {
+            return dateStr.startsWith(todayYMD) || d.toISOString().startsWith(todayYMD);
+          } else if (isWeek) {
+            return d >= sevenDaysAgo;
+          } else {
+            return d >= startOfMonth;
+          }
+        };
+
+        const filteredCalls = (callLogs || []).filter(c => isMatchTimeframe(c.date || c.createdAt));
+        const verifiedPayments = (paymentVerifications || []).filter(p => p.status === 'VERIFIED' && isMatchTimeframe(p.timestamp));
+        const convertedLeads = (assignedLeads || []).filter(l => l.status === 'CONVERTED' && isMatchTimeframe(l.updatedAt || l.assignedDate));
+
+        const memberReportRows = teamMembers.map(member => {
+          const empCalls = filteredCalls.filter(c =>
+            c.employeeId === member.id || c.employeeId === member.empCode || (c.clientName && c.clientName.toLowerCase() === member.name.toLowerCase())
+          ).length;
+
+          const memberDials = isToday ? Math.max(empCalls, member.dialsToday || 0) : empCalls;
+
+          const empPayments = verifiedPayments.filter(p => p.telecallerName && p.telecallerName.toLowerCase() === member.name.toLowerCase());
+          const pRevenue = empPayments.reduce((s, p) => s + (p.dealAmount || 0), 0);
+
+          const empWonLeads = convertedLeads.filter(l =>
+            l.assignedTo === member.name || l.assignedTo === member.id || l.assignedTo === member.empCode
+          );
+          const lRevenue = empWonLeads.reduce((s, l) => s + (l.dealValue || 0), 0);
+
+          let achieved = Math.max(pRevenue, lRevenue);
+          if (isMonth && achieved === 0 && (member.salesAchieved || 0) > 0) {
+            achieved = member.salesAchieved;
+          }
+
+          const target = isToday
+            ? Math.round((member.salesTarget || 0) / 22)
+            : isWeek
+            ? Math.round((member.salesTarget || 0) / 4)
+            : (member.salesTarget || 0);
+
+          const memberGoal = isToday
+            ? member.goalCalls
+            : isWeek
+            ? (member.goalCalls * 5)
+            : (member.goalCalls * 22);
+
+          const pacingPercent = target > 0 ? Math.min(100, Math.round((achieved / target) * 100)) : 0;
+
+          return {
+            member,
+            memberDials,
+            memberGoal,
+            achieved,
+            target,
+            pacingPercent
+          };
+        });
+
+        const tfDials = memberReportRows.reduce((sum, r) => sum + r.memberDials, 0);
+        const tfConnected = filteredCalls.filter(c => c.outcome === 'CONNECTED' || c.outcome === 'INTERESTED').length;
+        const tfSales = memberReportRows.reduce((sum, r) => sum + r.achieved, 0);
+        const tfTarget = isToday ? Math.round(targetTotal / 22) : isWeek ? Math.round(targetTotal / 4) : targetTotal;
+        const tfTargetPercentage = tfTarget > 0 ? Math.min(100, Math.round((tfSales / tfTarget) * 100)) : 0;
+        const tfInterested = filteredCalls.filter(c => c.outcome === 'INTERESTED').length;
+        const connectRate = tfDials > 0 ? Math.round((tfConnected / tfDials) * 100) : 0;
 
         return (
           <div className="space-y-6 animate-in fade-in duration-150">
@@ -1234,23 +1305,7 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {teamMembers.map((member) => {
-                      const memberDials = isToday 
-                        ? member.dialsToday 
-                        : isWeek 
-                        ? Math.round(member.dialsToday * 5) 
-                        : Math.round(member.dialsToday * 22);
-
-                      const memberGoal = isToday 
-                        ? member.goalCalls 
-                        : isWeek 
-                        ? (member.goalCalls * 5) 
-                        : (member.goalCalls * 22);
-
-                      const achieved = isMonth ? (member.salesAchieved || 0) : Math.round((member.salesAchieved || 0) * tfSalesMultiplier);
-                      const target = isMonth ? (member.salesTarget || 0) : Math.round((member.salesTarget || 0) * tfSalesMultiplier);
-                      const pacingPercent = target > 0 ? Math.min(100, Math.round((achieved / target) * 100)) : 0;
-
+                    {memberReportRows.map(({ member, memberDials, memberGoal, achieved, target, pacingPercent }) => {
                       return (
                         <tr key={member.id} className="hover:bg-slate-50/70 transition-colors">
                           <td className="py-3.5 pl-2">

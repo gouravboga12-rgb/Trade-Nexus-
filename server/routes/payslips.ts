@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
+import { sendEmployeePayslipEmail } from '../services/emailService.js';
 
 const router = Router();
 
@@ -89,8 +90,51 @@ router.post('/', (req: Request, res: Response) => {
       customNotes || null, changeRemarks || null, modifiedBy || null, modifiedAt || new Date().toISOString()
     );
 
-    const created = db.prepare('SELECT * FROM payslips WHERE id = ?').get(payId);
+    const created = db.prepare('SELECT * FROM payslips WHERE id = ?').get(payId) as any;
+
+    // Asynchronously dispatch email to employee
+    try {
+      const emp = db.prepare(`
+        SELECT email, name, empCode, role, bankName, bankAccountNumber 
+        FROM team_members 
+        WHERE id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
+        LIMIT 1
+      `).get(employeeId || '', empCode || '', employeeName || '') as any;
+
+      if (emp?.email) {
+        sendEmployeePayslipEmail(emp, created).catch(e => console.warn('[Payslip Email Dispatch Error]', e));
+      }
+    } catch (err) {
+      console.warn('[Payslip Lookup Error]', err);
+    }
+
     return res.status(201).json(created);
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// POST /api/payslips/:id/send-email (Manual / Re-dispatch payslip to employee email)
+router.post('/:id/send-email', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const payslip = db.prepare('SELECT * FROM payslips WHERE id = ?').get(id) as any;
+    if (!payslip) return res.status(404).json({ error: 'Payslip not found' });
+
+    const emp = db.prepare(`
+      SELECT email, name, empCode, role, bankName, bankAccountNumber 
+      FROM team_members 
+      WHERE id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
+      LIMIT 1
+    `).get(payslip.employeeId || '', payslip.empCode || '', payslip.employeeName || '') as any;
+
+    const targetEmail = req.body.email || emp?.email;
+    if (!targetEmail) {
+      return res.status(400).json({ error: 'No employee email address found on record' });
+    }
+
+    const emailRes = await sendEmployeePayslipEmail({ ...emp, email: targetEmail }, payslip);
+    return res.status(200).json({ success: true, emailResult: emailRes });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }

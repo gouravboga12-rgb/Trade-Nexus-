@@ -84,4 +84,49 @@ router.delete('/:id', (req: Request, res: Response) => {
   }
 });
 
+// POST /api/employee-documents/send-onboarding-email
+router.post('/send-onboarding-email', async (req: Request, res: Response) => {
+  try {
+    const { employee, offerLetter } = req.body;
+    if (!employee || !employee.email) {
+      return res.status(400).json({ error: 'Employee with email is required' });
+    }
+    const { sendEmployeeOnboardingEmail } = await import('../services/emailService.js');
+    const result = await sendEmployeeOnboardingEmail(employee, offerLetter);
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// POST /api/employee-documents/send-relieving-email
+router.post('/send-relieving-email', async (req: Request, res: Response) => {
+  try {
+    const { employee, relievingLetter } = req.body;
+    if (!employee || !employee.email || !relievingLetter) {
+      return res.status(400).json({ error: 'Employee with email and relieving letter data are required' });
+    }
+    const { sendEmployeeRelievingLetterEmail } = await import('../services/emailService.js');
+    const result = await sendEmployeeRelievingLetterEmail(employee, relievingLetter);
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// POST /api/employee-documents/send-experience-email
+router.post('/send-experience-email', async (req: Request, res: Response) => {
+  try {
+    const { employee, cert } = req.body;
+    if (!employee || !employee.email || !cert) {
+      return res.status(400).json({ error: 'Employee with email and experience cert data are required' });
+    }
+    const { sendEmployeeExperienceCertEmail } = await import('../services/emailService.js');
+    const result = await sendEmployeeExperienceCertEmail(employee, cert);
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;

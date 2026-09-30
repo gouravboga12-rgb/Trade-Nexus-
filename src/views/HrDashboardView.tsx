@@ -64,6 +64,7 @@ import { FaceRegistrationModal } from '../components/modals/FaceRegistrationModa
 import { Employee360ProfileView } from './Employee360ProfileView';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { MeetingTimePicker } from '../components/common/MeetingTimePicker';
+import { InvoicesLedger } from '../components/common/InvoicesLedger';
 
 const formatInLakhs = (val: number) => {
   if (val >= 100000) {
@@ -178,7 +179,7 @@ export const HrDashboardView: React.FC = () => {
   const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'ON_LEAVE'>('ALL');
 
   // Dedicated More Tab: Assets, Credentials & History Registry
-  const [moreSubTab, setMoreSubTab] = useState<'id_cards' | 'payslips' | 'meetings' | 'offers' | 'hr_account' | 'onboard' | 'credentials' | 'interviews'>('payslips');
+  const [moreSubTab, setMoreSubTab] = useState<'id_cards' | 'payslips' | 'meetings' | 'offers' | 'hr_account' | 'onboard' | 'credentials' | 'interviews' | 'invoices'>('payslips');
   const [moreSearchQuery, setMoreSearchQuery] = useState('');
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
 
@@ -1149,6 +1150,9 @@ export const HrDashboardView: React.FC = () => {
                   ? 'bg-amber-50 text-amber-700 border border-amber-200/80'
                   : 'bg-purple-50 text-purple-700 border border-purple-200/80';
 
+                const todayIso = getTodayDateIST();
+                const rec = attendanceLogs.find((a) => (a.employeeId === member.id || a.employeeId === member.empCode) && a.date === todayIso);
+
                 return (
                   <div
                     key={member.id}
@@ -1204,18 +1208,43 @@ export const HrDashboardView: React.FC = () => {
                       </span>
                     </div>
 
-                    {/* Middle: Full Content Punch Details Box (No biometric tag so punch in is fully visible) */}
-                    <div className="bg-slate-50/80 border border-slate-100 rounded-xl p-2.5 flex items-center text-xs">
+                    {/* Middle: Full Content Punch Details Box (Punch In & Punch Out) */}
+                    <div className="bg-slate-50/80 border border-slate-100 rounded-xl p-2.5 space-y-1.5 text-xs">
                       <div className="flex items-center gap-2 min-w-0">
                         <Clock className={`w-3.5 h-3.5 flex-shrink-0 ${isLate ? 'text-amber-500' : isPresent ? 'text-[#00A88B]' : 'text-purple-500'}`} />
                         <span className="font-semibold text-slate-700 font-mono text-[11px] truncate">
                           {isLeave
                             ? 'Approved Leave for Today'
-                            : member.checkInTime
-                            ? `Punch In: ${member.checkInTime} ${isLate ? '(Late Flag • After 09:30)' : '(On Time)'}`
+                            : (rec?.checkIn || member.checkInTime)
+                            ? `Punch In: ${rec?.checkIn || member.checkInTime} ${isLate ? '(Late Flag • After 09:30)' : '(On Time)'}`
                             : 'Punch In: Not Logged'}
                         </span>
                       </div>
+
+                      {!isLeave && (
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-200/50 text-[11px]">
+                          <div className="flex items-center gap-1.5 text-slate-600 font-mono">
+                            <LogOut className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                            <span>
+                              {rec?.checkOut || member.checkOutTime ? (
+                                <>Punch Out: <strong className="text-slate-800">{rec?.checkOut || member.checkOutTime}</strong></>
+                              ) : (rec?.checkIn || member.checkInTime) ? (
+                                <span className="text-emerald-700 font-bold flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  Active on Floor (Not Punched Out)
+                                </span>
+                              ) : (
+                                'Punch Out: —'
+                              )}
+                            </span>
+                          </div>
+                          {rec?.workHours && (
+                            <span className="font-mono font-bold text-teal-700 text-[10px] bg-teal-50 px-1.5 py-0.5 rounded border border-teal-100">
+                              {rec.workHours}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Full Content: 3-Stat Matrix (Floor Productivity & Output) */}
@@ -2129,6 +2158,12 @@ export const HrDashboardView: React.FC = () => {
                   badge: 'Admin' 
                 },
                 { 
+                  id: 'invoices', 
+                  label: 'Invoices', 
+                  icon: FileText, 
+                  badge: `${invoices.length}` 
+                },
+                { 
                   id: 'onboard', 
                   label: 'Onboard', 
                   icon: UserPlus, 
@@ -2822,6 +2857,14 @@ export const HrDashboardView: React.FC = () => {
                   })()}
                 </div>
               </div>
+            )}
+
+            {/* CATEGORY 7: COMMERCIAL INVOICES */}
+            {moreSubTab === 'invoices' && (
+              <InvoicesLedger
+                panelTitle="HR Commercial Invoices & Billing"
+                panelSubtitle="Create commercial client invoices, dispatch to customer email, and audit billing ledger"
+              />
             )}
 
             {/* Utility Download Bar */}

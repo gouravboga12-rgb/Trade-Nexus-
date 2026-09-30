@@ -207,6 +207,7 @@ router.put('/:id', (req: Request, res: Response) => {
           assignedToEmployeeId = ?, assignedToEmployeeName = ?, batchId = ?, 
           assignedDate = ?, status = ?, notes = ?, callCount = ?, 
           lastCallTimestamp = ?, dealValue = ?, followUpDate = ?,
+          customerName = ?, customerBankName = ?, customerAccountNumber = ?, customerIfscCode = ?, customerUpiId = ?,
           updatedAt = ?
       WHERE id = ?
     `).run(
@@ -214,8 +215,36 @@ router.put('/:id', (req: Request, res: Response) => {
       merged.assignedToEmployeeId, merged.assignedToEmployeeName, merged.batchId,
       merged.assignedDate, merged.status, merged.notes, merged.callCount,
       merged.lastCallTimestamp, merged.dealValue, merged.followUpDate,
+      merged.customerName || merged.name || null, merged.customerBankName || null,
+      merged.customerAccountNumber || null, merged.customerIfscCode || null, merged.customerUpiId || null,
       now, id
     );
+
+    // If deal converted, automatically ensure payment_verifications has a pending audit entry with customer details
+    if (merged.status === 'CONVERTED' && merged.dealValue && merged.dealValue > 0) {
+      try {
+        const payId = `pay-${id}`;
+        const existingPay = db.prepare('SELECT id FROM payment_verifications WHERE id = ? OR utrNumber = ?').get(payId, `LEAD-${id}`);
+        if (!existingPay) {
+          db.prepare(`
+            INSERT INTO payment_verifications (
+              id, leadName, companyName, telecallerName, dealAmount, utrNumber, paymentMode, timestamp, status,
+              customerName, customerBankName, customerAccountNumber, customerIfscCode, customerUpiId
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            payId, merged.name, merged.company || 'Direct Client', merged.assignedToEmployeeName || 'Employee',
+            merged.dealValue, `TXN-${id.slice(-6).toUpperCase()}`,
+            merged.customerUpiId ? 'UPI Transfer' : 'Bank Wire / Transfer',
+            'Today', 'PENDING_HR_AUDIT',
+            merged.customerName || merged.name, merged.customerBankName || null,
+            merged.customerAccountNumber || null, merged.customerIfscCode || null, merged.customerUpiId || null
+          );
+          console.log(`[assignedLeads] Auto-created payment verification for won deal ${id}`);
+        }
+      } catch (err) {
+        console.warn('[assignedLeads] Failed to create payment verification for converted deal:', err);
+      }
+    }
 
     // Increment dials on team member if moving from PENDING
     if (existing.status === 'PENDING' && merged.status !== 'PENDING') {
@@ -231,7 +260,6 @@ router.put('/:id', (req: Request, res: Response) => {
     }
 
     // Note: Converted deals create a payment verification item audited by HR/Admin.
-    // Official sales revenue (salesAchieved) is credited upon verification in payments.ts to avoid double crediting.
     if (merged.status === 'INTERESTED') {
       try {
         db.prepare(`

@@ -112,7 +112,7 @@ export const FaceScanAttendanceView: React.FC = () => {
               TRADE NEXUS
             </h2>
             <span className="text-[9px] font-mono text-[#00C9A7] uppercase tracking-widest block font-bold">
-              {isLeader ? 'Team Leader Face Scan' : 'Face Recognition Attendance'}
+              TRADE SMART · {isLeader ? 'Leader Face Scan' : 'Face Biometric Attendance'}
             </span>
           </div>
         </div>
