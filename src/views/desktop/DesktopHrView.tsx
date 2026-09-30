@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useScreenData } from '../../hooks/useScreenData';
 import { 
@@ -151,7 +151,18 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
   const onLeaveCount = teamMembers.filter(m => m.attendanceStatus === 'ON_LEAVE').length;
   // HR only sees leaves pending at their stage (PENDING_HR)
   const pendingLeaves = leaveRequests.filter(r => r.approvalStage === 'PENDING_HR' || (!r.approvalStage && r.status === 'PENDING'));
-  const pendingPayments = paymentVerifications.filter(p => p.status === 'PENDING_HR_AUDIT');
+  
+  const uniquePayments = useMemo<PaymentVerificationItem[]>(() => {
+    const seen = new Set<string>();
+    return paymentVerifications.filter((p: PaymentVerificationItem) => {
+      const key = `${(p.companyName || p.leadName || '').trim().toLowerCase()}_${(p.telecallerName || '').trim().toLowerCase()}_${p.dealAmount}_${p.status}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [paymentVerifications]);
+
+  const pendingPayments = uniquePayments.filter((p: PaymentVerificationItem) => p.status === 'PENDING_HR_AUDIT');
   const pendingApprovalsCount = pendingLeaves.length + pendingPayments.length;
   const attendancePercent = totalEmployees > 0 ? Math.round((presentCount / totalEmployees) * 100) : 0;
 

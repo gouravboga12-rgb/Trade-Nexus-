@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useScreenData } from '../../hooks/useScreenData';
 import {
@@ -33,7 +33,7 @@ import {
   Receipt,
   Calendar,
 } from 'lucide-react';
-import { OfficeSettings, TeamMember, UserRole } from '../../types';
+import { OfficeSettings, TeamMember, UserRole, PaymentVerificationItem } from '../../types';
 import { api } from '../../services/api';
 import { InvoicesLedger } from '../../components/common/InvoicesLedger';
 import { ExcelLeadUploadModal } from '../../components/modals/ExcelLeadUploadModal';
@@ -187,7 +187,18 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
   const salesTarget = teamMembers.reduce((sum, m) => sum + (m.salesTarget || 0), 0);
   const salesPercent = Math.round((salesAchieved / Math.max(1, salesTarget)) * 100);
 
-  const pendingPayments = paymentVerifications.filter((p) => p.status === 'PENDING_HR_AUDIT');
+  // Deduplicate won deal payment verifications to avoid double cards in Needs Your Attention & Ledger
+  const uniquePayments = useMemo<PaymentVerificationItem[]>(() => {
+    const seen = new Set<string>();
+    return paymentVerifications.filter((p: PaymentVerificationItem) => {
+      const key = `${(p.companyName || p.leadName || '').trim().toLowerCase()}_${(p.telecallerName || '').trim().toLowerCase()}_${p.dealAmount}_${p.status}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [paymentVerifications]);
+
+  const pendingPayments = uniquePayments.filter((p: PaymentVerificationItem) => p.status === 'PENDING_HR_AUDIT');
   const leadsDueToday = clients.filter((c) => c.status === 'Due Today');
 
   // Things that need a decision from the Admin today
@@ -200,11 +211,24 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     (m) => m.portal !== 'admin' && m.empCode !== 'TNX-AD01' && !(m.role || '').toLowerCase().includes('admin')
   );
 
-  const telecallerCount = nonAdminMembers.filter((m) => {
+  // Strictly filter for Telecaller employees (excludes Admin, HR, Team Leaders, Accounts, Coaches)
+  const isTelecallerMember = (m: TeamMember) => {
+    if (!m) return false;
     const p = (m.portal || '').toLowerCase();
     const r = (m.role || '').toLowerCase();
-    return p !== 'hr' && !r.includes('hr') && p !== 'team_leader' && !r.includes('leader');
-  }).length;
+    const n = (m.name || '').toLowerCase();
+    if (p === 'admin' || p === 'hr' || p === 'team_leader') return false;
+    if (m.empCode === 'TNX-AD01') return false;
+    if (r.includes('admin') || r.includes('hr') || r.includes('leader') || r.includes('coach') || 
+        r.includes('account') || r.includes('manager') || r.includes('finance') || r.includes('operations')) {
+      return false;
+    }
+    if (n.includes('hr') || n.includes('admin')) return false;
+    return true;
+  };
+
+  const telecallerMembers = teamMembers.filter(isTelecallerMember);
+  const telecallerCount = telecallerMembers.length;
 
   const leaderCount = nonAdminMembers.filter((m) => {
     const p = (m.portal || '').toLowerCase();
@@ -277,7 +301,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     return true;
   });
 
-  const leadsPerEmployee = teamMembers.map((m) => {
+  const leadsPerEmployee = telecallerMembers.map((m) => {
     const mine = filteredAssignedLeadsByDate.filter(
       (l) =>
         l.assignedToEmployeeId === m.id ||
@@ -1363,7 +1387,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
             </tbody>
           </table>
         </div>
-        {!teamMembers.length && <Empty text="No employees yet." />}
+        {!telecallerMembers.length && <Empty text="No telecaller employees yet." />}
       </div>
 
       <div className="nexus-card bg-white border border-slate-200 shadow-sm p-5 space-y-3">
@@ -1413,7 +1437,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
             >
               <option value="">— Choose employee —</option>
-              {teamMembers
+              {telecallerMembers
                 .filter((m) => (moveFrom === 'UNASSIGNED' || m.id !== moveFrom) && m.active !== 0)
                 .map((m) => {
                   const heldCount = assignedLeads.filter(
@@ -1495,8 +1519,8 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
 
   const renderRevenue = () => {
     // 1. Calculate Aggregates
-    const verifiedPayments = paymentVerifications.filter((p) => p.status === 'VERIFIED');
-    const pendingPaymentsList = paymentVerifications.filter((p) => p.status === 'PENDING_HR_AUDIT');
+    const verifiedPayments = uniquePayments.filter((p) => p.status === 'VERIFIED');
+    const pendingPaymentsList = uniquePayments.filter((p) => p.status === 'PENDING_HR_AUDIT');
     const totalVerifiedRevenue = verifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
     const totalPendingRevenue = pendingPaymentsList.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
     const teamSalesTotal = teamMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0);
@@ -1510,7 +1534,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
       .filter((m) => m.portal !== 'admin' && m.empCode !== 'TNX-AD01' && !(m.role || '').toLowerCase().includes('admin') && m.portal !== 'hr' && !(m.role || '').toLowerCase().includes('hr'))
       .map((m) => {
         const mNameLower = m.name.toLowerCase();
-        const repPayments = paymentVerifications.filter(
+        const repPayments = uniquePayments.filter(
           (p) => (p.telecallerName || '').toLowerCase() === mNameLower
         );
         const repVerifiedPayments = repPayments.filter((p) => p.status === 'VERIFIED');
@@ -1542,7 +1566,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     const topCloser = leaderboard.length > 0 && leaderboard[0].revenue > 0 ? leaderboard[0] : null;
 
     // Filtered Won Deals Ledger
-    const allWonDeals = paymentVerifications.filter((p) => {
+    const allWonDeals = uniquePayments.filter((p) => {
       if (revenueDealFilter === 'VERIFIED') return p.status === 'VERIFIED';
       if (revenueDealFilter === 'PENDING') return p.status === 'PENDING_HR_AUDIT';
       if (revenueDealFilter === 'REJECTED') return p.status === 'REJECTED';
@@ -1872,7 +1896,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     // Admin only sees leaves at the PENDING_ADMIN stage (final sign-off)
     const pendingLeaves = leaveRequests.filter((l) => l.approvalStage === 'PENDING_ADMIN' || (!l.approvalStage && l.status === 'PENDING'));
     const totalPending = pendingPayments.length + pendingLeaves.length;
-    const auditedPayments = paymentVerifications.filter((p) => p.status !== 'PENDING_HR_AUDIT');
+    const auditedPayments = uniquePayments.filter((p) => p.status !== 'PENDING_HR_AUDIT');
 
     return (
       <div className="space-y-6 max-w-7xl mx-auto">

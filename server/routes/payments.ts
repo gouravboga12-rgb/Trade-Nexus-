@@ -9,6 +9,17 @@ router.get('/', (req: Request, res: Response) => {
   try {
     const user = req.user;
 
+    // Helper to deduplicate payments
+    const dedupe = (list: any[]) => {
+      const seen = new Set<string>();
+      return list.filter((p) => {
+        const key = `${(p.companyName || p.leadName || '').trim().toLowerCase()}_${(p.telecallerName || '').trim().toLowerCase()}_${p.dealAmount}_${p.status}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    };
+
     // 1. Telecaller / Employee: Strictly restricted to their own closed deals
     if (user && (user.role === 'telecaller' || user.role === 'employee')) {
       const ownName = user.name || '';
@@ -17,7 +28,7 @@ router.get('/', (req: Request, res: Response) => {
         WHERE LOWER(telecallerName) = LOWER(?)
         ORDER BY createdAt DESC
       `).all(ownName);
-      return res.status(200).json(payments);
+      return res.status(200).json(dedupe(payments));
     }
 
     // 2. Team Leader: Restrict to members in their team group / squad
@@ -47,7 +58,7 @@ router.get('/', (req: Request, res: Response) => {
             WHERE LOWER(telecallerName) IN (${placeholders})
             ORDER BY createdAt DESC
           `).all(...memberNames);
-          return res.status(200).json(payments);
+          return res.status(200).json(dedupe(payments));
         }
         return res.status(200).json([]);
       } else {
@@ -56,13 +67,13 @@ router.get('/', (req: Request, res: Response) => {
           WHERE LOWER(telecallerName) = LOWER(?)
           ORDER BY createdAt DESC
         `).all(user.name);
-        return res.status(200).json(payments);
+        return res.status(200).json(dedupe(payments));
       }
     }
 
     // 3. Admin / HR: Full master payment ledger
     const payments = db.prepare('SELECT * FROM payment_verifications ORDER BY createdAt DESC').all();
-    return res.status(200).json(payments);
+    return res.status(200).json(dedupe(payments));
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }
@@ -77,6 +88,41 @@ router.post('/', (req: Request, res: Response) => {
     } = req.body;
     const payId = id || `pay-${Date.now()}`;
     const callerName = telecallerName || req.user?.name || 'Employee';
+    const cleanCompany = (companyName || leadName || 'Company').trim();
+    const amount = dealAmount ? Number(dealAmount) : 0;
+
+    // Check if an existing pending payment matches to prevent duplicates
+    const existing = db.prepare(`
+      SELECT id FROM payment_verifications 
+      WHERE id = ? OR (
+        LOWER(TRIM(COALESCE(companyName, leadName, ''))) = LOWER(TRIM(?)) AND
+        LOWER(TRIM(COALESCE(telecallerName, ''))) = LOWER(TRIM(?)) AND
+        dealAmount = ? AND
+        status = 'PENDING_HR_AUDIT'
+      )
+    `).get(payId, cleanCompany, callerName, amount) as any;
+
+    if (existing) {
+      db.prepare(`
+        UPDATE payment_verifications
+        SET customerName = COALESCE(?, customerName),
+            customerBankName = COALESCE(?, customerBankName),
+            customerAccountNumber = COALESCE(?, customerAccountNumber),
+            customerIfscCode = COALESCE(?, customerIfscCode),
+            customerUpiId = COALESCE(?, customerUpiId),
+            utrNumber = COALESCE(?, utrNumber),
+            paymentMode = COALESCE(?, paymentMode),
+            dealAmount = ?
+        WHERE id = ?
+      `).run(
+        customerName || leadName || null, customerBankName || null,
+        customerAccountNumber || null, customerIfscCode || null, customerUpiId || null,
+        utrNumber || null, paymentMode || null,
+        amount, existing.id
+      );
+      const updated = db.prepare('SELECT * FROM payment_verifications WHERE id = ?').get(existing.id);
+      return res.status(200).json(updated);
+    }
 
     db.prepare(`
       INSERT INTO payment_verifications (
@@ -85,8 +131,8 @@ router.post('/', (req: Request, res: Response) => {
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      payId, leadName || customerName || 'Client', companyName || 'Company', callerName,
-      dealAmount ? Number(dealAmount) : 0, utrNumber || `TXN${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+      payId, leadName || customerName || 'Client', cleanCompany, callerName,
+      amount, utrNumber || `TXN${Math.floor(1000000000 + Math.random() * 9000000000)}`,
       paymentMode || (customerUpiId ? 'UPI Transfer' : 'Online Bank Transfer'), timestamp || 'Just now',
       status || 'PENDING_HR_AUDIT', receiptUrl || null,
       customerName || leadName || null, customerBankName || null, customerAccountNumber || null,

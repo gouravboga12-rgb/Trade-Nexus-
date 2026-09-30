@@ -652,4 +652,18 @@ function runMigrations() {
       // Column may already exist or table may not yet exist — safe to ignore
     }
   }
+
+  // Deduplicate payment_verifications to ensure no duplicate won deal entries exist
+  try {
+    db.prepare(`
+      DELETE FROM payment_verifications 
+      WHERE rowid NOT IN (
+        SELECT MIN(rowid) 
+        FROM payment_verifications 
+        GROUP BY LOWER(TRIM(COALESCE(companyName, leadName, ''))), LOWER(TRIM(COALESCE(telecallerName, ''))), dealAmount, status
+      )
+    `).run();
+  } catch (e) {
+    // Ignore if table not yet initialized
+  }
 }

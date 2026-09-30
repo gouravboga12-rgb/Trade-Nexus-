@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useScreenData } from '../hooks/useScreenData';
 import {
@@ -352,11 +352,23 @@ export const AdminDashboardView: React.FC = () => {
   const callsToday = teamMembers.reduce((sum, m) => sum + (m.dialsToday || 0), 0);
   const salesAchieved = teamMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0);
   const salesTarget = teamMembers.reduce((sum, m) => sum + (m.salesTarget || 0), 0);
-  const pendingPayments = paymentVerifications.filter((p) => p.status === 'PENDING_HR_AUDIT');
-  const todayVerifiedSales = paymentVerifications.filter((p) => p.status === 'VERIFIED').reduce((sum, p) => sum + (p.dealAmount || 0), 0);
-  const todayPendingSales = paymentVerifications.filter((p) => p.status === 'PENDING_HR_AUDIT').reduce((sum, p) => sum + (p.dealAmount || 0), 0);
+  
+  // Deduplicate won deal payment verifications to avoid double cards in Needs Your Attention & Ledger
+  const uniquePayments = useMemo<PaymentVerificationItem[]>(() => {
+    const seen = new Set<string>();
+    return paymentVerifications.filter((p: PaymentVerificationItem) => {
+      const key = `${(p.companyName || p.leadName || '').trim().toLowerCase()}_${(p.telecallerName || '').trim().toLowerCase()}_${p.dealAmount}_${p.status}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [paymentVerifications]);
+
+  const pendingPayments = uniquePayments.filter((p: PaymentVerificationItem) => p.status === 'PENDING_HR_AUDIT');
+  const todayVerifiedSales = uniquePayments.filter((p: PaymentVerificationItem) => p.status === 'VERIFIED').reduce((sum: number, p: PaymentVerificationItem) => sum + (p.dealAmount || 0), 0);
+  const todayPendingSales = uniquePayments.filter((p: PaymentVerificationItem) => p.status === 'PENDING_HR_AUDIT').reduce((sum: number, p: PaymentVerificationItem) => sum + (p.dealAmount || 0), 0);
   const todaySales = todayVerifiedSales > 0 ? todayVerifiedSales : todayPendingSales;
-  const todayDealsCount = paymentVerifications.length;
+  const todayDealsCount = uniquePayments.length;
   const leadsDueToday = clients.filter((c) => c.status === 'Due Today');
 
   const awayWithoutLeave = teamMembers.filter((m) => m.attendanceStatus === 'ABSENT');
@@ -368,11 +380,25 @@ export const AdminDashboardView: React.FC = () => {
     (m) => m.portal !== 'admin' && m.empCode !== 'TNX-AD01' && !(m.role || '').toLowerCase().includes('admin')
   );
 
-  const telecallerCount = nonAdminMembers.filter((m) => {
+  // Strictly filter for Telecaller employees (excludes Admin, HR, Team Leaders, Accounts, Coaches)
+  const isTelecallerMember = (m: TeamMember) => {
+    if (!m) return false;
     const p = (m.portal || '').toLowerCase();
     const r = (m.role || '').toLowerCase();
-    return p !== 'hr' && !r.includes('hr') && p !== 'team_leader' && !r.includes('leader');
-  }).length;
+    const n = (m.name || '').toLowerCase();
+    if (p === 'admin' || p === 'hr' || p === 'team_leader') return false;
+    if (m.empCode === 'TNX-AD01') return false;
+    if (r.includes('admin') || r.includes('hr') || r.includes('leader') || r.includes('coach') || 
+        r.includes('account') || r.includes('manager') || r.includes('finance') || r.includes('operations')) {
+      return false;
+    }
+    if (n.includes('hr') || n.includes('admin')) return false;
+    return true;
+  };
+
+  const telecallerMembers = teamMembers.filter(isTelecallerMember);
+
+  const telecallerCount = telecallerMembers.length;
 
   const leaderCount = nonAdminMembers.filter((m) => {
     const p = (m.portal || '').toLowerCase();
@@ -2281,11 +2307,11 @@ export const AdminDashboardView: React.FC = () => {
 
               {/* Employee Holding Breakdown */}
               <SectionTitle>Employee Lead Allocations</SectionTitle>
-              {!teamMembers.length ? (
-                <Empty text="No employees yet." />
+              {!telecallerMembers.length ? (
+                <Empty text="No telecaller employees found." />
               ) : (
                 <div className="space-y-2">
-                  {teamMembers.map((m) => {
+                  {telecallerMembers.map((m) => {
                     const mine = filteredLeadsByDate.filter((l) => l.assignedToEmployeeId === m.id);
                     const calledCount = mine.filter((l) => l.callCount > 0).length;
                     const convertedCount = mine.filter((l) => l.status === 'CONVERTED').length;
@@ -2349,7 +2375,7 @@ export const AdminDashboardView: React.FC = () => {
                       </option>
                     ) : null;
                   })()}
-                  {teamMembers
+                  {telecallerMembers
                     .filter((m) =>
                       assignedLeads.some(
                         (l) =>
@@ -2378,7 +2404,7 @@ export const AdminDashboardView: React.FC = () => {
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
                 >
                   <option value="">To — choose employee</option>
-                  {teamMembers
+                  {telecallerMembers
                     .filter((m) => (moveFrom === 'UNASSIGNED' || m.id !== moveFrom) && m.active !== 0)
                     .map((m) => {
                       const count = assignedLeads.filter(
@@ -3033,8 +3059,8 @@ export const AdminDashboardView: React.FC = () => {
 
         {/* ---------------------------------------------------- Revenue & Won Deals */}
         {tab === 'revenue' && (() => {
-          const verifiedPayments = paymentVerifications.filter((p) => p.status === 'VERIFIED');
-          const pendingPaymentsList = paymentVerifications.filter((p) => p.status === 'PENDING_HR_AUDIT');
+          const verifiedPayments = uniquePayments.filter((p) => p.status === 'VERIFIED');
+          const pendingPaymentsList = uniquePayments.filter((p) => p.status === 'PENDING_HR_AUDIT');
           const totalVerifiedRevenue = verifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
           const totalPendingRevenue = pendingPaymentsList.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
           const teamSalesTotal = teamMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0);
@@ -3176,15 +3202,15 @@ export const AdminDashboardView: React.FC = () => {
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <h3 className="font-bold text-xs text-[#0A2540] uppercase tracking-wider flex items-center gap-1.5">
                     <Wallet className="w-3.5 h-3.5 text-[#00A88B]" />
-                    <span>Won Deals Ledger ({paymentVerifications.length})</span>
+                    <span>Won Deals Ledger ({uniquePayments.length})</span>
                   </h3>
                 </div>
 
-                {paymentVerifications.length === 0 ? (
+                {uniquePayments.length === 0 ? (
                   <Empty text="No deals logged yet." />
                 ) : (
                   <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-                    {paymentVerifications.map((p) => (
+                    {uniquePayments.map((p) => (
                       <div key={p.id} className="p-3 bg-slate-50/70 rounded-xl border border-slate-200/80 space-y-2">
                         <div className="flex items-start justify-between">
                           <div>

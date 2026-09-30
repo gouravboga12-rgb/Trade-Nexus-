@@ -224,7 +224,18 @@ router.put('/:id', (req: Request, res: Response) => {
     if (merged.status === 'CONVERTED' && merged.dealValue && merged.dealValue > 0) {
       try {
         const payId = `pay-${id}`;
-        const existingPay = db.prepare('SELECT id FROM payment_verifications WHERE id = ? OR utrNumber = ?').get(payId, `LEAD-${id}`);
+        const cleanCompany = (merged.company || merged.name || 'Direct Client').trim();
+        const callerName = (merged.assignedToEmployeeName || 'Employee').trim();
+        const existingPay = db.prepare(`
+          SELECT id FROM payment_verifications 
+          WHERE id = ? OR utrNumber = ? OR (
+            LOWER(TRIM(COALESCE(companyName, leadName, ''))) = LOWER(TRIM(?)) AND
+            LOWER(TRIM(COALESCE(telecallerName, ''))) = LOWER(TRIM(?)) AND
+            dealAmount = ? AND
+            status = 'PENDING_HR_AUDIT'
+          )
+        `).get(payId, `LEAD-${id}`, cleanCompany, callerName, merged.dealValue) as any;
+
         if (!existingPay) {
           db.prepare(`
             INSERT INTO payment_verifications (
@@ -232,7 +243,7 @@ router.put('/:id', (req: Request, res: Response) => {
               customerName, customerBankName, customerAccountNumber, customerIfscCode, customerUpiId
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).run(
-            payId, merged.name, merged.company || 'Direct Client', merged.assignedToEmployeeName || 'Employee',
+            payId, merged.name, cleanCompany, callerName,
             merged.dealValue, `TXN-${id.slice(-6).toUpperCase()}`,
             merged.customerUpiId ? 'UPI Transfer' : 'Bank Wire / Transfer',
             'Today', 'PENDING_HR_AUDIT',
@@ -240,6 +251,22 @@ router.put('/:id', (req: Request, res: Response) => {
             merged.customerAccountNumber || null, merged.customerIfscCode || null, merged.customerUpiId || null
           );
           console.log(`[assignedLeads] Auto-created payment verification for won deal ${id}`);
+        } else {
+          // Update customer banking info if already exists
+          db.prepare(`
+            UPDATE payment_verifications
+            SET customerName = COALESCE(?, customerName),
+                customerBankName = COALESCE(?, customerBankName),
+                customerAccountNumber = COALESCE(?, customerAccountNumber),
+                customerIfscCode = COALESCE(?, customerIfscCode),
+                customerUpiId = COALESCE(?, customerUpiId),
+                dealAmount = ?
+            WHERE id = ?
+          `).run(
+            merged.customerName || merged.name, merged.customerBankName || null,
+            merged.customerAccountNumber || null, merged.customerIfscCode || null, merged.customerUpiId || null,
+            merged.dealValue, existingPay.id
+          );
         }
       } catch (err) {
         console.warn('[assignedLeads] Failed to create payment verification for converted deal:', err);

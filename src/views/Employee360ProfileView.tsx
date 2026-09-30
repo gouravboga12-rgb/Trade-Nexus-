@@ -66,9 +66,10 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
 
   if (!member) return null;
 
-  // Mask client phone numbers for high security
+  // Mask client phone numbers for high security (Admin view sees full unmasked phone numbers)
   const maskPhone = (phone?: string) => {
-    if (!phone) return '—';
+    if (!phone || phone.trim() === '') return '—';
+    if (viewerRole === 'admin') return phone.trim();
     const clean = phone.trim();
     if (clean.length > 5) {
       return clean.substring(0, clean.length - 5) + '*****';
@@ -854,6 +855,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
                                 (l.name && call.clientName && l.name.toLowerCase() === call.clientName.toLowerCase())
                               );
                               const isWon = ['CONVERTED', 'WON', 'DEAL_CLOSED'].includes((call.outcome || '').toUpperCase());
+                              const phoneToDisplay = call.phoneNumber || matchingLead?.phone || '';
                               return (
                                 <div key={call.id || cIdx} className="bg-slate-50/90 rounded-xl p-2.5 border border-slate-200/80 text-xs space-y-1">
                                   <div className="flex items-center justify-between">
@@ -869,7 +871,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
-                                    <span>📞 {maskPhone(call.phoneNumber)}</span>
+                                    <span>📞 {maskPhone(phoneToDisplay)}</span>
                                     <span>⏱️ {Math.floor((call.durationSec || 0) / 60)}m {(call.durationSec || 0) % 60}s</span>
                                     {isWon && matchingLead?.dealValue ? (
                                       <span className="text-[#00A88B] font-bold font-sans">
@@ -1150,7 +1152,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
 
                                               <div className="flex items-center gap-4 text-xs font-mono">
                                                 <span className="text-slate-500 font-bold">
-                                                  📞 {maskPhone(call.phoneNumber)}
+                                                  📞 {maskPhone(call.phoneNumber || matchingLead?.phone)}
                                                 </span>
                                                 <span className="text-slate-400">
                                                   ⏱️ {Math.floor((call.durationSec || 0) / 60)}m {(call.durationSec || 0) % 60}s

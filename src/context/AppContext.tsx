@@ -787,7 +787,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     leadBatches: setLeadBatches,
     faceProfiles: setFaceProfiles,
     offerLetters: setOfferLetters,
-    paymentVerifications: setPaymentVerifications,
+    paymentVerifications: (data: PaymentVerificationItem[]) => {
+      const seen = new Set<string>();
+      const deduped = (data || []).filter((p) => {
+        const key = `${(p.companyName || p.leadName || '').trim().toLowerCase()}_${(p.telecallerName || '').trim().toLowerCase()}_${p.dealAmount}_${p.status}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      setPaymentVerifications(deduped);
+    },
     companyHolidays: setCompanyHolidaysState,
     calendarSettings: (settings: CalendarSettings) => {
       setCalendarSettingsState(settings);
@@ -1242,8 +1251,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // If converted with deal value, record in payment verification list for HR and Admin Won Deals Ledger
     if (status === 'CONVERTED') {
+      const payId = `pay-${leadId}`;
       const newPayment: PaymentVerificationItem = {
-        id: `pay-${Date.now()}`,
+        id: payId,
         leadName: targetLead.name,
         companyName: targetLead.company,
         telecallerName: targetLead.assignedToEmployeeName,
@@ -1258,7 +1268,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         customerIfscCode: targetLead.customerIfscCode,
         customerUpiId: targetLead.customerUpiId,
       };
-      setPaymentVerifications(prev => [newPayment, ...prev]);
+      setPaymentVerifications(prev => {
+        const withoutDup = prev.filter(p => 
+          p.id !== payId && 
+          !(
+            (p.companyName || p.leadName || '').trim().toLowerCase() === (targetLead.company || targetLead.name || '').trim().toLowerCase() &&
+            (p.telecallerName || '').trim().toLowerCase() === (targetLead.assignedToEmployeeName || '').trim().toLowerCase() &&
+            p.dealAmount === dealAmountNum &&
+            p.status === 'PENDING_HR_AUDIT'
+          )
+        );
+        return [newPayment, ...withoutDup];
+      });
       api.createPayment(newPayment).catch(console.warn);
     }
 
