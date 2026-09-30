@@ -19,66 +19,76 @@ export const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({
 
   if (!isOpen || !team) return null;
 
-  // Members currently assigned to this squad
-  const currentMembers = teamMembers.filter((m) => m.group === team.name);
+  // Members currently assigned to this squad (case-insensitive & trimmed)
+  const currentMembers = teamMembers.filter(
+    (m) => (m.group || '').trim().toLowerCase() === team.name.trim().toLowerCase()
+  );
 
   // Other telecallers in the company who can be transferred into this squad
   const availableMembers = teamMembers.filter(
-    (m) => m.group !== team.name && m.active !== 0
+    (m) => (m.group || '').trim().toLowerCase() !== team.name.trim().toLowerCase() && m.active !== 0
   );
 
   const handleAddMember = async (memberId: string) => {
-    const member = teamMembers.find((m) => m.id === memberId);
+    const member = teamMembers.find((m) => m.id === memberId || m.empCode === memberId);
     if (!member) return;
 
-    await updateEmployee(member.id, { group: team.name });
-    triggerToast(`✓ Added ${member.name} to ${team.name}`);
-    setSelectedToAddId('');
+    try {
+      await updateEmployee(member.id, { group: team.name });
+      triggerToast(`✓ Added ${member.name} to ${team.name}`);
+      setSelectedToAddId('');
+    } catch {
+      triggerToast(`✗ Failed to add ${member.name} to ${team.name}`);
+    }
   };
 
   const handleRemoveMember = async (member: TeamMember) => {
-    await updateEmployee(member.id, { group: 'Unassigned' });
-    triggerToast(`✓ Removed ${member.name} from ${team.name}`);
+    try {
+      await updateEmployee(member.id, { group: 'Unassigned' });
+      triggerToast(`✓ Removed ${member.name} from ${team.name}`);
+    } catch {
+      triggerToast(`✗ Failed to remove ${member.name} from ${team.name}`);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4">
-      <div className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 animate-in slide-in-from-bottom duration-200 max-h-[92vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-4">
+      <div className="w-full max-w-lg mx-auto bg-white rounded-3xl shadow-2xl border border-slate-200 animate-in fade-in duration-200 max-h-[92vh] flex flex-col overflow-hidden">
         
         {/* Modal Header */}
-        <div className="bg-[#0A192F] px-6 py-4 text-white flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="bg-[#0A192F] px-5 sm:px-6 py-4 text-white flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
             <div 
-              className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-sm"
+              className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-sm flex-shrink-0"
               style={{ backgroundColor: team.color || '#00C9A7' }}
             >
               <Layers className="w-5 h-5 text-white" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-base text-white">{team.name}</h3>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white/10 text-teal-300">
+                <h3 className="font-bold text-base text-white truncate">{team.name}</h3>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white/10 text-teal-300 flex-shrink-0">
                   {currentMembers.length} Members
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-400 truncate">
                 Led by {team.leaderName || 'No Leader Assigned'} · Target ₹{(team.monthlyTarget / 1000).toFixed(0)}k
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors flex-shrink-0 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 space-y-6 overflow-y-auto flex-1 text-xs">
+        <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1 text-xs">
           
-          {/* Quick Add Section */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+          {/* Quick Add Section with non-overflowing responsive layout */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 sm:p-4 space-y-3">
             <div className="flex items-center gap-2 text-slate-700 font-bold">
               <UserPlus className="w-4 h-4 text-[#00A88B]" />
               <span>Add Member to this Squad</span>
@@ -87,11 +97,11 @@ export const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({
               Select an employee to transfer them into <strong>{team.name}</strong> immediately:
             </p>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <select
                 value={selectedToAddId}
                 onChange={(e) => setSelectedToAddId(e.target.value)}
-                className="flex-1 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                className="w-full sm:flex-1 min-w-0 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7] truncate"
               >
                 <option value="">— Select telecaller to add —</option>
                 {availableMembers.map((m) => (
@@ -104,7 +114,7 @@ export const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({
                 type="button"
                 disabled={!selectedToAddId}
                 onClick={() => handleAddMember(selectedToAddId)}
-                className="bg-[#00C9A7] hover:bg-[#00B4D8] disabled:bg-slate-200 disabled:text-slate-400 text-[#0A2540] font-black px-4 py-2 rounded-xl transition-all active:scale-95 shadow-xs"
+                className="w-full sm:w-auto flex-shrink-0 bg-[#00C9A7] hover:bg-[#00B4D8] disabled:bg-slate-200 disabled:text-slate-400 text-[#0A2540] font-black px-4 py-2 rounded-xl transition-all active:scale-95 shadow-xs whitespace-nowrap cursor-pointer"
               >
                 Add to Squad
               </button>
@@ -133,22 +143,22 @@ export const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({
                   return (
                     <div
                       key={m.id}
-                      className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl hover:border-slate-300 transition-all shadow-xs"
+                      className="flex items-center justify-between gap-2 p-3 bg-white border border-slate-200 rounded-xl hover:border-slate-300 transition-all shadow-xs"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-bold text-xs">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-8 h-8 rounded-lg bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-bold text-xs flex-shrink-0">
                           {m.name.slice(0, 2).toUpperCase()}
                         </div>
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-800">{m.name}</span>
+                            <span className="font-bold text-slate-800 truncate block">{m.name}</span>
                             {isLeader && (
-                              <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 uppercase">
+                              <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 uppercase flex-shrink-0">
                                 Squad Leader
                               </span>
                             )}
                           </div>
-                          <span className="text-[10px] text-slate-400 font-mono">
+                          <span className="text-[10px] text-slate-400 font-mono truncate block">
                             {m.empCode} · {m.role} · {m.dialsToday || 0} dials today
                           </span>
                         </div>
@@ -156,8 +166,8 @@ export const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({
 
                       <button
                         onClick={() => handleRemoveMember(m)}
-                        title="Remove from squad"
-                        className="flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-lg transition-all"
+                        title={`Remove ${m.name} from squad`}
+                        className="flex-shrink-0 flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer active:scale-95"
                       >
                         <UserMinus className="w-3.5 h-3.5" />
                         <span>Remove</span>

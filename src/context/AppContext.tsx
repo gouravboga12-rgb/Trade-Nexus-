@@ -1363,14 +1363,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     let updated: TeamMember | undefined;
     setTeamMembers((prev) =>
       prev.map((m) => {
-        if (m.id !== id) return m;
+        if (m.id !== id && m.empCode !== id) return m;
         updated = { ...m, ...changes };
         return updated;
       })
     );
 
     if (!updated) return;
-    triggerToast(`✓ ${updated.name} updated`);
 
     // ── Global sync: if admin edits the currently logged-in employee, update profile too ──
     const currentEmpIdForSync = currentUser?.employeeId || currentUser?.id || profile.id;
@@ -1398,22 +1397,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // ── Sync payslips: update employee name on existing payslips if name changed ──
     if (changes.name) {
       setPayslips(prev => prev.map(p =>
-        p.employeeId === id ? { ...p, employeeName: changes.name! } : p
+        (p.employeeId === id || p.empCode === id) ? { ...p, employeeName: changes.name! } : p
       ));
     }
 
     // ── Sync assignedLeads: update assignee name if it changed ──
     if (changes.name) {
       setAssignedLeads(prev => prev.map(l =>
-        l.assignedToEmployeeId === id ? { ...l, assignedToEmployeeName: changes.name! } : l
+        (l.assignedToEmployeeId === id || l.assignedToEmployeeId === (updated as TeamMember).id) ? { ...l, assignedToEmployeeName: changes.name! } : l
       ));
     }
 
     try {
-      await api.updateTeamMember(id, changes);
+      const saved = await api.updateTeamMember(id, changes);
+      if (saved) {
+        setTeamMembers(prev => prev.map(m => (m.id === id || m.empCode === id || m.id === saved.id) ? { ...m, ...saved } : m));
+      }
+      refreshResources(['teamMembers', 'teamGroups']).catch(() => {});
     } catch (err) {
       console.warn('Employee update failed:', err);
-      triggerToast('✗ Could not save those changes');
+      triggerToast('✗ Could not save those changes to server');
+      throw err;
     }
   };
 

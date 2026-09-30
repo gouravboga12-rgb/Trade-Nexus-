@@ -23,13 +23,21 @@ router.get('/', (req: Request, res: Response) => {
       const squadName = leaderRow?.groupName || '';
 
       const groups = db.prepare(`
-        SELECT * FROM team_groups 
-        WHERE LOWER(leaderName) = LOWER(?) OR LOWER(name) = LOWER(?)
+        SELECT g.id, g.name, g.description, g.leaderName, 
+               (SELECT COUNT(*) FROM team_members m WHERE LOWER(m.groupName) = LOWER(g.name) AND m.active = 1) AS memberCount,
+               g.monthlyTarget, g.achieved, g.color, g.createdAt
+        FROM team_groups g 
+        WHERE LOWER(g.leaderName) = LOWER(?) OR LOWER(g.name) = LOWER(?)
       `).all(leaderName, squadName);
       return res.status(200).json(groups);
     }
 
-    const groups = db.prepare('SELECT * FROM team_groups').all();
+    const groups = db.prepare(`
+      SELECT g.id, g.name, g.description, g.leaderName, 
+             (SELECT COUNT(*) FROM team_members m WHERE LOWER(m.groupName) = LOWER(g.name) AND m.active = 1) AS memberCount,
+             g.monthlyTarget, g.achieved, g.color, g.createdAt
+      FROM team_groups g
+    `).all();
     return res.status(200).json(groups);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
