@@ -116,11 +116,11 @@ export const App: React.FC = () => {
   const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
 
   const backendBanner = (backendError && isLocalhost) ? (
-    <div className="fixed top-0 left-0 right-0 z-[60] bg-rose-600 text-white text-xs font-bold px-4 py-2 text-center shadow-lg">
+    <div className="fixed top-0 left-0 right-0 z-[60] bg-rose-600 text-white text-xs font-bold px-4 py-2 text-center shadow-lg print:hidden">
       Backend unreachable — showing empty data. {backendError}
     </div>
   ) : (isDataLoading && isLocalhost) ? (
-    <div className="fixed top-0 left-0 right-0 z-[60] bg-[#0A2540] text-[#00C9A7] text-xs font-bold px-4 py-1.5 text-center">
+    <div className="fixed top-0 left-0 right-0 z-[60] bg-[#0A2540] text-[#00C9A7] text-xs font-bold px-4 py-1.5 text-center print:hidden">
       Loading live data from SQLite…
     </div>
   ) : null;
@@ -141,7 +141,7 @@ export const App: React.FC = () => {
         
         {/* Floating Notification Toast */}
         {activeToast && (
-          <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[#0A2540] text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-xl border border-[#00C9A7]/40 flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
+          <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[#0A2540] text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-xl border border-[#00C9A7]/40 flex items-center gap-2 animate-in slide-in-from-bottom duration-200 print:hidden">
             <span>{activeToast}</span>
           </div>
         )}
@@ -170,16 +170,16 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans text-slate-800 selection:bg-[#00C9A7]/20">
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans text-slate-800 selection:bg-[#00C9A7]/20 print:bg-white print:min-h-0 print:h-auto">
       {backendBanner}
 
-      {/* 2. UNIFIED RESPONSIVE APP WORKSPACE (Mobile, Tablet, Laptop & Desktop) */}
-      <div className="flex flex-col min-h-screen w-full bg-[#F8FAFC] relative">
+      {/* 2. UNIFIED RESPONSIVE APP WORKSPACE (Mobile, Tablet, Laptop & Desktop) - Strictly hidden during print */}
+      <div className="flex flex-col min-h-screen w-full bg-[#F8FAFC] relative print:hidden">
         {/* Global Responsive Header */}
         {activeTab !== 'profile' && <MobileHeader />}
 
         {/* Scrollable Page Body */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto print:hidden">
           {renderActiveView()}
         </main>
 
@@ -189,7 +189,7 @@ export const App: React.FC = () => {
 
       {/* Floating Notification Toast */}
       {activeToast && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[#0A2540] text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-xl border border-[#00C9A7]/40 flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[#0A2540] text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-xl border border-[#00C9A7]/40 flex items-center gap-2 animate-in slide-in-from-bottom duration-200 print:hidden">
           <span>{activeToast}</span>
         </div>
       )}

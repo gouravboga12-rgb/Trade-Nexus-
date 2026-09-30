@@ -64,8 +64,8 @@ export const PayslipDetailModal: React.FC<PayslipDetailModalProps> = ({ payslip,
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[96vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 print:p-0 print:bg-white print:static">
+      <div className="bg-white rounded-none sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[96vh] printable-modal-dialog print:max-w-none print:rounded-none print:border-none print:shadow-none print:max-h-none">
         
         {/* Header Bar */}
         <div className="bg-[#06152B] px-4 sm:px-6 py-3 text-white flex items-center justify-between border-b border-slate-800 print:hidden flex-shrink-0">
@@ -94,12 +94,12 @@ export const PayslipDetailModal: React.FC<PayslipDetailModalProps> = ({ payslip,
         </div>
 
         {/* Document Content (Scrollable) */}
-        <div className="p-3 sm:p-6 overflow-y-auto flex-1 bg-slate-100/80 flex justify-center">
+        <div className="p-0 sm:p-6 overflow-y-auto flex-1 bg-slate-100/80 flex justify-center printable-scroll-container print:p-0 print:bg-white">
           
           {/* Printable Payslip Sheet matching 4.png */}
           <div 
             id="payslip-sheet"
-            className="w-full bg-white text-slate-800 shadow-xl rounded-xl sm:rounded-2xl overflow-hidden relative border border-slate-200 flex flex-col justify-between"
+            className="w-full bg-white text-slate-800 shadow-none sm:shadow-xl rounded-none sm:rounded-2xl overflow-hidden relative border-0 sm:border sm:border-slate-200 flex flex-col justify-between print:border-none print:shadow-none"
             style={{ 
               minHeight: '780px',
               WebkitPrintColorAdjust: 'exact',
