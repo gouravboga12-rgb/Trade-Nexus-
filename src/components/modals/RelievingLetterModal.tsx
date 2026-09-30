@@ -13,6 +13,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { RelievingLetterData } from '../../types';
+import { api } from '../../services/api';
 
 export const RelievingLetterModal: React.FC = () => {
   const { 
@@ -28,6 +29,7 @@ export const RelievingLetterModal: React.FC = () => {
   const canEdit = currentRole === 'admin' || currentRole === 'hr';
   const [formData, setFormData] = useState<RelievingLetterData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,6 +54,39 @@ export const RelievingLetterModal: React.FC = () => {
     setTimeout(() => {
       window.print();
     }, 100);
+  };
+
+  const handleSendEmail = async () => {
+    const emp = teamMembers.find(m => m.empCode === formData.empCode || m.name.toLowerCase() === formData.employeeName.toLowerCase());
+    const targetEmail = emp?.email || (formData as any).email;
+    if (!targetEmail) {
+      triggerToast('⚠️ No employee email address found to dispatch');
+      return;
+    }
+
+    setIsSendingEmail(true);
+    triggerToast(`Dispatching official Relieving Letter PDF to ${targetEmail}...`);
+    try {
+      const res = await api.sendRelievingEmail(
+        {
+          id: emp?.id,
+          name: formData.employeeName,
+          email: targetEmail,
+          empCode: formData.empCode,
+          role: formData.designation,
+        },
+        formData
+      );
+      if (res.success) {
+        triggerToast(`✓ Relieving Letter PDF successfully dispatched to ${targetEmail}!`);
+      } else {
+        triggerToast(`⚠️ Failed to dispatch: ${(res as any).error || 'Server error'}`);
+      }
+    } catch (err: any) {
+      triggerToast(`⚠️ Email dispatch failed: ${err.message || 'Network error'}`);
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   const handleSelectEmployee = (empId: string) => {
@@ -401,19 +436,40 @@ export const RelievingLetterModal: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsRelievingLetterModalOpen(false)}
-            className="px-4 py-2 rounded-xl border border-slate-300 font-bold text-slate-600 hover:bg-slate-100 text-xs"
+            className="px-4 py-2 rounded-xl border border-slate-300 font-bold text-slate-600 hover:bg-slate-100 text-xs cursor-pointer"
           >
             Close
           </button>
 
-          <button
-            type="button"
-            onClick={handleDownload}
-            className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#00A88B] to-[#00C9A7] text-[#0A2540] font-black text-xs shadow-sm hover:brightness-105 flex items-center gap-1.5"
-          >
-            <Download className="w-4 h-4" />
-            <span>Download Relieving Letter PDF</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={isSendingEmail}
+              onClick={handleSendEmail}
+              className="px-3.5 py-2 rounded-xl border border-[#00C9A7]/40 bg-[#E6FAF6] hover:bg-[#D0F7F0] font-bold text-[#00897B] text-xs flex items-center gap-1.5 transition-all shadow-2xs disabled:opacity-50 cursor-pointer"
+            >
+              <Mail className="w-3.5 h-3.5 text-[#00A88B]" />
+              <span>{isSendingEmail ? 'Sending...' : 'Email PDF'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="px-3.5 py-2 rounded-xl border border-slate-300 font-bold text-slate-700 hover:bg-slate-100 text-xs flex items-center gap-1.5 shadow-2xs cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Print</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownload}
+              className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#00A88B] to-[#00C9A7] text-[#0A2540] font-black text-xs shadow-sm hover:brightness-105 flex items-center gap-1.5 cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download PDF</span>
+            </button>
+          </div>
         </div>
 
       </div>

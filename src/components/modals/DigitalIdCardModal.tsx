@@ -25,13 +25,15 @@ export const DigitalIdCardModal: React.FC = () => {
     triggerToast,
     selectedIdCardEmpId,
     updateEmployeeAvatar,
+    updateEmployee,
     currentRole,
   } = useApp();
 
   // Only Admin and HR can edit/upload/switch employees on ID cards
   const canEditIdCard = currentRole === 'admin' || currentRole === 'hr';
 
-  const [selectedEmpId, setSelectedEmpId] = useState<string>(selectedIdCardEmpId || profile.id || 'emp-101');
+  const defaultEmpId = selectedIdCardEmpId || (canEditIdCard && teamMembers.length > 0 ? teamMembers[0].id : profile.id || 'emp-101');
+  const [selectedEmpId, setSelectedEmpId] = useState<string>(defaultEmpId);
   const [customPhotoUrl, setCustomPhotoUrl] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isSendingEmail, setIsSendingEmail] = useState<boolean>(false);
@@ -49,8 +51,10 @@ export const DigitalIdCardModal: React.FC = () => {
   useEffect(() => {
     if (selectedIdCardEmpId) {
       setSelectedEmpId(selectedIdCardEmpId);
+    } else if (canEditIdCard && teamMembers.length > 0 && !selectedEmpId) {
+      setSelectedEmpId(teamMembers[0].id);
     }
-  }, [selectedIdCardEmpId, isIdCardModalOpen]);
+  }, [selectedIdCardEmpId, isIdCardModalOpen, canEditIdCard, teamMembers, selectedEmpId]);
 
   useEffect(() => {
     const matched = teamMembers.find(m => m.id === selectedEmpId || m.empCode === selectedEmpId);
@@ -58,9 +62,9 @@ export const DigitalIdCardModal: React.FC = () => {
       setCustomName(matched.name);
       setCustomRole(matched.role);
       setCustomEmpCode(matched.empCode);
-      setCustomEmpType('Full - Time');
+      setCustomEmpType((matched as any).empType || 'Full - Time');
       setCustomBloodGroup((matched as any).bloodGroup || 'O+ ve');
-      setCustomDob((matched as any).dob || '');
+      setCustomDob((matched as any).dob || '05/11/1997');
       setCustomPhone((matched as any).emergencyPhone || matched.phone || '9876543210');
       setCustomPhotoUrl(matched.avatar ? matched.avatar : null);
     } else if (profile) {
@@ -121,6 +125,17 @@ export const DigitalIdCardModal: React.FC = () => {
     setIsSendingEmail(true);
     triggerToast(`Dispatching official ID Card PDF to ${targetEmail}...`);
     try {
+      if (isEditing && selectedEmpId) {
+        await updateEmployee(selectedEmpId, {
+          name: customName,
+          role: customRole,
+          empCode: customEmpCode,
+          bloodGroup: customBloodGroup,
+          phone: customPhone,
+          dob: customDob,
+          avatar: customPhotoUrl || undefined,
+        } as any);
+      }
       const res = await api.sendIdCardEmail(
         { id: selectedEmpId, email: targetEmail, name: customName, empCode: customEmpCode, role: customRole, phone: customPhone, bloodGroup: customBloodGroup, dob: customDob, avatar: customPhotoUrl || undefined },
         { name: customName, role: customRole, empCode: customEmpCode, bloodGroup: customBloodGroup, dob: customDob, phone: customPhone, email: targetEmail, avatar: customPhotoUrl || undefined }
@@ -140,7 +155,7 @@ export const DigitalIdCardModal: React.FC = () => {
   const handleToggleEdit = async () => {
     if (isEditing && selectedEmpId) {
       try {
-        await api.updateTeamMember(selectedEmpId, {
+        await updateEmployee(selectedEmpId, {
           name: customName,
           role: customRole,
           empCode: customEmpCode,
@@ -148,7 +163,7 @@ export const DigitalIdCardModal: React.FC = () => {
           phone: customPhone,
           dob: customDob,
           avatar: customPhotoUrl || undefined,
-        });
+        } as any);
         triggerToast(`✓ Saved ID card details for ${customName}`);
       } catch (err) {
         console.warn('Failed to save ID card edits:', err);
@@ -191,18 +206,21 @@ export const DigitalIdCardModal: React.FC = () => {
         </div>
 
         {/* Employee Switcher & Photo Upload Controls (Admin/HR only) */}
-        <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2 text-xs print:hidden flex-shrink-0">
-          <div className="flex-1">
+        <div className="p-3 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 text-xs print:hidden flex-shrink-0">
+          <div className="flex-1 flex items-center gap-2 min-w-0">
             {canEditIdCard ? (
-              <select
-                value={selectedEmpId}
-                onChange={(e) => setSelectedEmpId(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 font-bold text-[#0A2540] text-xs focus:outline-none focus:border-[#00C9A7]"
-              >
-                {teamMembers.map(m => (
-                  <option key={m.id} value={m.id}>{m.name} ({m.empCode} • {m.role})</option>
-                ))}
-              </select>
+              <div className="w-full flex items-center gap-2">
+                <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">Employee:</span>
+                <select
+                  value={selectedEmpId}
+                  onChange={(e) => setSelectedEmpId(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 font-bold text-[#0A2540] text-xs focus:outline-none focus:border-[#00C9A7] truncate"
+                >
+                  {teamMembers.map(m => (
+                    <option key={m.id} value={m.id}>{m.name} ({m.empCode} • {m.role})</option>
+                  ))}
+                </select>
+              </div>
             ) : (
               <span className="text-xs font-bold text-[#0A2540] px-1">{customName} — {customEmpCode}</span>
             )}
@@ -219,7 +237,7 @@ export const DigitalIdCardModal: React.FC = () => {
           {canEditIdCard && (
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="px-3 py-1.5 rounded-xl bg-white border border-slate-300 hover:border-[#00C9A7] text-slate-700 font-bold flex items-center gap-1.5 shadow-2xs transition-all flex-shrink-0"
+              className="px-3 py-1.5 rounded-xl bg-white border border-slate-300 hover:border-[#00C9A7] text-slate-700 font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-all flex-shrink-0 cursor-pointer"
             >
               <Upload className="w-3.5 h-3.5 text-[#00A88B]" />
               <span>Upload Photo</span>
@@ -229,7 +247,7 @@ export const DigitalIdCardModal: React.FC = () => {
 
         {/* Edit fields collapsible drawer */}
         {isEditing && (
-          <div className="p-3.5 bg-slate-100 border-b border-slate-200 text-xs grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-48 overflow-y-auto print:hidden">
+          <div className="p-3.5 bg-slate-100 border-b border-slate-200 text-xs grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-48 overflow-y-auto print:hidden">
             <div>
               <label className="text-[10px] font-bold text-slate-500 block">Name</label>
               <input 
@@ -281,6 +299,15 @@ export const DigitalIdCardModal: React.FC = () => {
                 type="text" 
                 value={customDob} 
                 onChange={(e) => setCustomDob(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-mono font-bold text-slate-800"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="text-[10px] font-bold text-slate-500 block">Phone / Mobile</label>
+              <input 
+                type="text" 
+                value={customPhone} 
+                onChange={(e) => setCustomPhone(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-mono font-bold text-slate-800"
               />
             </div>

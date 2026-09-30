@@ -24,7 +24,7 @@ router.get('/', (req: Request, res: Response) => {
 
       const groups = db.prepare(`
         SELECT g.id, g.name, g.description, g.leaderName, 
-               (SELECT COUNT(*) FROM team_members m WHERE LOWER(m.groupName) = LOWER(g.name) AND m.active = 1) AS memberCount,
+               (SELECT COUNT(*) FROM team_members m WHERE (LOWER(m.groupName) = LOWER(g.name) OR LOWER(m.groupName) LIKE '%' || LOWER(g.name) || '%') AND m.active = 1) AS memberCount,
                g.monthlyTarget, g.achieved, g.color, g.createdAt
         FROM team_groups g 
         WHERE LOWER(g.leaderName) = LOWER(?) OR LOWER(g.name) = LOWER(?)

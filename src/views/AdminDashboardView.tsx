@@ -250,6 +250,9 @@ export const AdminDashboardView: React.FC = () => {
     }
   }, [tab, refreshResources]);
 
+  const isMemberOfSquad = (m: TeamMember, squadName?: string) =>
+    squadName ? (m.group || '').split(',').map((s) => s.trim().toLowerCase()).includes(squadName.trim().toLowerCase()) : false;
+
   const verifyAdminLiveLocation = () => {
     setIsVerifyingAdminLocation(true);
     if (!navigator.geolocation) {
@@ -1227,7 +1230,7 @@ export const AdminDashboardView: React.FC = () => {
                 ) : (
                   <div className="space-y-3">
                     {teamGroups.map((g) => {
-                      const squad = teamMembers.filter((m) => m.group === g.name);
+                      const squad = teamMembers.filter((m) => isMemberOfSquad(m, g.name));
                       const squadDials = squad.reduce((s, m) => s + (m.dialsToday || 0), 0);
                       const squadGoals = squad.reduce((s, m) => s + (m.goalCalls || 0), 0);
                       const squadWon = squad.filter((m) => m.salesAchieved > 0).length;
@@ -1394,7 +1397,7 @@ export const AdminDashboardView: React.FC = () => {
                   <div className="h-px bg-slate-100" />
 
                   {(() => {
-                    const squad = teamMembers.filter((m) => m.group === selectedAdminTeamGroup.name);
+                    const squad = teamMembers.filter((m) => isMemberOfSquad(m, selectedAdminTeamGroup.name));
                     const squadDials = squad.reduce((s, m) => s + (m.dialsToday || 0), 0);
                     const squadGoals = squad.reduce((s, m) => s + (m.goalCalls || 0), 0);
                     const squadWon = squad.filter((m) => m.salesAchieved > 0).length;
@@ -1463,7 +1466,7 @@ export const AdminDashboardView: React.FC = () => {
 
                 {/* Filter Pills for this team */}
                 {(() => {
-                  const squad = teamMembers.filter((m) => m.group === selectedAdminTeamGroup.name);
+                  const squad = teamMembers.filter((m) => isMemberOfSquad(m, selectedAdminTeamGroup.name));
                   const pCount = squad.filter((m) => m.attendanceStatus === 'PRESENT').length;
                   const lCount = squad.filter((m) => m.attendanceStatus === 'LATE').length;
                   const oCount = squad.filter((m) => m.attendanceStatus === 'ON_LEAVE').length;
@@ -1521,7 +1524,7 @@ export const AdminDashboardView: React.FC = () => {
                 {/* Team's Telecallers List */}
                 <div className="space-y-3">
                   {teamMembers
-                    .filter((m) => m.group === selectedAdminTeamGroup.name)
+                    .filter((m) => isMemberOfSquad(m, selectedAdminTeamGroup.name))
                     .filter((m) => {
                       const matchSearch =
                         m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1640,7 +1643,7 @@ export const AdminDashboardView: React.FC = () => {
                       );
                     })}
 
-                  {teamMembers.filter((m) => m.group === selectedAdminTeamGroup.name).length === 0 && (
+                  {teamMembers.filter((m) => isMemberOfSquad(m, selectedAdminTeamGroup.name)).length === 0 && (
                     <Empty text={`No employees assigned to ${selectedAdminTeamGroup.name} yet.`} />
                   )}
                 </div>

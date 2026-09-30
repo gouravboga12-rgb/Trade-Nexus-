@@ -51,7 +51,8 @@ import {
   ExternalLink,
   LogOut,
   FileEdit,
-  Trash2
+  Trash2,
+  Mail
 } from 'lucide-react';
 import { OnboardingEmployee, ExitEmployee, TeamMember, TeamGroup, PayslipItem } from '../types';
 import { AddEmployeeModal } from '../components/modals/AddEmployeeModal';
@@ -72,6 +73,9 @@ const formatInLakhs = (val: number) => {
   }
   return `₹${val.toLocaleString('en-IN')}`;
 };
+
+const isMemberOfSquad = (m: TeamMember, squadName?: string) =>
+  squadName ? (m.group || '').split(',').map((s: string) => s.trim().toLowerCase()).includes(squadName.trim().toLowerCase()) : false;
 
 export const HrDashboardView: React.FC = () => {
   const {
@@ -125,7 +129,10 @@ export const HrDashboardView: React.FC = () => {
     triggerToast,
     refreshResources,
     logout,
+    sendPayslipEmailToEmployee,
   } = useApp();
+
+  const [emailingPayslipId, setEmailingPayslipId] = useState<string | null>(null);
 
   useScreenData('hrDashboard');
 
@@ -1317,7 +1324,7 @@ export const HrDashboardView: React.FC = () => {
                     </div>
 
                     {(() => {
-                      const teamEmps = teamMembers.filter(m => m.group === selectedTeamGroup.name);
+                      const teamEmps = teamMembers.filter(m => isMemberOfSquad(m, selectedTeamGroup.name));
                       const teamPresent = teamEmps.filter(m => m.attendanceStatus === 'PRESENT').length;
                       return (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E6FAF6] text-[#00A88B] border border-[#00C9A7]/30 whitespace-nowrap flex-shrink-0">
@@ -1331,7 +1338,7 @@ export const HrDashboardView: React.FC = () => {
 
                   {/* 4 Metric Columns for this team */}
                   {(() => {
-                    const teamEmps = teamMembers.filter(m => m.group === selectedTeamGroup.name);
+                    const teamEmps = teamMembers.filter(m => isMemberOfSquad(m, selectedTeamGroup.name));
                     const teamDials = teamEmps.reduce((s, m) => s + (m.dialsToday || 0), 0);
                     const teamGoals = teamEmps.reduce((s, m) => s + (m.goalCalls || 0), 0);
                     const teamWon = teamEmps.filter(m => m.salesAchieved > 0).length;
@@ -1408,7 +1415,7 @@ export const HrDashboardView: React.FC = () => {
 
                 {/* Filter Pills for this team */}
                 {(() => {
-                  const teamEmps = teamMembers.filter(m => m.group === selectedTeamGroup.name);
+                  const teamEmps = teamMembers.filter(m => isMemberOfSquad(m, selectedTeamGroup.name));
                   const pCount = teamEmps.filter(m => m.attendanceStatus === 'PRESENT').length;
                   const lCount = teamEmps.filter(m => m.attendanceStatus === 'LATE').length;
                   const oCount = teamEmps.filter(m => m.attendanceStatus === 'ON_LEAVE').length;
@@ -1469,7 +1476,7 @@ export const HrDashboardView: React.FC = () => {
                 {/* Team's Employees List */}
                 <div className="space-y-3">
                   {teamMembers
-                    .filter(m => m.group === selectedTeamGroup.name)
+                    .filter(m => isMemberOfSquad(m, selectedTeamGroup.name))
                     .filter(m => {
                       const matchSearch =
                         m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1633,7 +1640,7 @@ export const HrDashboardView: React.FC = () => {
                 {/* Teams List */}
                 <div className="space-y-3">
                   {teamGroups.map((group) => {
-                    const groupMembers = teamMembers.filter(m => m.group === group.name);
+                    const groupMembers = teamMembers.filter(m => isMemberOfSquad(m, group.name));
                     const groupPresent = groupMembers.filter(m => m.attendanceStatus === 'PRESENT').length;
                     const groupLate = groupMembers.filter(m => m.attendanceStatus === 'LATE').length;
                     const groupLeave = groupMembers.filter(m => m.attendanceStatus === 'ON_LEAVE').length;
@@ -2565,6 +2572,35 @@ export const HrDashboardView: React.FC = () => {
                               )}
                             </div>
                             <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <button
+                                type="button"
+                                disabled={emailingPayslipId === ps.id}
+                                onClick={async () => {
+                                  const targetEmail = ps.email || teamMembers.find(m => m.name === ps.employeeName || m.empCode === ps.employeeCode)?.email;
+                                  if (!targetEmail) {
+                                    triggerToast('⚠️ No employee email address found for this payslip');
+                                    return;
+                                  }
+                                  setEmailingPayslipId(ps.id);
+                                  triggerToast(`Dispatching official Payslip PDF to ${targetEmail}...`);
+                                  try {
+                                    const ok = await sendPayslipEmailToEmployee(ps.id, targetEmail);
+                                    if (ok) {
+                                      triggerToast(`✓ Payslip PDF successfully dispatched to ${targetEmail}!`);
+                                    } else {
+                                      triggerToast('⚠️ Failed to dispatch payslip email');
+                                    }
+                                  } catch (err: any) {
+                                    triggerToast(`⚠️ Email dispatch failed: ${err.message || 'Error'}`);
+                                  } finally {
+                                    setEmailingPayslipId(null);
+                                  }
+                                }}
+                                className="px-2 py-1 rounded-lg bg-[#E6FAF6] hover:bg-[#D0F7F0] text-[#00897B] font-bold text-[10px] inline-flex items-center gap-1 transition-all border border-[#00C9A7]/30 cursor-pointer disabled:opacity-50"
+                              >
+                                <Mail className="w-3 h-3 text-[#00A88B]" />
+                                <span>{emailingPayslipId === ps.id ? 'Sending...' : 'Email'}</span>
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => setSelectedPayslipForEdit(ps)}

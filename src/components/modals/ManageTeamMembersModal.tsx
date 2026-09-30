@@ -20,14 +20,21 @@ export const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({
 
   if (!isOpen || !team) return null;
 
-  // Members currently assigned to this squad (case-insensitive & trimmed)
-  const currentMembers = teamMembers.filter(
-    (m) => (m.group || '').trim().toLowerCase() === team.name.trim().toLowerCase()
-  );
+  const isHrMember = (m: TeamMember) =>
+    (m.portal || '').toLowerCase() === 'hr' || (m.role || '').toLowerCase().includes('hr');
 
-  // Other telecallers in the company who can be transferred into this squad
+  const isMemberOfTeam = (m: TeamMember, teamName: string) => {
+    if (!m.group) return false;
+    const groups = m.group.split(',').map((s) => s.trim().toLowerCase());
+    return groups.includes(teamName.trim().toLowerCase());
+  };
+
+  // Members currently assigned to this squad (case-insensitive & trimmed)
+  const currentMembers = teamMembers.filter((m) => isMemberOfTeam(m, team.name));
+
+  // Available telecallers/HR in the company who can be added/transferred into this squad
   const availableMembers = teamMembers.filter(
-    (m) => (m.group || '').trim().toLowerCase() !== team.name.trim().toLowerCase() && m.active !== 0
+    (m) => !isMemberOfTeam(m, team.name) && m.active !== 0
   );
 
   const handleAddMember = async (memberId: string) => {
@@ -37,7 +44,20 @@ export const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({
 
     setProcessingId(memberId);
     try {
-      await updateEmployee(member.id, { group: team.name });
+      if (isHrMember(member)) {
+        // Multi-team assignment: append this squad to their existing groups without removing previous squads
+        const existing = (member.group || '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s && s.toLowerCase() !== 'unassigned');
+        if (!existing.map((s) => s.toLowerCase()).includes(team.name.toLowerCase())) {
+          existing.push(team.name);
+        }
+        await updateEmployee(member.id, { group: existing.join(', ') });
+      } else {
+        // Telecallers and single-team roles are reassigned to this squad
+        await updateEmployee(member.id, { group: team.name });
+      }
       triggerToast(`✓ Added ${member.name} to ${team.name}`);
       setSelectedToAddId('');
     } catch {
@@ -51,7 +71,16 @@ export const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({
     if (processingId) return;
     setProcessingId(member.id);
     try {
-      await updateEmployee(member.id, { group: 'Unassigned' });
+      if (isHrMember(member)) {
+        // Remove only this squad from HR's assigned squads, leaving others intact
+        const remaining = (member.group || '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.toLowerCase() !== team.name.toLowerCase() && s.toLowerCase() !== 'unassigned');
+        await updateEmployee(member.id, { group: remaining.length > 0 ? remaining.join(', ') : 'Unassigned' });
+      } else {
+        await updateEmployee(member.id, { group: 'Unassigned' });
+      }
       triggerToast(`✓ Removed ${member.name} from ${team.name}`);
     } catch {
       triggerToast(`✗ Failed to remove ${member.name} from ${team.name}`);
@@ -112,10 +141,10 @@ export const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({
                 onChange={(e) => setSelectedToAddId(e.target.value)}
                 className="w-full sm:flex-1 min-w-0 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7] truncate"
               >
-                <option value="">— Select telecaller to add —</option>
+                <option value="">— Select employee to add —</option>
                 {availableMembers.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.name} ({m.empCode}) — Current Squad: {m.group || 'None'}
+                    {m.name} ({m.empCode}) — {isHrMember(m) ? `HR Member (Current: ${m.group || 'None'})` : `Current Squad: ${m.group || 'None'}`}
                   </option>
                 ))}
               </select>
@@ -153,6 +182,7 @@ export const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({
               <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                 {currentMembers.map((m) => {
                   const isLeader = team.leaderName && team.leaderName.toLowerCase() === m.name.toLowerCase();
+                  const isHr = isHrMember(m);
                   return (
                     <div
                       key={m.id}
@@ -168,6 +198,11 @@ export const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({
                             {isLeader && (
                               <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 uppercase flex-shrink-0">
                                 Squad Leader
+                              </span>
+                            )}
+                            {isHr && (
+                              <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 uppercase flex-shrink-0">
+                                HR Member
                               </span>
                             )}
                           </div>

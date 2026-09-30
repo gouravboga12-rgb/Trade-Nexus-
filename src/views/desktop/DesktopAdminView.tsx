@@ -869,7 +869,9 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {teamGroups.map((g) => {
-              const members = teamMembers.filter((m) => m.group === g.name);
+              const members = teamMembers.filter((m) =>
+                (m.group || '').split(',').map((s) => s.trim().toLowerCase()).includes(g.name.trim().toLowerCase())
+              );
               return (
                 <div key={g.id} className="nexus-card p-5 bg-white border border-slate-200 shadow-sm space-y-3">
                   <div>

@@ -25,11 +25,13 @@ export const InvoiceModal: React.FC = () => {
     isInvoiceModalOpen, 
     setIsInvoiceModalOpen, 
     selectedInvoice, 
+    resendInvoiceEmail,
     triggerToast 
   } = useApp();
 
   const [formData, setFormData] = useState<InvoiceData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,6 +54,25 @@ export const InvoiceModal: React.FC = () => {
     setTimeout(() => {
       window.print();
     }, 100);
+  };
+
+  const handleSendEmail = async () => {
+    if (!formData?.clientEmail) {
+      triggerToast('⚠️ Client email address is required');
+      return;
+    }
+    setIsSendingEmail(true);
+    triggerToast(`Dispatching official Tax Invoice PDF to ${formData.clientEmail}...`);
+    try {
+      const ok = await resendInvoiceEmail(formData.id);
+      if (ok) {
+        triggerToast(`✓ Tax Invoice PDF dispatched to ${formData.clientEmail}!`);
+      }
+    } catch (err: any) {
+      triggerToast(`⚠️ Email dispatch failed: ${err.message || 'Error'}`);
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   const handleItemChange = (index: number, field: keyof InvoiceItem, value: any) => {
@@ -175,8 +196,18 @@ export const InvoiceModal: React.FC = () => {
             </button>
 
             <button
+              type="button"
+              disabled={isSendingEmail}
+              onClick={handleSendEmail}
+              className="px-3.5 py-1.5 rounded-xl border border-[#00C9A7]/40 bg-[#E6FAF6] hover:bg-[#D0F7F0] font-bold text-[#00897B] text-xs flex items-center gap-1.5 transition-all shadow-2xs disabled:opacity-50 cursor-pointer"
+            >
+              <Mail className="w-3.5 h-3.5 text-[#00A88B]" />
+              <span>{isSendingEmail ? 'Sending...' : 'Email Client'}</span>
+            </button>
+
+            <button
               onClick={handleDownload}
-              className="px-3.5 py-1.5 rounded-xl bg-[#00C9A7] hover:bg-[#00A88B] text-[#0A2540] text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-[#00C9A7]/20"
+              className="px-3.5 py-1.5 rounded-xl bg-[#00C9A7] hover:bg-[#00A88B] text-[#0A2540] text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-[#00C9A7]/20 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Save PDF</span>
@@ -184,7 +215,7 @@ export const InvoiceModal: React.FC = () => {
 
             <button
               onClick={() => setIsInvoiceModalOpen(false)}
-              className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all ml-1"
+              className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all ml-1 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>

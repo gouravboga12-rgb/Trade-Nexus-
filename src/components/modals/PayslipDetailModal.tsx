@@ -25,8 +25,9 @@ interface PayslipDetailModalProps {
 }
 
 export const PayslipDetailModal: React.FC<PayslipDetailModalProps> = ({ payslip, isOpen, onClose }) => {
-  const { profile, teamMembers, triggerToast } = useApp();
+  const { profile, teamMembers, triggerToast, sendPayslipEmailToEmployee } = useApp();
   const [isEditing, setIsEditing] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   if (!isOpen || !payslip) return null;
 
@@ -61,6 +62,29 @@ export const PayslipDetailModal: React.FC<PayslipDetailModalProps> = ({ payslip,
     setTimeout(() => {
       window.print();
     }, 100);
+  };
+
+  const handleSendEmail = async () => {
+    const emp = teamMembers.find(m => m.name === empName || m.empCode === empCode);
+    const targetEmail = emp?.email || (payslip as any).email || profile?.email;
+    if (!targetEmail) {
+      triggerToast('⚠️ No employee email address found to dispatch payslip');
+      return;
+    }
+    setIsSendingEmail(true);
+    triggerToast(`Dispatching official Payslip PDF to ${targetEmail}...`);
+    try {
+      const ok = await sendPayslipEmailToEmployee(payslip.id, targetEmail);
+      if (ok) {
+        triggerToast(`✓ Official Payslip PDF dispatched to ${targetEmail}!`);
+      } else {
+        triggerToast('⚠️ Failed to dispatch payslip email');
+      }
+    } catch (err: any) {
+      triggerToast(`⚠️ Email dispatch failed: ${err.message || 'Error'}`);
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   return (
@@ -432,19 +456,40 @@ export const PayslipDetailModal: React.FC<PayslipDetailModalProps> = ({ payslip,
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl border border-slate-300 font-bold text-slate-600 hover:bg-slate-100 text-xs"
+            className="px-4 py-2 rounded-xl border border-slate-300 font-bold text-slate-600 hover:bg-slate-100 text-xs cursor-pointer"
           >
             Close
           </button>
 
-          <button
-            type="button"
-            onClick={handleDownload}
-            className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#00A88B] to-[#00C9A7] text-[#0A2540] font-black text-xs shadow-sm hover:brightness-105 flex items-center gap-1.5"
-          >
-            <Download className="w-4 h-4" />
-            <span>Download Payslip PDF</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={isSendingEmail}
+              onClick={handleSendEmail}
+              className="px-3.5 py-2 rounded-xl border border-[#00C9A7]/40 bg-[#E6FAF6] hover:bg-[#D0F7F0] font-bold text-[#00897B] text-xs flex items-center gap-1.5 transition-all shadow-2xs disabled:opacity-50 cursor-pointer"
+            >
+              <Mail className="w-3.5 h-3.5 text-[#00A88B]" />
+              <span>{isSendingEmail ? 'Sending...' : 'Email PDF'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="px-3.5 py-2 rounded-xl border border-slate-300 font-bold text-slate-700 hover:bg-slate-100 text-xs flex items-center gap-1.5 shadow-2xs cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Print</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownload}
+              className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#00A88B] to-[#00C9A7] text-[#0A2540] font-black text-xs shadow-sm hover:brightness-105 flex items-center gap-1.5 cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download PDF</span>
+            </button>
+          </div>
         </div>
 
       </div>
