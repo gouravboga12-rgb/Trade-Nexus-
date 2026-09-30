@@ -34,12 +34,13 @@ export const MobileHeader: React.FC = () => {
       : 'Sales';
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 py-2 flex items-center justify-between shadow-xs">
-      {/* Official Trade Nexus Logo with Text */}
-      <TradeNexusLogo size="sm" showText={true} />
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 lg:px-8 py-2.5 shadow-xs">
+      <div className="w-full max-w-7xl mx-auto flex items-center justify-between">
+        {/* Official Trade Nexus Logo with Text */}
+        <TradeNexusLogo size="sm" showText={true} />
 
-      {/* Right: Authenticated User Badge, Refresh, Exit Account Button & Notification Bell */}
-      <div className="flex items-center gap-1.5">
+        {/* Right: Authenticated User Badge, Refresh, Exit Account Button & Notification Bell */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
         {activeName && (
           <div 
             title={`Signed in as ${activeName} (${roleLabel})`}
@@ -82,6 +83,7 @@ export const MobileHeader: React.FC = () => {
           <Bell className="w-3.5 h-3.5" />
           <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-2 ring-white" />
         </button>
+      </div>
       </div>
     </header>
   );

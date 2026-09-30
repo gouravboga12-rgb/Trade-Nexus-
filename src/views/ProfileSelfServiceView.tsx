@@ -102,7 +102,7 @@ export const ProfileSelfServiceView: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col gap-3.5 pb-24 pt-1 px-3 sm:px-4 max-w-lg mx-auto select-none">
+    <div className="flex flex-col gap-3.5 pb-24 pt-1 px-3 sm:px-6 lg:px-8 w-full max-w-4xl mx-auto select-none">
       
       {/* 1. Header Navigation Bar (Back, Notifications, More Options) */}
       <div className="flex items-center justify-between pt-0.5">

@@ -153,7 +153,7 @@ export const TelecallerHomeView: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-4 pb-28 pt-2 px-3 sm:px-4 max-w-lg mx-auto">
+    <div className="flex flex-col gap-4 pb-28 pt-2 px-3 sm:px-6 lg:px-8 w-full max-w-5xl mx-auto">
       
       {/* Rejected Leave Notification Banner */}
       <RejectedLeaveBanner className="mb-1" />

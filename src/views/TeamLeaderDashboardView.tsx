@@ -416,7 +416,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
   // If 360 profile is open, render native full-screen mobile view
   if (selectedMemberFor360) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] pb-28 max-w-lg mx-auto">
+      <div className="min-h-screen bg-[#F8FAFC] pb-28 w-full max-w-5xl mx-auto">
         <Employee360ProfileView 
           member={selectedMemberFor360} 
           onBack={() => setSelectedMemberFor360(null)} 
@@ -430,10 +430,10 @@ export const TeamLeaderDashboardView: React.FC = () => {
   const activeMeetings = teamMeetings.filter(m => m.status === 'LIVE' || m.status === 'UPCOMING');
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col justify-between max-w-lg mx-auto font-sans pb-28 selection:bg-[#00C9A7]/20">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col justify-between w-full max-w-5xl mx-auto font-sans pb-28 lg:pb-32 selection:bg-[#00C9A7]/20">
       
       {/* Main Scrollable Content Area */}
-      <main className="flex-1 p-3.5 sm:p-4 space-y-4 pt-2">
+      <main className="flex-1 p-3.5 sm:p-6 lg:p-8 space-y-4 pt-2">
         
         {/* Rejected Leave Escalation Banner */}
         <RejectedLeaveBanner className="mb-2" />
@@ -1729,8 +1729,8 @@ export const TeamLeaderDashboardView: React.FC = () => {
 
       </main>
 
-      {/* 5 Bottom Navigation Tabs (Native Mobile Bar) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200 max-w-lg mx-auto px-2 py-1.5 flex justify-around items-center shadow-lg">
+      {/* 5 Bottom Navigation Tabs (Native Mobile Bar / Desktop Floating Dock) */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-2 py-1.5 flex justify-around items-center shadow-lg lg:bottom-4 lg:left-1/2 lg:-translate-x-1/2 lg:w-full lg:max-w-2xl lg:rounded-2xl lg:border lg:shadow-xl lg:px-4">
         {[
           { id: 'home', label: 'Home', icon: Home },
           { id: 'team', label: 'Team', icon: Users },

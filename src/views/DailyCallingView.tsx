@@ -305,7 +305,7 @@ export const DailyCallingView: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-4 pb-28 pt-2 px-3 sm:px-4 max-w-lg mx-auto">
+    <div className="flex flex-col gap-4 pb-28 pt-2 px-3 sm:px-6 lg:px-8 w-full max-w-5xl mx-auto">
       
       {/* 1. Primary Calling Mode Segment Switch (Clean labels, NO number badges) */}
       <div className="bg-slate-200/70 p-1 rounded-2xl flex items-center gap-1 shadow-2xs">

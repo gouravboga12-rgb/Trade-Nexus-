@@ -444,7 +444,7 @@ export const HrDashboardView: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-24 text-slate-800 animate-in fade-in duration-150">
       
-      <div className="p-4 space-y-4 max-w-lg mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-4 w-full max-w-7xl mx-auto">
 
         {/* Rejected Leave Escalation Banner */}
         <RejectedLeaveBanner className="mb-2" />
@@ -2895,8 +2895,8 @@ export const HrDashboardView: React.FC = () => {
       </div>
 
       {/* Modern HR Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 z-40 px-3 py-2">
-        <div className="flex justify-around items-center max-w-lg mx-auto">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 z-40 px-3 py-2 lg:bottom-4 lg:left-1/2 lg:-translate-x-1/2 lg:w-full lg:max-w-2xl lg:rounded-2xl lg:border lg:shadow-xl lg:px-4">
+        <div className="flex justify-around items-center w-full mx-auto">
           {[
             { id: 'home', label: 'Home', icon: Home },
             { id: 'attendance', label: 'Attendance', icon: CalendarCheck, badge: lateCount > 0 ? lateCount : undefined },

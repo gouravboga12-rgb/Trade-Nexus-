@@ -90,8 +90,9 @@ export const ClientsPipelineView: React.FC = () => {
     }, 0);
   }, [filteredWonLeads]);
 
-  const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;  return (
-    <div className="flex flex-col gap-3 pb-28 pt-2 px-3 sm:px-4 max-w-lg mx-auto">
+  const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
+  return (
+    <div className="flex flex-col gap-3 pb-28 pt-2 px-3 sm:px-6 lg:px-8 w-full max-w-5xl mx-auto">
       
       {/* 1. Sleek Compact Total Revenue Banner (Clean, Spacious, Light Luxury) */}
       <div className="flex items-center justify-between bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-white p-3.5 rounded-2xl border border-emerald-200/80 shadow-2xs">

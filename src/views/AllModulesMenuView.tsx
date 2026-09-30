@@ -32,7 +32,7 @@ export const AllModulesMenuView: React.FC = () => {
   ];
 
   return (
-    <div className="flex flex-col gap-4 pb-20 pt-2 px-4 max-w-lg mx-auto">
+    <div className="flex flex-col gap-4 pb-20 pt-2 px-4 sm:px-6 lg:px-8 w-full max-w-5xl mx-auto">
       
       {/* User Header */}
       <div className="nexus-card p-4 bg-white border border-slate-200 shadow-sm flex items-center justify-between">
@@ -51,36 +51,38 @@ export const AllModulesMenuView: React.FC = () => {
       </div>
 
       {/* Modules List */}
-      <div className="space-y-2">
-        <h4 className="font-display font-bold text-xs text-slate-500 uppercase tracking-wider px-1">All System Modules</h4>
+      <div>
+        <h4 className="font-display font-bold text-xs text-slate-500 uppercase tracking-wider px-1 mb-2">All System Modules</h4>
         
-        {modules.map((mod, idx) => {
-          const Icon = mod.icon;
-          return (
-            <div
-              key={idx}
-              onClick={() => {
-                if (mod.action) {
-                  mod.action();
-                } else if (mod.tab) {
-                  setActiveTab(mod.tab);
-                }
-              }}
-              className="nexus-card p-3.5 bg-white border border-slate-200 shadow-sm hover:border-[#00C9A7] flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#E6FAF6] text-[#00A88B] flex items-center justify-center flex-shrink-0">
-                  <Icon className="w-5 h-5" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          {modules.map((mod, idx) => {
+            const Icon = mod.icon;
+            return (
+              <div
+                key={idx}
+                onClick={() => {
+                  if (mod.action) {
+                    mod.action();
+                  } else if (mod.tab) {
+                    setActiveTab(mod.tab);
+                  }
+                }}
+                className="nexus-card p-3.5 bg-white border border-slate-200 shadow-sm hover:border-[#00C9A7] flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#E6FAF6] text-[#00A88B] flex items-center justify-center flex-shrink-0">
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h5 className="font-display font-bold text-sm text-[#0A2540]">{mod.title}</h5>
+                    <p className="text-[11px] text-slate-500">{mod.subtitle}</p>
+                  </div>
                 </div>
-                <div>
-                  <h5 className="font-display font-bold text-sm text-[#0A2540]">{mod.title}</h5>
-                  <p className="text-[11px] text-slate-500">{mod.subtitle}</p>
-                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
               </div>
-              <ChevronRight className="w-4 h-4 text-slate-400" />
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
     </div>

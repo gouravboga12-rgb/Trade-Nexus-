@@ -530,8 +530,8 @@ export const AdminDashboardView: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col justify-between max-w-lg mx-auto font-sans pb-24">
-      <main className="flex-1 p-3.5 space-y-4 pt-3">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col justify-between w-full max-w-7xl mx-auto font-sans pb-24 lg:pb-28">
+      <main className="flex-1 p-3.5 sm:p-5 lg:p-6 space-y-4 pt-3">
 
         {/* ---------------------------------------------------- Overview */}
         {tab === 'home' && (
@@ -558,8 +558,8 @@ export const AdminDashboardView: React.FC = () => {
               </div>
             </div>
 
-            {/* 4 Core Compact KPI Cards (2x2 Grid, 65% Size) */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* 4 Core Compact KPI Cards (2x2 on Mobile, 4x1 on Desktop) */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3.5 lg:gap-4">
               {/* Row 1, Col 1: Present */}
               <div 
                 onClick={() => setTab('attendance')}
@@ -2436,7 +2436,7 @@ export const AdminDashboardView: React.FC = () => {
               <p className="text-xs text-slate-500 font-medium">System operations, approvals & configuration</p>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {/* Revenue & Won Deals Option */}
               <div
                 onClick={() => setTab('revenue')}
@@ -3801,7 +3801,7 @@ export const AdminDashboardView: React.FC = () => {
       </main>
 
       {/* Bottom navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] flex justify-around items-center px-1 py-1.5 z-30">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] flex justify-around items-center px-1 py-1.5 z-30 lg:bottom-4 lg:left-1/2 lg:-translate-x-1/2 lg:w-full lg:max-w-2xl lg:rounded-2xl lg:border lg:shadow-xl lg:px-4">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = tab === item.id;
