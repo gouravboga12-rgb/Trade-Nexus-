@@ -462,7 +462,7 @@ export const DigitalIdCardModal: React.FC = () => {
                 <span className="col-span-5 text-slate-300 font-bold">Cell</span>
                 <span className="col-span-1 text-slate-400 font-bold">:</span>
                 <span className="col-span-6 font-mono font-bold text-white truncate">
-                  {customPhone ? (customPhone.length > 7 ? `${customPhone.slice(0, 4)}XXXX${customPhone.slice(-2)}` : customPhone) : '0000XXXX97'}
+                  {customPhone || '9876543210'}
                 </span>
               </div>
             </div>
