@@ -31,27 +31,34 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
   } = useApp();
 
   const [candidateName, setCandidateName] = useState('');
-  const [candidateAddress, setCandidateAddress] = useState('123 Anywhere St., Any City, ST 12345');
+  const [candidateAddress, setCandidateAddress] = useState('Bengaluru Corporate HQ, India');
   const [candidateEmail, setCandidateEmail] = useState('');
   const [candidatePhone, setCandidatePhone] = useState('+91 98765 43210');
   const [roleTitle, setRoleTitle] = useState('Marketing Coordinator');
   const [department, setDepartment] = useState('Client Acquisition');
   const [monthlyGross, setMonthlyGross] = useState(700000);
-  const [joiningDate, setJoiningDate] = useState('September 9, 2025');
-  const [reportingManager, setReportingManager] = useState('Rosa Maria (Marketing Manager)');
-  const [acceptanceDeadline, setAcceptanceDeadline] = useState('August 30, 2025');
-  const [signatoryName, setSignatoryName] = useState('Arun Leob');
+  const [joiningDate, setJoiningDate] = useState('Immediate / Next Monday');
+  const [reportingManager, setReportingManager] = useState('Operations Team Leader');
+  const [acceptanceDeadline, setAcceptanceDeadline] = useState('Within 7 business days');
+  const [signatoryName, setSignatoryName] = useState('T .Vidhya Sagar');
 
   if (!isOpen) return null;
 
-  // Quick auto-fill from candidates list
+  // Quick auto-fill from candidates or team roster
   const handleSelectCandidate = (candName: string) => {
     const cand = candidates.find(c => c.candidateName === candName);
+    const emp = teamMembers.find(m => m.name === candName);
     if (cand) {
       setCandidateName(cand.candidateName);
       setRoleTitle(cand.roleApplied || 'Marketing Coordinator');
       setCandidateEmail(cand.email || `${cand.candidateName.toLowerCase().replace(/\s+/g, '.')}@gmail.com`);
       setCandidatePhone(cand.phone || '+91 98765 43210');
+    } else if (emp) {
+      setCandidateName(emp.name);
+      setRoleTitle(emp.role || 'Telecaller Executive');
+      setCandidateEmail(emp.email || '');
+      setCandidatePhone(emp.phone || '');
+      if (emp.address) setCandidateAddress(emp.address);
     }
   };
 

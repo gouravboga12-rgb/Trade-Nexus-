@@ -99,6 +99,9 @@ export interface AttendanceRecord {
   checkOutLng?: number;
   checkOutDistanceM?: number;
   checkOutLocationStatus?: 'AT_OFFICE' | 'AWAY' | 'NOT_SHARED' | 'OFFICE_NOT_SET';
+  punchOutStatus?: 'NORMAL' | 'MISSED_PUNCH_OUT' | 'AUTO_CLOSED';
+  isAutoClosed?: boolean;
+  autoClosedAt?: string;
   date: string;
   dayNumber: number;
   status: 'PRESENT' | 'LATE' | 'ABSENT' | 'LEAVE' | 'HOLIDAY' | 'HALF_DAY';
@@ -221,6 +224,7 @@ export interface TeamMember {
   salary?: number;
   joiningDate?: string;
   address?: string;
+  bloodGroup?: string;
 }
 
 export interface TeamGroup {
@@ -411,6 +415,7 @@ export interface NewEmployeeInput {
   joiningDate: string;
   salaryDate: string;
   avatar?: string;
+  bloodGroup?: string;
 }
 
 export interface PaymentVerificationItem {

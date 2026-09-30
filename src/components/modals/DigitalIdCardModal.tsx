@@ -123,7 +123,7 @@ export const DigitalIdCardModal: React.FC = () => {
     triggerToast(`Dispatching official ID Card PDF to ${targetEmail}...`);
     try {
       const res = await api.sendIdCardEmail(
-        { id: selectedEmpId, email: targetEmail, name: customName, empCode: customEmpCode, role: customRole, phone: customPhone },
+        { id: selectedEmpId, email: targetEmail, name: customName, empCode: customEmpCode, role: customRole, phone: customPhone, bloodGroup: customBloodGroup },
         { name: customName, role: customRole, empCode: customEmpCode, bloodGroup: customBloodGroup, dob: customDob, phone: customPhone, email: targetEmail }
       );
       if (res.success) {
@@ -136,6 +136,24 @@ export const DigitalIdCardModal: React.FC = () => {
     } finally {
       setIsSendingEmail(false);
     }
+  };
+
+  const handleToggleEdit = async () => {
+    if (isEditing && selectedEmpId) {
+      try {
+        await api.updateTeamMember(selectedEmpId, {
+          name: customName,
+          role: customRole,
+          empCode: customEmpCode,
+          bloodGroup: customBloodGroup,
+          phone: customPhone,
+        });
+        triggerToast(`✓ Saved ID card details for ${customName}`);
+      } catch (err) {
+        console.warn('Failed to save ID card edits:', err);
+      }
+    }
+    setIsEditing(!isEditing);
   };
 
   return (
@@ -152,13 +170,13 @@ export const DigitalIdCardModal: React.FC = () => {
           <div className="flex items-center gap-2">
             {canEditIdCard && (
               <button
-                onClick={() => setIsEditing(!isEditing)}
+                onClick={handleToggleEdit}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                   isEditing ? 'bg-[#00C9A7] text-[#0A2540]' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
                 }`}
               >
                 <Edit3 className="w-3.5 h-3.5" />
-                <span>{isEditing ? 'Done' : 'Edit'}</span>
+                <span>{isEditing ? 'Save & Done' : 'Edit'}</span>
               </button>
             )}
 

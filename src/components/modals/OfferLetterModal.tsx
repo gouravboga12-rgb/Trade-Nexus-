@@ -47,8 +47,8 @@ export const OfferLetterModal: React.FC = () => {
   const formattedSalary = formData.monthlyGross 
     ? `INR ${formData.monthlyGross.toLocaleString('en-IN')}` 
     : 'INR 7,00,000';
-  const address = formData.candidateAddress || '123 Anywhere St., Any City\nST 12345';
-  const deadline = formData.acceptanceDeadline || 'August 30, 2025';
+  const address = formData.candidateAddress || 'Bengaluru Corporate Office';
+  const deadline = formData.acceptanceDeadline || 'Within 7 business days';
   const signatory = formData.signatoryName || 'T .Vidhya Sagar';
   const signatoryRole = formData.signatoryRole || 'Chief executive Officer';
 
@@ -179,6 +179,16 @@ export const OfferLetterModal: React.FC = () => {
                 />
               </div>
               <div>
+                <label className="text-[10px] font-bold text-slate-500 block">Candidate Address</label>
+                <input 
+                  type="text" 
+                  value={formData.candidateAddress || ''} 
+                  onChange={(e) => setFormData({ ...formData, candidateAddress: e.target.value })}
+                  placeholder="e.g. HSR Layout, Bengaluru"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-semibold text-slate-800"
+                />
+              </div>
+              <div>
                 <label className="text-[10px] font-bold text-slate-500 block">Reporting Manager</label>
                 <input 
                   type="text" 
@@ -191,7 +201,7 @@ export const OfferLetterModal: React.FC = () => {
                 <label className="text-[10px] font-bold text-slate-500 block">Acceptance Deadline</label>
                 <input 
                   type="text" 
-                  value={formData.acceptanceDeadline || 'August 30, 2025'} 
+                  value={formData.acceptanceDeadline || 'Within 7 business days'} 
                   onChange={(e) => setFormData({ ...formData, acceptanceDeadline: e.target.value })}
                   className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-semibold text-slate-800"
                 />
@@ -325,7 +335,7 @@ export const OfferLetterModal: React.FC = () => {
                 </div>
 
                 <div className="text-right font-semibold text-slate-700 text-[11px] sm:text-xs flex-shrink-0">
-                  <span>{formData.issuedDate || '24 August 2025'}</span>
+                  <span>{formData.issuedDate || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                 </div>
               </div>
 

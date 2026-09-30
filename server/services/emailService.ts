@@ -311,6 +311,7 @@ export async function sendEmployeeOnboardingEmail(
       candidateName: employee.name,
       candidateEmail: toEmail,
       candidatePhone: employee.phone,
+      candidateAddress: employee.address || offerLetter?.candidateAddress,
       roleTitle,
       annualCtc: offerLetter?.annualCtc,
       monthlyGross: offerLetter?.monthlyGross,
@@ -335,6 +336,7 @@ export async function sendEmployeeOnboardingEmail(
       role: roleTitle,
       empCode,
       phone: employee.phone,
+      bloodGroup: employee.bloodGroup || 'O+',
     });
     attachments.push({
       filename: `Trade_Nexus_ID_Card_${(employee.name || 'Staff').replace(/\s+/g, '_')}.pdf`,

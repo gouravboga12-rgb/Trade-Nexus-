@@ -178,15 +178,17 @@ export const AttendanceLeavesView: React.FC = () => {
                 const holidayMatch = companyHolidays.find((h) => h.date === dateStr);
                 const isWeeklyOff = weeklyOffDays.includes(dayOfWeek);
                 const isToday = dateStr === todayStr;
+                const isPast = dateStr < todayStr;
+                const isEffectiveAbsent = status === 'ABSENT' || (!status && isPast && !holidayMatch && !isWeeklyOff);
 
                 return (
                   <div
                     key={day}
-                    title={holidayMatch ? `Holiday: ${holidayMatch.name}` : isWeeklyOff ? 'Weekly Off' : undefined}
+                    title={holidayMatch ? `Holiday: ${holidayMatch.name}` : isWeeklyOff ? 'Weekly Off' : isEffectiveAbsent ? 'Absent' : undefined}
                     className={`h-11 rounded-xl flex flex-col items-center justify-center relative transition-all ${
                       isToday ? 'bg-[#00C9A7] text-[#0A2540] shadow-md shadow-[#00C9A7]/30 font-extrabold ring-2 ring-[#00C9A7]/50' :
                       status === 'LEAVE' ? 'bg-amber-100 text-amber-900 border border-amber-300' :
-                      status === 'ABSENT' ? 'bg-rose-100 text-rose-900 border border-rose-300' :
+                      isEffectiveAbsent ? 'bg-rose-100 text-rose-900 border border-rose-300' :
                       status === 'PRESENT' ? 'bg-emerald-50/80 text-emerald-900 border border-emerald-200' :
                       status === 'HALF_DAY' ? 'bg-sky-50 text-sky-900 border border-sky-200' :
                       holidayMatch || status === 'HOLIDAY' ? 'bg-purple-100 text-purple-900 border border-purple-300 shadow-2xs font-black' :
@@ -206,7 +208,10 @@ export const AttendanceLeavesView: React.FC = () => {
                     {status === 'LEAVE' && (
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1" />
                     )}
-                    {isWeeklyOff && !holidayMatch && !status && (
+                    {isEffectiveAbsent && !isToday && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 mt-1" />
+                    )}
+                    {isWeeklyOff && !holidayMatch && !status && !isEffectiveAbsent && (
                       <span className="text-[8px] text-slate-400 mt-0.5 leading-none font-sans font-medium">OFF</span>
                     )}
                   </div>
@@ -241,13 +246,23 @@ export const AttendanceLeavesView: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <span className={`font-bold block ${
+                      log.punchOutStatus === 'MISSED_PUNCH_OUT' ? 'text-amber-700' :
                       log.status === 'PRESENT' ? 'text-emerald-700' : log.status === 'LEAVE' ? 'text-amber-700' : 'text-slate-500'
                     }`}>
-                      {log.workHours ? `${log.workHours} Worked` : log.status === 'LEAVE' ? 'On Leave' : 'Holiday'}
+                      {log.punchOutStatus === 'MISSED_PUNCH_OUT'
+                        ? 'Missed Punch-Out'
+                        : log.workHours
+                        ? `${log.workHours} Worked`
+                        : log.status === 'LEAVE'
+                        ? 'On Leave'
+                        : 'Holiday'}
                     </span>
                     {log.checkIn && (
                       <span className="text-[10px] font-mono text-slate-400 block">
                         {log.checkIn}{log.checkOut ? ` - ${log.checkOut}` : ''}
+                        {log.punchOutStatus === 'MISSED_PUNCH_OUT' && (
+                          <span className="text-amber-600 font-semibold ml-1">(Auto-Closed)</span>
+                        )}
                       </span>
                     )}
                   </div>

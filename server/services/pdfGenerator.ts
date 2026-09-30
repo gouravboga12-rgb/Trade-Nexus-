@@ -87,16 +87,23 @@ export async function generateOfferLetterPdf(data: {
   const recipientY = startY + 50;
   doc.fontSize(8).font('Helvetica-Bold').fillColor('#64748B').text('TO,', 40, recipientY);
   doc.fontSize(11).font('Helvetica-Bold').fillColor('#0A2540').text(data.candidateName, 40, recipientY + 12);
+  let currentRecipientY = recipientY + 26;
+  if (data.candidateAddress) {
+    doc.fontSize(8).font('Helvetica').fillColor('#475569').text(data.candidateAddress, 40, currentRecipientY, { width: 320 });
+    currentRecipientY += doc.heightOfString(data.candidateAddress, { width: 320 }) + 3;
+  }
   if (data.candidateEmail) {
-    doc.fontSize(8).font('Helvetica').fillColor('#64748B').text(`Email: ${data.candidateEmail}`, 40, recipientY + 26);
+    doc.fontSize(8).font('Helvetica').fillColor('#64748B').text(`Email: ${data.candidateEmail}`, 40, currentRecipientY);
+    currentRecipientY += 11;
   }
   if (data.candidatePhone) {
-    doc.fontSize(8).font('Helvetica').fillColor('#64748B').text(`Contact: ${data.candidatePhone}`, 40, recipientY + 37);
+    doc.fontSize(8).font('Helvetica').fillColor('#64748B').text(`Contact: ${data.candidatePhone}`, 40, currentRecipientY);
+    currentRecipientY += 11;
   }
 
   // ── Salutation & Body Text ──
   const firstName = data.candidateName.split(' ')[0] || data.candidateName;
-  const bodyY = recipientY + 54;
+  const bodyY = Math.max(recipientY + 56, currentRecipientY + 6);
   doc.fontSize(9.5).font('Helvetica').fillColor('#1E293B').text(`Dear ${firstName},`, 40, bodyY);
 
   const role = data.roleTitle || 'Senior Telecaller / SDR';
@@ -441,8 +448,8 @@ export async function generateIdCardPdf(employee: any, cardData?: any): Promise<
   // Employee Details Grid inside badge
   const gridY = avatarY + 124;
   const empCode = cardData?.empCode || employee.empCode || 'TNX-001';
-  const blood = cardData?.bloodGroup || 'O+ ve';
-  const dob = cardData?.dob || '05/11/1997';
+  const blood = cardData?.bloodGroup || employee.bloodGroup || 'O+';
+  const dob = cardData?.dob || employee.dob || '05/11/1997';
   const phone = cardData?.phone || employee.phone || '+91 98765 43210';
 
   const drawBadgeField = (label: string, val: string, yPos: number) => {

@@ -3560,14 +3560,30 @@ export const AdminDashboardView: React.FC = () => {
                           </div>
 
                           {/* PUNCH OUT SIDE */}
-                          <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-200/70 flex flex-col justify-between">
+                          <div className={`rounded-xl p-2.5 border flex flex-col justify-between ${
+                            (rec.punchOutStatus === 'MISSED_PUNCH_OUT' || rec.isAutoClosed)
+                              ? 'bg-amber-50/50 border-amber-200'
+                              : 'bg-slate-50/80 border-slate-200/70'
+                          }`}>
                             <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                              <span className={`text-[10px] font-black uppercase tracking-wider flex items-center gap-1 ${
+                                (rec.punchOutStatus === 'MISSED_PUNCH_OUT' || rec.isAutoClosed)
+                                  ? 'text-amber-700'
+                                  : 'text-rose-700'
+                              }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${
+                                  (rec.punchOutStatus === 'MISSED_PUNCH_OUT' || rec.isAutoClosed)
+                                    ? 'bg-amber-500'
+                                    : 'bg-rose-500'
+                                }`}></span>
                                 Punch Out
                               </span>
-                              <span className="text-[11px] font-bold text-[#0A2540] font-mono">
-                                {rec.checkOut || 'Active'}
+                              <span className={`text-[11px] font-bold font-mono ${
+                                (rec.punchOutStatus === 'MISSED_PUNCH_OUT' || rec.isAutoClosed)
+                                  ? 'text-amber-800'
+                                  : 'text-[#0A2540]'
+                              }`}>
+                                {rec.checkOut ? rec.checkOut : ((rec.punchOutStatus === 'MISSED_PUNCH_OUT' || rec.isAutoClosed) ? 'Auto-Closed' : 'Active')}
                               </span>
                             </div>
 
@@ -3586,6 +3602,12 @@ export const AdminDashboardView: React.FC = () => {
                                     <Maximize2 className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                                   </div>
                                 </>
+                              ) : (rec.punchOutStatus === 'MISSED_PUNCH_OUT' || rec.isAutoClosed) ? (
+                                <div className="w-full h-full flex flex-col items-center justify-center text-amber-700 bg-amber-50/90 border border-amber-200/80 p-2 text-center rounded-lg">
+                                  <AlertTriangle className="w-5 h-5 mb-1 text-amber-600 animate-bounce" />
+                                  <span className="text-[9px] font-black uppercase tracking-tight text-amber-900 leading-tight">Failed to Punch Out</span>
+                                  <span className="text-[8px] text-amber-700 font-medium mt-0.5 leading-tight">Auto-closed at shift end (No Face Scan)</span>
+                                </div>
                               ) : rec.checkOut ? (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
                                   <CameraOff className="w-5 h-5 mb-1 opacity-50" />
@@ -3604,7 +3626,15 @@ export const AdminDashboardView: React.FC = () => {
                               <span className="flex items-center gap-1 truncate">
                                 <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
                                 <span className="truncate">
-                                  {rec.checkOutLocationStatus === 'AT_OFFICE' ? 'At Office' : rec.checkOutLocationStatus === 'AWAY' ? 'Away' : rec.checkOut ? 'Recorded' : 'Pending Out'}
+                                  {(rec.punchOutStatus === 'MISSED_PUNCH_OUT' || rec.isAutoClosed)
+                                    ? 'Auto-closed at Shift End'
+                                    : rec.checkOutLocationStatus === 'AT_OFFICE'
+                                    ? 'At Office'
+                                    : rec.checkOutLocationStatus === 'AWAY'
+                                    ? 'Away'
+                                    : rec.checkOut
+                                    ? 'Recorded'
+                                    : 'Pending Out'}
                                 </span>
                               </span>
                               {rec.checkOutDistanceM != null && (

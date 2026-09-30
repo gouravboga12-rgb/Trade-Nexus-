@@ -296,6 +296,30 @@ export const EmployeeRecordModal: React.FC<Props> = ({ employee, onClose }) => {
 
                 <Field label="Daily call goal" k="goalCalls" type="number" />
                 <Field label="Monthly sales target" k="salesTarget" type="number" />
+                <Field label="Residential Address" k="address" />
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    Blood Group (ID Card)
+                  </label>
+                  {isEditing ? (
+                    <select
+                      value={String(value('bloodGroup') ?? 'O+')}
+                      onChange={(e) => setDraft((d) => ({ ...d, bloodGroup: e.target.value }))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                    >
+                      <option value="O+">O+ Positive</option>
+                      <option value="O-">O- Negative</option>
+                      <option value="A+">A+ Positive</option>
+                      <option value="A-">A- Negative</option>
+                      <option value="B+">B+ Positive</option>
+                      <option value="B-">B- Negative</option>
+                      <option value="AB+">AB+ Positive</option>
+                      <option value="AB-">AB- Negative</option>
+                    </select>
+                  ) : (
+                    <span className="text-xs font-semibold text-[#0A2540]">{employee.bloodGroup || 'O+'}</span>
+                  )}
+                </div>
               </div>
 
               {!isEditing && (

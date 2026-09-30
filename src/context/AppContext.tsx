@@ -284,6 +284,7 @@ interface AppContextType {
   sendPayslipEmailToEmployee: (payslipId: string, email?: string) => Promise<boolean>;
   sendRelievingLetterEmailToEmployee: (employee: Partial<TeamMember>, letter: Partial<RelievingLetterData>) => Promise<boolean>;
   sendExperienceCertEmailToEmployee: (employee: Partial<TeamMember>, cert: Partial<ExperienceCertData>) => Promise<boolean>;
+  sendIdCardEmailToEmployee: (employee: Partial<TeamMember>, cardData?: any) => Promise<boolean>;
   sendOnboardingEmailToEmployee: (employee: Partial<TeamMember>, offerLetter?: Partial<OfferLetterData>) => Promise<boolean>;
 
   updateEmployeeAvatar: (empId: string, photoDataUrl: string) => void;
@@ -1554,6 +1555,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       salary: data.salary,
       joiningDate: data.joiningDate,
       address: data.address,
+      bloodGroup: data.bloodGroup || 'O+',
     };
     setTeamMembers(prev => [newMember, ...prev]);
 
@@ -1582,6 +1584,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       candidateName: data.name,
       candidateEmail: data.email,
       candidatePhone: data.phone,
+      candidateAddress: data.address || 'Bengaluru Corporate HQ',
       roleTitle: data.roleTitle || 'Telecaller Executive',
       department: data.department || 'Sales & Client Acquisition',
       annualCtc,
@@ -1799,6 +1802,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return false;
     } catch {
       triggerToast('✗ Failed to send experience cert email.');
+      return false;
+    }
+  };
+
+  const sendIdCardEmailToEmployee = async (employee: Partial<TeamMember>, cardData?: any): Promise<boolean> => {
+    try {
+      const res = await api.sendIdCardEmail(employee, cardData);
+      if (res.success) {
+        triggerToast(`✓ Digital ID Card PDF emailed to ${employee.email}`);
+        return true;
+      }
+      triggerToast('✗ Could not send ID Card email.');
+      return false;
+    } catch {
+      triggerToast('✗ Failed to send ID Card email.');
       return false;
     }
   };
@@ -3098,6 +3116,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         sendPayslipEmailToEmployee,
         sendRelievingLetterEmailToEmployee,
         sendExperienceCertEmailToEmployee,
+        sendIdCardEmailToEmployee,
         sendOnboardingEmailToEmployee,
         updateEmployeeAvatar,
         isDataLoading,

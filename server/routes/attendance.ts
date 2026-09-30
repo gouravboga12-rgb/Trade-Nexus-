@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
 import { getTodayDateIST, getCurrentTimeIST } from '../utils/dateUtils.js';
+import { sweepUnclosedAttendance } from '../services/attendanceLifecycle.js';
 
 const router = Router();
 
@@ -53,6 +54,7 @@ function forViewer(row: any, isAdmin: boolean, requestingEmployeeId?: string) {
 // GET /api/attendance?role=admin&employeeId=...
 router.get('/', (req: Request, res: Response) => {
   try {
+    sweepUnclosedAttendance();
     const isAdmin = String(req.query.role || '').toLowerCase() === 'admin' || req.user?.role === 'admin';
     const employeeId = String(req.query.employeeId || '').trim();
     const records = employeeId
@@ -71,6 +73,7 @@ router.get('/', (req: Request, res: Response) => {
 // GET /api/attendance/today — check current shift status for employee
 router.get('/today', (req: Request, res: Response) => {
   try {
+    sweepUnclosedAttendance();
     const userEmpId = req.user?.employeeId || req.user?.id;
     const userEmpCode = req.user?.empCode;
     const targetEmpId = String(req.query.employeeId || '').trim() || userEmpId;
@@ -122,6 +125,8 @@ router.get('/today', (req: Request, res: Response) => {
       checkInLat: r.checkInLat,
       checkInLng: r.checkInLng,
       checkInDistanceM: r.checkInDistanceM,
+      punchOutStatus: r.punchOutStatus || 'NORMAL',
+      isAutoClosed: Boolean(r.isAutoClosed),
       disputedByAdmin: isDisputed,
       disputeReason: isDisputed ? (r.disputeReason || 'Suspicious punch-in photo flagged by admin.') : null
     });
