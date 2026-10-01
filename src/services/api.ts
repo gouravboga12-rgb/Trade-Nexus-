@@ -513,7 +513,7 @@ export async function downloadFile(
 ): Promise<void> {
   const url = `${API_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
   const headers: Record<string, string> = {};
-  const token = localStorage.getItem('token');
+  const token = getAuthToken() || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (body) headers['Content-Type'] = 'application/json';
 

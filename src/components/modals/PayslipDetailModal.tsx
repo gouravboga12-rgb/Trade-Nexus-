@@ -110,11 +110,19 @@ export const PayslipDetailModal: React.FC<PayslipDetailModalProps> = ({ payslip,
           
           <div className="flex items-center gap-2">
             <button
-              onClick={handlePrint}
-              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
+              onClick={handleDownload}
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#00A88B] to-[#00C9A7] text-[#0A2540] text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs hover:brightness-105 cursor-pointer"
             >
-              <Printer className="w-3.5 h-3.5 text-[#00C9A7]" />
-              <span className="hidden sm:inline">Print / PDF</span>
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Download PDF</span>
+            </button>
+            <button
+              onClick={handlePrint}
+              className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-medium transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+              title="Print document"
+            >
+              <Printer className="w-3.5 h-3.5 text-slate-400" />
+              <span className="hidden sm:inline">Print</span>
             </button>
             <button 
               onClick={onClose}
@@ -126,7 +134,7 @@ export const PayslipDetailModal: React.FC<PayslipDetailModalProps> = ({ payslip,
         </div>
 
         {/* Document Content (Scrollable) */}
-        <div className="p-0 sm:p-6 overflow-y-auto flex-1 bg-slate-100/80 flex justify-center printable-scroll-container print:p-0 print:bg-white">
+        <div className="p-2 sm:p-6 pb-8 overflow-y-auto flex-1 bg-slate-100/80 flex justify-center printable-scroll-container print:p-0 print:bg-white">
           
           {/* Printable Payslip Sheet matching 4.png */}
           <div 
@@ -355,20 +363,17 @@ export const PayslipDetailModal: React.FC<PayslipDetailModalProps> = ({ payslip,
                   </div>
                 </div>
 
-                {/* Right: Authorized By (Matching 4.png) */}
-                <div className="text-right space-y-0.5">
+                {/* Right: Authorized By (Exact 4.png) */}
+                <div className="text-right space-y-1">
                   <p className="text-xs text-slate-500 font-medium">Authorized by:</p>
                   <p className="text-xs font-bold text-[#0A2540]">Finance Manager – Trade Nexus</p>
                   
-                  <div className="py-1 flex justify-end">
-                    <img
-                      src={signatureVidhyaSagar}
-                      alt="T. Vidhya Sagar"
-                      className="h-8 w-auto object-contain select-none"
-                    />
+                  <div className="h-8 flex items-center justify-end">
+                    <p className="font-serif italic text-slate-700 text-sm tracking-wide select-none">
+                      Muhammad Patel
+                    </p>
                   </div>
-                  <p className="text-xs font-bold text-[#0A2540]">T. Vidhya Sagar</p>
-                  <p className="text-[10px] text-slate-500 font-semibold">Authorized Signatory</p>
+                  <p className="text-xs font-bold text-[#0A2540]">Muhammad Patel</p>
                 </div>
 
               </div>
@@ -385,7 +390,7 @@ export const PayslipDetailModal: React.FC<PayslipDetailModalProps> = ({ payslip,
         </div>
 
         {/* Modal Bottom Action Bar */}
-        <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between print:hidden flex-shrink-0">
+        <div className="p-3 sm:p-4 bg-white border-t border-slate-200 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] flex items-center justify-between print:hidden flex-shrink-0 relative z-20">
           <button
             type="button"
             onClick={onClose}

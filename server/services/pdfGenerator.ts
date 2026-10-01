@@ -245,17 +245,16 @@ export async function generateOfferLetterPdf(data: {
   // Closing Signatures
   const sigY = currentY;
 
-  // Left: Authorized Signatory
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#64748B').text('Sincerely,', leftX, sigY);
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text('Trade Nexus Corporate HR', leftX, sigY + 11);
+  // Left: Warm Regards & Authentic Signatory (exact 1.png)
+  doc.fontSize(8.5).font('Helvetica').fillColor('#64748B').text('Warm Regards,', leftX, sigY);
 
-  drawOfficialSignature(doc, leftX, sigY + 23, 140);
+  drawOfficialSignature(doc, leftX, sigY + 14, 140);
 
   const sigName = data.signatoryName || 'T .Vidhya Sagar';
-  const sigRole = data.signatoryRole || 'Chief Executive Officer';
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text(sigName, leftX, sigY + 54);
-  doc.fontSize(7.5).font('Helvetica').fillColor('#64748B').text(sigRole, leftX, sigY + 65);
-  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#00A88B').text('Trade Nexus', leftX, sigY + 75);
+  const sigRole = data.signatoryRole || 'Chief executive Officer';
+  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#00A88B').text(sigName, leftX, sigY + 46);
+  doc.fontSize(8).font('Helvetica').fillColor('#334155').text(sigRole, leftX, sigY + 58);
+  doc.fontSize(8).font('Helvetica').fillColor('#64748B').text('Trade Nexus', leftX, sigY + 68);
 
   // Right: Candidate Acceptance Signature
   const rightSigX = pageWidth - leftX - 170;
@@ -473,17 +472,17 @@ export async function generateRelievingLetterPdf(employee: any, relievingLetter:
   );
   currentY += 38;
 
-  // Closing with Official Seal and Signatory (Exact match for 3.png)
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text('For Trade Nexus Corporate,', leftX, currentY);
+  // Closing with Official Seal and Signatory on Right (Exact match for 3.png)
+  const rightSealX = pageWidth - leftX - 140;
 
   // Official Seal Stamp (matches 3.png!)
-  drawOfficialSeal(doc, leftX, currentY + 12, 140);
+  drawOfficialSeal(doc, rightSealX, currentY + 10, 130);
 
   const sigName = relievingLetter.signatoryName || 'T .Vidhya Sagar';
   const sigRole = relievingLetter.signatoryRole || 'Chief Executive Officer';
-  doc.fontSize(9).font('Helvetica-Bold').fillColor('#0A2540').text(sigName, leftX, currentY + 115);
-  doc.fontSize(8).font('Helvetica').fillColor('#475569').text(sigRole, leftX, currentY + 126);
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#00A88B').text('Authorized Signatory', leftX, currentY + 136);
+  doc.fontSize(9).font('Helvetica-Bold').fillColor('#0A2540').text(sigName, rightSealX, currentY + 145, { width: 130, align: 'center' });
+  doc.fontSize(8).font('Helvetica').fillColor('#475569').text(sigRole, rightSealX, currentY + 157, { width: 130, align: 'center' });
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#00A88B').text('Authorized Signatory', rightSealX, currentY + 168, { width: 130, align: 'center' });
 
   doc.end();
   return bufferPromise;
@@ -667,15 +666,11 @@ export async function generatePayslipPdf(employee: any, payslip: any): Promise<B
   doc.text(':', leftX + 110, sumY + 34);
   doc.fontSize(8).font('Helvetica').fillColor('#475569').text(payMode, leftX + 122, sumY + 34);
 
-  // Right Signatory: Authorized Signatory (matching 4.png, T. Vidhya Sagar with authentic signature!)
-  const sigRightX = 350;
+  // Right Signatory: Authorized Signatory (matching 4.png, Finance Manager – Trade Nexus / Muhammad Patel)
+  const sigRightX = 370;
   doc.fontSize(7.5).font('Helvetica').fillColor('#64748B').text('Authorized by:', sigRightX, sumY);
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0A2540').text('Finance Manager – Trade Nexus', sigRightX, sumY + 11);
-
-  drawOfficialSignature(doc, sigRightX, sumY + 22, 130);
-
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0A2540').text('T. Vidhya Sagar', sigRightX, sumY + 54);
-  doc.fontSize(7.5).font('Helvetica').fillColor('#64748B').text('Authorized Signatory', sigRightX, sumY + 65);
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text('Finance Manager – Trade Nexus', sigRightX, sumY + 12);
+  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0A2540').text('Muhammad Patel', sigRightX, sumY + 45);
 
   doc.end();
   return bufferPromise;

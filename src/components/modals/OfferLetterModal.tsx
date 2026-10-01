@@ -153,11 +153,20 @@ export const OfferLetterModal: React.FC = () => {
             )}
 
             <button
-              onClick={handlePrint}
-              className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs border border-slate-200"
+              onClick={handleDownload}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#00A88B] to-[#00C9A7] text-[#0A2540] font-black text-xs shadow-xs hover:brightness-105 flex items-center gap-1.5 cursor-pointer"
             >
-              <Printer className="w-3.5 h-3.5 text-[#00A88B]" />
-              <span className="hidden xs:inline">Print / PDF</span>
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">Download PDF</span>
+            </button>
+
+            <button
+              onClick={handlePrint}
+              className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 text-xs font-medium transition-all flex items-center gap-1.5 shadow-2xs border border-slate-200 cursor-pointer"
+              title="Print document"
+            >
+              <Printer className="w-3.5 h-3.5 text-slate-500" />
+              <span className="hidden sm:inline">Print</span>
             </button>
 
             <button 

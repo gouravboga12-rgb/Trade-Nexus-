@@ -231,6 +231,14 @@ export const DigitalIdCardModal: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownload}
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#00A88B] to-[#00C9A7] text-[#0A2540] text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs hover:brightness-105 cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Download PDF</span>
+            </button>
+
             {canEditIdCard && (
               <button
                 onClick={handleToggleEdit}
@@ -496,15 +504,7 @@ export const DigitalIdCardModal: React.FC = () => {
               }}
             >
               
-              {/* Watermark in bottom right */}
-              <div className="absolute right-3 bottom-3 opacity-15 pointer-events-none select-none">
-                <div 
-                  className="w-20 h-20 rounded-full border-4 flex items-center justify-center"
-                  style={{ borderColor: '#00C9A7' }}
-                >
-                  <TrendingUp className="w-12 h-12 stroke-[2.5]" style={{ color: '#00C9A7' }} />
-                </div>
-              </div>
+
 
               <div className="flex items-end justify-between relative z-10 gap-2">
                 

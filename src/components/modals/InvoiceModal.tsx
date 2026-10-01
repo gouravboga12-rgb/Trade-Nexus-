@@ -21,6 +21,7 @@ import {
 import { InvoiceData, InvoiceItem } from '../../types';
 import { api } from '../../services/api';
 import watermarkEmblem from '../../assets/watermark-emblem.png';
+import logoIcon from '../../assets/logo-icon.png';
 
 export const InvoiceModal: React.FC = () => {
   const { 
@@ -268,9 +269,11 @@ export const InvoiceModal: React.FC = () => {
                 {/* Brand & Logo */}
                 <div>
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#00C9A7] to-[#0A2540] flex items-center justify-center shadow-lg border border-[#00C9A7]/40">
-                      <TrendingUp className="w-7 h-7 text-white" />
-                    </div>
+                    <img 
+                      src={logoIcon} 
+                      alt="Trade Nexus" 
+                      className="w-12 h-12 object-contain flex-shrink-0"
+                    />
                     <div>
                       <h1 className="font-display font-extrabold text-2xl tracking-wider text-white">TRADE NEXUS</h1>
                       <p className="text-[10px] font-semibold text-[#00C9A7] tracking-widest uppercase">THE ONLY SMART WAY TO TRADE</p>

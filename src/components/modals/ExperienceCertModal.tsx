@@ -141,11 +141,20 @@ export const ExperienceCertModal: React.FC = () => {
             )}
 
             <button
-              onClick={handlePrint}
-              className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
+              onClick={handleDownload}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#00A88B] to-[#00C9A7] text-[#0A2540] font-black text-xs shadow-xs hover:brightness-105 flex items-center gap-1.5 cursor-pointer"
             >
-              <Printer className="w-3.5 h-3.5 text-[#00C9A7]" />
-              <span className="hidden sm:inline">Print / PDF</span>
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Download PDF</span>
+            </button>
+
+            <button
+              onClick={handlePrint}
+              className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-medium transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+              title="Print document"
+            >
+              <Printer className="w-3.5 h-3.5 text-slate-400" />
+              <span className="hidden sm:inline">Print</span>
             </button>
 
             <button 
