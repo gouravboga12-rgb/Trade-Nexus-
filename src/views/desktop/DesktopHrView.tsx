@@ -34,6 +34,7 @@ import {
   QrCode,
   Layers,
   FileEdit,
+  Trash2,
   Mail
 } from 'lucide-react';
 import { CandidateInterview, OnboardingEmployee, ExitEmployee, PaymentVerificationItem, TeamMember, PayslipItem } from '../../types';
@@ -76,6 +77,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
     generateBulkPayslips, 
     teamMeetings,
     joinMeeting,
+    updateTeamMeeting,
     scheduleTeamMeeting,
     deleteTeamMeeting,
     triggerToast,
@@ -339,10 +341,20 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
         </div>
       )}
 
-      {/* 🔴 Active LIVE Meetings Banner for HR */}
+      {/* 🔴 Active LIVE & Scheduled Meetings Banner for HR */}
       {activeTab === 'home' && (() => {
-        const activeMeetings = teamMeetings.filter(m => m.status === 'LIVE');
+        const activeMeetings = teamMeetings.filter(m => m.status === 'LIVE' || m.status === 'UPCOMING');
         if (!activeMeetings.length) return null;
+
+        // Deduplicate by normalized title + dateTime so duplicate meetings are never stacked
+        const seen = new Set<string>();
+        const deduplicatedMeetings = activeMeetings.filter(m => {
+          const key = `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
         return (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -352,13 +364,13 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                   <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600"></span>
                 </span>
                 <h4 className="font-display font-black text-sm text-[#0A2540]">
-                  Active & Scheduled Zoom Floor Calls ({activeMeetings.length})
+                  Active & Scheduled Zoom Floor Calls ({deduplicatedMeetings.length})
                 </h4>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              {activeMeetings.map((mtg) => {
+              {deduplicatedMeetings.map((mtg) => {
                 const isLive = mtg.status === 'LIVE';
                 const hasZoom = Boolean(mtg.zoomJoinUrl || mtg.zoomMeetingId);
 
@@ -407,18 +419,43 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                         {mtg.attendeesCount ? `${mtg.attendeesCount} Participants` : 'Staff Room'}
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => joinMeeting(mtg)}
-                        className={`px-4 py-2 rounded-xl font-black text-xs flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer ${
-                          isLive
-                            ? 'bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540]'
-                            : 'bg-[#0A2540] hover:bg-teal-900 text-white'
-                        }`}
-                      >
-                        <Video className="w-3.5 h-3.5" />
-                        <span>{isLive ? 'Join Video Call' : 'Enter Zoom'}</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => joinMeeting(mtg)}
+                          className={`px-3.5 py-1.5 rounded-xl font-black text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer ${
+                            isLive
+                              ? 'bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540]'
+                              : 'bg-[#0A2540] hover:bg-teal-900 text-white'
+                          }`}
+                          title="Start or Join Zoom Meeting"
+                        >
+                          <Video className="w-3.5 h-3.5" />
+                          <span>{isLive ? 'Join Call' : 'Enter Zoom'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => updateTeamMeeting(mtg.id, { status: 'COMPLETED' })}
+                          className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                          title="Mark Meeting Completed"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`Cancel/remove meeting "${mtg.title}"?`)) {
+                              deleteTeamMeeting(mtg.id);
+                            }
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          title="Delete Meeting"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );

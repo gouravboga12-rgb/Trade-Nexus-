@@ -114,6 +114,7 @@ export const HrDashboardView: React.FC = () => {
     openPayslipModal,
     teamMeetings,
     joinMeeting,
+    updateTeamMeeting,
     deleteTeamMeeting,
     setIsFaceRegistrationModalOpen,
     setFaceRegistrationEmployee,
@@ -573,9 +574,19 @@ export const HrDashboardView: React.FC = () => {
             {(() => {
               const activeMeetings = teamMeetings.filter(m => m.status === 'LIVE' || m.status === 'UPCOMING');
               if (activeMeetings.length === 0) return null;
+
+              // Deduplicate by normalized title + dateTime so duplicate meetings are never stacked
+              const seen = new Set<string>();
+              const deduplicatedMeetings = activeMeetings.filter(m => {
+                const key = `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+              });
+
               return (
                 <div className="space-y-2">
-                  {activeMeetings.slice(0, 3).map((mtg) => {
+                  {deduplicatedMeetings.slice(0, 3).map((mtg) => {
                     const isLive = mtg.status === 'LIVE';
                     return (
                       <div 
@@ -586,7 +597,7 @@ export const HrDashboardView: React.FC = () => {
                             : 'bg-white border-blue-200'
                         }`}
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           <span className="relative flex h-3 w-3 flex-shrink-0">
                             {isLive ? (
                               <>
@@ -597,7 +608,7 @@ export const HrDashboardView: React.FC = () => {
                               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
                             )}
                           </span>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md ${
                                 isLive ? 'text-emerald-900 bg-emerald-200' : 'text-blue-900 bg-blue-100'
@@ -618,13 +629,40 @@ export const HrDashboardView: React.FC = () => {
                             </span>
                           </div>
                         </div>
-                        <button
-                          onClick={() => joinMeeting(mtg)}
-                          className="px-3.5 py-2 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs rounded-xl flex items-center gap-1.5 shadow-sm active:scale-95 transition-all flex-shrink-0 cursor-pointer"
-                        >
-                          <Video className="w-3.5 h-3.5" />
-                          <span>{isLive ? 'Join Live' : 'Start / Join'}</span>
-                        </button>
+
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => joinMeeting(mtg)}
+                            className="px-3 py-1.5 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs rounded-xl flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                            title="Start or Join Meeting"
+                          >
+                            <Video className="w-3.5 h-3.5" />
+                            <span>{isLive ? 'Join Live' : 'Start / Join'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => updateTeamMeeting(mtg.id, { status: 'COMPLETED' })}
+                            className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                            title="Mark as Completed"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Cancel/remove meeting "${mtg.title}"?`)) {
+                                deleteTeamMeeting(mtg.id);
+                              }
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="Cancel Meeting"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}

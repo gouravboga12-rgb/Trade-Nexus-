@@ -334,8 +334,15 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
 
           {/* 🔴 Active & Scheduled Zoom Floor Calls Banner (if any) */}
           {(() => {
-            const activeMeetings = teamMeetings.filter(m => m.status !== 'COMPLETED');
-            if (activeMeetings.length === 0) return null;
+            const raw = teamMeetings.filter(m => m.status !== 'COMPLETED');
+            if (raw.length === 0) return null;
+            const seen = new Set<string>();
+            const activeMeetings = raw.filter(m => {
+              const key = `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
             return (
               <div className="space-y-3">
                 {activeMeetings.map((mtg) => {
@@ -589,39 +596,49 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
                 </div>
 
                 <div className="space-y-2.5">
-                  {teamMeetings.filter(m => m.status !== 'COMPLETED').slice(0, 3).map((mtg) => (
-                    <div key={mtg.id} className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-extrabold text-[#00A88B] bg-[#E6FAF6] px-2 py-0.5 rounded-md uppercase">
-                            {mtg.type}
-                          </span>
-                          {mtg.zoomMeetingId && (
-                            <span className="text-[9px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.2 rounded">
-                              Zoom: {mtg.zoomMeetingId}
+                  {(() => {
+                    const raw = teamMeetings.filter(m => m.status !== 'COMPLETED');
+                    const seen = new Set<string>();
+                    const deduped = raw.filter(m => {
+                      const key = `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
+                      if (seen.has(key)) return false;
+                      seen.add(key);
+                      return true;
+                    });
+                    if (deduped.length === 0) {
+                      return <p className="text-xs text-slate-400 text-center py-4">No active or scheduled meetings</p>;
+                    }
+                    return deduped.slice(0, 3).map((mtg) => (
+                      <div key={mtg.id} className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-extrabold text-[#00A88B] bg-[#E6FAF6] px-2 py-0.5 rounded-md uppercase">
+                              {mtg.type}
                             </span>
-                          )}
+                            {mtg.zoomMeetingId && (
+                              <span className="text-[9px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.2 rounded">
+                                Zoom: {mtg.zoomMeetingId}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] font-mono text-slate-400 font-bold">{(mtg.dateTime ?? '').split('•')[0]}</span>
                         </div>
-                        <span className="text-[10px] font-mono text-slate-400 font-bold">{(mtg.dateTime ?? '').split('•')[0]}</span>
+                        <h5 className="font-bold text-xs text-[#0A2540]">{mtg.title}</h5>
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                          <p className="text-[10px] text-slate-500 flex items-center gap-1 font-mono">
+                            <Clock className="w-3 h-3 text-slate-400" /> {(mtg.dateTime ?? '').split('•')[1] || mtg.dateTime || 'Scheduled'}
+                          </p>
+                          <button
+                            onClick={() => joinMeeting(mtg)}
+                            className="px-2.5 py-1 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-[10px] rounded-lg flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                          >
+                            <Video className="w-3 h-3" />
+                            <span>{mtg.status === 'LIVE' ? 'Join Live' : 'Start'}</span>
+                          </button>
+                        </div>
                       </div>
-                      <h5 className="font-bold text-xs text-[#0A2540]">{mtg.title}</h5>
-                      <div className="flex items-center justify-between pt-1 border-t border-slate-100">
-                        <p className="text-[10px] text-slate-500 flex items-center gap-1 font-mono">
-                          <Clock className="w-3 h-3 text-slate-400" /> {(mtg.dateTime ?? '').split('•')[1] || mtg.dateTime || 'Scheduled'}
-                        </p>
-                        <button
-                          onClick={() => joinMeeting(mtg)}
-                          className="px-2.5 py-1 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-[10px] rounded-lg flex items-center gap-1 cursor-pointer transition-all active:scale-95"
-                        >
-                          <Video className="w-3 h-3" />
-                          <span>{mtg.status === 'LIVE' ? 'Join Live' : 'Start'}</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {teamMeetings.filter(m => m.status !== 'COMPLETED').length === 0 && (
-                    <p className="text-xs text-slate-400 text-center py-4">No active or scheduled meetings</p>
-                  )}
+                    ));
+                  })()}
                 </div>
               </div>
 

@@ -283,6 +283,7 @@ async function startTestSuite() {
       location: 'Conference Room 1',
       agenda: 'Review sprint deliverables',
     }, adminHeaders);
+    await runTest(TEST_PORT, 'DELETE Team Meeting (Cleanup)', 'DELETE', `/api/team-meetings/mtg-test-${uid}`, [200], undefined, adminHeaders);
 
     // 17. Candidate Interviews GET, POST, PUT
     await runTest(TEST_PORT, 'GET Candidate Interviews', 'GET', '/api/interviews', [200], undefined, adminHeaders);

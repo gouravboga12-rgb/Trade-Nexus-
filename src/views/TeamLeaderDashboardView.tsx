@@ -426,8 +426,17 @@ export const TeamLeaderDashboardView: React.FC = () => {
     );
   }
 
-  // Show both LIVE and upcoming scheduled meetings so leaders & reps can see the time and join
-  const activeMeetings = teamMeetings.filter(m => m.status === 'LIVE' || m.status === 'UPCOMING');
+  // Show both LIVE and upcoming scheduled meetings so leaders & reps can see the time and join (deduplicated)
+  const activeMeetings = useMemo(() => {
+    const raw = teamMeetings.filter(m => m.status === 'LIVE' || m.status === 'UPCOMING');
+    const seen = new Set<string>();
+    return raw.filter(m => {
+      const key = `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [teamMeetings]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col justify-between w-full max-w-5xl mx-auto font-sans pb-28 lg:pb-32 selection:bg-[#00C9A7]/20">

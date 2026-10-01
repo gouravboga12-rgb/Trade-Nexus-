@@ -385,6 +385,15 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
       {(() => {
         const activeMeetings = teamMeetings.filter(m => m.status === 'LIVE' || m.status === 'UPCOMING');
         if (!activeMeetings.length) return null;
+
+        const seen = new Set<string>();
+        const deduplicatedMeetings = activeMeetings.filter(m => {
+          const key = `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
         return (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -394,7 +403,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                   <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-600"></span>
                 </span>
                 <h4 className="font-display font-black text-sm text-[#0A2540]">
-                  Active & Scheduled Zoom Floor Calls ({activeMeetings.length})
+                  Active & Scheduled Zoom Floor Calls ({deduplicatedMeetings.length})
                 </h4>
               </div>
               <button
@@ -408,7 +417,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              {activeMeetings.map((mtg) => {
+              {deduplicatedMeetings.map((mtg) => {
                 const isLive = mtg.status === 'LIVE';
                 const isInvited = mtg.includeAdmin || mtg.invitedMemberName?.toLowerCase().includes('admin');
                 const hasZoom = Boolean(mtg.zoomJoinUrl || mtg.zoomMeetingId);

@@ -2353,7 +2353,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const normalizeMeetingUrl = (mtg: TeamMeeting, role: string): string | null => {
-    let url = (role === 'admin' && mtg.zoomStartUrl)
+    const isHostOrLeader = 
+      role === 'admin' || 
+      role === 'hr' || 
+      role === 'team_leader' ||
+      (mtg.hostRole && (mtg.hostRole === role || mtg.hostRole === 'admin' || mtg.hostRole === 'hr')) ||
+      (mtg.hostEmpCode && profile?.empCode && mtg.hostEmpCode === profile.empCode) ||
+      (mtg.hostName && profile?.name && mtg.hostName.toLowerCase() === profile.name.toLowerCase());
+
+    let url = (isHostOrLeader && mtg.zoomStartUrl)
       ? mtg.zoomStartUrl
       : (mtg.zoomJoinUrl || mtg.meetingLink || '');
 
@@ -2394,7 +2402,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const zoomUrl = normalizeMeetingUrl(mtg, currentRole);
 
     if (zoomUrl) {
-      window.open(zoomUrl, '_blank', 'noopener,noreferrer');
+      const win = window.open(zoomUrl, '_blank', 'noopener,noreferrer');
+      if (!win) {
+        window.location.assign(zoomUrl);
+      }
       triggerToast('🚀 Launching Zoom Video Meeting...');
     } else {
       setIsLiveRoomOpen(true);

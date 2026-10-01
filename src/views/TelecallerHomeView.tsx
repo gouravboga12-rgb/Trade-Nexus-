@@ -198,9 +198,16 @@ export const TelecallerHomeView: React.FC = () => {
       {(() => {
         const activeMeetings = teamMeetings.filter(m => m.status === 'LIVE' || m.status === 'UPCOMING');
         if (activeMeetings.length === 0) return null;
+        const seen = new Set<string>();
+        const deduplicatedMeetings = activeMeetings.filter(m => {
+          const key = `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
         return (
           <div className="space-y-2.5">
-            {activeMeetings.map((mtg) => {
+            {deduplicatedMeetings.map((mtg) => {
               const isLive = mtg.status === 'LIVE';
               return (
                 <div 
