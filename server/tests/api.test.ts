@@ -178,6 +178,7 @@ async function startTestSuite() {
 
     // 9. Attendance GET, POST, PUT
     await runTest(TEST_PORT, 'GET Attendance Records', 'GET', '/api/attendance', [200], undefined, adminHeaders);
+    const officeRow = db.prepare('SELECT latitude, longitude FROM office_settings LIMIT 1').get() as any;
     const createdAtt = await runTest(TEST_PORT, 'POST Attendance (Check-in)', 'POST', '/api/attendance', [201, 200], {
       id: `att-test-${uid}`,
       date: '2025-05-29',
@@ -187,6 +188,8 @@ async function startTestSuite() {
       method: 'Face ID Biometric',
       employeeId: `emp-test-${uid}`,
       employeeName: `Test Employee ${uid}`,
+      latitude: officeRow?.latitude ?? 12.9716,
+      longitude: officeRow?.longitude ?? 77.5946,
     }, adminHeaders);
     await runTest(TEST_PORT, 'PUT Attendance (Update)', 'PUT', `/api/attendance/${createdAtt?.id || `att-test-${uid}`}`, [200], {
       checkOut: '06:00 PM',
