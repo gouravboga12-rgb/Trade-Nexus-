@@ -1,6 +1,7 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
 import { useScreenData } from '../../hooks/useScreenData';
+import { api } from '../../services/api';
 import { 
   CreditCard, 
   Download, 
@@ -14,8 +15,10 @@ import {
   CheckCircle2,
   Clock,
   Award,
-  Video
+  Video,
+  Eye
 } from 'lucide-react';
+import { OfferLetterData, ExperienceCertData, RelievingLetterData } from '../../types';
 
 export const DesktopProfile: React.FC = () => {
   const { 
@@ -33,7 +36,8 @@ export const DesktopProfile: React.FC = () => {
     openRelievingLetterModal,
     offerLetters,
     experienceCerts,
-    relievingLetters
+    relievingLetters,
+    triggerToast
   } = useApp();
 
   const myOfferLetter = offerLetters.find(o => 
@@ -41,15 +45,129 @@ export const DesktopProfile: React.FC = () => {
     (o.candidateEmail && o.candidateEmail.toLowerCase() === (profile.email || '').toLowerCase())
   );
 
+  const effectiveOfferLetter: OfferLetterData = myOfferLetter || {
+    id: `off-${profile.empCode || '001'}`,
+    candidateName: profile.name || 'Trade Nexus Employee',
+    candidateEmail: profile.email || 'employee@tradenexus.com',
+    candidatePhone: profile.phone || '+91 98765 43210',
+    roleTitle: profile.roleTitle || (profile as any).role || 'Sales Executive',
+    department: profile.department || 'Client Acquisition',
+    annualCtc: 420000,
+    monthlyGross: 35000,
+    joiningDate: profile.joinDate || '01 Jan 2024',
+    reportingManager: profile.teamLeaderName || 'Ramesh Sharma (TL)',
+    location: 'Bengaluru Corporate HQ',
+    issuedDate: profile.joinDate || '01 Jan 2024',
+  };
+
   const myExperienceCert = experienceCerts.find(c => 
     (c.empCode && c.empCode.toLowerCase() === profile.empCode.toLowerCase()) || 
     (c.employeeName && c.employeeName.toLowerCase() === profile.name.toLowerCase())
   );
 
+  const effectiveExperienceCert: ExperienceCertData = myExperienceCert || {
+    id: `exp-${profile.empCode || '001'}`,
+    employeeName: profile.name || 'Trade Nexus Employee',
+    empCode: profile.empCode || 'TNX-001',
+    guardianName: 'Trade Nexus Corporation',
+    designation: profile.roleTitle || (profile as any).role || 'Sales Executive',
+    department: profile.department || 'Client Acquisition',
+    startDate: profile.joinDate || '01 January 2024',
+    endDate: 'Present',
+    refNumber: `TNX/EXP/${new Date().getFullYear()}/${profile.empCode || '001'}`,
+    issuedDate: new Date().toLocaleDateString('en-GB'),
+    conductRemarks: `During their tenure, ${profile.name || 'the employee'} performed all assigned duties with sincerity, professionalism, and dedication. They demonstrated strong capability and maintained smooth operations throughout their period of employment. Their conduct and performance were satisfactory throughout.`,
+    signatoryName: 'T. Vidhya Sagar',
+    signatoryRole: 'Chief Executive Officer',
+  };
+
   const myRelievingLetter = relievingLetters.find(r => 
     (r.empCode && r.empCode.toLowerCase() === profile.empCode.toLowerCase()) || 
     (r.employeeName && r.employeeName.toLowerCase() === profile.name.toLowerCase())
   );
+
+  const effectiveRelievingLetter: RelievingLetterData = myRelievingLetter || {
+    id: `rel-${profile.empCode || '001'}`,
+    employeeName: profile.name || 'Trade Nexus Employee',
+    empCode: profile.empCode || 'TNX-001',
+    designation: profile.roleTitle || (profile as any).role || 'Sales Executive',
+    department: profile.department || 'Client Acquisition',
+    employeeType: 'Full-Time Regular',
+    employeeAddress: profile.address || 'Bengaluru Corporate HQ',
+    joiningDate: profile.joinDate || '01 Jan 2024',
+    resignationDate: '15 May 2025',
+    lastWorkingDate: '31 May 2025',
+    issuedDate: '01 June 2025',
+    signatoryName: 'T. Vidhya Sagar',
+    signatoryRole: 'Chief Executive Officer',
+  };
+
+  const handleDirectDownloadIdCard = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      triggerToast(`⏳ Generating & downloading official ID Card PDF for ${profile.name}...`);
+      await api.downloadIdCard(
+        { id: profile.id, email: profile.email },
+        {
+          name: profile.name,
+          role: profile.roleTitle || (profile as any).role || 'Sales Executive',
+          empCode: profile.empCode,
+          bloodGroup: profile.bloodGroup || 'O+ ve',
+          dob: (profile as any).dob || '05/11/1997',
+          empType: 'Full - Time',
+          phone: profile.phone || '9876543210',
+          avatar: profile.avatar,
+        }
+      );
+      triggerToast(`✓ Official ID Card PDF downloaded successfully!`);
+    } catch (err: any) {
+      triggerToast(`⚠️ Download failed: ${err.message || 'Server error'}`);
+    }
+  };
+
+  const handleDirectDownloadOfferLetter = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      triggerToast(`⏳ Generating & downloading official Offer Letter PDF for ${profile.name}...`);
+      await api.downloadOfferLetter(effectiveOfferLetter);
+      triggerToast(`✓ Official Offer Letter PDF downloaded successfully!`);
+    } catch (err: any) {
+      triggerToast(`⚠️ Download failed: ${err.message || 'Server error'}`);
+    }
+  };
+
+  const handleDirectDownloadExperienceCert = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      triggerToast(`⏳ Generating & downloading official Experience Certificate PDF for ${profile.name}...`);
+      await api.downloadExperienceCert({ name: profile.name, email: profile.email }, effectiveExperienceCert);
+      triggerToast(`✓ Official Experience Certificate PDF downloaded successfully!`);
+    } catch (err: any) {
+      triggerToast(`⚠️ Download failed: ${err.message || 'Server error'}`);
+    }
+  };
+
+  const handleDirectDownloadRelievingLetter = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      triggerToast(`⏳ Generating & downloading official Relieving Letter PDF for ${profile.name}...`);
+      await api.downloadRelievingLetter({ name: profile.name, email: profile.email }, effectiveRelievingLetter);
+      triggerToast(`✓ Official Relieving Letter PDF downloaded successfully!`);
+    } catch (err: any) {
+      triggerToast(`⚠️ Download failed: ${err.message || 'Server error'}`);
+    }
+  };
+
+  const handleDirectDownloadPayslip = async (pay: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      triggerToast(`⏳ Generating & downloading official Payslip PDF for ${pay.month} ${pay.year}...`);
+      await api.downloadPayslip(pay);
+      triggerToast(`✓ Official Payslip PDF downloaded successfully!`);
+    } catch (err: any) {
+      triggerToast(`⚠️ Download failed: ${err.message || 'Server error'}`);
+    }
+  };
 
   useScreenData('profileSelfService');
 
@@ -121,13 +239,27 @@ export const DesktopProfile: React.FC = () => {
               </div>
             </div>
 
-            <button
-              onClick={() => setIsIdCardModalOpen(true)}
-              className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/20 flex items-center justify-center gap-2 transition-all mt-2"
-            >
-              <QrCode className="w-4 h-4 text-[#00C9A7]" />
-              <span>Download Official Printable ID Card</span>
-            </button>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedIdCardEmpId(profile.id || profile.empCode);
+                  setIsIdCardModalOpen(true);
+                }}
+                className="py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <QrCode className="w-3.5 h-3.5 text-[#00C9A7]" />
+                <span>View Badge</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDirectDownloadIdCard}
+                className="py-2.5 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download PDF</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -153,7 +285,7 @@ export const DesktopProfile: React.FC = () => {
                     <th className="pb-3 px-3">Sales Incentives</th>
                     <th className="pb-3 px-3">Deductions (PF/Tax)</th>
                     <th className="pb-3 px-3">Net Take-Home</th>
-                    <th className="pb-3 px-3 text-right">Download</th>
+                    <th className="pb-3 px-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
@@ -175,13 +307,24 @@ export const DesktopProfile: React.FC = () => {
                         ₹{pay.netPay.toLocaleString()}
                       </td>
                       <td className="py-3.5 px-3 text-right">
-                        <button
-                          onClick={() => openPayslipModal(pay)}
-                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#E6FAF6] hover:bg-[#00C9A7] text-[#00A88B] hover:text-[#0A2540] font-extrabold text-xs transition-all active:scale-95 shadow-2xs"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          <span>View Statement / PDF</span>
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openPayslipModal(pay)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs transition-all active:scale-95 cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>View</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDirectDownloadPayslip(pay, e)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#E6FAF6] hover:bg-[#00C9A7] text-[#00A88B] hover:text-[#0A2540] font-black text-xs transition-all active:scale-95 shadow-2xs cursor-pointer"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Download PDF</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -220,13 +363,20 @@ export const DesktopProfile: React.FC = () => {
                 </div>
                 <div className="pt-3 mt-3 border-t border-slate-200/60 flex items-center justify-between">
                   <span className="text-[11px] font-extrabold text-[#00A88B] group-hover:underline">View ID Card</span>
-                  <Download className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#0A2540]" />
+                  <button
+                    type="button"
+                    onClick={handleDirectDownloadIdCard}
+                    className="p-1 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-[#0A2540] transition-colors cursor-pointer"
+                    title="Download Official ID Card PDF"
+                  >
+                    <Download className="w-4 h-4 text-[#00A88B]" />
+                  </button>
                 </div>
               </div>
 
               {/* Card 2: Offer Letter */}
               <div 
-                onClick={() => openOfferLetterModal(myOfferLetter)}
+                onClick={() => openOfferLetterModal(effectiveOfferLetter)}
                 className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 flex flex-col justify-between cursor-pointer transition-all group"
               >
                 <div>
@@ -235,18 +385,25 @@ export const DesktopProfile: React.FC = () => {
                   </div>
                   <span className="font-bold text-xs text-[#0A2540] block">Job Offer Letter</span>
                   <span className="text-[10px] text-slate-400 font-mono">
-                    {myOfferLetter ? `Issued: ${myOfferLetter.issuedDate}` : 'Official Appointment'}
+                    {effectiveOfferLetter.issuedDate ? `Issued: ${effectiveOfferLetter.issuedDate}` : 'Official Appointment'}
                   </span>
                 </div>
                 <div className="pt-3 mt-3 border-t border-slate-200/60 flex items-center justify-between">
                   <span className="text-[11px] font-extrabold text-[#5B3DF5] group-hover:underline">View Letter</span>
-                  <Download className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#0A2540]" />
+                  <button
+                    type="button"
+                    onClick={handleDirectDownloadOfferLetter}
+                    className="p-1 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-[#0A2540] transition-colors cursor-pointer"
+                    title="Download Official Offer Letter PDF"
+                  >
+                    <Download className="w-4 h-4 text-[#5B3DF5]" />
+                  </button>
                 </div>
               </div>
 
               {/* Card 3: Experience Certificate */}
               <div 
-                onClick={() => openExperienceCertModal(myExperienceCert)}
+                onClick={() => openExperienceCertModal(effectiveExperienceCert)}
                 className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 flex flex-col justify-between cursor-pointer transition-all group"
               >
                 <div>
@@ -255,18 +412,25 @@ export const DesktopProfile: React.FC = () => {
                   </div>
                   <span className="font-bold text-xs text-[#0A2540] block">Experience Certificate</span>
                   <span className="text-[10px] text-slate-400 font-mono">
-                    {myExperienceCert ? `Ref: ${myExperienceCert.refNumber}` : 'Service Verification'}
+                    Ref: {effectiveExperienceCert.refNumber}
                   </span>
                 </div>
                 <div className="pt-3 mt-3 border-t border-slate-200/60 flex items-center justify-between">
                   <span className="text-[11px] font-extrabold text-amber-600 group-hover:underline">View Certificate</span>
-                  <Download className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#0A2540]" />
+                  <button
+                    type="button"
+                    onClick={handleDirectDownloadExperienceCert}
+                    className="p-1 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-[#0A2540] transition-colors cursor-pointer"
+                    title="Download Official Experience Certificate PDF"
+                  >
+                    <Download className="w-4 h-4 text-amber-600" />
+                  </button>
                 </div>
               </div>
 
               {/* Card 4: Relieving Letter */}
               <div 
-                onClick={() => openRelievingLetterModal(myRelievingLetter)}
+                onClick={() => openRelievingLetterModal(effectiveRelievingLetter)}
                 className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 flex flex-col justify-between cursor-pointer transition-all group"
               >
                 <div>
@@ -275,12 +439,19 @@ export const DesktopProfile: React.FC = () => {
                   </div>
                   <span className="font-bold text-xs text-[#0A2540] block">Relieving Letter</span>
                   <span className="text-[10px] text-slate-400 font-mono">
-                    {myRelievingLetter ? `LWD: ${myRelievingLetter.lastWorkingDate}` : 'Exit Clearance & Seal'}
+                    LWD: {effectiveRelievingLetter.lastWorkingDate}
                   </span>
                 </div>
                 <div className="pt-3 mt-3 border-t border-slate-200/60 flex items-center justify-between">
                   <span className="text-[11px] font-extrabold text-[#00A88B] group-hover:underline">View Relieving</span>
-                  <Download className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#0A2540]" />
+                  <button
+                    type="button"
+                    onClick={handleDirectDownloadRelievingLetter}
+                    className="p-1 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-[#0A2540] transition-colors cursor-pointer"
+                    title="Download Official Relieving Letter PDF"
+                  >
+                    <Download className="w-4 h-4 text-[#00A88B]" />
+                  </button>
                 </div>
               </div>
             </div>

@@ -1,3 +1,5 @@
+import dotenv from 'dotenv';
+dotenv.config();
 process.env.NODE_ENV = 'test';
 
 import http from 'http';
@@ -124,7 +126,7 @@ async function startTestSuite() {
     // 3. Valid Admin Login & Token
     const adminLoginRes = await runTest(TEST_PORT, 'POST Auth Login (Admin)', 'POST', '/api/auth/login', [200], {
       email: testAdminEmail,
-      password: 'admin123',
+      password: testAdminEmail === 'sagarsuchi26@gmail.com' ? 'Sagar@14326' : 'admin123',
     });
 
     const adminToken = adminLoginRes?.token;
@@ -176,17 +178,17 @@ async function startTestSuite() {
 
     // 9. Attendance GET, POST, PUT
     await runTest(TEST_PORT, 'GET Attendance Records', 'GET', '/api/attendance', [200], undefined, adminHeaders);
-    await runTest(TEST_PORT, 'POST Attendance (Check-in)', 'POST', '/api/attendance', [201, 200], {
+    const createdAtt = await runTest(TEST_PORT, 'POST Attendance (Check-in)', 'POST', '/api/attendance', [201, 200], {
       id: `att-test-${uid}`,
       date: '2025-05-29',
       dayNumber: 29,
       status: 'PRESENT',
       checkIn: '09:00 AM',
       method: 'Face ID Biometric',
-      employeeId: 'emp-ad-1',
-      employeeName: 'Super Admin',
+      employeeId: `emp-test-${uid}`,
+      employeeName: `Test Employee ${uid}`,
     }, adminHeaders);
-    await runTest(TEST_PORT, 'PUT Attendance (Update)', 'PUT', `/api/attendance/att-test-${uid}`, [200], {
+    await runTest(TEST_PORT, 'PUT Attendance (Update)', 'PUT', `/api/attendance/${createdAtt?.id || `att-test-${uid}`}`, [200], {
       checkOut: '06:00 PM',
       workHours: '9h 00m',
     }, adminHeaders);
@@ -212,14 +214,15 @@ async function startTestSuite() {
     const telecallerEmail = `telecaller.${uid}@tradenexus.com`;
     const telecallerPassword = 'SecretPassword!123';
     const telecallerMemberId = `tm-tele-${uid}`;
+    const dynamicPhone = `+91 99${String(uid).slice(-8)}`;
 
     const createdMember = await runTest(TEST_PORT, 'POST Team Member (Provision New Employee & User)', 'POST', '/api/team-members', [201], {
       id: telecallerMemberId,
       empCode: telecallerEmpCode,
-      name: 'Pooja Sharma',
+      name: `Telecaller ${uid}`,
       role: 'Telecaller Executive',
       group: 'HNI Closers',
-      phone: '+91 99887 66554',
+      phone: dynamicPhone,
       email: telecallerEmail,
       password: telecallerPassword,
       portal: 'telecaller',

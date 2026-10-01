@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'trade_nexus_secure_secret_key_2025';
+const getJwtSecret = () => process.env.JWT_SECRET || 'trade_nexus_secure_secret_key_2025';
 
 /**
  * Hash password with bcryptjs.
@@ -38,7 +38,7 @@ export function verifyPassword(password: string, storedHash: string): boolean {
  * Standard signed JWT token.
  */
 export function createToken(payload: Record<string, any>): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: '7d' });
 }
 
 /**
@@ -46,8 +46,9 @@ export function createToken(payload: Record<string, any>): string {
  */
 export function verifyToken<T = any>(token: string): T | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as T;
-  } catch {
+    return jwt.verify(token, getJwtSecret()) as T;
+  } catch (err: any) {
+    console.error('[JWT Verify Error]:', err?.message, 'token:', token?.slice(0, 15));
     return null;
   }
 }

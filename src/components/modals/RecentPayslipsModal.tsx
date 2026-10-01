@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { api } from '../../services/api';
 import { 
   X, 
   FileText, 
@@ -8,7 +9,8 @@ import {
   CheckCircle2, 
   Calendar, 
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Eye
 } from 'lucide-react';
 
 const MONTH_ORDER: Record<string, number> = {
@@ -23,7 +25,8 @@ export const RecentPayslipsModal: React.FC = () => {
     isRecentPayslipsModalOpen, 
     setIsRecentPayslipsModalOpen, 
     payslips, 
-    openPayslipModal 
+    openPayslipModal,
+    triggerToast
   } = useApp();
 
   // Strict Rolling 3-Month Window: Deduplicated & Chronologically Sorted (Newest First)
@@ -146,21 +149,35 @@ export const RecentPayslipsModal: React.FC = () => {
                     </span>
                   </div>
 
-                  <button
-                    onClick={() => {
-                      setIsRecentPayslipsModalOpen(false);
-                      openPayslipModal(pay);
-                    }}
-                    className={`w-full py-2.5 px-3 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 active:scale-98 transition-all ${
-                      isLatest
-                        ? 'bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] shadow-xs'
-                        : 'bg-white border border-slate-200 hover:border-slate-300 text-slate-700'
-                    }`}
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>View & Download Official Payslip</span>
-                    <ArrowRight className="w-3.5 h-3.5 ml-0.5 opacity-60" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsRecentPayslipsModalOpen(false);
+                        openPayslipModal(pay);
+                      }}
+                      className="flex-1 py-2 px-3 rounded-xl bg-white border border-slate-200 hover:border-slate-300 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>View Statement</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          triggerToast(`⏳ Downloading salary payslip for ${pay.month} ${pay.year}...`);
+                          await api.downloadPayslip(pay);
+                          triggerToast(`✓ Payslip PDF downloaded successfully!`);
+                        } catch (err: any) {
+                          triggerToast(`⚠️ Download failed: ${err.message || 'Server error'}`);
+                        }
+                      }}
+                      className="flex-1 py-2 px-3 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download PDF</span>
+                    </button>
+                  </div>
                 </div>
               );
             })}

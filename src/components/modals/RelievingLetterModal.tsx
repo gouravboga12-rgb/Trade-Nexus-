@@ -14,6 +14,10 @@ import {
 } from 'lucide-react';
 import { RelievingLetterData } from '../../types';
 import { api } from '../../services/api';
+import tradeNexusSeal from '../../assets/trade-nexus-seal.png';
+import watermarkEmblem from '../../assets/watermark-emblem.png';
+import headerRelieving from '../../assets/header-relieving.png';
+import corporateFooter from '../../assets/corporate-footer.png';
 
 export const RelievingLetterModal: React.FC = () => {
   const { 
@@ -49,11 +53,14 @@ export const RelievingLetterModal: React.FC = () => {
     }, 100);
   };
 
-  const handleDownload = () => {
-    triggerToast(`✓ Relieving Letter for ${formData.employeeName} ready for PDF save`);
-    setTimeout(() => {
-      window.print();
-    }, 100);
+  const handleDownload = async () => {
+    try {
+      triggerToast(`⏳ Generating & downloading official Relieving Letter PDF for ${formData.employeeName}...`);
+      await api.downloadRelievingLetter({ name: formData.employeeName }, formData);
+      triggerToast(`✓ Official Relieving Letter PDF downloaded successfully!`);
+    } catch (err: any) {
+      triggerToast(`⚠️ Download failed: ${err.message || 'Server error'}`);
+    }
   };
 
   const handleSendEmail = async () => {
@@ -247,58 +254,14 @@ export const RelievingLetterModal: React.FC = () => {
             }}
           >
             
-            {/* Top Navy Header Banner (Matching 3.png) */}
-            <div 
-              className="relative text-white px-5 sm:px-8 pt-6 pb-5 overflow-hidden flex-shrink-0 rounded-none"
-              style={{ 
-                backgroundColor: '#06152B',
-                WebkitPrintColorAdjust: 'exact',
-                printColorAdjust: 'exact'
-              }}
-            >
-              {/* Teal Accent Lines */}
-              <div 
-                className="absolute -bottom-1 left-0 right-0 h-2.5" 
-                style={{ backgroundColor: '#00A88B', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
-              />
-              <div 
-                className="absolute bottom-1 left-0 w-3/5 h-1" 
-                style={{ backgroundColor: '#38E1B7', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
-              />
+            {/* Top Corporate Header Banner (Matching 3.png) */}
+            <div className="w-full relative z-10 overflow-hidden flex-shrink-0">
+              <img src={headerRelieving} alt="Trade Nexus Header" className="w-full object-cover select-none" />
+            </div>
 
-              <div className="flex items-center justify-between gap-3 relative z-10">
-                {/* Brand Logo & Name */}
-                <div className="flex items-center gap-2.5 sm:gap-3">
-                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-tr from-[#00C9A7] to-[#0A2540] p-0.5 shadow-md flex items-center justify-center flex-shrink-0">
-                    <div 
-                      className="w-full h-full rounded-full flex items-center justify-center text-[#00C9A7]"
-                      style={{ backgroundColor: '#06152B' }}
-                    >
-                      <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
-                    </div>
-                  </div>
-                  <div>
-                    <h1 className="font-display font-black text-sm sm:text-xl text-white tracking-wider leading-none uppercase">
-                      TRADE NEXUS
-                    </h1>
-                    <div className="flex items-center gap-1 mt-0.5 sm:mt-1">
-                      <span className="h-px w-3 sm:w-4 bg-[#00C9A7]" />
-                      <span className="text-[7px] sm:text-[9px] font-extrabold tracking-[0.2em] text-[#00C9A7]">
-                        TRADE SMART
-                      </span>
-                      <span className="h-px w-3 sm:w-4 bg-[#00C9A7]" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Document Title */}
-                <div className="text-right flex-shrink-0">
-                  <h2 className="font-display font-black text-xs sm:text-lg text-white tracking-wider uppercase">
-                    RELIEVING LETTER
-                  </h2>
-                  <div className="h-0.5 w-full bg-[#00C9A7] mt-0.5" />
-                </div>
-              </div>
+            {/* Center Background Watermark (Matching 3.png) */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0">
+              <img src={watermarkEmblem} alt="Trade Nexus Watermark" className="w-72 h-72 object-contain opacity-[0.06]" />
             </div>
 
             {/* Document Body */}
@@ -354,35 +317,13 @@ export const RelievingLetterModal: React.FC = () => {
               <div className="pt-8 flex justify-end">
                 <div className="text-center space-y-1.5">
                   
-                  {/* Circular Trade Nexus Stamp Badge with Signature across it */}
-                  <div className="relative inline-flex items-center justify-center p-2">
-                    {/* Stamp Circle */}
-                    <div 
-                      className="w-20 h-20 rounded-full border-2 border-dashed flex flex-col items-center justify-center text-center select-none"
-                      style={{ borderColor: '#0A2540', backgroundColor: '#F0FDF4' }}
-                    >
-                      <span className="text-[7px] font-black uppercase tracking-wider text-[#0A2540]">
-                        TRADE NEXUS
-                      </span>
-                      <ShieldCheck className="w-5 h-5 text-[#00A88B] my-0.5" />
-                      <span className="text-[6.5px] font-bold text-[#00A88B] tracking-widest uppercase">
-                        TRADE SMART
-                      </span>
-                    </div>
-
-                    {/* Overlay Signature */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span 
-                        className="font-signature text-3xl sm:text-4xl inline-block font-bold transform -rotate-12 select-none leading-none"
-                        style={{ 
-                          fontFamily: "'Caveat', 'Great Vibes', 'Dancing Script', cursive",
-                          color: '#0A2540',
-                          textShadow: '0 0 4px rgba(255,255,255,0.8)'
-                        }}
-                      >
-                        T. Vidhya sagar
-                      </span>
-                    </div>
+                  {/* Official Circular Trade Nexus Seal Stamp with Signature (Matching 3.png) */}
+                  <div className="flex justify-center py-1">
+                    <img
+                      src={tradeNexusSeal}
+                      alt="Trade Nexus Official Seal & Signature"
+                      className="w-36 h-auto object-contain select-none"
+                    />
                   </div>
 
                   <div className="space-y-0.5 pt-1">
@@ -402,29 +343,9 @@ export const RelievingLetterModal: React.FC = () => {
 
             </div>
 
-            {/* Bottom Footer Bar (Matching 3.png) */}
-            <div 
-              className="text-white px-5 sm:px-8 py-3 border-t-2 border-[#00A88B] flex items-center justify-between text-[9px] sm:text-[11px] gap-2 font-medium flex-shrink-0 rounded-none"
-              style={{ 
-                backgroundColor: '#06152B',
-                WebkitPrintColorAdjust: 'exact',
-                printColorAdjust: 'exact'
-              }}
-            >
-              <span className="flex items-center gap-1.5 text-slate-200">
-                <Phone className="w-3.5 h-3.5 text-[#00C9A7]" />
-                +91 98765 43210
-              </span>
-              <span className="text-slate-600">|</span>
-              <span className="flex items-center gap-1.5 text-slate-200">
-                <Mail className="w-3.5 h-3.5 text-[#00C9A7]" />
-                info@tradenexus.com
-              </span>
-              <span className="text-slate-600">|</span>
-              <span className="flex items-center gap-1.5 text-slate-200">
-                <Globe className="w-3.5 h-3.5 text-[#00C9A7]" />
-                www.tradenexus.com
-              </span>
+            {/* Bottom Corporate Footer (Matching 3.png) */}
+            <div className="w-full relative z-10 overflow-hidden flex-shrink-0">
+              <img src={corporateFooter} alt="Trade Nexus Footer" className="w-full object-cover select-none" />
             </div>
 
           </div>

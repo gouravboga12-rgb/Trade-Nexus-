@@ -158,6 +158,49 @@ router.post('/:id/resend', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/invoices/:id/download (Direct binary PDF download)
+router.get('/:id/download', async (req: Request, res: Response) => {
+  try {
+    const inv = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id) as any;
+    if (!inv) return res.status(404).json({ error: 'Invoice not found' });
+
+    const invoiceData = {
+      ...inv,
+      items: typeof inv.items === 'string' ? JSON.parse(inv.items) : inv.items,
+    };
+
+    const { generateTaxInvoicePdf } = await import('../services/pdfGenerator.js');
+    const pdfBuf = await generateTaxInvoicePdf(invoiceData);
+
+    const safeInvNum = (invoiceData.invoiceNumber || 'INV').replace(/[^a-zA-Z0-9_-]/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Invoice_${safeInvNum}.pdf"`);
+    res.setHeader('Content-Length', pdfBuf.length);
+    return res.end(pdfBuf);
+  } catch (error) {
+    console.error('[Download Invoice Error]', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// POST /api/invoices/download (Direct binary PDF download with custom invoice body for unsaved preview)
+router.post('/download', async (req: Request, res: Response) => {
+  try {
+    const invoiceData = req.body;
+    const { generateTaxInvoicePdf } = await import('../services/pdfGenerator.js');
+    const pdfBuf = await generateTaxInvoicePdf(invoiceData);
+
+    const safeInvNum = (invoiceData.invoiceNumber || 'INV').replace(/[^a-zA-Z0-9_-]/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Invoice_${safeInvNum}.pdf"`);
+    res.setHeader('Content-Length', pdfBuf.length);
+    return res.end(pdfBuf);
+  } catch (error) {
+    console.error('[Download Custom Invoice Error]', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 // DELETE /api/invoices/:id
 router.delete('/:id', (req: Request, res: Response) => {
   try {

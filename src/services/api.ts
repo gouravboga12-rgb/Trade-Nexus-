@@ -451,4 +451,95 @@ export const api = {
   getCalendarSettings: () => request<CalendarSettings>('/calendar/settings'),
   updateCalendarSettings: (data: Partial<CalendarSettings>) =>
     request<CalendarSettings>('/calendar/settings', { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Binary PDF Downloaders (True file downloads to user's device)
+  downloadOfferLetter: (offerLetter: Partial<OfferLetterData>) =>
+    downloadFile(
+      '/employee-documents/download/offer-letter',
+      `Job_Offer_Letter_${(offerLetter.candidateName || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`,
+      { offerLetter },
+      'POST'
+    ),
+
+  downloadExperienceCert: (employee: Partial<TeamMember>, cert: Partial<ExperienceCertData>) =>
+    downloadFile(
+      '/employee-documents/download/experience-cert',
+      `Experience_Certificate_${(cert.employeeName || employee?.name || 'Employee').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`,
+      { employee, cert },
+      'POST'
+    ),
+
+  downloadRelievingLetter: (employee: Partial<TeamMember>, relievingLetter: Partial<RelievingLetterData>) =>
+    downloadFile(
+      '/employee-documents/download/relieving-letter',
+      `Relieving_Letter_${(relievingLetter.employeeName || employee?.name || 'Employee').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`,
+      { employee, relievingLetter },
+      'POST'
+    ),
+
+  downloadIdCard: (employee: Partial<TeamMember>, cardData: any) =>
+    downloadFile(
+      '/employee-documents/download/id-card',
+      `Digital_ID_Card_${(cardData?.name || employee?.name || 'Staff').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`,
+      { employee, cardData },
+      'POST'
+    ),
+
+  downloadPayslip: (payslip: Partial<PayslipItem>) =>
+    downloadFile(
+      '/payslips/download',
+      `Payslip_${payslip.month || 'Salary'}_${payslip.year || ''}_${(payslip.employeeName || 'Employee').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`,
+      payslip,
+      'POST'
+    ),
+
+  downloadInvoice: (invoice: Partial<InvoiceData>) =>
+    downloadFile(
+      '/invoices/download',
+      `Invoice_${(invoice.invoiceNumber || 'INV').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`,
+      invoice,
+      'POST'
+    ),
 };
+
+/**
+ * Direct file download helper that triggers browser attachment download
+ */
+export async function downloadFile(
+  endpoint: string,
+  filename: string,
+  body?: any,
+  method: string = 'GET'
+): Promise<void> {
+  const url = `${API_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const headers: Record<string, string> = {};
+  const token = localStorage.getItem('token');
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (body) headers['Content-Type'] = 'application/json';
+
+  const res = await fetch(url, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!res.ok) {
+    let errMsg = `Download failed with status ${res.status}`;
+    try {
+      const errJson = await res.json();
+      if (errJson.error) errMsg = errJson.error;
+    } catch {}
+    throw new Error(errMsg);
+  }
+
+  const blob = await res.blob();
+  const blobUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(blobUrl);
+}
+

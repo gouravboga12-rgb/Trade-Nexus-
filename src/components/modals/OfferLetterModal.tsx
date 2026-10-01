@@ -13,6 +13,10 @@ import {
 } from 'lucide-react';
 import { OfferLetterData } from '../../types';
 import { api } from '../../services/api';
+import signatureVidhyaSagar from '../../assets/signature-vidhya-sagar.png';
+import watermarkEmblem from '../../assets/watermark-emblem.png';
+import headerOffer from '../../assets/header-offer.png';
+import corporateFooter from '../../assets/corporate-footer.png';
 
 export const OfferLetterModal: React.FC = () => {
   const { 
@@ -62,11 +66,14 @@ export const OfferLetterModal: React.FC = () => {
     }, 100);
   };
 
-  const handleDownload = () => {
-    triggerToast(`✓ Offer letter for ${formData.candidateName} ready to save as PDF`);
-    setTimeout(() => {
-      window.print();
-    }, 100);
+  const handleDownload = async () => {
+    try {
+      triggerToast(`⏳ Generating & downloading official Offer Letter PDF for ${formData.candidateName}...`);
+      await api.downloadOfferLetter(formData);
+      triggerToast(`✓ Official Offer Letter PDF downloaded successfully!`);
+    } catch (err: any) {
+      triggerToast(`⚠️ Download failed: ${err.message || 'Server error'}`);
+    }
   };
 
   const handleSendEmail = async () => {
@@ -266,59 +273,14 @@ export const OfferLetterModal: React.FC = () => {
             }}
           >
             
-            {/* Top Navy Header Banner with Diagonal Teal Wedge (Matching 1.png) */}
-            <div 
-              className="relative text-white px-5 sm:px-8 pt-6 pb-5 overflow-hidden flex-shrink-0 rounded-none"
-              style={{ 
-                backgroundColor: '#06152B',
-                WebkitPrintColorAdjust: 'exact',
-                printColorAdjust: 'exact'
-              }}
-            >
-              
-              {/* Teal angled bottom line accent */}
-              <div 
-                className="absolute -bottom-1 left-0 right-0 h-2.5" 
-                style={{ backgroundColor: '#00A88B', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
-              />
-              <div 
-                className="absolute bottom-1 left-0 w-3/5 h-1" 
-                style={{ backgroundColor: '#38E1B7', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
-              />
-              
-              <div className="flex items-center justify-between gap-2 relative z-10">
-                {/* Left: Brand Logo & Title */}
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-tr from-[#00C9A7] to-[#0A2540] p-0.5 shadow-md flex items-center justify-center flex-shrink-0">
-                    <div 
-                      className="w-full h-full rounded-full flex items-center justify-center text-[#00C9A7]"
-                      style={{ backgroundColor: '#06152B' }}
-                    >
-                      <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
-                    </div>
-                  </div>
-                  <div>
-                    <h1 className="font-display font-black text-sm sm:text-xl text-white tracking-wider leading-none uppercase">
-                      TRADE NEXUS
-                    </h1>
-                    <div className="flex items-center gap-1 mt-0.5 sm:mt-1">
-                      <span className="h-px w-3 sm:w-4 bg-[#00C9A7]" />
-                      <span className="text-[7px] sm:text-[9px] font-extrabold tracking-[0.2em] text-[#00C9A7]">
-                        TRADE SMART
-                      </span>
-                      <span className="h-px w-3 sm:w-4 bg-[#00C9A7]" />
-                    </div>
-                  </div>
-                </div>
+            {/* Top Corporate Header Banner (Matching 1.png) */}
+            <div className="w-full relative z-10 overflow-hidden flex-shrink-0">
+              <img src={headerOffer} alt="Trade Nexus Header" className="w-full object-cover select-none" />
+            </div>
 
-                {/* Right: Document Title */}
-                <div className="text-right flex-shrink-0">
-                  <h2 className="font-display font-black text-xs sm:text-lg text-white tracking-wider uppercase">
-                    JOB OFFER LETTER
-                  </h2>
-                  <div className="h-0.5 w-full bg-[#00C9A7] mt-0.5" />
-                </div>
-              </div>
+            {/* Center Background Watermark (Matching 1.png) */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0">
+              <img src={watermarkEmblem} alt="Trade Nexus Watermark" className="w-72 h-72 object-contain opacity-[0.06]" />
             </div>
 
             {/* Document Body */}
@@ -422,19 +384,13 @@ export const OfferLetterModal: React.FC = () => {
               <div className="pt-2 space-y-1">
                 <p className="text-[11px] sm:text-xs font-semibold text-slate-600">Warm Regards,</p>
                 
-                {/* Handwritten Cursive Signature matching 1.png */}
+                {/* Authentic Signature matching 1.png */}
                 <div className="py-1">
-                  <span 
-                    className="font-signature text-3xl sm:text-4xl inline-block font-semibold tracking-wide transform -rotate-3 select-none leading-tight"
-                    style={{ 
-                      fontFamily: "'Caveat', 'Great Vibes', 'Dancing Script', cursive",
-                      color: '#0A2540',
-                      WebkitPrintColorAdjust: 'exact',
-                      printColorAdjust: 'exact'
-                    }}
-                  >
-                    T. Vidhya sagar
-                  </span>
+                  <img
+                    src={signatureVidhyaSagar}
+                    alt="T. Vidhya Sagar"
+                    className="h-8 w-auto object-contain select-none"
+                  />
                 </div>
 
                 <div className="space-y-0.5 pt-0.5">
@@ -451,29 +407,9 @@ export const OfferLetterModal: React.FC = () => {
 
             </div>
 
-            {/* Bottom Navy Bar with Contact Links (Matching 1.png) */}
-            <div 
-              className="text-white px-5 sm:px-8 py-3 border-t-2 border-[#00A88B] flex items-center justify-between text-[9px] sm:text-[11px] gap-2 font-medium flex-shrink-0 rounded-none"
-              style={{ 
-                backgroundColor: '#06152B',
-                WebkitPrintColorAdjust: 'exact',
-                printColorAdjust: 'exact'
-              }}
-            >
-              <span className="flex items-center gap-1 text-slate-200">
-                <Phone className="w-3 h-3 text-[#00C9A7]" />
-                +91 98765 43210
-              </span>
-              <span className="text-slate-600">|</span>
-              <span className="flex items-center gap-1 text-slate-200">
-                <Mail className="w-3 h-3 text-[#00C9A7]" />
-                info@tradenexus.com
-              </span>
-              <span className="text-slate-600">|</span>
-              <span className="flex items-center gap-1 text-slate-200 truncate">
-                <Globe className="w-3 h-3 text-[#00C9A7]" />
-                www.tradenexus.com
-              </span>
+            {/* Bottom Corporate Footer (Matching 1.png) */}
+            <div className="w-full relative z-10 overflow-hidden flex-shrink-0">
+              <img src={corporateFooter} alt="Trade Nexus Footer" className="w-full object-cover select-none" />
             </div>
 
           </div>

@@ -70,42 +70,48 @@ router.post('/', (req: Request, res: Response) => {
       id, employeeId, empCode, employeeName, roleTitle, department,
       month, year, basicSalary, hra, specialAllowance, incentives, 
       pfDeduction, taxDeduction, netPay, generatedDate, status,
+      email, bankName, bankAccountNumber, paymentMode,
       customNotes, changeRemarks, modifiedBy, modifiedAt
     } = req.body;
     const payId = id || `pay-${Date.now()}`;
+
+    // Resolve employee details if missing
+    const emp = db.prepare(`
+      SELECT email, name, empCode, role, bankName, bankAccountNumber 
+      FROM team_members 
+      WHERE id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
+      LIMIT 1
+    `).get(employeeId || '', empCode || '', employeeName || '') as any;
+
+    const resolvedEmail = email || emp?.email || null;
+    const resolvedBank = bankName || emp?.bankName || 'HDFC Bank';
+    const resolvedAcc = bankAccountNumber || emp?.bankAccountNumber || '50200084920194';
+    const resolvedPayMode = paymentMode || 'Bank Transfer';
 
     db.prepare(`
       INSERT INTO payslips (
         id, employeeId, empCode, employeeName, roleTitle, department, 
         month, year, basicSalary, hra, specialAllowance, incentives, 
         pfDeduction, taxDeduction, netPay, generatedDate, status,
+        email, bankName, bankAccountNumber, paymentMode,
         customNotes, changeRemarks, modifiedBy, modifiedAt
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       payId, employeeId || null, empCode || null, employeeName || null, roleTitle || null, department || null,
       month, Number(year) || new Date().getFullYear(), Number(basicSalary) || 0, Number(hra) || 0,
       Number(specialAllowance) || 0, Number(incentives) || 0, Number(pfDeduction) || 0,
       Number(taxDeduction) || 0, Number(netPay) || 0, generatedDate || 'Today', status || 'PAID',
+      resolvedEmail, resolvedBank, resolvedAcc, resolvedPayMode,
       customNotes || null, changeRemarks || null, modifiedBy || null, modifiedAt || new Date().toISOString()
     );
 
     const created = db.prepare('SELECT * FROM payslips WHERE id = ?').get(payId) as any;
 
     // Asynchronously dispatch email to employee
-    try {
-      const emp = db.prepare(`
-        SELECT email, name, empCode, role, bankName, bankAccountNumber 
-        FROM team_members 
-        WHERE id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
-        LIMIT 1
-      `).get(employeeId || '', empCode || '', employeeName || '') as any;
-
-      if (emp?.email) {
-        sendEmployeePayslipEmail(emp, created).catch(e => console.warn('[Payslip Email Dispatch Error]', e));
-      }
-    } catch (err) {
-      console.warn('[Payslip Lookup Error]', err);
+    if (resolvedEmail) {
+      sendEmployeePayslipEmail({ ...emp, email: resolvedEmail, name: created.employeeName }, created)
+        .catch(e => console.warn('[Payslip Email Dispatch Error]', e));
     }
 
     return res.status(201).json(created);
@@ -128,12 +134,18 @@ router.post('/:id/send-email', async (req: Request, res: Response) => {
       LIMIT 1
     `).get(payslip.employeeId || '', payslip.empCode || '', payslip.employeeName || '') as any;
 
-    const targetEmail = req.body.email || emp?.email;
+    const targetEmail = req.body.email || payslip.email || emp?.email;
     if (!targetEmail) {
       return res.status(400).json({ error: 'No employee email address found on record' });
     }
 
-    const emailRes = await sendEmployeePayslipEmail({ ...emp, email: targetEmail }, payslip);
+    // Persist email to payslip record if not set
+    if (!payslip.email && targetEmail) {
+      db.prepare('UPDATE payslips SET email = ? WHERE id = ?').run(targetEmail, id);
+      payslip.email = targetEmail;
+    }
+
+    const emailRes = await sendEmployeePayslipEmail({ ...emp, email: targetEmail, name: payslip.employeeName }, payslip);
     return res.status(200).json({ success: true, emailResult: emailRes });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -150,6 +162,9 @@ router.put('/:id', (req: Request, res: Response) => {
     }
 
     const {
+      employeeName = existing.employeeName,
+      roleTitle = existing.roleTitle,
+      department = existing.department,
       basicSalary = existing.basicSalary,
       hra = existing.hra,
       specialAllowance = existing.specialAllowance,
@@ -158,9 +173,13 @@ router.put('/:id', (req: Request, res: Response) => {
       taxDeduction = existing.taxDeduction,
       netPay,
       status = existing.status,
+      email = existing.email,
+      bankName = existing.bankName,
+      bankAccountNumber = existing.bankAccountNumber,
+      paymentMode = existing.paymentMode,
       customNotes = existing.customNotes,
       changeRemarks = existing.changeRemarks,
-      modifiedBy = req.user?.name || 'HR Manager',
+      modifiedBy = (req as any).user?.name || 'HR Manager',
     } = req.body;
 
     const numBasic = Number(basicSalary) || 0;
@@ -177,6 +196,9 @@ router.put('/:id', (req: Request, res: Response) => {
 
     db.prepare(`
       UPDATE payslips SET
+        employeeName = ?,
+        roleTitle = ?,
+        department = ?,
         basicSalary = ?,
         hra = ?,
         specialAllowance = ?,
@@ -185,14 +207,21 @@ router.put('/:id', (req: Request, res: Response) => {
         taxDeduction = ?,
         netPay = ?,
         status = ?,
+        email = ?,
+        bankName = ?,
+        bankAccountNumber = ?,
+        paymentMode = ?,
         customNotes = ?,
         changeRemarks = ?,
         modifiedBy = ?,
         modifiedAt = ?
       WHERE id = ?
     `).run(
+      employeeName, roleTitle, department,
       numBasic, numHra, numAllowance, numIncentives, numPf, numTax,
-      computedNetPay, status, customNotes || null, changeRemarks || null,
+      computedNetPay, status,
+      email || null, bankName || null, bankAccountNumber || null, paymentMode || null,
+      customNotes || null, changeRemarks || null,
       modifiedBy, nowIso, id
     );
 
@@ -204,9 +233,9 @@ router.put('/:id', (req: Request, res: Response) => {
 });
 
 // POST /api/payslips/bulk
-router.post('/bulk', (req: Request, res: Response) => {
+router.post('/bulk', async (req: Request, res: Response) => {
   try {
-    const { month, year, employeeIds } = req.body;
+    const { month, year, employeeIds, sendEmail = false } = req.body;
     const numericYear = Number(year) || new Date().getFullYear();
     const monthClean = String(month || 'January').trim();
 
@@ -219,8 +248,13 @@ router.post('/bulk', (req: Request, res: Response) => {
 
     const generatedPayslips: any[] = [];
     const insertPayslip = db.prepare(`
-      INSERT INTO payslips (id, employeeId, empCode, employeeName, roleTitle, department, month, year, basicSalary, hra, specialAllowance, incentives, pfDeduction, taxDeduction, netPay, generatedDate, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO payslips (
+        id, employeeId, empCode, employeeName, roleTitle, department,
+        month, year, basicSalary, hra, specialAllowance, incentives,
+        pfDeduction, taxDeduction, netPay, generatedDate, status,
+        email, bankName, bankAccountNumber, paymentMode
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const generateMany = db.transaction((members: any[]) => {
@@ -243,7 +277,8 @@ router.post('/bulk', (req: Request, res: Response) => {
         insertPayslip.run(
           payId, m.id, m.empCode, m.name, m.role, m.groupName || 'General',
           monthClean, numericYear, basic, hra, specialAllowance, incentives,
-          pfDeduction, taxDeduction, netPay, `01 ${monthClean} ${numericYear}`, 'PAID'
+          pfDeduction, taxDeduction, netPay, `01 ${monthClean} ${numericYear}`, 'PAID',
+          m.email || null, m.bankName || 'HDFC Bank', m.bankAccountNumber || '50200084920194', 'Bank Transfer'
         );
 
         const created = db.prepare('SELECT * FROM payslips WHERE id = ?').get(payId);
@@ -255,8 +290,68 @@ router.post('/bulk', (req: Request, res: Response) => {
       generateMany(activeMembers);
     }
 
+    // If requested or if emails exist, asynchronously dispatch payslip emails
+    if (sendEmail) {
+      for (const ps of generatedPayslips) {
+        if (ps.email) {
+          sendEmployeePayslipEmail({ name: ps.employeeName, email: ps.email }, ps)
+            .catch(e => console.warn(`[Bulk Payslip Email Error for ${ps.employeeName}]`, e));
+        }
+      }
+    }
+
     return res.status(201).json(generatedPayslips);
   } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// GET /api/payslips/:id/download (Direct binary PDF download)
+router.get('/:id/download', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const payslip = db.prepare('SELECT * FROM payslips WHERE id = ?').get(id) as any;
+    if (!payslip) return res.status(404).json({ error: 'Payslip not found' });
+
+    const emp = db.prepare(`
+      SELECT email, name, empCode, role, bankName, bankAccountNumber 
+      FROM team_members 
+      WHERE id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
+      LIMIT 1
+    `).get(payslip.employeeId || '', payslip.empCode || '', payslip.employeeName || '') as any;
+
+    const { generatePayslipPdf } = await import('../services/pdfGenerator.js');
+    const pdfBuf = await generatePayslipPdf(emp || {}, payslip);
+
+    const safeName = (payslip.employeeName || 'Employee').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `Payslip_${payslip.month}_${payslip.year}_${safeName}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuf.length);
+    return res.end(pdfBuf);
+  } catch (error) {
+    console.error('[Download Payslip Error]', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// POST /api/payslips/download (Direct binary PDF download with custom body for preview/unsaved edits)
+router.post('/download', async (req: Request, res: Response) => {
+  try {
+    const payslip = req.body;
+    const { generatePayslipPdf } = await import('../services/pdfGenerator.js');
+    const pdfBuf = await generatePayslipPdf({ name: payslip.employeeName }, payslip);
+
+    const safeName = (payslip.employeeName || 'Employee').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `Payslip_${payslip.month || 'Salary'}_${payslip.year || new Date().getFullYear()}_${safeName}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuf.length);
+    return res.end(pdfBuf);
+  } catch (error) {
+    console.error('[Download Custom Payslip Error]', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });

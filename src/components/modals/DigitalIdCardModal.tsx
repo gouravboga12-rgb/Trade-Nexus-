@@ -15,6 +15,8 @@ import {
   User,
   Check
 } from 'lucide-react';
+import signatureVidhyaSagar from '../../assets/signature-vidhya-sagar.png';
+import idCardTopBrand from '../../assets/id-card-top-brand.png';
 
 export const DigitalIdCardModal: React.FC = () => {
   const { 
@@ -125,11 +127,26 @@ export const DigitalIdCardModal: React.FC = () => {
     }, 100);
   };
 
-  const handleDownload = () => {
-    triggerToast(`✓ Official Digital ID Card for ${customName} ready to save as PDF`);
-    setTimeout(() => {
-      window.print();
-    }, 100);
+  const handleDownload = async () => {
+    try {
+      triggerToast(`⏳ Generating & downloading official ID Card PDF for ${customName}...`);
+      await api.downloadIdCard(
+        { id: selectedEmpId, email: profile.email },
+        {
+          name: customName,
+          role: customRole,
+          empCode: customEmpCode,
+          bloodGroup: customBloodGroup,
+          dob: customDob,
+          phone: customPhone,
+          empType: customEmpType,
+          avatar: customPhotoUrl || undefined,
+        }
+      );
+      triggerToast(`✓ Official Digital ID Card PDF downloaded successfully!`);
+    } catch (err: any) {
+      triggerToast(`⚠️ Download failed: ${err.message || 'Server error'}`);
+    }
   };
 
   const handleSendEmail = async () => {
@@ -374,48 +391,9 @@ export const DigitalIdCardModal: React.FC = () => {
             }}
           >
             
-            {/* Top Lanyard Clip Punch Hole */}
-            <div className="pt-3.5 flex justify-center relative z-20">
-              <div 
-                className="w-16 h-3 rounded-full flex items-center justify-center shadow-inner"
-                style={{ backgroundColor: 'rgba(255, 255, 255, 0.25)', border: '1px solid rgba(255, 255, 255, 0.4)' }}
-              >
-                <div 
-                  className="w-12 h-1.5 rounded-full"
-                  style={{ backgroundColor: '#051326' }}
-                />
-              </div>
-            </div>
-
-            {/* Top Brand Logo & Header */}
-            <div className="pt-2 pb-1 text-center flex flex-col items-center relative z-10">
-              {/* Circular Logo Icon */}
-              <div 
-                className="w-12 h-12 rounded-full p-0.5 shadow-lg mb-1.5 flex items-center justify-center"
-                style={{ 
-                  background: 'linear-gradient(135deg, #00C9A7 0%, #00897B 100%)',
-                  boxShadow: '0 4px 14px rgba(0, 201, 167, 0.4)'
-                }}
-              >
-                <div 
-                  className="w-full h-full rounded-full flex items-center justify-center text-[#00C9A7]"
-                  style={{ backgroundColor: '#051326' }}
-                >
-                  <TrendingUp className="w-6 h-6 stroke-[2.5]" />
-                </div>
-              </div>
-
-              <h2 className="font-display font-black text-xl text-white tracking-[0.18em] leading-none uppercase">
-                TRADE NEXUS
-              </h2>
-              
-              <div className="flex items-center gap-2 mt-1">
-                <span className="h-px w-6" style={{ backgroundColor: '#00C9A7' }} />
-                <span className="text-[9px] font-black tracking-[0.28em]" style={{ color: '#00C9A7' }}>
-                  TRADE SMART
-                </span>
-                <span className="h-px w-6" style={{ backgroundColor: '#00C9A7' }} />
-              </div>
+            {/* Top Brand Header matching tradenexus-id.png */}
+            <div className="w-full relative z-10 overflow-hidden flex justify-center">
+              <img src={idCardTopBrand} alt="Trade Nexus" className="w-full object-cover select-none" />
             </div>
 
             {/* Circular Photo with Concentric Cyan Glowing Ring */}
@@ -575,16 +553,12 @@ export const DigitalIdCardModal: React.FC = () => {
 
                 {/* Right Signature Block matching tradenexus-id.png */}
                 <div className="text-right flex-shrink-0 space-y-0.5 pr-1">
-                  <div className="py-0.5">
-                    <span 
-                      className="inline-block font-signature text-2xl text-slate-900 select-none transform -rotate-3"
-                      style={{ 
-                        fontFamily: "'Caveat', 'Great Vibes', 'Dancing Script', cursive",
-                        color: '#051326'
-                      }}
-                    >
-                      T. Vidhya sagar
-                    </span>
+                  <div className="py-0.5 flex justify-end">
+                    <img 
+                      src={signatureVidhyaSagar} 
+                      alt="T. Vidhya Sagar" 
+                      className="h-6 w-auto object-contain select-none"
+                    />
                   </div>
                   <p className="font-bold text-[9px] text-[#0A2540] leading-none">
                     T.Vidhya Sagar

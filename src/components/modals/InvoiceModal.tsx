@@ -19,6 +19,8 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { InvoiceData, InvoiceItem } from '../../types';
+import { api } from '../../services/api';
+import watermarkEmblem from '../../assets/watermark-emblem.png';
 
 export const InvoiceModal: React.FC = () => {
   const { 
@@ -49,11 +51,14 @@ export const InvoiceModal: React.FC = () => {
     }, 100);
   };
 
-  const handleDownload = () => {
-    triggerToast(`✓ Invoice #${formData.invoiceNumber} ready for PDF export`);
-    setTimeout(() => {
-      window.print();
-    }, 100);
+  const handleDownload = async () => {
+    try {
+      triggerToast(`⏳ Generating & downloading official Tax Invoice PDF #${formData.invoiceNumber}...`);
+      await api.downloadInvoice(formData);
+      triggerToast(`✓ Official Tax Invoice PDF downloaded successfully!`);
+    } catch (err: any) {
+      triggerToast(`⚠️ Download failed: ${err.message || 'Server error'}`);
+    }
   };
 
   const handleSendEmail = async () => {
@@ -235,6 +240,19 @@ export const InvoiceModal: React.FC = () => {
               printColorAdjust: 'exact'
             }}
           >
+            {/* Watermark Emblem matching Reference Template */}
+            <div 
+              className="absolute inset-0 pointer-events-none flex items-center justify-center z-0" 
+              aria-hidden="true"
+              style={{ top: '160px', bottom: '100px' }}
+            >
+              <img 
+                src={watermarkEmblem} 
+                alt="" 
+                className="w-[300px] h-[300px] object-contain opacity-[0.05] select-none" 
+              />
+            </div>
+
             {/* Top Navy/Teal Geometric Header matching 5.png */}
             <div className="relative bg-[#06152B] text-white p-6 sm:p-8 pb-10 overflow-hidden rounded-none">
               {/* Decorative background polygon */}
@@ -509,26 +527,15 @@ export const InvoiceModal: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Thank you & Signature */}
-                  <div className="flex items-end justify-between pt-4 px-2">
-                    <div>
-                      <span className="font-serif italic font-bold text-2xl text-slate-400">Thank You!</span>
-                      <p className="text-[10px] text-slate-400">We appreciate your business</p>
-                    </div>
-
-                    <div className="text-right">
-                      <div className="h-10 flex items-center justify-end">
-                        <span 
-                          className="text-xl font-bold text-slate-800 tracking-wider"
-                          style={{ fontFamily: "'Brush Script MT', 'Great Vibes', 'Caveat', cursive" }}
-                        >
-                          Samira Hadid
-                        </span>
-                      </div>
-                      <div className="w-36 h-0.5 bg-slate-300 ml-auto mb-1"></div>
-                      <p className="text-[11px] font-bold text-slate-800">Samira Hadid</p>
-                      <p className="text-[9px] text-slate-500 uppercase tracking-wider">Head of Finance & Accounts</p>
-                    </div>
+                  {/* Thank You matching Template 5 (5.png) */}
+                  <div className="pt-6 px-2 text-right">
+                    <span 
+                      className="font-serif italic font-bold text-4xl text-[#0A2540] tracking-wide block"
+                      style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+                    >
+                      Thank You!
+                    </span>
+                    <p className="text-xs text-slate-500 font-medium mt-1">We appreciate your business</p>
                   </div>
                 </div>
 

@@ -641,6 +641,11 @@ function runMigrations() {
     { table: 'payment_verifications', column: 'customerAccountNumber', definition: 'TEXT' },
     { table: 'payment_verifications', column: 'customerIfscCode', definition: 'TEXT' },
     { table: 'payment_verifications', column: 'customerUpiId',    definition: 'TEXT' },
+    { table: 'payslips', column: 'email',             definition: 'TEXT' },
+    { table: 'payslips', column: 'bankName',          definition: 'TEXT' },
+    { table: 'payslips', column: 'bankAccountNumber', definition: 'TEXT' },
+    { table: 'payslips', column: 'paymentMode',       definition: "TEXT DEFAULT 'Bank Transfer'" },
+    { table: 'employee_profiles', column: 'checkOutTime', definition: 'TEXT DEFAULT NULL' },
   ];
 
   for (const { table, column, definition } of columnMigrations) {

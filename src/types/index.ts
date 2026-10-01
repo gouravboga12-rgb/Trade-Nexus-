@@ -164,6 +164,9 @@ export interface PayslipItem {
   status: 'PAID' | 'PROCESSED' | 'PENDING' | 'REVISED';
   customNotes?: string;
   changeRemarks?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  paymentMode?: string;
   modifiedBy?: string;
   modifiedAt?: string;
 }
@@ -178,6 +181,7 @@ export interface EmployeeProfile {
   teamLeaderName: string;
   email: string;
   phone: string;
+  address?: string;
   joinDate: string;
   bloodGroup: string;
   faceIdStatus: 'VERIFIED_PRESENT' | 'ON_BREAK' | 'NOT_CHECKED_IN';

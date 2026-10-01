@@ -145,4 +145,87 @@ router.post('/send-id-card-email', async (req: Request, res: Response) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PDF Binary Direct Download Endpoints
+// ─────────────────────────────────────────────────────────────────────────────
+
+// POST /api/employee-documents/download/offer-letter
+router.post('/download/offer-letter', async (req: Request, res: Response) => {
+  try {
+    const { offerLetter, data } = req.body;
+    const payload = offerLetter || data || req.body;
+    const { generateOfferLetterPdf } = await import('../services/pdfGenerator.js');
+    const pdfBuf = await generateOfferLetterPdf(payload);
+
+    const safeName = (payload.candidateName || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Job_Offer_Letter_${safeName}.pdf"`);
+    res.setHeader('Content-Length', pdfBuf.length);
+    return res.end(pdfBuf);
+  } catch (error) {
+    console.error('[Download Offer Letter Error]', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// POST /api/employee-documents/download/experience-cert
+router.post('/download/experience-cert', async (req: Request, res: Response) => {
+  try {
+    const { employee, cert } = req.body;
+    const certPayload = cert || req.body;
+    const empPayload = employee || {};
+    const { generateExperienceCertPdf } = await import('../services/pdfGenerator.js');
+    const pdfBuf = await generateExperienceCertPdf(empPayload, certPayload);
+
+    const safeName = (certPayload.employeeName || empPayload.name || 'Employee').replace(/[^a-zA-Z0-9_-]/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Experience_Certificate_${safeName}.pdf"`);
+    res.setHeader('Content-Length', pdfBuf.length);
+    return res.end(pdfBuf);
+  } catch (error) {
+    console.error('[Download Experience Cert Error]', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// POST /api/employee-documents/download/relieving-letter
+router.post('/download/relieving-letter', async (req: Request, res: Response) => {
+  try {
+    const { employee, relievingLetter } = req.body;
+    const relPayload = relievingLetter || req.body;
+    const empPayload = employee || {};
+    const { generateRelievingLetterPdf } = await import('../services/pdfGenerator.js');
+    const pdfBuf = await generateRelievingLetterPdf(empPayload, relPayload);
+
+    const safeName = (relPayload.employeeName || empPayload.name || 'Employee').replace(/[^a-zA-Z0-9_-]/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Relieving_Letter_${safeName}.pdf"`);
+    res.setHeader('Content-Length', pdfBuf.length);
+    return res.end(pdfBuf);
+  } catch (error) {
+    console.error('[Download Relieving Letter Error]', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// POST /api/employee-documents/download/id-card
+router.post('/download/id-card', async (req: Request, res: Response) => {
+  try {
+    const { employee, cardData } = req.body;
+    const cardPayload = cardData || req.body;
+    const empPayload = employee || {};
+    const { generateIdCardPdf } = await import('../services/pdfGenerator.js');
+    const pdfBuf = await generateIdCardPdf(empPayload, cardPayload);
+
+    const safeName = (cardPayload.name || empPayload.name || 'Staff').replace(/[^a-zA-Z0-9_-]/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Digital_ID_Card_${safeName}.pdf"`);
+    res.setHeader('Content-Length', pdfBuf.length);
+    return res.end(pdfBuf);
+  } catch (error) {
+    console.error('[Download ID Card Error]', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;

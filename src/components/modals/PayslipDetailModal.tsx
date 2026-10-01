@@ -17,6 +17,11 @@ import {
   Edit3
 } from 'lucide-react';
 import { PayslipItem } from '../../types';
+import { api } from '../../services/api';
+import signatureVidhyaSagar from '../../assets/signature-vidhya-sagar.png';
+import watermarkEmblem from '../../assets/watermark-emblem.png';
+import headerPayslip from '../../assets/header-payslip.png';
+import corporateFooter from '../../assets/corporate-footer.png';
 
 interface PayslipDetailModalProps {
   payslip: PayslipItem | null;
@@ -57,11 +62,14 @@ export const PayslipDetailModal: React.FC<PayslipDetailModalProps> = ({ payslip,
     }, 100);
   };
 
-  const handleDownload = () => {
-    triggerToast(`✓ Payroll slip for ${empName} ready for PDF save`);
-    setTimeout(() => {
-      window.print();
-    }, 100);
+  const handleDownload = async () => {
+    try {
+      triggerToast(`⏳ Generating & downloading official Payslip PDF for ${empName}...`);
+      await api.downloadPayslip(payslip);
+      triggerToast(`✓ Official Payslip PDF downloaded successfully!`);
+    } catch (err: any) {
+      triggerToast(`⚠️ Download failed: ${err.message || 'Server error'}`);
+    }
   };
 
   const handleSendEmail = async () => {
@@ -131,70 +139,17 @@ export const PayslipDetailModal: React.FC<PayslipDetailModalProps> = ({ payslip,
             }}
           >
             
-            {/* Top Navy Header Banner with Diagonal Teal Accent (Matching 4.png) */}
-            <div 
-              className="relative text-white px-5 sm:px-7 pt-5 sm:pt-6 pb-4 sm:pb-5 overflow-hidden flex-shrink-0"
-              style={{ 
-                backgroundColor: '#06152B',
-                WebkitPrintColorAdjust: 'exact',
-                printColorAdjust: 'exact'
-              }}
-            >
-              {/* Teal Accent Lines */}
-              <div 
-                className="absolute -bottom-1 left-0 right-0 h-2.5" 
-                style={{ backgroundColor: '#00A88B', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
-              />
-              <div 
-                className="absolute bottom-1 left-0 w-3/5 h-1" 
-                style={{ backgroundColor: '#38E1B7', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
-              />
-
-              <div className="flex items-center justify-between gap-3 relative z-10">
-                {/* Brand Logo & Name */}
-                <div className="flex items-center gap-2.5 sm:gap-3">
-                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-tr from-[#00C9A7] to-[#0A2540] p-0.5 shadow-md flex items-center justify-center flex-shrink-0">
-                    <div 
-                      className="w-full h-full rounded-full flex items-center justify-center text-[#00C9A7]"
-                      style={{ backgroundColor: '#06152B' }}
-                    >
-                      <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
-                    </div>
-                  </div>
-                  <div>
-                    <h1 className="font-display font-black text-sm sm:text-xl text-white tracking-wider leading-none uppercase">
-                      TRADE NEXUS
-                    </h1>
-                    <div className="flex items-center gap-1 mt-0.5 sm:mt-1">
-                      <span className="h-px w-3 sm:w-4 bg-[#00C9A7]" />
-                      <span className="text-[7px] sm:text-[9px] font-extrabold tracking-[0.2em] text-[#00C9A7]">
-                        TRADE SMART
-                      </span>
-                      <span className="h-px w-3 sm:w-4 bg-[#00C9A7]" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Document Title */}
-                <div className="text-right flex-shrink-0">
-                  <h2 className="font-display font-black text-xs sm:text-lg text-white tracking-wider uppercase">
-                    PAYROLL SLIP
-                  </h2>
-                  <div className="h-0.5 w-full bg-[#00C9A7] mt-0.5" />
-                </div>
-              </div>
+            {/* Top Corporate Header Banner (Matching 4.png) */}
+            <div className="w-full relative z-10 overflow-hidden flex-shrink-0">
+              <img src={headerPayslip} alt="Trade Nexus Header" className="w-full object-cover select-none" />
             </div>
 
-            {/* Document Body */}
-            <div className="p-5 sm:p-8 space-y-6 flex-1 relative text-xs sm:text-sm">
-              
-              {/* Background Watermark */}
-              <div className="absolute right-6 bottom-20 opacity-5 pointer-events-none select-none">
-                <div className="w-56 h-56 rounded-full border-8 border-[#0A2540] flex items-center justify-center">
-                  <TrendingUp className="w-36 h-36 text-[#0A2540] stroke-[2]" />
-                </div>
-              </div>
+            {/* Center Background Watermark (Matching 4.png) */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0">
+              <img src={watermarkEmblem} alt="Trade Nexus Watermark" className="w-72 h-72 object-contain opacity-[0.06]" />
+            </div>
 
+            <div className="p-4 sm:p-6 space-y-5 relative z-10 flex-1">
               {/* Employee & Month Metadata 2-Column Grid with Icons (Exact 4.png) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2.5 gap-x-6 text-xs sm:text-sm font-semibold text-slate-800">
                 
@@ -400,51 +355,29 @@ export const PayslipDetailModal: React.FC<PayslipDetailModalProps> = ({ payslip,
                   </div>
                 </div>
 
-                {/* Right: Authorized By */}
-                <div className="text-right space-y-1">
+                {/* Right: Authorized By (Matching 4.png) */}
+                <div className="text-right space-y-0.5">
                   <p className="text-xs text-slate-500 font-medium">Authorized by:</p>
                   <p className="text-xs font-bold text-[#0A2540]">Finance Manager – Trade Nexus</p>
                   
-                  <div className="py-1">
-                    <span 
-                      className="font-signature text-2xl text-[#0A2540] inline-block font-semibold tracking-wide select-none"
-                      style={{ 
-                        fontFamily: "'Caveat', 'Great Vibes', 'Dancing Script', cursive"
-                      }}
-                    >
-                      Muhammad Patel
-                    </span>
+                  <div className="py-1 flex justify-end">
+                    <img
+                      src={signatureVidhyaSagar}
+                      alt="T. Vidhya Sagar"
+                      className="h-8 w-auto object-contain select-none"
+                    />
                   </div>
-                  <p className="text-xs font-bold text-[#0A2540]">Muhammad Patel</p>
+                  <p className="text-xs font-bold text-[#0A2540]">T. Vidhya Sagar</p>
+                  <p className="text-[10px] text-slate-500 font-semibold">Authorized Signatory</p>
                 </div>
 
               </div>
 
             </div>
 
-            {/* Bottom Footer Bar (Matching 4.png) */}
-            <div 
-              className="text-white px-4 sm:px-6 py-2.5 sm:py-3 border-t-2 border-[#00A88B] flex items-center justify-between text-[9px] sm:text-[11px] gap-2 font-medium flex-shrink-0"
-              style={{ 
-                backgroundColor: '#06152B',
-                WebkitPrintColorAdjust: 'exact',
-                printColorAdjust: 'exact'
-              }}
-            >
-              <span className="flex items-center gap-1.5 text-slate-200">
-                <Phone className="w-3.5 h-3.5 text-[#00C9A7]" />
-                +91 98765 43210
-              </span>
-              <span className="text-slate-600">|</span>
-              <span className="flex items-center gap-1.5 text-slate-200">
-                <Mail className="w-3.5 h-3.5 text-[#00C9A7]" />
-                info@tradenexus.com
-              </span>
-              <span className="text-slate-600">|</span>
-              <span className="flex items-center gap-1.5 text-slate-200">
-                <Globe className="w-3.5 h-3.5 text-[#00C9A7]" />
-                www.tradenexus.com
-              </span>
+            {/* Bottom Corporate Footer (Matching 4.png) */}
+            <div className="w-full relative z-10 overflow-hidden flex-shrink-0">
+              <img src={corporateFooter} alt="Trade Nexus Footer" className="w-full object-cover select-none" />
             </div>
 
           </div>

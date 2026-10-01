@@ -672,22 +672,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (cert) {
       setSelectedExperienceCert(cert);
     } else {
-      const defaultCert: ExperienceCertData = experienceCerts[0] || {
-        id: `exp-${Date.now()}`,
-        employeeName: profile.name || 'Amitabh',
-        empCode: profile.empCode || 'TNX-001',
-        guardianName: 'Sh. Heera Singh',
-        designation: profile.roleTitle || 'Captain',
-        department: profile.department || 'Client Acquisition',
-        startDate: profile.joinDate || '26th May 2023',
-        endDate: '03rd January 2025',
-        refNumber: `TNX/EXP/${new Date().getFullYear()}/${profile.empCode || '001'}`,
-        issuedDate: new Date().toLocaleDateString('en-GB'),
-        conductRemarks: 'During his tenure, Mr. Amitabh performed his duties with sincerity, professionalism, and dedication. He was responsible for supervising restaurant & operations, ensuring high standards of customer service, coordinating with staff, and maintaining smooth day-to-day operations. His conduct and performance were satisfactory throughout his period of employment.',
-        signatoryName: 'T. Vidhya Sagar',
-        signatoryRole: 'Chief Executive Officer',
-      };
-      setSelectedExperienceCert(defaultCert);
+      const matched = experienceCerts.find(c => 
+        (c.empCode && profile.empCode && c.empCode.toLowerCase() === profile.empCode.toLowerCase()) || 
+        (c.employeeName && profile.name && c.employeeName.toLowerCase() === profile.name.toLowerCase())
+      );
+      if (matched) {
+        setSelectedExperienceCert(matched);
+      } else {
+        const defaultCert: ExperienceCertData = {
+          id: `exp-${profile.empCode || Date.now()}`,
+          employeeName: profile.name || 'Trade Nexus Employee',
+          empCode: profile.empCode || 'TNX-001',
+          guardianName: 'Trade Nexus Corporation',
+          designation: profile.roleTitle || 'Executive',
+          department: profile.department || 'Operations',
+          startDate: profile.joinDate || '01 January 2024',
+          endDate: 'Present',
+          refNumber: `TNX/EXP/${new Date().getFullYear()}/${profile.empCode || '001'}`,
+          issuedDate: new Date().toLocaleDateString('en-GB'),
+          conductRemarks: `During their tenure, ${profile.name || 'the employee'} performed all assigned duties with sincerity, professionalism, and dedication. They demonstrated strong capability and maintained smooth operations throughout their period of employment. Their conduct and performance were satisfactory throughout.`,
+          signatoryName: 'T. Vidhya Sagar',
+          signatoryRole: 'Chief Executive Officer',
+        };
+        setSelectedExperienceCert(defaultCert);
+      }
     }
     setIsExperienceCertModalOpen(true);
   };
@@ -696,22 +704,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (letter) {
       setSelectedRelievingLetter(letter);
     } else {
-      const defaultLetter: RelievingLetterData = relievingLetters[0] || {
-        id: `rel-${Date.now()}`,
-        employeeName: profile.name || 'Avery Davis',
-        empCode: profile.empCode || 'TNX-042',
-        designation: profile.roleTitle || 'Digital Marketing Specialist',
-        department: profile.department || 'Marketing & Communications',
-        employeeType: 'Full-Time',
-        employeeAddress: '123 Business Avenue, Financial District, Your City, 500001',
-        resignationDate: '15 July 2025',
-        lastWorkingDate: '31 August 2025',
-        joiningDate: profile.joinDate || '12 January 2024',
-        issuedDate: new Date().toLocaleDateString('en-GB'),
-        signatoryName: 'T .Vidhya Sagar',
-        signatoryRole: 'Chief Executive Officer',
-      };
-      setSelectedRelievingLetter(defaultLetter);
+      const matched = relievingLetters.find(r => 
+        (r.empCode && profile.empCode && r.empCode.toLowerCase() === profile.empCode.toLowerCase()) || 
+        (r.employeeName && profile.name && r.employeeName.toLowerCase() === profile.name.toLowerCase())
+      );
+      if (matched) {
+        setSelectedRelievingLetter(matched);
+      } else {
+        const defaultLetter: RelievingLetterData = {
+          id: `rel-${profile.empCode || Date.now()}`,
+          employeeName: profile.name || 'Trade Nexus Employee',
+          empCode: profile.empCode || 'TNX-042',
+          designation: profile.roleTitle || 'Executive',
+          department: profile.department || 'Operations',
+          employeeType: 'Full-Time',
+          employeeAddress: profile.address || 'Level 12, Nexus Cyber Tower, HITEC City, Hyderabad',
+          resignationDate: '15 July 2025',
+          lastWorkingDate: '31 August 2025',
+          joiningDate: profile.joinDate || '12 January 2024',
+          issuedDate: new Date().toLocaleDateString('en-GB'),
+          signatoryName: 'T. Vidhya Sagar',
+          signatoryRole: 'Chief Executive Officer',
+        };
+        setSelectedRelievingLetter(defaultLetter);
+      }
     }
     setIsRelievingLetterModalOpen(true);
   };

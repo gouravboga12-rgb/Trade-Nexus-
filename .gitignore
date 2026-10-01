@@ -37,3 +37,7 @@ server/db/data/*.sqlite*
 .env
 *.pem
 *.key
+
+# Reference materials
+templates errors/
+
