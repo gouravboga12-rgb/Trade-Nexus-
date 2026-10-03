@@ -33,6 +33,16 @@ export const GenerateExperienceCertModal: React.FC<GenerateExperienceCertModalPr
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Lock body scroll when modal is open — prevents page scroll from stealing events
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   // Form State — 100% HR Editable
   const [selectedEmpId, setSelectedEmpId] = useState('');
   const [employeeName, setEmployeeName] = useState('');
@@ -519,10 +529,13 @@ export const GenerateExperienceCertModal: React.FC<GenerateExperienceCertModalPr
 
           </form>
         ) : (
-          /* Live Document Preview matching exact 2.png layout */
-          <div className="flex flex-col" style={{ height: 'calc(94vh - 68px)' }}>
-            {/* Scrollable preview area — explicit height so overflow-y-auto always triggers */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100/80 flex flex-col items-center gap-4" style={{ minHeight: 0 }}>
+          /* Live Document Preview */
+          <div className="flex flex-col flex-1 min-h-0">
+            {/* Scrollable certificate area — max-height + overscroll-contain is most reliable */}
+            <div
+              className="overflow-y-auto overscroll-contain p-4 sm:p-6 bg-slate-100/80 flex flex-col items-center gap-4"
+              style={{ maxHeight: 'calc(94vh - 140px)' }}
+            >
             
             <div className="w-full max-w-2xl bg-white text-slate-800 rounded-2xl shadow-xl overflow-hidden border border-slate-200 flex flex-col justify-between relative">
               
