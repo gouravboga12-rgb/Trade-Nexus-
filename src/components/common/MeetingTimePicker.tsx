@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Sparkles } from 'lucide-react';
+import { 
+  getTodayDateIST, 
+  getTomorrowDateIST, 
+  getISTHourMinute 
+} from '../../utils/dateUtils';
 
 export interface MeetingScheduleDetails {
   date: string; // YYYY-MM-DD or 'Today' / 'Tomorrow'
@@ -44,17 +49,13 @@ export const formatTo24Hour = (time12: string): string => {
   return `${hour < 10 ? '0' : ''}${hour}:${min}`;
 };
 
-// Get current date string YYYY-MM-DD in local time
-const getLocalDateString = (offsetDays = 0): string => {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+// 12-Hour choices (01 to 12)
+const HOURS_12 = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
 
-// Quick preset times
+// 5-minute increment choices
+const MINUTES = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
+
+// Quick preset times in 12-hour format
 const PRESET_TIMES = [
   '09:30 AM',
   '10:30 AM',
@@ -73,25 +74,49 @@ export const MeetingTimePicker: React.FC<MeetingTimePickerProps> = ({
   accentColor = 'teal',
   className = '',
 }) => {
-  const todayIso = getLocalDateString(0);
-  const tomorrowIso = getLocalDateString(1);
+  // Always compute Today and Tomorrow strictly as per IST (Asia/Kolkata)
+  const todayIso = getTodayDateIST();
+  const tomorrowIso = getTomorrowDateIST();
 
   // Initialize date selection
   const [dateMode, setDateMode] = useState<'today' | 'tomorrow' | 'custom'>('today');
   const [customDate, setCustomDate] = useState<string>(todayIso);
 
-  // Initialize time (default to next rounded 30 min slot or 11:00 AM)
-  const [time24, setTime24] = useState<string>(() => {
-    const now = new Date();
-    let hours = now.getHours();
-    let mins = now.getMinutes();
-    if (mins < 30) {
-      mins = 30;
-    } else {
-      hours = (hours + 1) % 24;
-      mins = 0;
+  // Initialize Hour, Minute, and AM/PM strictly based on current IST time or provided value
+  const [selectedHour, setSelectedHour] = useState<string>(() => {
+    if (value) {
+      const match = value.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+      if (match) return match[1].padStart(2, '0');
     }
-    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+    const { hours, minutes } = getISTHourMinute();
+    let nextHours = hours;
+    if (minutes >= 30) {
+      nextHours = (nextHours + 1) % 24;
+    }
+    const h12 = nextHours % 12 || 12;
+    return String(h12).padStart(2, '0');
+  });
+
+  const [selectedMinute, setSelectedMinute] = useState<string>(() => {
+    if (value) {
+      const match = value.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+      if (match) return match[2];
+    }
+    const { minutes } = getISTHourMinute();
+    return minutes < 30 ? '30' : '00';
+  });
+
+  const [period, setPeriod] = useState<'AM' | 'PM'>(() => {
+    if (value) {
+      const match = value.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+      if (match) return match[3].toUpperCase() as 'AM' | 'PM';
+    }
+    const { hours, minutes } = getISTHourMinute();
+    let nextHours = hours;
+    if (minutes >= 30) {
+      nextHours = (nextHours + 1) % 24;
+    }
+    return nextHours >= 12 ? 'PM' : 'AM';
   });
 
   const [duration, setDuration] = useState<number>(30);
@@ -99,9 +124,13 @@ export const MeetingTimePicker: React.FC<MeetingTimePickerProps> = ({
   const selectedIsoDate =
     dateMode === 'today' ? todayIso : dateMode === 'tomorrow' ? tomorrowIso : customDate;
 
-  const time12 = formatTo12Hour(time24);
+  // Formatted 12-hour string (e.g. "05:30 PM")
+  const time12 = `${selectedHour}:${selectedMinute} ${period}`;
 
-  // Build user-friendly string
+  // Corresponding 24-hour string for backend compatibility
+  const time24 = formatTo24Hour(time12);
+
+  // Build user-friendly schedule label
   const formatScheduleString = (): string => {
     let datePart = 'Today';
     if (dateMode === 'tomorrow') {
@@ -135,7 +164,17 @@ export const MeetingTimePicker: React.FC<MeetingTimePickerProps> = ({
       duration,
       formatted,
     });
-  }, [dateMode, customDate, time24, duration]);
+  }, [dateMode, customDate, selectedHour, selectedMinute, period, duration]);
+
+  // Handle clicking quick 1-tap presets
+  const handleSelectPreset = (preset: string) => {
+    const match = preset.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (match) {
+      setSelectedHour(match[1].padStart(2, '0'));
+      setSelectedMinute(match[2]);
+      setPeriod(match[3].toUpperCase() as 'AM' | 'PM');
+    }
+  };
 
   // Color scheme classes
   const activeBtnClass =
@@ -162,8 +201,8 @@ export const MeetingTimePicker: React.FC<MeetingTimePickerProps> = ({
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
             <span>1. MEETING DATE</span>
           </span>
-          <span className="text-[10px] font-medium text-slate-400">
-            {dateMode === 'today' ? 'Today' : dateMode === 'tomorrow' ? 'Tomorrow' : selectedIsoDate}
+          <span className="text-[10px] font-semibold text-slate-500">
+            {dateMode === 'today' ? `Today (IST: ${todayIso})` : dateMode === 'tomorrow' ? `Tomorrow (${tomorrowIso})` : selectedIsoDate}
           </span>
         </label>
 
@@ -216,45 +255,112 @@ export const MeetingTimePicker: React.FC<MeetingTimePickerProps> = ({
         )}
       </div>
 
-      {/* 2. Time Row (Proper Exact Clock Picker + Preset Chips) */}
-      <div className="space-y-1.5">
-        <label className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
-          <span className="flex items-center gap-1.5">
+      {/* 2. Time Row (Explicit 12-Hour AM / PM Selector) */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-slate-400" />
             <span>2. MEETING TIME (EXACT TIME SELECTOR)</span>
-          </span>
-          <span className="font-mono text-xs font-black text-slate-800 bg-white px-2 py-0.5 rounded-md border border-slate-200">
-            {time12}
-          </span>
-        </label>
+          </label>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-200 px-1.5 py-0.5 rounded">
+              IST (UTC+5:30)
+            </span>
+            <span className="font-mono text-xs font-black text-[#0A2540] bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs">
+              {time12}
+            </span>
+          </div>
+        </div>
 
-        {/* Exact native clock time input */}
-        <div className="relative">
-          <input
-            type="time"
-            value={time24}
-            onChange={(e) => setTime24(e.target.value)}
-            className={`w-full p-2.5 rounded-xl bg-white border border-slate-300 text-sm font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 ${ringFocusClass}`}
-          />
+        {/* 12-Hour AM / PM Selector Card */}
+        <div className="bg-white p-2.5 rounded-xl border border-slate-300 shadow-2xs flex items-center justify-between gap-3">
+          {/* Hour & Minute Selectors */}
+          <div className="flex items-center gap-2 flex-1">
+            <div className="flex-1">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                Hour
+              </span>
+              <select
+                value={selectedHour}
+                onChange={(e) => setSelectedHour(e.target.value)}
+                className="w-full py-2 px-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-sm font-mono font-black text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer text-center transition-colors"
+              >
+                {HOURS_12.map((h) => (
+                  <option key={h} value={h}>
+                    {h}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <span className="text-slate-400 font-black text-lg pt-4 select-none">:</span>
+
+            <div className="flex-1">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                Minute
+              </span>
+              <select
+                value={selectedMinute}
+                onChange={(e) => setSelectedMinute(e.target.value)}
+                className="w-full py-2 px-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-sm font-mono font-black text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer text-center transition-colors"
+              >
+                {MINUTES.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* AM / PM Segmented Option Buttons */}
+          <div className="shrink-0">
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1 text-center">
+              AM / PM
+            </span>
+            <div className="inline-flex rounded-lg p-0.5 bg-slate-100 border border-slate-200 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setPeriod('AM')}
+                className={`px-3.5 py-1.5 rounded-md text-xs font-black transition-all cursor-pointer ${
+                  period === 'AM'
+                    ? 'bg-[#0A2540] text-[#00C9A7] shadow-sm'
+                    : 'text-slate-500 hover:text-slate-900 bg-transparent'
+                }`}
+              >
+                AM
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriod('PM')}
+                className={`px-3.5 py-1.5 rounded-md text-xs font-black transition-all cursor-pointer ${
+                  period === 'PM'
+                    ? 'bg-[#0A2540] text-[#00C9A7] shadow-sm'
+                    : 'text-slate-500 hover:text-slate-900 bg-transparent'
+                }`}
+              >
+                PM
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Quick-Select Presets Chips */}
-        <div className="pt-1">
+        <div className="pt-0.5">
           <span className="text-[10px] text-slate-400 font-semibold block mb-1">
             Quick 1-Tap Presets:
           </span>
           <div className="flex flex-wrap gap-1.5">
             {PRESET_TIMES.map((preset) => {
-              const preset24 = formatTo24Hour(preset);
-              const isSelected = time24 === preset24;
+              const isSelected = time12 === preset;
               return (
                 <button
                   key={preset}
                   type="button"
-                  onClick={() => setTime24(preset24)}
+                  onClick={() => handleSelectPreset(preset)}
                   className={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold border transition-all cursor-pointer ${
                     isSelected
-                      ? 'bg-emerald-500 text-white border-emerald-500 shadow-2xs'
+                      ? 'bg-emerald-500 text-white border-emerald-500 shadow-2xs font-black'
                       : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
                   }`}
                 >
