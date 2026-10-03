@@ -353,7 +353,6 @@ export async function generateExperienceCertPdf(employee: any, cert: any): Promi
   const pageWidth = 595.28;
   const pageHeight = 841.89;
 
-  // Header Banner & Watermark & Footer (matching 2.png)
   drawCorporateHeader(doc, 'header-experience.png', pageWidth, 192);
   drawWatermark(doc, pageWidth, pageHeight);
   drawCorporateFooter(doc, pageWidth, pageHeight);
@@ -362,15 +361,32 @@ export async function generateExperienceCertPdf(employee: any, cert: any): Promi
   const contentW = pageWidth - leftX * 2;
   let currentY = 205;
 
-  const empName = cert.employeeName || employee.name || 'Staff Member';
-  const guardian = cert.guardianName || employee.guardianName || 'Sh. Heera Singh';
-  const empCode = cert.empCode || employee.empCode || 'TNX-001';
-  const role = cert.designation || employee.role || employee.roleTitle || 'Captain';
-  const dept = cert.department || employee.groupName || employee.department || 'Client Acquisition';
-  const startDate = cert.startDate || employee.joinDate || '26th May 2023';
-  const endDate = cert.endDate || '03rd January 2025';
-  const refNum = cert.refNumber || `TNX/EXP/${new Date().getFullYear()}/${empCode}`;
-  const issuedDate = cert.issuedDate || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const empName     = cert.employeeName    || employee.name      || 'Staff Member';
+  const guardian    = cert.guardianName    || employee.guardianName || '';
+  const empCode     = cert.empCode         || employee.empCode   || 'TNX-001';
+  const role        = cert.designation     || employee.role      || employee.roleTitle || 'Executive';
+  const dept        = cert.department      || employee.groupName || employee.department || 'Client Acquisition';
+  const startDate   = cert.startDate       || employee.joinDate  || '01 January 2023';
+  const endDate     = cert.endDate         || '01 January 2025';
+  const refNum      = cert.refNumber       || `TNX/EXP/${new Date().getFullYear()}/${empCode}`;
+  const issuedDate  = cert.issuedDate      || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const companyName = cert.companyName     || 'Trade Nexus';
+  const sigName     = cert.signatoryName   || 'T. Vidhya Sagar';
+  const sigRole     = cert.signatoryRole   || 'Chief Executive Officer';
+
+  // Build default paragraphs — overridable by HR
+  const guardianClause = guardian ? `, S/D of ${guardian},` : '';
+  const firstName = empName.split(' ')[0] || empName;
+
+  const defaultIntro = `This is to certify that Mr./Ms. ${empName}${guardianClause} bearing Employee Identification Number ${empCode}, was bona fide employed with ${companyName} from ${startDate} to ${endDate}.`;
+  const defaultRole = `During the period of tenure with ${companyName}, ${empName} served in the professional capacity of ${role} within the ${dept} department.`;
+  const defaultConduct = `During their tenure, ${firstName} performed their duties with sincerity, professionalism, and dedication. They were responsible for supervising client operations, ensuring high standards of service, coordinating with staff, and maintaining smooth day-to-day operations. Their conduct, character, and performance were satisfactory throughout their period of employment.`;
+  const defaultClosing = `We appreciate the valuable contributions rendered during their service with ${companyName} and convey our best wishes for continued success and excellence in all future professional endeavors.`;
+
+  const introPara   = cert.introParagraph   || defaultIntro;
+  const rolePara    = cert.roleParagraph    || defaultRole;
+  const conductPara = cert.conductRemarks   || defaultConduct;
+  const closingPara = cert.closingParagraph || defaultClosing;
 
   // Ref Number (Left) and Date (Right)
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text(`Ref: ${refNum}`, leftX, currentY);
@@ -378,74 +394,45 @@ export async function generateExperienceCertPdf(employee: any, cert: any): Promi
     align: 'right',
     width: pageWidth - leftX,
   });
-
   currentY += 32;
 
-  // Centered Title "To Whom It May Concern"
+  // Centered Title
   doc.fontSize(14).font('Helvetica-Bold').fillColor('#0A2540').text('To Whom It May Concern', 0, currentY, {
     align: 'center',
     width: pageWidth,
   });
   doc.rect((pageWidth - 140) / 2, currentY + 18, 140, 1.8).fill('#00C9A7');
-
   currentY += 40;
 
-  // Body Paragraphs matching 2.png
-  doc.fontSize(9.5).font('Helvetica').fillColor('#1E293B').text(
-    `This is to certify that Mr./Ms. ${empName}, S/D of ${guardian}, bearing Employee Identification Number ${empCode}, was bona fide employed with Trade Nexus from ${startDate} to ${endDate}.`,
-    leftX,
-    currentY,
-    { width: contentW, lineGap: 5 }
-  );
+  // Intro paragraph
+  doc.fontSize(9.5).font('Helvetica').fillColor('#1E293B').text(introPara, leftX, currentY, { width: contentW, lineGap: 5 });
+  currentY += doc.heightOfString(introPara, { width: contentW, lineGap: 5 }) + 14;
 
-  currentY += 42;
+  // Role paragraph
+  doc.fontSize(9.5).font('Helvetica').fillColor('#1E293B').text(rolePara, leftX, currentY, { width: contentW, lineGap: 5 });
+  currentY += doc.heightOfString(rolePara, { width: contentW, lineGap: 5 }) + 14;
 
-  doc.fontSize(9.5).font('Helvetica').fillColor('#1E293B').text(
-    `During the period of tenure with Trade Nexus, ${empName} served in the professional capacity of ${role} within the ${dept} department.`,
-    leftX,
-    currentY,
-    { width: contentW, lineGap: 5 }
-  );
+  // Conduct paragraph
+  doc.fontSize(9.5).font('Helvetica').fillColor('#1E293B').text(conductPara, leftX, currentY, { width: contentW, lineGap: 5 });
+  currentY += doc.heightOfString(conductPara, { width: contentW, lineGap: 5 }) + 14;
 
-  currentY += 38;
+  // Closing paragraph
+  doc.fontSize(9.5).font('Helvetica').fillColor('#1E293B').text(closingPara, leftX, currentY, { width: contentW, lineGap: 5 });
+  currentY += doc.heightOfString(closingPara, { width: contentW, lineGap: 5 }) + 28;
 
-  const defaultConduct = 'During his tenure, Mr. ' + empName.split(' ')[0] + ' performed his duties with sincerity, professionalism, and dedication. He was responsible for supervising operations, ensuring high standards of client service, coordinating with team members, and maintaining smooth day-to-day business operations. His conduct, character, and performance were satisfactory throughout his period of employment.';
-  const conductText = cert.conductRemarks || defaultConduct;
-
-  doc.fontSize(9.5).font('Helvetica').fillColor('#1E293B').text(
-    conductText,
-    leftX,
-    currentY,
-    { width: contentW, lineGap: 5 }
-  );
-
-  currentY += 80;
-
-  doc.fontSize(9.5).font('Helvetica').fillColor('#1E293B').text(
-    'We appreciate the valuable contributions rendered during their service with Trade Nexus and convey our best wishes for continued success and excellence in all future professional endeavors.',
-    leftX,
-    currentY,
-    { width: contentW, lineGap: 5 }
-  );
-
-  currentY += 52;
-
-  // Closing Signatory Block
-  doc.fontSize(9).font('Helvetica-Bold').fillColor('#0A2540').text('For Trade Nexus Corporate Services,', leftX, currentY);
-
+  // Signatory block
+  doc.fontSize(9).font('Helvetica-Bold').fillColor('#0A2540').text(`For ${companyName} Corporate Services,`, leftX, currentY);
   drawOfficialSignature(doc, leftX, currentY + 12, 145);
-
-  const sigName = cert.signatoryName || 'T. Vidhya Sagar';
-  const sigRole = cert.signatoryRole || 'Chief Executive Officer';
-  doc.fontSize(9).font('Helvetica-Bold').fillColor('#0A2540').text(sigName, leftX, currentY + 46);
-  doc.fontSize(8).font('Helvetica').fillColor('#64748B').text(sigRole, leftX, currentY + 58);
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#00A88B').text('Trade Nexus', leftX, currentY + 68);
+  doc.fontSize(9).font('Helvetica-Bold').fillColor('#0A2540').text(sigName, leftX, currentY + 50);
+  doc.fontSize(8).font('Helvetica').fillColor('#64748B').text(sigRole, leftX, currentY + 62);
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#00A88B').text(companyName, leftX, currentY + 74);
 
   doc.end();
   return bufferPromise;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+
 // 3. RELIEVING LETTER PDF GENERATOR (Exact match for 3.png)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function generateRelievingLetterPdf(employee: any, relievingLetter: any): Promise<Buffer> {

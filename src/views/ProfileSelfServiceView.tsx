@@ -68,8 +68,9 @@ export const ProfileSelfServiceView: React.FC = () => {
   };
 
   const myExperienceCert = experienceCerts.find(c => 
-    (c.empCode && c.empCode.toLowerCase() === profile.empCode.toLowerCase()) || 
-    (c.employeeName && c.employeeName.toLowerCase() === profile.name.toLowerCase())
+    (c.employeeId && profile.id && c.employeeId === profile.id) ||
+    (c.empCode && profile.empCode && c.empCode.toLowerCase() === profile.empCode.toLowerCase()) || 
+    (c.employeeName && profile.name && c.employeeName.toLowerCase() === profile.name.toLowerCase())
   );
 
   const effectiveExperienceCert: ExperienceCertData | null = myExperienceCert || null;

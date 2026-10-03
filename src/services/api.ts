@@ -484,11 +484,35 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ employee, cert }),
     }),
+  /** Generate ONE PDF → save to DB → email employee. Returns full cert record with documentId. */
+  generateExperienceCert: (employeeId: string, certData: Partial<ExperienceCertData>, uploadedBy?: string) =>
+    request<{
+      success: boolean;
+      documentId: string;
+      fileName: string;
+      content: string;
+      certData: ExperienceCertData & { documentId: string; dispatchedAt: string; emailedAt: string | null };
+      emailResult: { success: boolean; messageId?: string; error?: string };
+      message: string;
+    }>('/employee-documents/generate/experience-cert', {
+      method: 'POST',
+      body: JSON.stringify({ employeeId, certData, uploadedBy, sendEmail: true }),
+    }),
+  /** Check if experience cert exists for an employee (returns { exists, document } or 404). */
+  checkExperienceCertExists: (employeeId: string) =>
+    request<{ exists: boolean; document?: any }>(`/employee-documents/experience-cert/${employeeId}`),
+  /** Get all experience certs (or filter by employeeId) */
+  getExperienceCerts: (employeeId?: string) =>
+    request<ExperienceCertData[]>(`/experience-certs${employeeId ? `?employeeId=${encodeURIComponent(employeeId)}` : ''}`),
+  /** Delete experience cert */
+  deleteExperienceCert: (id: string) =>
+    request<{ success: boolean; id: string }>(`/experience-certs/${id}`, { method: 'DELETE' }),
   sendIdCardEmail: (employee: Partial<TeamMember>, cardData?: any) =>
     request<{ success: boolean; messageId?: string }>('/employee-documents/send-id-card-email', {
       method: 'POST',
       body: JSON.stringify({ employee, cardData }),
     }),
+
 
   // Company Calendar & Holidays
   getHolidays: () => request<CompanyHoliday[]>('/calendar/holidays'),

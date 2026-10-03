@@ -297,24 +297,41 @@ export const ExperienceCertModal: React.FC = () => {
               </div>
 
               {/* Main Certificate Paragraphs (Exact 2.png copy) */}
-              <div className="space-y-5 text-slate-700 text-xs sm:text-sm leading-relaxed">
+              {/* Main Certificate Paragraphs */}
+              <div className="space-y-4 text-slate-700 text-xs sm:text-sm leading-relaxed">
                 <p>
-                  This letter serves to confirm that{' '}
-                  <strong className="text-[#00A88B] font-bold">Mr. / Ms. {formData.employeeName}</strong>
-                  {formData.guardianName ? <>, son/daughter of <strong className="text-[#00A88B] font-bold">{formData.guardianName}</strong>,</> : null}{' '}
-                  was employed as a <strong className="text-[#00A88B] font-bold">{formData.designation}</strong> at{' '}
-                  <strong className="text-[#0A2540] font-bold">Trade Nexus</strong>, a renowned organization in corporate finance &amp; trading services, from{' '}
-                  <strong className="text-[#00A88B] font-bold">{formData.startDate}</strong> to{' '}
-                  <strong className="text-[#00A88B] font-bold">{formData.endDate}</strong>.
+                  {formData.introParagraph || (
+                    <>
+                      This letter serves to confirm that{' '}
+                      <strong className="text-[#00A88B] font-bold">Mr. / Ms. {formData.employeeName}</strong>
+                      {formData.guardianName ? <>, son/daughter of <strong className="text-[#00A88B] font-bold">{formData.guardianName}</strong>,</> : null}{' '}
+                      bearing Employee Identification Number <strong className="font-mono font-bold text-slate-900">{formData.empCode}</strong>, was bona fide employed with{' '}
+                      <strong className="text-[#0A2540] font-bold">{formData.companyName || 'Trade Nexus'}</strong> from{' '}
+                      <strong className="text-[#00A88B] font-bold">{formData.startDate}</strong> to{' '}
+                      <strong className="text-[#00A88B] font-bold">{formData.endDate}</strong>.
+                    </>
+                  )}
                 </p>
 
                 <p>
-                  During their tenure, Mr./Ms. {formData.employeeName} performed duties with sincerity, professionalism, and dedication. They were responsible for supervising client operations, ensuring high standards of service, coordinating with staff, and maintaining smooth day-to-day operations. Their conduct and performance were satisfactory throughout their period of employment.
+                  {formData.roleParagraph || (
+                    <>
+                      During the period of tenure with <strong className="text-[#0A2540] font-bold">{formData.companyName || 'Trade Nexus'}</strong>, {formData.employeeName} served in the professional capacity of <strong className="text-[#00A88B] font-bold">{formData.designation}</strong> within the {formData.department} department.
+                    </>
+                  )}
                 </p>
 
-                <div className="py-2 text-center sm:text-left">
-                  <p className="font-semibold text-slate-800">
-                    We wish them all the best in their future endeavours.
+                <p>
+                  {formData.conductRemarks || (
+                    <>
+                      During their tenure, Mr./Ms. {formData.employeeName} performed duties with sincerity, professionalism, and dedication. They were responsible for supervising client operations, ensuring high standards of service, coordinating with staff, and maintaining smooth day-to-day operations. Their conduct and performance were satisfactory throughout their period of employment.
+                    </>
+                  )}
+                </p>
+
+                <div className="py-1">
+                  <p className="font-medium text-slate-800">
+                    {formData.closingParagraph || 'We appreciate the valuable contributions rendered during their service and convey our best wishes for continued success in all future professional endeavors.'}
                   </p>
                 </div>
               </div>
@@ -322,7 +339,7 @@ export const ExperienceCertModal: React.FC = () => {
               {/* Sign-off matching 2.png */}
               <div className="pt-6 space-y-1">
                 <p className="text-xs sm:text-sm font-semibold text-slate-700">Sincerely,</p>
-                <p className="font-bold text-xs sm:text-sm text-[#0A2540]">For: Trade Nexus</p>
+                <p className="font-bold text-xs sm:text-sm text-[#0A2540]">For {formData.companyName || 'Trade Nexus'} Corporate Services,</p>
                 
                 {/* Authentic Signature matching 2.png */}
                 <div className="py-2">

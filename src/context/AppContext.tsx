@@ -258,11 +258,14 @@ interface AppContextType {
   experienceCerts: ExperienceCertData[];
   selectedExperienceCert: ExperienceCertData | null;
   setSelectedExperienceCert: (cert: ExperienceCertData | null) => void;
+  selectedExperienceCertEmpId: string;
+  setSelectedExperienceCertEmpId: (id: string) => void;
   isExperienceCertModalOpen: boolean;
   setIsExperienceCertModalOpen: (open: boolean) => void;
   isGenerateExperienceCertModalOpen: boolean;
   setIsGenerateExperienceCertModalOpen: (open: boolean) => void;
-  generateExperienceCert: (data: Omit<ExperienceCertData, 'id' | 'issuedDate'> & { issuedDate?: string }) => void;
+  generateExperienceCert: (data: Omit<ExperienceCertData, 'id' | 'issuedDate'> & { issuedDate?: string }) => Promise<void>;
+  deleteExperienceCert: (id: string) => Promise<void>;
   openExperienceCertModal: (cert?: ExperienceCertData) => void;
   openGenerateExperienceCertModal: (empId?: string) => void;
 
@@ -446,9 +449,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [selectedOfferLetter, setSelectedOfferLetter] = useState<OfferLetterData | null>(null);
   const [isOfferLetterModalOpen, setIsOfferLetterModalOpen] = useState(false);
 
-  // Experience Certificates State
-  const [experienceCerts, setExperienceCerts] = useState<ExperienceCertData[]>(INITIAL_EXPERIENCE_CERTS);
+  // Experience Certificates State (DB-backed, strictly generated records only)
+  const [experienceCerts, setExperienceCerts] = useState<ExperienceCertData[]>([]);
   const [selectedExperienceCert, setSelectedExperienceCert] = useState<ExperienceCertData | null>(null);
+  const [selectedExperienceCertEmpId, setSelectedExperienceCertEmpId] = useState<string>('');
   const [isExperienceCertModalOpen, setIsExperienceCertModalOpen] = useState(false);
 
   // Relieving Letters State
@@ -635,7 +639,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const openGenerateOfferLetterModal = () => setIsGenerateOfferLetterModalOpen(true);
   const openGenerateExperienceCertModal = (empId?: string) => {
-    if (empId) setSelectedIdCardEmpId(empId);
+    if (empId) setSelectedExperienceCertEmpId(empId);
     setIsGenerateExperienceCertModalOpen(true);
   };
   const openGenerateRelievingLetterModal = (empId?: string) => {
@@ -678,33 +682,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const openExperienceCertModal = (cert?: ExperienceCertData) => {
     if (cert) {
       setSelectedExperienceCert(cert);
-    } else {
-      const matched = experienceCerts.find(c => 
-        (c.empCode && profile.empCode && c.empCode.toLowerCase() === profile.empCode.toLowerCase()) || 
-        (c.employeeName && profile.name && c.employeeName.toLowerCase() === profile.name.toLowerCase())
-      );
-      if (matched) {
-        setSelectedExperienceCert(matched);
-      } else {
-        const defaultCert: ExperienceCertData = {
-          id: `exp-${profile.empCode || Date.now()}`,
-          employeeName: profile.name || 'Trade Nexus Employee',
-          empCode: profile.empCode || 'TNX-001',
-          guardianName: 'Trade Nexus Corporation',
-          designation: profile.roleTitle || 'Executive',
-          department: profile.department || 'Operations',
-          startDate: profile.joinDate || '01 January 2024',
-          endDate: 'Present',
-          refNumber: `TNX/EXP/${new Date().getFullYear()}/${profile.empCode || '001'}`,
-          issuedDate: new Date().toLocaleDateString('en-GB'),
-          conductRemarks: `During their tenure, ${profile.name || 'the employee'} performed all assigned duties with sincerity, professionalism, and dedication. They demonstrated strong capability and maintained smooth operations throughout their period of employment. Their conduct and performance were satisfactory throughout.`,
-          signatoryName: 'T. Vidhya Sagar',
-          signatoryRole: 'Chief Executive Officer',
-        };
-        setSelectedExperienceCert(defaultCert);
-      }
+      setIsExperienceCertModalOpen(true);
+      return;
     }
-    setIsExperienceCertModalOpen(true);
+    const matched = experienceCerts.find(c => 
+      (c.employeeId && profile.id && c.employeeId === profile.id) ||
+      (c.empCode && profile.empCode && c.empCode.toLowerCase() === profile.empCode.toLowerCase()) || 
+      (c.employeeName && profile.name && c.employeeName.toLowerCase() === profile.name.toLowerCase())
+    );
+    if (matched) {
+      setSelectedExperienceCert(matched);
+      setIsExperienceCertModalOpen(true);
+    } else {
+      triggerToast('ℹ️ No Experience Certificate has been generated yet for this employee.');
+    }
   };
 
   const openRelievingLetterModal = (letter?: RelievingLetterData) => {
@@ -828,6 +819,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     },
     invoices: setInvoices,
+    experienceCerts: setExperienceCerts,
   });
 
   const [resourceStatus, setResourceStatus] = useState<Record<ResourceKey, ResourceStatus>>(
@@ -996,6 +988,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         'leaveRequests',
         'teamMeetings',
         'offerLetters',
+        'experienceCerts',
       ], { force: true });
     };
     // Initial fetch immediately, then poll every 8 seconds
@@ -1812,23 +1805,53 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const generateExperienceCert = (data: Omit<ExperienceCertData, 'id' | 'issuedDate'>) => {
-    const newCert: ExperienceCertData = {
-      ...data,
-      id: `exp-${Date.now()}`,
-      issuedDate: new Date().toLocaleDateString('en-GB'),
-    };
-    setExperienceCerts(prev => [newCert, ...prev]);
-    setSelectedExperienceCert(newCert);
-    setIsExperienceCertModalOpen(true);
-    triggerToast(`✓ Experience Certificate generated for ${data.employeeName}`);
-
-    // Look up employee and email
+  const generateExperienceCert = async (data: Omit<ExperienceCertData, 'id' | 'issuedDate'> & { issuedDate?: string }) => {
+    // Look up employee
     const targetEmp = teamMembers.find(
-      m => m.name.toLowerCase() === data.employeeName.toLowerCase() || m.empCode === data.empCode
+      m => (data.employeeId && m.id === data.employeeId) ||
+           (m.empCode && data.empCode && m.empCode.toLowerCase() === data.empCode.toLowerCase()) ||
+           (m.name && data.employeeName && m.name.toLowerCase() === data.employeeName.toLowerCase())
     );
-    if (targetEmp?.email) {
-      api.sendExperienceEmail(targetEmp, newCert).catch(console.warn);
+
+    const empId = targetEmp?.id || data.employeeId || data.empCode;
+    try {
+      const res = await api.generateExperienceCert(empId, data, 'HR Admin');
+      if (res.success && res.certData) {
+        setExperienceCerts(prev => [res.certData, ...prev.filter(c => c.employeeId !== empId && c.empCode !== res.certData.empCode)]);
+        setSelectedExperienceCert(res.certData);
+        setIsExperienceCertModalOpen(true);
+        triggerToast(`✓ Experience Certificate generated, saved & dispatched for ${data.employeeName}`);
+        return;
+      }
+    } catch (err: any) {
+      console.warn('[Generate Experience Cert API Error]', err);
+      const fallbackCert: ExperienceCertData = {
+        ...data,
+        id: `exp-${Date.now()}`,
+        employeeId: empId,
+        issuedDate: data.issuedDate || new Date().toLocaleDateString('en-GB'),
+      };
+      setExperienceCerts(prev => [fallbackCert, ...prev.filter(c => c.employeeId !== empId)]);
+      setSelectedExperienceCert(fallbackCert);
+      setIsExperienceCertModalOpen(true);
+      triggerToast(`⚠️ Saved locally: ${err.message || 'Server error'}`);
+    }
+  };
+
+  const deleteExperienceCert = async (id: string) => {
+    const target = experienceCerts.find(c => c.id === id);
+    setExperienceCerts(prev => prev.filter(c => c.id !== id));
+    if (selectedExperienceCert?.id === id) {
+      setSelectedExperienceCert(null);
+      setIsExperienceCertModalOpen(false);
+    }
+    try {
+      await api.deleteExperienceCert(id);
+      triggerToast(`✓ Experience Certificate for ${target?.employeeName || 'employee'} deleted`);
+    } catch (err: any) {
+      console.warn('[Delete Experience Cert Error]', err);
+      if (target) setExperienceCerts(prev => [target, ...prev]);
+      triggerToast(`✗ Failed to delete experience certificate: ${err.message || 'Server error'}`);
     }
   };
 
@@ -3256,11 +3279,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         experienceCerts,
         selectedExperienceCert,
         setSelectedExperienceCert,
+        selectedExperienceCertEmpId,
+        setSelectedExperienceCertEmpId,
         isExperienceCertModalOpen,
         setIsExperienceCertModalOpen,
         isGenerateExperienceCertModalOpen,
         setIsGenerateExperienceCertModalOpen,
         generateExperienceCert,
+        deleteExperienceCert,
         openExperienceCertModal,
         openGenerateExperienceCertModal,
         relievingLetters,

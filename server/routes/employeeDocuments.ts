@@ -178,6 +178,179 @@ router.post('/send-experience-email', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/employee-documents/experience-cert/:employeeId
+// Returns the stored experience cert document record (metadata only) for a specific employee.
+router.get('/experience-cert/:employeeId', (req: Request, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const doc = db.prepare(`
+      SELECT id, employeeId, title, category, fileName, mimeType, sizeBytes, uploadedBy, uploadedAt
+      FROM employee_documents
+      WHERE employeeId = ? AND category = 'Experience Certificate'
+      ORDER BY uploadedAt DESC
+      LIMIT 1
+    `).get(employeeId) as any;
+    if (!doc) return res.status(404).json({ exists: false });
+    return res.status(200).json({ exists: true, document: doc });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// POST /api/employee-documents/generate/experience-cert
+// Full lifecycle: generate PDF → save to employee_documents → send email → return record
+router.post('/generate/experience-cert', async (req: Request, res: Response) => {
+  try {
+    const { employeeId, certData, uploadedBy, sendEmail } = req.body;
+    if (!employeeId) {
+      return res.status(400).json({ error: 'employeeId is required' });
+    }
+
+    // Resolve employee
+    const emp = db.prepare('SELECT * FROM team_members WHERE id = ? OR empCode = ? LIMIT 1').get(employeeId, employeeId) as any;
+    if (!emp) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    // Enforce: Admins cannot receive experience letters
+    if (emp.portal === 'admin' || emp.role === 'admin') {
+      return res.status(403).json({ error: 'Experience letters cannot be generated for admin accounts' });
+    }
+
+    const actualEmpId = emp.id;
+
+    // Build cert payload — merge employee data with HR-provided overrides
+    const payload = {
+      employeeId: actualEmpId,
+      employeeName: certData?.employeeName  || emp.name          || 'Staff Member',
+      empCode:      certData?.empCode       || emp.empCode       || 'TNX-001',
+      guardianName: certData?.guardianName  || '',
+      designation:  certData?.designation   || emp.role          || 'Executive',
+      department:   certData?.department    || emp.group         || 'Operations',
+      startDate:    certData?.startDate     || emp.joiningDate   || '',
+      endDate:      certData?.endDate       || '',
+      refNumber:    certData?.refNumber     || `TNX/EXP/${new Date().getFullYear()}/${emp.empCode || '001'}`,
+      issuedDate:   certData?.issuedDate    || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+      companyName:  certData?.companyName   || 'Trade Nexus',
+      introParagraph:   certData?.introParagraph   || null,
+      roleParagraph:    certData?.roleParagraph    || null,
+      conductRemarks:   certData?.conductRemarks   || null,
+      closingParagraph: certData?.closingParagraph || null,
+      signatoryName:    certData?.signatoryName    || 'T. Vidhya Sagar',
+      signatoryRole:    certData?.signatoryRole    || 'Chief Executive Officer',
+    };
+
+    // Generate ONE PDF
+    const { generateExperienceCertPdf } = await import('../services/pdfGenerator.js');
+    const pdfBuf = await generateExperienceCertPdf(emp, payload);
+    const base64Data = `data:application/pdf;base64,${pdfBuf.toString('base64')}`;
+
+    const safeName = (payload.employeeName).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileName = `Official_Experience_Certificate_${safeName}.pdf`;
+
+    // Upsert into employee_documents
+    const existingDoc = db.prepare(`
+      SELECT id FROM employee_documents
+      WHERE employeeId = ? AND category = 'Experience Certificate'
+      LIMIT 1
+    `).get(actualEmpId) as any;
+
+    let docId = existingDoc?.id;
+    const now = new Date().toISOString();
+
+    if (existingDoc) {
+      db.prepare(`
+        UPDATE employee_documents
+        SET title = ?, fileName = ?, sizeBytes = ?, content = ?, uploadedBy = ?, uploadedAt = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(`Official Experience Certificate - ${payload.employeeName}`, fileName, pdfBuf.length, base64Data, uploadedBy || 'HR Admin', existingDoc.id);
+    } else {
+      docId = `doc-expcert-${Date.now()}`;
+      db.prepare(`
+        INSERT INTO employee_documents
+          (id, employeeId, title, category, fileName, mimeType, sizeBytes, content, uploadedBy)
+        VALUES (?, ?, ?, 'Experience Certificate', ?, 'application/pdf', ?, ?, ?)
+      `).run(
+        docId,
+        actualEmpId,
+        `Official Experience Certificate - ${payload.employeeName}`,
+        fileName,
+        pdfBuf.length,
+        base64Data,
+        uploadedBy || 'HR Admin'
+      );
+    }
+
+    // Email the SAME PDF buffer to the employee
+    let emailResult: any = { skipped: true };
+    const targetEmail = emp.email?.trim();
+    if (sendEmail !== false && targetEmail) {
+      try {
+        const { sendEmployeeExperienceCertEmail } = await import('../services/emailService.js');
+        emailResult = await sendEmployeeExperienceCertEmail(
+          { ...emp, name: payload.employeeName, email: targetEmail },
+          payload,
+          pdfBuf
+        );
+      } catch (emailErr) {
+        console.warn('[Experience Cert Email Warning]', emailErr);
+        emailResult = { success: false, error: (emailErr as Error).message };
+      }
+    }
+
+    // Upsert into experience_certificates table for canonical registry
+    const expCertId = `exp-${actualEmpId}`;
+    const existingExpCert = db.prepare('SELECT id FROM experience_certificates WHERE employeeId = ? LIMIT 1').get(actualEmpId) as any;
+    if (existingExpCert) {
+      db.prepare(`
+        UPDATE experience_certificates
+        SET employeeName = ?, empCode = ?, guardianName = ?, designation = ?, department = ?,
+            startDate = ?, endDate = ?, refNumber = ?, issuedDate = ?, companyName = ?,
+            introParagraph = ?, roleParagraph = ?, conductRemarks = ?, closingParagraph = ?,
+            signatoryName = ?, signatoryRole = ?, documentId = ?, dispatchedAt = ?, emailedAt = ?,
+            updatedAt = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(
+        payload.employeeName, payload.empCode, payload.guardianName, payload.designation, payload.department,
+        payload.startDate, payload.endDate, payload.refNumber, payload.issuedDate, payload.companyName,
+        payload.introParagraph, payload.roleParagraph, payload.conductRemarks, payload.closingParagraph,
+        payload.signatoryName, payload.signatoryRole, docId, now, emailResult.success ? now : null,
+        existingExpCert.id
+      );
+    } else {
+      db.prepare(`
+        INSERT INTO experience_certificates (
+          id, employeeId, employeeName, empCode, guardianName, designation, department,
+          startDate, endDate, refNumber, issuedDate, companyName,
+          introParagraph, roleParagraph, conductRemarks, closingParagraph,
+          signatoryName, signatoryRole, documentId, dispatchedAt, emailedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        expCertId, actualEmpId, payload.employeeName, payload.empCode, payload.guardianName, payload.designation, payload.department,
+        payload.startDate, payload.endDate, payload.refNumber, payload.issuedDate, payload.companyName,
+        payload.introParagraph, payload.roleParagraph, payload.conductRemarks, payload.closingParagraph,
+        payload.signatoryName, payload.signatoryRole, docId, now, emailResult.success ? now : null
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+      documentId: docId,
+      fileName,
+      sizeBytes: pdfBuf.length,
+      content: base64Data,
+      certData: { ...payload, documentId: docId, dispatchedAt: now, emailedAt: emailResult.success ? now : null },
+      emailResult,
+      message: 'Experience Certificate generated and saved successfully.',
+    });
+  } catch (error) {
+    console.error('[Generate Experience Cert Error]', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+
+
 // POST /api/employee-documents/generate/id-card
 router.post('/generate/id-card', async (req: Request, res: Response) => {
   try {

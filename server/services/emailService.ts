@@ -692,7 +692,10 @@ export async function sendEmployeeRelievingLetterEmail(
 // ── 6. Official Experience Certificate Email Dispatcher (With PDF Attachment) ──
 export async function sendEmployeeExperienceCertEmail(
   employee: any,
-  cert: any
+  cert: any,
+  /** Optional pre-generated buffer — pass this from the generate endpoint to ensure
+   *  the emailed PDF is EXACTLY the same as what is stored in employee_documents. */
+  preBuiltPdfBuffer?: Buffer
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const companyName = process.env.COMPANY_NAME || 'TRADE NEXUS TRADE SMART';
   const fromAddress = process.env.SMTP_FROM || `"${companyName} HR" <sagarsuchi26@gmail.com>`;
@@ -702,13 +705,16 @@ export async function sendEmployeeExperienceCertEmail(
     return { success: false, error: 'Employee email address is required' };
   }
 
-  // Generate Experience Certificate PDF in memory
-  let pdfBuffer: Buffer | null = null;
-  try {
-    pdfBuffer = await generateExperienceCertPdf(employee, cert);
-  } catch (pdfErr) {
-    console.warn('[PDF Warning] Failed to generate experience certificate PDF buffer:', pdfErr);
+  // Use the pre-built buffer when available; otherwise generate a fresh one.
+  let pdfBuffer: Buffer | null = preBuiltPdfBuffer ?? null;
+  if (!pdfBuffer) {
+    try {
+      pdfBuffer = await generateExperienceCertPdf(employee, cert);
+    } catch (pdfErr) {
+      console.warn('[PDF Warning] Failed to generate experience certificate PDF buffer:', pdfErr);
+    }
   }
+
 
   const htmlContent = `
     <!DOCTYPE html>

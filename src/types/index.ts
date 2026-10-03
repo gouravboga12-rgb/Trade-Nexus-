@@ -497,6 +497,8 @@ export interface OfficeSettings {
 
 export interface ExperienceCertData {
   id: string;
+  /** Links to team_members.id — used for per-employee isolation */
+  employeeId?: string;
   employeeName: string;
   empCode: string;
   guardianName?: string;
@@ -506,9 +508,24 @@ export interface ExperienceCertData {
   endDate: string;
   refNumber: string;
   issuedDate: string;
+  /** Opening paragraph text (HR-editable) */
+  introParagraph?: string;
+  /** Second paragraph describing role & department (HR-editable) */
+  roleParagraph?: string;
+  /** Conduct/duties paragraph (HR-editable) */
   conductRemarks?: string;
+  /** Closing appreciation paragraph (HR-editable) */
+  closingParagraph?: string;
+  /** Company name as it appears in body text */
+  companyName?: string;
   signatoryName: string;
   signatoryRole: string;
+  /** Reference to employee_documents.id for the stored PDF */
+  documentId?: string;
+  /** ISO timestamp when HR dispatched the letter */
+  dispatchedAt?: string;
+  /** Whether email was sent successfully */
+  emailedAt?: string;
 }
 
 export interface RelievingLetterData {

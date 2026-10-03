@@ -97,6 +97,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
     setSelectedIdCardEmpId,
     offerLetters,
     experienceCerts,
+    deleteExperienceCert,
     relievingLetters,
     invoices,
     sendExperienceCertEmailToEmployee,
@@ -1480,6 +1481,17 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                               className="px-3 py-1 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-lg transition-all cursor-pointer"
                             >
                               Open / Print
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Delete experience certificate for ${cert.employeeName}?`)) {
+                                  deleteExperienceCert(cert.id);
+                                }
+                              }}
+                              className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
+                              title="Delete Certificate"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </td>
