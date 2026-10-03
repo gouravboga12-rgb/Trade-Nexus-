@@ -311,15 +311,26 @@ export const RelievingLetterModal: React.FC = () => {
                 <p>Dear [{firstName}],</p>
               </div>
 
-              {/* Body Paragraphs matching 3.png */}
+              {/* Body Paragraphs matching 3.png or HR custom values */}
               <div className="space-y-4 text-slate-700 text-xs sm:text-sm leading-relaxed">
-                <p>
-                  This is to formally inform you that your resignation dated <strong className="text-slate-900">[{formData.resignationDate}]</strong> has been accepted, and your last working day with <strong className="text-[#00A88B] font-bold">[Trade Nexus]</strong> was <strong className="text-slate-900">[{formData.lastWorkingDate}]</strong>.
-                </p>
+                {formData.bodyParagraph1 ? (
+                  <>
+                    <p className="whitespace-pre-line">{formData.bodyParagraph1}</p>
+                    {formData.bodyParagraph2 && <p className="whitespace-pre-line">{formData.bodyParagraph2}</p>}
+                    {formData.bodyParagraph3 && <p className="whitespace-pre-line">{formData.bodyParagraph3}</p>}
+                    {formData.bodyParagraph4 && <p className="whitespace-pre-line">{formData.bodyParagraph4}</p>}
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      This is to formally inform you that your resignation dated <strong className="text-slate-900">[{formData.resignationDate}]</strong> has been accepted, and your last working day with <strong className="text-[#00A88B] font-bold">[Trade Nexus]</strong> was <strong className="text-slate-900">[{formData.lastWorkingDate}]</strong>.
+                    </p>
 
-                <p>
-                  We would like to confirm that you have been relieved from your duties as <strong className="text-slate-900">[{formData.designation}]</strong> in <strong className="text-slate-900">[{formData.department}]</strong>. We thank you for the dedication, effort, and contributions you have made during your tenure with us, from <strong className="text-slate-900">[{formData.joiningDate}]</strong> to <strong className="text-slate-900">[{formData.lastWorkingDate}]</strong>.
-                </p>
+                    <p>
+                      We would like to confirm that you have been relieved from your duties as <strong className="text-slate-900">[{formData.designation}]</strong> in <strong className="text-slate-900">[{formData.department}]</strong>. We thank you for the dedication, effort, and contributions you have made during your tenure with us, from <strong className="text-slate-900">[{formData.joiningDate}]</strong> to <strong className="text-slate-900">[{formData.lastWorkingDate}]</strong>.
+                    </p>
+                  </>
+                )}
               </div>
 
               {/* Official Stamp & Signatory Block matching 3.png */}

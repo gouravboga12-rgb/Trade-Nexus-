@@ -65,6 +65,7 @@ export const RESOURCE_FETCHERS = {
   calendarSettings: () => api.getCalendarSettings(),
   invoices: () => api.getInvoices(),
   experienceCerts: () => api.getExperienceCerts(),
+  relievingLetters: () => api.getRelievingLetters(),
 } as const;
 
 export type ResourceKey = keyof typeof RESOURCE_FETCHERS;
@@ -90,7 +91,7 @@ export const SCREEN_RESOURCES = {
   dailyCalling: ['profile', 'callLogs', 'stats', 'clients', 'assignedLeads'],
   clientsPipeline: ['clients', 'assignedLeads'],
   attendanceLeaves: ['profile', 'attendanceLogs', 'leaveRequests', 'companyHolidays', 'calendarSettings'],
-  profileSelfService: ['profile', 'payslips', 'offerLetters', 'experienceCerts', 'teamTasks', 'teamMeetings'],
+  profileSelfService: ['profile', 'payslips', 'offerLetters', 'experienceCerts', 'relievingLetters', 'teamTasks', 'teamMeetings'],
   modulesMenu: ['profile'],
 
   teamLeaderDashboard: [
@@ -121,6 +122,7 @@ export const SCREEN_RESOURCES = {
     'payslips',
     'offerLetters',
     'experienceCerts',
+    'relievingLetters',
     'faceProfiles',
     'teamMeetings',
     'companyHolidays',
@@ -144,6 +146,7 @@ export const SCREEN_RESOURCES = {
     'invoices',
     'offerLetters',
     'experienceCerts',
+    'relievingLetters',
   ],
 } as const satisfies Record<string, readonly ResourceKey[]>;
 

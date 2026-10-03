@@ -276,7 +276,8 @@ interface AppContextType {
   setIsRelievingLetterModalOpen: (open: boolean) => void;
   isGenerateRelievingLetterModalOpen: boolean;
   setIsGenerateRelievingLetterModalOpen: (open: boolean) => void;
-  generateRelievingLetter: (data: Omit<RelievingLetterData, 'id' | 'issuedDate'> & { issuedDate?: string }) => void;
+  generateRelievingLetter: (data: Omit<RelievingLetterData, 'id' | 'issuedDate'> & { issuedDate?: string }) => Promise<void>;
+  deleteRelievingLetter: (id: string) => Promise<void>;
   openRelievingLetterModal: (letter?: RelievingLetterData) => void;
   openGenerateRelievingLetterModal: (empId?: string) => void;
 
@@ -455,8 +456,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [selectedExperienceCertEmpId, setSelectedExperienceCertEmpId] = useState<string>('');
   const [isExperienceCertModalOpen, setIsExperienceCertModalOpen] = useState(false);
 
-  // Relieving Letters State
-  const [relievingLetters, setRelievingLetters] = useState<RelievingLetterData[]>(INITIAL_RELIEVING_LETTERS);
+  // Relieving Letters State (DB-backed, strictly generated records only)
+  const [relievingLetters, setRelievingLetters] = useState<RelievingLetterData[]>([]);
   const [selectedRelievingLetter, setSelectedRelievingLetter] = useState<RelievingLetterData | null>(null);
   const [isRelievingLetterModalOpen, setIsRelievingLetterModalOpen] = useState(false);
 
@@ -701,33 +702,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const openRelievingLetterModal = (letter?: RelievingLetterData) => {
     if (letter) {
       setSelectedRelievingLetter(letter);
+      setIsRelievingLetterModalOpen(true);
     } else {
       const matched = relievingLetters.find(r => 
+        (r.employeeId && profile.id && r.employeeId === profile.id) ||
         (r.empCode && profile.empCode && r.empCode.toLowerCase() === profile.empCode.toLowerCase()) || 
         (r.employeeName && profile.name && r.employeeName.toLowerCase() === profile.name.toLowerCase())
       );
       if (matched) {
         setSelectedRelievingLetter(matched);
+        setIsRelievingLetterModalOpen(true);
       } else {
-        const defaultLetter: RelievingLetterData = {
-          id: `rel-${profile.empCode || Date.now()}`,
-          employeeName: profile.name || 'Trade Nexus Employee',
-          empCode: profile.empCode || 'TNX-042',
-          designation: profile.roleTitle || 'Executive',
-          department: profile.department || 'Operations',
-          employeeType: 'Full-Time',
-          employeeAddress: profile.address || 'Level 12, Nexus Cyber Tower, HITEC City, Hyderabad',
-          resignationDate: '15 July 2025',
-          lastWorkingDate: '31 August 2025',
-          joiningDate: profile.joinDate || '12 January 2024',
-          issuedDate: new Date().toLocaleDateString('en-GB'),
-          signatoryName: 'T. Vidhya Sagar',
-          signatoryRole: 'Chief Executive Officer',
-        };
-        setSelectedRelievingLetter(defaultLetter);
+        triggerToast('ℹ️ No Relieving Letter has been generated yet for this employee.');
       }
     }
-    setIsRelievingLetterModalOpen(true);
   };
 
   const openInvoiceModal = (inv?: InvoiceData) => {
@@ -820,6 +808,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     },
     invoices: setInvoices,
     experienceCerts: setExperienceCerts,
+    relievingLetters: setRelievingLetters,
   });
 
   const [resourceStatus, setResourceStatus] = useState<Record<ResourceKey, ResourceStatus>>(
@@ -1855,23 +1844,53 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const generateRelievingLetter = (data: Omit<RelievingLetterData, 'id' | 'issuedDate'>) => {
-    const newLetter: RelievingLetterData = {
-      ...data,
-      id: `rel-${Date.now()}`,
-      issuedDate: new Date().toLocaleDateString('en-GB'),
-    };
-    setRelievingLetters(prev => [newLetter, ...prev]);
-    setSelectedRelievingLetter(newLetter);
-    setIsRelievingLetterModalOpen(true);
-    triggerToast(`✓ Relieving Letter generated for ${data.employeeName}`);
-
-    // Look up employee and email
+  const generateRelievingLetter = async (data: Omit<RelievingLetterData, 'id' | 'issuedDate'> & { issuedDate?: string }) => {
+    // Look up employee
     const targetEmp = teamMembers.find(
-      m => m.name.toLowerCase() === data.employeeName.toLowerCase() || m.empCode === data.empCode
+      m => (data.employeeId && m.id === data.employeeId) ||
+           (m.empCode && data.empCode && m.empCode.toLowerCase() === data.empCode.toLowerCase()) ||
+           (m.name && data.employeeName && m.name.toLowerCase() === data.employeeName.toLowerCase())
     );
-    if (targetEmp?.email) {
-      api.sendRelievingEmail(targetEmp, newLetter).catch(console.warn);
+
+    const empId = targetEmp?.id || data.employeeId || data.empCode;
+    try {
+      const res = await api.generateRelievingLetter(empId, data, 'HR Admin');
+      if (res.success && res.letterData) {
+        setRelievingLetters(prev => [res.letterData, ...prev.filter(r => r.employeeId !== empId && r.empCode !== res.letterData.empCode)]);
+        setSelectedRelievingLetter(res.letterData);
+        setIsRelievingLetterModalOpen(true);
+        triggerToast(`✓ Relieving Letter generated, saved & dispatched for ${data.employeeName}`);
+        return;
+      }
+    } catch (err: any) {
+      console.warn('[Generate Relieving Letter API Error]', err);
+      const fallbackLetter: RelievingLetterData = {
+        ...data,
+        id: `rel-${Date.now()}`,
+        employeeId: empId,
+        issuedDate: data.issuedDate || new Date().toLocaleDateString('en-GB'),
+      };
+      setRelievingLetters(prev => [fallbackLetter, ...prev.filter(r => r.employeeId !== empId)]);
+      setSelectedRelievingLetter(fallbackLetter);
+      setIsRelievingLetterModalOpen(true);
+      triggerToast(`⚠️ Saved locally: ${err.message || 'Server error'}`);
+    }
+  };
+
+  const deleteRelievingLetter = async (id: string) => {
+    const target = relievingLetters.find(r => r.id === id);
+    setRelievingLetters(prev => prev.filter(r => r.id !== id));
+    if (selectedRelievingLetter?.id === id) {
+      setSelectedRelievingLetter(null);
+      setIsRelievingLetterModalOpen(false);
+    }
+    try {
+      await api.deleteRelievingLetter(id);
+      triggerToast(`✓ Relieving Letter for ${target?.employeeName || 'employee'} deleted`);
+    } catch (err: any) {
+      console.warn('[Delete Relieving Letter Error]', err);
+      if (target) setRelievingLetters(prev => [target, ...prev]);
+      triggerToast(`✗ Failed to delete relieving letter: ${err.message || 'Server error'}`);
     }
   };
 
@@ -3297,6 +3316,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         isGenerateRelievingLetterModalOpen,
         setIsGenerateRelievingLetterModalOpen,
         generateRelievingLetter,
+        deleteRelievingLetter,
         openRelievingLetterModal,
         openGenerateRelievingLetterModal,
         invoices,

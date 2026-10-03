@@ -530,6 +530,7 @@ export interface ExperienceCertData {
 
 export interface RelievingLetterData {
   id: string;
+  employeeId?: string;
   employeeName: string;
   empCode: string;
   designation: string;
@@ -540,8 +541,22 @@ export interface RelievingLetterData {
   lastWorkingDate: string;
   joiningDate: string;
   issuedDate: string;
+  companyName?: string;
+  refNumber?: string;
+  bodyParagraph1?: string;
+  bodyParagraph2?: string;
+  bodyParagraph3?: string;
+  bodyParagraph4?: string;
   signatoryName: string;
   signatoryRole: string;
+  /** Document ID referencing employee_documents entry for this relieving letter */
+  documentId?: string;
+  /** ISO timestamp when HR dispatched the letter */
+  dispatchedAt?: string;
+  /** Whether email was sent successfully */
+  emailedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface InvoiceItem {

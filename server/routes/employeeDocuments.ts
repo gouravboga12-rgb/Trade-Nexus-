@@ -197,6 +197,158 @@ router.get('/experience-cert/:employeeId', (req: Request, res: Response) => {
   }
 });
 
+// POST /api/employee-documents/generate/relieving-letter
+// Full lifecycle: generate PDF → save to employee_documents → send email → upsert relieving_letters
+router.post('/generate/relieving-letter', async (req: Request, res: Response) => {
+  try {
+    const { employeeId, letterData, uploadedBy, sendEmail } = req.body;
+    if (!employeeId) {
+      return res.status(400).json({ error: 'employeeId is required' });
+    }
+
+    // Resolve employee
+    const emp = db.prepare('SELECT * FROM team_members WHERE id = ? OR empCode = ? LIMIT 1').get(employeeId, employeeId) as any;
+    if (!emp) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    const actualEmpId = emp.id;
+
+    // Build relieving letter payload — merge employee data with HR-provided overrides
+    const payload = {
+      employeeId: actualEmpId,
+      employeeName:    letterData?.employeeName    || emp.name           || 'Staff Member',
+      empCode:         letterData?.empCode         || emp.empCode        || 'TNX-001',
+      designation:     letterData?.designation     || emp.role           || 'Executive',
+      department:      letterData?.department      || emp.group          || 'Operations',
+      employeeType:    letterData?.employeeType    || 'Full-Time',
+      employeeAddress: letterData?.employeeAddress || '',
+      resignationDate: letterData?.resignationDate || '',
+      lastWorkingDate: letterData?.lastWorkingDate || '',
+      joiningDate:     letterData?.joiningDate     || emp.joiningDate    || '',
+      issuedDate:      letterData?.issuedDate      || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+      companyName:     letterData?.companyName     || 'Trade Nexus',
+      refNumber:       letterData?.refNumber       || null,
+      bodyParagraph1:  letterData?.bodyParagraph1  || null,
+      bodyParagraph2:  letterData?.bodyParagraph2  || null,
+      bodyParagraph3:  letterData?.bodyParagraph3  || null,
+      bodyParagraph4:  letterData?.bodyParagraph4  || null,
+      signatoryName:   letterData?.signatoryName   || 'T. Vidhya Sagar',
+      signatoryRole:   letterData?.signatoryRole   || 'Chief Executive Officer',
+    };
+
+    // Generate ONE PDF
+    const { generateRelievingLetterPdf } = await import('../services/pdfGenerator.js');
+    const pdfBuf = await generateRelievingLetterPdf(emp, payload);
+    const base64Data = `data:application/pdf;base64,${pdfBuf.toString('base64')}`;
+
+    const safeName = (payload.employeeName).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileName = `Official_Relieving_Letter_${safeName}.pdf`;
+
+    // Upsert into employee_documents
+    const existingDoc = db.prepare(`
+      SELECT id FROM employee_documents
+      WHERE employeeId = ? AND category = 'Relieving Letter'
+      LIMIT 1
+    `).get(actualEmpId) as any;
+
+    let docId = existingDoc?.id;
+    const now = new Date().toISOString();
+
+    if (existingDoc) {
+      db.prepare(`
+        UPDATE employee_documents
+        SET title = ?, fileName = ?, sizeBytes = ?, content = ?, uploadedBy = ?, uploadedAt = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(`Official Relieving Letter - ${payload.employeeName}`, fileName, pdfBuf.length, base64Data, uploadedBy || 'HR Admin', existingDoc.id);
+    } else {
+      docId = `doc-rel-${Date.now()}`;
+      db.prepare(`
+        INSERT INTO employee_documents
+          (id, employeeId, title, category, fileName, mimeType, sizeBytes, content, uploadedBy)
+        VALUES (?, ?, ?, 'Relieving Letter', ?, 'application/pdf', ?, ?, ?)
+      `).run(
+        docId,
+        actualEmpId,
+        `Official Relieving Letter - ${payload.employeeName}`,
+        fileName,
+        pdfBuf.length,
+        base64Data,
+        uploadedBy || 'HR Admin'
+      );
+    }
+
+    // Email the SAME PDF buffer to the employee
+    let emailResult: any = { skipped: true };
+    const targetEmail = emp.email?.trim();
+    if (sendEmail !== false && targetEmail) {
+      try {
+        const { sendEmployeeRelievingLetterEmail } = await import('../services/emailService.js');
+        emailResult = await sendEmployeeRelievingLetterEmail(
+          { ...emp, name: payload.employeeName, email: targetEmail },
+          payload
+        );
+      } catch (emailErr) {
+        console.warn('[Relieving Letter Email Warning]', emailErr);
+        emailResult = { success: false, error: (emailErr as Error).message };
+      }
+    }
+
+    // Upsert into relieving_letters table for canonical registry
+    const relLetterId = `rel-${actualEmpId}`;
+    const existingRelLetter = db.prepare('SELECT id FROM relieving_letters WHERE employeeId = ? LIMIT 1').get(actualEmpId) as any;
+    if (existingRelLetter) {
+      db.prepare(`
+        UPDATE relieving_letters
+        SET employeeName = ?, empCode = ?, designation = ?, department = ?, employeeType = ?,
+            employeeAddress = ?, resignationDate = ?, lastWorkingDate = ?, joiningDate = ?,
+            issuedDate = ?, companyName = ?, refNumber = ?,
+            bodyParagraph1 = ?, bodyParagraph2 = ?, bodyParagraph3 = ?, bodyParagraph4 = ?,
+            signatoryName = ?, signatoryRole = ?, documentId = ?, dispatchedAt = ?, emailedAt = ?,
+            updatedAt = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(
+        payload.employeeName, payload.empCode, payload.designation, payload.department, payload.employeeType,
+        payload.employeeAddress, payload.resignationDate, payload.lastWorkingDate, payload.joiningDate,
+        payload.issuedDate, payload.companyName, payload.refNumber,
+        payload.bodyParagraph1, payload.bodyParagraph2, payload.bodyParagraph3, payload.bodyParagraph4,
+        payload.signatoryName, payload.signatoryRole, docId, now, emailResult.success ? now : null,
+        existingRelLetter.id
+      );
+    } else {
+      db.prepare(`
+        INSERT INTO relieving_letters (
+          id, employeeId, employeeName, empCode, designation, department, employeeType,
+          employeeAddress, resignationDate, lastWorkingDate, joiningDate,
+          issuedDate, companyName, refNumber,
+          bodyParagraph1, bodyParagraph2, bodyParagraph3, bodyParagraph4,
+          signatoryName, signatoryRole, documentId, dispatchedAt, emailedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        relLetterId, actualEmpId, payload.employeeName, payload.empCode, payload.designation, payload.department, payload.employeeType,
+        payload.employeeAddress, payload.resignationDate, payload.lastWorkingDate, payload.joiningDate,
+        payload.issuedDate, payload.companyName, payload.refNumber,
+        payload.bodyParagraph1, payload.bodyParagraph2, payload.bodyParagraph3, payload.bodyParagraph4,
+        payload.signatoryName, payload.signatoryRole, docId, now, emailResult.success ? now : null
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+      documentId: docId,
+      fileName,
+      sizeBytes: pdfBuf.length,
+      content: base64Data,
+      letterData: { ...payload, id: existingRelLetter?.id || relLetterId, documentId: docId, dispatchedAt: now, emailedAt: emailResult.success ? now : null },
+      emailResult,
+      message: 'Relieving Letter generated and saved successfully.',
+    });
+  } catch (error) {
+    console.error('[Generate Relieving Letter Error]', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 // POST /api/employee-documents/generate/experience-cert
 // Full lifecycle: generate PDF → save to employee_documents → send email → return record
 router.post('/generate/experience-cert', async (req: Request, res: Response) => {

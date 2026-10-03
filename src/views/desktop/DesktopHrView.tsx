@@ -99,6 +99,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
     experienceCerts,
     deleteExperienceCert,
     relievingLetters,
+    deleteRelievingLetter,
     invoices,
     sendExperienceCertEmailToEmployee,
     sendRelievingLetterEmailToEmployee,
@@ -1557,6 +1558,17 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                               className="px-3 py-1 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-lg transition-all cursor-pointer"
                             >
                               Open / Print
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Delete relieving letter for ${letter.employeeName}?`)) {
+                                  deleteRelievingLetter(letter.id);
+                                }
+                              }}
+                              className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
+                              title="Delete Relieving Letter"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </td>

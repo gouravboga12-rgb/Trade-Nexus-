@@ -559,6 +559,35 @@ function runMigrations() {
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_experience_certificates_emp ON experience_certificates(employeeId);
+
+    CREATE TABLE IF NOT EXISTS relieving_letters (
+      id TEXT PRIMARY KEY,
+      employeeId TEXT NOT NULL,
+      employeeName TEXT NOT NULL,
+      empCode TEXT NOT NULL,
+      designation TEXT NOT NULL,
+      department TEXT NOT NULL,
+      employeeType TEXT DEFAULT 'Full-Time',
+      employeeAddress TEXT,
+      resignationDate TEXT NOT NULL,
+      lastWorkingDate TEXT NOT NULL,
+      joiningDate TEXT NOT NULL,
+      issuedDate TEXT NOT NULL,
+      companyName TEXT DEFAULT 'Trade Nexus',
+      refNumber TEXT,
+      bodyParagraph1 TEXT,
+      bodyParagraph2 TEXT,
+      bodyParagraph3 TEXT,
+      bodyParagraph4 TEXT,
+      signatoryName TEXT DEFAULT 'T. Vidhya Sagar',
+      signatoryRole TEXT DEFAULT 'Chief Executive Officer',
+      documentId TEXT,
+      dispatchedAt TEXT,
+      emailedAt TEXT,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_relieving_letters_emp ON relieving_letters(employeeId);
   `);
 
   // Team Meetings Zoom & Multi-tenant Hierarchy Isolation

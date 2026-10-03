@@ -507,6 +507,26 @@ export const api = {
   /** Delete experience cert */
   deleteExperienceCert: (id: string) =>
     request<{ success: boolean; id: string }>(`/experience-certs/${id}`, { method: 'DELETE' }),
+  /** Get all relieving letters (or filter by employeeId) */
+  getRelievingLetters: (employeeId?: string) =>
+    request<RelievingLetterData[]>(`/relieving-letters${employeeId ? `?employeeId=${encodeURIComponent(employeeId)}` : ''}`),
+  /** Delete relieving letter */
+  deleteRelievingLetter: (id: string) =>
+    request<{ success: boolean; id: string }>(`/relieving-letters/${id}`, { method: 'DELETE' }),
+  /** Generate Relieving Letter → save to DB → email employee. Returns full letter record with documentId. */
+  generateRelievingLetter: (employeeId: string, letterData: Partial<RelievingLetterData>, uploadedBy?: string) =>
+    request<{
+      success: boolean;
+      documentId: string;
+      fileName: string;
+      content: string;
+      letterData: RelievingLetterData & { documentId: string; dispatchedAt: string; emailedAt: string | null };
+      emailResult: { success: boolean; messageId?: string; error?: string };
+      message: string;
+    }>('/employee-documents/generate/relieving-letter', {
+      method: 'POST',
+      body: JSON.stringify({ employeeId, letterData, uploadedBy, sendEmail: true }),
+    }),
   sendIdCardEmail: (employee: Partial<TeamMember>, cardData?: any) =>
     request<{ success: boolean; messageId?: string }>('/employee-documents/send-id-card-email', {
       method: 'POST',
