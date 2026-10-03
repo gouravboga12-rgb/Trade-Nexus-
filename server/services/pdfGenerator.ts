@@ -959,22 +959,28 @@ export async function generateIdCardPdf(employee: any, cardData?: any): Promise<
 
   const bufferPromise = docToBuffer(doc);
 
-  // Background deep navy fill
-  doc.rect(0, 0, 591, 1004).fill('#010D35');
-
-  // 1. Header Banner (0 to 270) containing punch hole, logo, TRADE NEXUS, — TRADE SMART —
-  const headerPath = path.join(ASSETS_DIR, 'id-card-header.png');
-  if (fs.existsSync(headerPath)) {
-    doc.image(headerPath, 0, 0, { width: 591, height: 270 });
+  // 1. Full Pristine Template Frame (591x1004)
+  // Has continuous chevrons on both sides, top lanyard header, middle deep navy canvas, and bottom wave
+  const fullFramePath = path.join(ASSETS_DIR, 'id-card-template-frame.png');
+  if (fs.existsSync(fullFramePath)) {
+    doc.image(fullFramePath, 0, 0, { width: 591, height: 1004 });
+  } else {
+    // Fallback if full frame not found
+    doc.rect(0, 0, 591, 1004).fill('#020E37');
+    const headerPath = path.join(ASSETS_DIR, 'id-card-header.png');
+    if (fs.existsSync(headerPath)) {
+      doc.image(headerPath, 0, 0, { width: 591, height: 270 });
+    }
   }
 
   // 2. Avatar Circle with glowing cyan ring
   const cx = 295.5;
-  const cy = 380;
-  const r = 125;
+  const cy = 388;
+  const r = 108;
 
   // Concentric outer cyan ring
-  doc.circle(cx, cy, 134).lineWidth(7.5).strokeColor('#00C2CB').stroke();
+  doc.circle(cx, cy, 116).lineWidth(7).strokeColor('#00C2CB').stroke();
+  doc.circle(cx, cy, 110).lineWidth(2).strokeColor('#020E37').stroke();
 
   let drewImage = false;
   const rawAvatar = cardData?.avatar || employee?.avatar;
@@ -1074,7 +1080,7 @@ export async function generateIdCardPdf(employee: any, cardData?: any): Promise<
     // Dynamic signatory details on right
     doc.fontSize(11).font('Helvetica-Bold').fillColor('#041026').text(signatoryName, 400, 888, { width: 175, align: 'center' });
     doc.fontSize(9.5).font('Helvetica').fillColor('#041026').text(signatoryRole, 400, 903, { width: 175, align: 'center' });
-  } else {
+  } else if (!fs.existsSync(fullFramePath)) {
     const footerDefaultPath = path.join(ASSETS_DIR, 'id-card-footer-default.png');
     if (fs.existsSync(footerDefaultPath)) {
       doc.image(footerDefaultPath, 0, 744, { width: 591, height: 260 });

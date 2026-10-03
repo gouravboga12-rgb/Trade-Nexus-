@@ -81,7 +81,17 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
   const [dateOfJoining, setDateOfJoining] = useState('2025-06-01');
   const [salaryDate, setSalaryDate] = useState('1st of every month');
 
-  // 9. Login Credentials & Success Modal State
+  // 9. Offer Letter & Formal Appointment Settings
+  const [offerLetterIssuedDate, setOfferLetterIssuedDate] = useState(() => 
+    new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+  );
+  const [acceptanceDeadline, setAcceptanceDeadline] = useState('Within 7 business days');
+  const [signatoryName, setSignatoryName] = useState('T .Vidhya Sagar');
+  const [signatoryRole, setSignatoryRole] = useState('Chief executive Officer');
+  const [workLocation, setWorkLocation] = useState('Bengaluru Corporate HQ, India');
+  const [salaryType, setSalaryType] = useState('Monthly Gross / Annual CTC');
+
+  // 10. Login Credentials & Success Modal State
   const [password, setPassword] = useState(`TNX@${Math.floor(1000 + Math.random() * 9000)}`);
   const [showPassword, setShowPassword] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState<{
@@ -339,6 +349,12 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
       bloodGroup,
       dob: dateOfBirth,
       emergencyPhone: emergencyPhone.trim() || mobileNumber.trim() || '+91 98450 12345',
+      location: workLocation.trim() || 'Bengaluru Corporate HQ',
+      acceptanceDeadline: acceptanceDeadline.trim(),
+      signatoryName: signatoryName.trim(),
+      signatoryRole: signatoryRole.trim(),
+      issuedDate: offerLetterIssuedDate.trim(),
+      salaryType,
     });
 
     setCreatedCredentials({
@@ -1010,6 +1026,113 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
                   value={bankIfscCode}
                   onChange={(e) => setBankIfscCode(e.target.value.toUpperCase())}
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-semibold text-slate-800 uppercase"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 6: Offer Letter & Formal Appointment Settings */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-[#0A2540] uppercase tracking-wider border-b border-slate-100 pb-1.5">
+              <FileText className="w-4 h-4 text-teal-600" />
+              <span>6. Offer Letter &amp; Formal Appointment Settings</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  OFFER LETTER ISSUED DATE
+                </label>
+                <div className="relative">
+                  <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={offerLetterIssuedDate}
+                    onChange={(e) => setOfferLetterIssuedDate(e.target.value)}
+                    placeholder="e.g. 03 October 2026"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  SIGNING / ACCEPTANCE DEADLINE
+                </label>
+                <input
+                  type="text"
+                  value={acceptanceDeadline}
+                  onChange={(e) => setAcceptanceDeadline(e.target.value)}
+                  placeholder="e.g. Within 7 business days"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  REPORTING MANAGER (FOR OFFER LETTER)
+                </label>
+                <input
+                  type="text"
+                  value={teamLeaderName}
+                  onChange={(e) => setTeamLeaderName(e.target.value)}
+                  placeholder="e.g. Operations Director / Team Leader"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  WORK / OFFICE LOCATION
+                </label>
+                <div className="relative">
+                  <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={workLocation}
+                    onChange={(e) => setWorkLocation(e.target.value)}
+                    placeholder="e.g. Bengaluru Corporate HQ, India"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  AUTHORIZED SIGNATORY NAME
+                </label>
+                <input
+                  type="text"
+                  value={signatoryName}
+                  onChange={(e) => setSignatoryName(e.target.value)}
+                  placeholder="e.g. T .Vidhya Sagar"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  AUTHORIZED SIGNATORY ROLE
+                </label>
+                <input
+                  type="text"
+                  value={signatoryRole}
+                  onChange={(e) => setSignatoryRole(e.target.value)}
+                  placeholder="e.g. Chief executive Officer"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  SALARY FREQUENCY &amp; STRUCTURE NOTE
+                </label>
+                <input
+                  type="text"
+                  value={salaryType}
+                  onChange={(e) => setSalaryType(e.target.value)}
+                  placeholder="e.g. Monthly Gross / Annual CTC"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
                 />
               </div>
             </div>

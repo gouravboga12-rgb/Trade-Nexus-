@@ -12,9 +12,8 @@ import {
   UserCheck,
   Mail,
 } from 'lucide-react';
-import idCardHeader from '../../assets/id-card-header.png';
+import idCardTemplateFrame from '../../assets/id-card-template-frame.png';
 import defaultIdAvatar from '../../assets/default-id-avatar.png';
-import idCardFooterDefault from '../../assets/id-card-footer-default.png';
 import idCardFooterClean from '../../assets/id-card-footer-clean.png';
 
 const DEFAULT_COMPANY_ADDRESS = '123 Business Avenue, Financial District, Your City, 500001';
@@ -510,31 +509,31 @@ export const DigitalIdCardModal: React.FC = () => {
             id="digital-id-card-sheet"
             className="w-[330px] sm:w-[340px] text-white rounded-[28px] overflow-hidden shadow-2xl print:shadow-none relative flex flex-col justify-between print:border print:border-slate-300 print:my-0 flex-shrink-0"
             style={{ 
-              backgroundColor: '#010D35',
+              backgroundImage: `url(${idCardTemplateFrame})`,
+              backgroundSize: '100% 100%',
+              backgroundRepeat: 'no-repeat',
+              backgroundColor: '#020E37',
               aspectRatio: '591 / 1004',
               WebkitPrintColorAdjust: 'exact',
               printColorAdjust: 'exact'
             }}
           >
-            
-            {/* Top Brand Header with Lanyard Slot matching tradenexus-id.png */}
-            <div className="w-full relative z-10 overflow-hidden flex justify-center select-none">
-              <img src={idCardHeader} alt="Trade Nexus" className="w-full object-cover select-none pointer-events-none" />
-            </div>
+            {/* Top Header Clearance Spacer */}
+            <div className="w-full pt-[27.5%] select-none pointer-events-none" />
 
             {/* Circular Photo with Concentric Glowing Cyan Ring */}
-            <div className="flex justify-center -mt-2 mb-1 relative z-10">
+            <div className="flex justify-center -mt-1 mb-1 relative z-10">
               <div 
                 onClick={() => canEditIdCard && fileInputRef.current?.click()}
                 title={canEditIdCard ? "Click to change or upload employee photo" : customName}
                 className={`w-28 h-28 rounded-full p-[3px] shadow-2xl flex items-center justify-center relative ${canEditIdCard ? 'cursor-pointer group' : 'cursor-default'}`}
                 style={{ 
-                  background: 'linear-gradient(135deg, #00C2CB 0%, #00E5FF 50%, #010D35 100%)',
-                  boxShadow: '0 8px 24px rgba(0, 194, 203, 0.4)'
+                  background: 'linear-gradient(135deg, #00C2CB 0%, #00E5FF 50%, #020E37 100%)',
+                  boxShadow: '0 8px 24px rgba(0, 194, 203, 0.35)'
                 }}
               >
                 <div 
-                  className="w-full h-full rounded-full overflow-hidden flex items-center justify-center relative bg-[#010D35]"
+                  className="w-full h-full rounded-full overflow-hidden flex items-center justify-center relative bg-[#020E37]"
                 >
                   <img 
                     src={customPhotoUrl || defaultIdAvatar} 
@@ -601,14 +600,13 @@ export const DigitalIdCardModal: React.FC = () => {
               </div>
             </div>
 
-            {/* Bottom Curved Wave Container with Corporate Info & Signature (Exact tradenexus-id.png) */}
+            {/* Bottom Footer Area */}
             {isDefaultFooter ? (
-              <div className="w-full relative z-10 mt-1 select-none pointer-events-none">
-                <img src={idCardFooterDefault} alt="Trade Nexus Footer" className="w-full object-cover" />
-              </div>
+              /* Template frame already contains authentic footer graphic & signature */
+              <div className="w-full h-[25.8%] select-none pointer-events-none" />
             ) : (
-              <div className="w-full relative z-10 mt-1 select-none overflow-hidden">
-                <img src={idCardFooterClean} alt="Trade Nexus Footer" className="w-full object-cover" />
+              <div className="w-full relative z-10 select-none overflow-hidden h-[25.8%]">
+                <img src={idCardFooterClean} alt="Trade Nexus Footer" className="w-full h-full object-cover" />
                 
                 {/* Overlaid dynamic contact details matching exact icon positions */}
                 <div className="absolute left-[17%] top-[27.7%] right-[38%] text-[7.5px] font-bold text-[#041026] leading-tight line-clamp-2">

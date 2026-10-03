@@ -110,17 +110,45 @@ export const OfferLetterModal: React.FC = () => {
     }
   };
 
-  const handleCandidateSelect = (candId: string) => {
-    const cand = candidates.find(c => c.id === candId);
-    if (cand) {
-      setFormData(prev => prev ? {
-        ...prev,
-        candidateName: cand.candidateName,
-        candidateEmail: cand.email,
-        candidatePhone: cand.phone,
-        roleTitle: cand.roleApplied,
-      } : prev);
-      triggerToast(`✓ Prefilled from candidate ${cand.candidateName}`);
+  const uniqueCandidates = Array.from(
+    new Map(
+      candidates.map(c => [
+        `${(c.candidateName || '').toLowerCase().trim()}_${(c.email || '').toLowerCase().trim()}`,
+        c
+      ])
+    ).values()
+  );
+
+  const handleCandidateSelect = (selectedVal: string) => {
+    if (!selectedVal) return;
+    if (selectedVal.startsWith('cand:')) {
+      const candId = selectedVal.replace('cand:', '');
+      const cand = candidates.find(c => c.id === candId);
+      if (cand) {
+        setFormData(prev => prev ? {
+          ...prev,
+          candidateName: cand.candidateName,
+          candidateEmail: cand.email,
+          candidatePhone: cand.phone,
+          roleTitle: cand.roleApplied,
+        } : prev);
+        triggerToast(`✓ Prefilled from candidate ${cand.candidateName}`);
+      }
+    } else if (selectedVal.startsWith('emp:')) {
+      const empId = selectedVal.replace('emp:', '');
+      const emp = teamMembers.find(m => m.id === empId || m.empCode === empId);
+      if (emp) {
+        setFormData(prev => prev ? {
+          ...prev,
+          candidateName: emp.name,
+          candidateEmail: emp.email || prev.candidateEmail,
+          candidatePhone: emp.phone || prev.candidatePhone,
+          roleTitle: emp.role || prev.roleTitle,
+          candidateAddress: emp.address || prev.candidateAddress,
+          monthlyGross: emp.salary || prev.monthlyGross,
+        } : prev);
+        triggerToast(`✓ Prefilled from employee ${emp.name}`);
+      }
     }
   };
 
@@ -190,17 +218,28 @@ export const OfferLetterModal: React.FC = () => {
         {/* Quick Edit Drawer */}
         {canEdit && isEditing && (
           <div className="p-3.5 bg-slate-50 border-b border-slate-200 text-xs space-y-2.5 print:hidden max-h-48 overflow-y-auto flex-shrink-0">
-            {candidates.length > 0 && (
+            {(uniqueCandidates.length > 0 || teamMembers.length > 0) && (
               <div className="flex items-center gap-2">
-                <span className="font-bold text-slate-700">Prefill Candidate:</span>
+                <span className="font-bold text-slate-700">Prefill Person:</span>
                 <select
                   onChange={(e) => handleCandidateSelect(e.target.value)}
                   className="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs font-semibold text-slate-800"
                 >
-                  <option value="">— Select Candidate —</option>
-                  {candidates.map(c => (
-                    <option key={c.id} value={c.id}>{c.candidateName} ({c.roleApplied})</option>
-                  ))}
+                  <option value="">— Select Candidate or Employee —</option>
+                  {uniqueCandidates.length > 0 && (
+                    <optgroup label="📋 Interviewed Candidates">
+                      {uniqueCandidates.map(c => (
+                        <option key={c.id} value={`cand:${c.id}`}>{c.candidateName} ({c.roleApplied})</option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {teamMembers.length > 0 && (
+                    <optgroup label="👥 Active Employees & Staff">
+                      {teamMembers.map(m => (
+                        <option key={m.id} value={`emp:${m.id}`}>{m.name} ({m.empCode} • {m.role})</option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </div>
             )}
@@ -267,6 +306,51 @@ export const OfferLetterModal: React.FC = () => {
                   type="text" 
                   value={formData.acceptanceDeadline || 'Within 7 business days'} 
                   onChange={(e) => setFormData({ ...formData, acceptanceDeadline: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-semibold text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block">Department</label>
+                <input 
+                  type="text" 
+                  value={formData.department || ''} 
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-semibold text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block">Work Location</label>
+                <input 
+                  type="text" 
+                  value={formData.location || ''} 
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-semibold text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block">Letter Issued Date</label>
+                <input 
+                  type="text" 
+                  value={formData.issuedDate || ''} 
+                  onChange={(e) => setFormData({ ...formData, issuedDate: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-semibold text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block">HR Signatory Name</label>
+                <input 
+                  type="text" 
+                  value={formData.signatoryName || ''} 
+                  onChange={(e) => setFormData({ ...formData, signatoryName: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-semibold text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block">HR Signatory Role</label>
+                <input 
+                  type="text" 
+                  value={formData.signatoryRole || ''} 
+                  onChange={(e) => setFormData({ ...formData, signatoryRole: e.target.value })}
                   className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-semibold text-slate-800"
                 />
               </div>

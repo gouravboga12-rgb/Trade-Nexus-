@@ -9,9 +9,11 @@ import {
   Phone, 
   Briefcase, 
   Building, 
-  DollarSign, 
   Calendar,
-  Send
+  Send,
+  MapPin,
+  Clock,
+  Award
 } from 'lucide-react';
 import { OfferLetterData } from '../../types';
 
@@ -30,46 +32,99 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
     triggerToast 
   } = useApp();
 
+  // Basic Information
   const [candidateName, setCandidateName] = useState('');
   const [candidateAddress, setCandidateAddress] = useState('Bengaluru Corporate HQ, India');
   const [candidateEmail, setCandidateEmail] = useState('');
   const [candidatePhone, setCandidatePhone] = useState('+91 98765 43210');
+  
+  // Role & Department
   const [roleTitle, setRoleTitle] = useState('Marketing Coordinator');
-  const [department, setDepartment] = useState('Client Acquisition');
+  const [department, setDepartment] = useState('Sales & Client Acquisition');
+  const [location, setLocation] = useState('Bengaluru Corporate HQ, India');
+  const [employeeType, setEmployeeType] = useState<'Full Time' | 'Intern' | 'Contract'>('Full Time');
+  
+  // Compensation
   const [monthlyGross, setMonthlyGross] = useState(700000);
+  const [salaryType, setSalaryType] = useState('Monthly Gross / Annual CTC');
+
+  // Dates & Reporting
   const [joiningDate, setJoiningDate] = useState('Immediate / Next Monday');
   const [reportingManager, setReportingManager] = useState('Operations Team Leader');
+  const [issuedDate, setIssuedDate] = useState(() => 
+    new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+  );
   const [acceptanceDeadline, setAcceptanceDeadline] = useState('Within 7 business days');
+
+  // Signatory
   const [signatoryName, setSignatoryName] = useState('T .Vidhya Sagar');
+  const [signatoryRole, setSignatoryRole] = useState('Chief executive Officer');
 
   if (!isOpen) return null;
 
-  // Quick auto-fill from candidates or team roster
-  const handleSelectCandidate = (candName: string) => {
-    const cand = candidates.find(c => c.candidateName === candName);
-    const emp = teamMembers.find(m => m.name === candName);
-    if (cand) {
-      setCandidateName(cand.candidateName);
-      setRoleTitle(cand.roleApplied || 'Marketing Coordinator');
-      setCandidateEmail(cand.email || `${cand.candidateName.toLowerCase().replace(/\s+/g, '.')}@gmail.com`);
-      setCandidatePhone(cand.phone || '+91 98765 43210');
-    } else if (emp) {
-      setCandidateName(emp.name);
-      setRoleTitle(emp.role || 'Telecaller Executive');
-      setCandidateEmail(emp.email || '');
-      setCandidatePhone(emp.phone || '');
-      if (emp.address) setCandidateAddress(emp.address);
+  // Deduplicate candidates by name and email to prevent repeats like Akash Deep
+  const uniqueCandidates = Array.from(
+    new Map(
+      candidates.map(c => [
+        `${(c.candidateName || '').toLowerCase().trim()}_${(c.email || '').toLowerCase().trim()}`,
+        c
+      ])
+    ).values()
+  );
+
+  // Quick auto-fill from candidates or active team roster
+  const handleSelectPerson = (selectedVal: string) => {
+    if (!selectedVal) return;
+
+    if (selectedVal.startsWith('cand:')) {
+      const candId = selectedVal.replace('cand:', '');
+      const cand = candidates.find(c => c.id === candId || c.candidateName === candId);
+      if (cand) {
+        setCandidateName(cand.candidateName);
+        setRoleTitle(cand.roleApplied || 'Marketing Coordinator');
+        setCandidateEmail(cand.email || `${cand.candidateName.toLowerCase().replace(/\s+/g, '.')}@gmail.com`);
+        setCandidatePhone(cand.phone || '+91 98765 43210');
+        setDepartment('Sales & Client Acquisition');
+        triggerToast(`✓ Auto-filled details from candidate ${cand.candidateName}`);
+      }
+    } else if (selectedVal.startsWith('emp:')) {
+      const empId = selectedVal.replace('emp:', '');
+      const emp = teamMembers.find(m => m.id === empId || m.empCode === empId);
+      if (emp) {
+        setCandidateName(emp.name);
+        setRoleTitle(emp.role || 'Telecaller Executive');
+        setCandidateEmail(emp.email || '');
+        setCandidatePhone(emp.phone || '');
+        if (emp.address) setCandidateAddress(emp.address);
+        if (emp.salary) setMonthlyGross(emp.salary);
+        if ((emp as any).department) setDepartment((emp as any).department);
+        if ((emp as any).employeeType) {
+          const raw = String((emp as any).employeeType).toLowerCase();
+          if (raw.includes('intern')) setEmployeeType('Intern');
+          else if (raw.includes('contract')) setEmployeeType('Contract');
+          else setEmployeeType('Full Time');
+        }
+        triggerToast(`✓ Auto-filled details from employee ${emp.name}`);
+      }
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!candidateName.trim()) {
-      triggerToast('Please enter candidate name');
+      triggerToast('Please enter candidate full name');
       return;
     }
 
-    const newOffer: Omit<OfferLetterData, 'id' | 'issuedDate'> & { candidateAddress?: string; acceptanceDeadline?: string; signatoryName?: string } = {
+    const newOffer: Omit<OfferLetterData, 'id' | 'issuedDate'> & { 
+      issuedDate?: string;
+      candidateAddress?: string; 
+      acceptanceDeadline?: string; 
+      signatoryName?: string;
+      signatoryRole?: string;
+      employeeType?: string;
+      salaryType?: string;
+    } = {
       candidateName: candidateName.trim(),
       candidateAddress: candidateAddress.trim(),
       candidateEmail: candidateEmail.trim() || `${candidateName.toLowerCase().replace(/\s+/g, '.')}@gmail.com`,
@@ -80,9 +135,13 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
       monthlyGross: Number(monthlyGross),
       joiningDate: joiningDate.trim(),
       reportingManager: reportingManager.trim(),
-      location: 'Bengaluru Corporate HQ',
+      location: location.trim(),
+      issuedDate: issuedDate.trim(),
       acceptanceDeadline: acceptanceDeadline.trim(),
       signatoryName: signatoryName.trim(),
+      signatoryRole: signatoryRole.trim(),
+      employeeType,
+      salaryType,
     };
 
     generateOfferLetter(newOffer);
@@ -91,7 +150,7 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
     const fullLetter: OfferLetterData = {
       ...newOffer,
       id: `off-${Date.now().toString().slice(-4)}`,
-      issuedDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
+      issuedDate: issuedDate.trim(),
     };
     setSelectedOfferLetter(fullLetter);
     onClose();
@@ -101,7 +160,7 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95">
+      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95">
         
         {/* Header */}
         <div className="bg-[#0A192F] px-6 py-4 text-white flex items-center justify-between">
@@ -117,7 +176,7 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -126,31 +185,42 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 text-xs">
           
-          {/* Quick Autoselect from Candidates */}
-          {candidates.length > 0 && (
-            <div className="bg-teal-50/70 border border-teal-200 rounded-2xl p-3">
-              <label className="text-[11px] font-bold text-teal-900 block mb-1.5 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-teal-700" />
-                <span>Auto-fill from Interviewed Candidate</span>
-              </label>
-              <select
-                onChange={(e) => handleSelectCandidate(e.target.value)}
-                className="w-full bg-white border border-teal-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
-              >
-                <option value="">— Select Candidate to Auto-fill —</option>
-                {candidates.map((c) => (
-                  <option key={c.id} value={c.candidateName}>
-                    {c.candidateName} ({c.roleApplied} • {c.status})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* Quick Autoselect from Candidates OR Existing Team Members */}
+          <div className="bg-teal-50/70 border border-teal-200 rounded-2xl p-3.5">
+            <label className="text-[11px] font-bold text-teal-900 block mb-1.5 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-teal-700" />
+              <span>Select Candidate or Active Employee to Auto-fill</span>
+            </label>
+            <select
+              onChange={(e) => handleSelectPerson(e.target.value)}
+              className="w-full bg-white border border-teal-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7] cursor-pointer"
+            >
+              <option value="">— Select from Candidates or Team Roster —</option>
+              {uniqueCandidates.length > 0 && (
+                <optgroup label="📋 Interviewed Candidates">
+                  {uniqueCandidates.map((c) => (
+                    <option key={`c-${c.id}`} value={`cand:${c.id}`}>
+                      {c.candidateName} ({c.roleApplied} • {c.status})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {teamMembers.length > 0 && (
+                <optgroup label="👥 Active Employees &amp; Staff">
+                  {teamMembers.map((m) => (
+                    <option key={`m-${m.id}`} value={`emp:${m.id}`}>
+                      {m.name} ({m.empCode} • {m.role})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </div>
 
-          {/* Candidate Name & Role */}
+          {/* Section 1: Candidate Name & Designation */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">Candidate Full Name *</label>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Candidate Full Name *</label>
               <div className="relative">
                 <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
@@ -165,7 +235,7 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">Position / Designation *</label>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Position / Designation *</label>
               <div className="relative">
                 <Briefcase className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
@@ -180,9 +250,75 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
             </div>
           </div>
 
-          {/* Address */}
+          {/* Section 2: Department & Work Location */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Department *</label>
+              <div className="relative">
+                <Building className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  placeholder="e.g. Sales &amp; Client Acquisition"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Work / Office Location *</label>
+              <div className="relative">
+                <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="e.g. Bengaluru Corporate HQ, India"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Contact (Email & Phone) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Candidate Email *</label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="email"
+                  value={candidateEmail}
+                  onChange={(e) => setCandidateEmail(e.target.value)}
+                  placeholder="jonathan.p@gmail.com"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Candidate Phone *</label>
+              <div className="relative">
+                <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={candidatePhone}
+                  onChange={(e) => setCandidatePhone(e.target.value)}
+                  placeholder="+91 98765 43210"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 4: Address */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">Candidate Address &amp; City</label>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">Candidate Residence Address</label>
             <input
               type="text"
               value={candidateAddress}
@@ -192,69 +328,51 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
             />
           </div>
 
-          {/* Contact (Email & Phone) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Section 5: Salary & Employment Type */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">Candidate Email</label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                <input
-                  type="email"
-                  value={candidateEmail}
-                  onChange={(e) => setCandidateEmail(e.target.value)}
-                  placeholder="jonathan.p@gmail.com"
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">Candidate Phone</label>
-              <div className="relative">
-                <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                <input
-                  type="text"
-                  value={candidatePhone}
-                  onChange={(e) => setCandidatePhone(e.target.value)}
-                  placeholder="+91 98765 43210"
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Salary & Reporting Manager */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">Monthly Salary (INR)</label>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Monthly Salary (INR) *</label>
               <div className="relative">
                 <span className="text-slate-500 font-bold absolute left-3 top-2">₹</span>
                 <input
                   type="number"
                   value={monthlyGross}
                   onChange={(e) => setMonthlyGross(Number(e.target.value))}
-                  className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                  className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7] font-mono"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">Reporting Manager</label>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Employment Type</label>
+              <select
+                value={employeeType}
+                onChange={(e) => setEmployeeType(e.target.value as any)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7] cursor-pointer"
+              >
+                <option value="Full Time">Full - Time</option>
+                <option value="Intern">Internship</option>
+                <option value="Contract">Contract</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Salary Note</label>
               <input
                 type="text"
-                value={reportingManager}
-                onChange={(e) => setReportingManager(e.target.value)}
-                placeholder="e.g. Rosa Maria (Marketing Manager)"
+                value={salaryType}
+                onChange={(e) => setSalaryType(e.target.value)}
+                placeholder="Monthly Gross / Annual CTC"
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
               />
             </div>
           </div>
 
-          {/* Joining Date & Acceptance Deadline */}
+          {/* Section 6: Joining Date & Reporting Manager */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">Joining Date</label>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Joining Date</label>
               <div className="relative">
                 <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
@@ -268,26 +386,74 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">Signing Deadline</label>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Reporting Manager</label>
               <input
                 type="text"
-                value={acceptanceDeadline}
-                onChange={(e) => setAcceptanceDeadline(e.target.value)}
-                placeholder="e.g. August 30, 2025"
+                value={reportingManager}
+                onChange={(e) => setReportingManager(e.target.value)}
+                placeholder="e.g. Rosa Maria (Marketing Manager)"
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
               />
             </div>
           </div>
 
-          {/* Signatory */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">HR Signatory Name</label>
-            <input
-              type="text"
-              value={signatoryName}
-              onChange={(e) => setSignatoryName(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
-            />
+          {/* Section 7: Letter Issued Date & Acceptance Deadline */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Letter Issued Date</label>
+              <div className="relative">
+                <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={issuedDate}
+                  onChange={(e) => setIssuedDate(e.target.value)}
+                  placeholder="e.g. 03 October 2026"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Signing / Acceptance Deadline</label>
+              <div className="relative">
+                <Clock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={acceptanceDeadline}
+                  onChange={(e) => setAcceptanceDeadline(e.target.value)}
+                  placeholder="e.g. Within 7 business days"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 8: Signatory Name & Role */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">HR Signatory Name</label>
+              <div className="relative">
+                <Award className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={signatoryName}
+                  onChange={(e) => setSignatoryName(e.target.value)}
+                  placeholder="e.g. T .Vidhya Sagar"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">HR Signatory Role</label>
+              <input
+                type="text"
+                value={signatoryRole}
+                onChange={(e) => setSignatoryRole(e.target.value)}
+                placeholder="e.g. Chief executive Officer"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+              />
+            </div>
           </div>
 
           {/* Submit Actions */}
@@ -295,16 +461,16 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 rounded-xl border border-slate-300 font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+              className="flex-1 py-3 rounded-xl border border-slate-300 font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#00A88B] to-[#00C9A7] text-[#0A2540] font-black shadow-md hover:brightness-105 transition-all flex items-center justify-center gap-2"
+              className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#00A88B] to-[#00C9A7] text-[#0A2540] font-black shadow-md hover:brightness-105 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <Send className="w-4 h-4" />
-              <span>Generate &amp; Dispatch</span>
+              <span>Generate &amp; Dispatch Offer Letter</span>
             </button>
           </div>
 

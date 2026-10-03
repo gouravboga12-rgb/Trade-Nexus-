@@ -393,6 +393,8 @@ export interface OfferLetterData {
   acceptanceDeadline?: string;
   signatoryName?: string;
   signatoryRole?: string;
+  employeeType?: string;
+  salaryType?: string;
 }
 
 export interface NewEmployeeInput {
@@ -428,6 +430,11 @@ export interface NewEmployeeInput {
   bloodGroup?: string;
   dob?: string;
   emergencyPhone?: string;
+  acceptanceDeadline?: string;
+  signatoryName?: string;
+  signatoryRole?: string;
+  issuedDate?: string;
+  salaryType?: string;
 }
 
 export interface PaymentVerificationItem {

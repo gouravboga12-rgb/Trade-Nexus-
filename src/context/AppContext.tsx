@@ -243,7 +243,7 @@ interface AppContextType {
   setIsOfferLetterModalOpen: (open: boolean) => void;
   isGenerateOfferLetterModalOpen: boolean;
   setIsGenerateOfferLetterModalOpen: (open: boolean) => void;
-  generateOfferLetter: (data: Omit<OfferLetterData, 'id' | 'issuedDate'>) => Promise<void>;
+  generateOfferLetter: (data: Omit<OfferLetterData, 'id' | 'issuedDate'> & { issuedDate?: string }) => Promise<void>;
   deleteOfferLetter: (id: string) => Promise<void>;
   openOfferLetterModal: (letter?: OfferLetterData) => void;
   openGenerateOfferLetterModal: () => void;
@@ -1657,7 +1657,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       joiningDate: data.joiningDate || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
       reportingManager: data.teamLeaderName || 'Team Leader',
       location: data.location || 'Bengaluru Corporate HQ',
-      issuedDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      issuedDate: data.issuedDate || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      acceptanceDeadline: data.acceptanceDeadline || 'Within 7 business days',
+      signatoryName: data.signatoryName || 'T .Vidhya Sagar',
+      signatoryRole: data.signatoryRole || 'Chief executive Officer',
+      employeeType: data.employeeType || 'Full Time',
+      salaryType: data.salaryType || 'Monthly Gross / Annual CTC',
     };
     setOfferLetters(prev => [newOfferLetter, ...prev]);
     setSelectedOfferLetter(newOfferLetter);
@@ -1736,11 +1741,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return { success: true, member: targetMember };
   };
 
-  const generateOfferLetter = async (data: Omit<OfferLetterData, 'id' | 'issuedDate'>) => {
+  const generateOfferLetter = async (data: Omit<OfferLetterData, 'id' | 'issuedDate'> & { issuedDate?: string }) => {
     const newOffer: OfferLetterData = {
       ...data,
       id: `off-${Date.now()}`,
-      issuedDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      issuedDate: data.issuedDate || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
     };
     setOfferLetters(prev => [newOffer, ...prev]);
     setSelectedOfferLetter(newOffer);
