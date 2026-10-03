@@ -29,6 +29,7 @@ export const OfferLetterModal: React.FC = () => {
     setIsOfferLetterModalOpen, 
     selectedOfferLetter,
     setSelectedOfferLetter,
+    updateOfferLetter,
     teamMembers,
     candidates,
     triggerToast
@@ -172,10 +173,10 @@ export const OfferLetterModal: React.FC = () => {
                   if (isEditing && formData) {
                     setSelectedOfferLetter(formData);
                     try {
-                      await api.generateOfferLetter(undefined, formData);
+                      await updateOfferLetter(formData.id, formData);
                       triggerToast(`✓ Offer letter updated & PDF refreshed for ${formData.candidateName}`);
-                    } catch {
-                      triggerToast(`✓ Offer letter updated for ${formData.candidateName}`);
+                    } catch (err: any) {
+                      triggerToast(`⚠️ Failed to persist: ${err?.message || 'Server error'}`);
                     }
                   }
                   setIsEditing(!isEditing);

@@ -244,6 +244,7 @@ interface AppContextType {
   isGenerateOfferLetterModalOpen: boolean;
   setIsGenerateOfferLetterModalOpen: (open: boolean) => void;
   generateOfferLetter: (data: Omit<OfferLetterData, 'id' | 'issuedDate'> & { issuedDate?: string }) => Promise<void>;
+  updateOfferLetter: (id: string, data: Partial<OfferLetterData>) => Promise<void>;
   deleteOfferLetter: (id: string) => Promise<void>;
   openOfferLetterModal: (letter?: OfferLetterData) => void;
   openGenerateOfferLetterModal: () => void;
@@ -987,7 +988,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         'callLogs',
         'paymentVerifications',
         'leaveRequests',
-        'teamMeetings'
+        'teamMeetings',
+        'offerLetters',
       ], { force: true });
     };
     // Initial fetch immediately, then poll every 8 seconds
@@ -1773,6 +1775,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       } catch (createErr) {
         console.warn('API create offer letter error:', createErr);
       }
+    }
+  };
+
+  const updateOfferLetter = async (id: string, data: Partial<OfferLetterData>) => {
+    setOfferLetters(prev => prev.map(o => o.id === id ? { ...o, ...data } : o));
+    if (selectedOfferLetter?.id === id) {
+      setSelectedOfferLetter(prev => prev ? { ...prev, ...data } : null);
+    }
+    try {
+      await api.updateOfferLetter(id, data);
+      await api.generateOfferLetter(undefined, { ...data, id });
+      triggerToast(`✓ Offer letter updated & saved to database`);
+    } catch (err: any) {
+      console.warn('Update offer letter error:', err);
+      triggerToast(`⚠️ Saved locally: ${err.message || 'Server error'}`);
     }
   };
 
@@ -3190,6 +3207,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         isGenerateOfferLetterModalOpen,
         setIsGenerateOfferLetterModalOpen,
         generateOfferLetter,
+        updateOfferLetter,
         deleteOfferLetter,
         openOfferLetterModal,
         openGenerateOfferLetterModal,

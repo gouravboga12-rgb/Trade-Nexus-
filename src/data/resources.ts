@@ -140,6 +140,7 @@ export const SCREEN_RESOURCES = {
     'companyHolidays',
     'calendarSettings',
     'invoices',
+    'offerLetters',
   ],
 } as const satisfies Record<string, readonly ResourceKey[]>;
 

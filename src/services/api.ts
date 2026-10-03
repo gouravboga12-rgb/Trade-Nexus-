@@ -378,6 +378,8 @@ export const api = {
   getOfferLetters: () => request<OfferLetterData[]>('/offer-letters'),
   createOfferLetter: (data: Omit<OfferLetterData, 'id'> & { id?: string }) => 
     request<OfferLetterData>('/offer-letters', { method: 'POST', body: JSON.stringify(data) }),
+  updateOfferLetter: (id: string, data: Partial<OfferLetterData>) =>
+    request<OfferLetterData>(`/offer-letters/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteOfferLetter: (id: string) =>
     request<{ ok: boolean }>(`/offer-letters/${id}`, { method: 'DELETE' }),
 

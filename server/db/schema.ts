@@ -270,6 +270,7 @@ export function initializeDatabaseSchema() {
       candidateName TEXT NOT NULL,
       candidateEmail TEXT NOT NULL,
       candidatePhone TEXT NOT NULL,
+      candidateAddress TEXT DEFAULT 'Bengaluru Corporate Office',
       roleTitle TEXT NOT NULL,
       department TEXT NOT NULL,
       annualCtc REAL NOT NULL,
@@ -278,6 +279,16 @@ export function initializeDatabaseSchema() {
       reportingManager TEXT NOT NULL,
       location TEXT NOT NULL,
       issuedDate TEXT NOT NULL,
+      acceptanceDeadline TEXT DEFAULT 'Within 7 business days',
+      signatoryName TEXT DEFAULT 'T.Vidhya Sagar',
+      signatoryRole TEXT DEFAULT 'Chief executive Officer',
+      employeeType TEXT DEFAULT 'Full-Time',
+      salaryType TEXT DEFAULT 'Monthly Salary',
+      companyName TEXT DEFAULT 'Trade Nexus',
+      companyAddress TEXT DEFAULT '123 Business Avenue, Financial District, Your City, 500001',
+      companyPhone TEXT DEFAULT '+91 98765 43210',
+      companyEmail TEXT DEFAULT 'info@tradenexus.com',
+      companyWebsite TEXT DEFAULT 'www.tradenexus.com',
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -646,6 +657,25 @@ function runMigrations() {
     { table: 'payslips', column: 'bankAccountNumber', definition: 'TEXT' },
     { table: 'payslips', column: 'paymentMode',       definition: "TEXT DEFAULT 'Bank Transfer'" },
     { table: 'employee_profiles', column: 'checkOutTime', definition: 'TEXT DEFAULT NULL' },
+    // Offer letters dynamic customization fields
+    { table: 'offer_letters', column: 'candidateAddress',   definition: "TEXT DEFAULT 'Bengaluru Corporate Office'" },
+    { table: 'offer_letters', column: 'acceptanceDeadline', definition: "TEXT DEFAULT 'Within 7 business days'" },
+    { table: 'offer_letters', column: 'signatoryName',      definition: "TEXT DEFAULT 'T.Vidhya Sagar'" },
+    { table: 'offer_letters', column: 'signatoryRole',      definition: "TEXT DEFAULT 'Chief executive Officer'" },
+    { table: 'offer_letters', column: 'employeeType',       definition: "TEXT DEFAULT 'Full-Time'" },
+    { table: 'offer_letters', column: 'salaryType',         definition: "TEXT DEFAULT 'Monthly Salary'" },
+    { table: 'offer_letters', column: 'companyName',        definition: "TEXT DEFAULT 'Trade Nexus'" },
+    { table: 'offer_letters', column: 'companyAddress',     definition: "TEXT DEFAULT '123 Business Avenue, Financial District, Your City, 500001'" },
+    { table: 'offer_letters', column: 'companyPhone',       definition: "TEXT DEFAULT '+91 98765 43210'" },
+    { table: 'offer_letters', column: 'companyEmail',       definition: "TEXT DEFAULT 'info@tradenexus.com'" },
+    { table: 'offer_letters', column: 'companyWebsite',     definition: "TEXT DEFAULT 'www.tradenexus.com'" },
+    // Team members custom company contact
+    { table: 'team_members', column: 'companyAddress',      definition: "TEXT" },
+    { table: 'team_members', column: 'companyPhone',        definition: "TEXT" },
+    { table: 'team_members', column: 'companyEmail',        definition: "TEXT" },
+    { table: 'team_members', column: 'companyWebsite',      definition: "TEXT" },
+    { table: 'team_members', column: 'signatoryName',       definition: "TEXT" },
+    { table: 'team_members', column: 'signatoryRole',       definition: "TEXT" },
   ];
 
   for (const { table, column, definition } of columnMigrations) {

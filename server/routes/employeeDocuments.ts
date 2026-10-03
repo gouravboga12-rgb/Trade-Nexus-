@@ -318,6 +318,8 @@ router.post('/generate/offer-letter', async (req: Request, res: Response) => {
       candidateAddress: offerLetter?.candidateAddress || emp?.address || '123 Anywhere St., Any City, ST 12345',
       roleTitle: offerLetter?.roleTitle || emp?.role || 'Marketing Coordinator',
       department: offerLetter?.department || emp?.department || 'Operations',
+      employeeType: offerLetter?.employeeType || 'Full Time',
+      salaryType: offerLetter?.salaryType || 'Per Annum',
       annualCtc: offerLetter?.annualCtc ? Number(offerLetter.annualCtc) : (offerLetter?.monthlyGross ? Number(offerLetter.monthlyGross) * 12 : 8400000),
       monthlyGross: offerLetter?.monthlyGross ? Number(offerLetter.monthlyGross) : 700000,
       joiningDate: offerLetter?.joiningDate || emp?.joinDate || 'Immediate',
@@ -327,6 +329,11 @@ router.post('/generate/offer-letter', async (req: Request, res: Response) => {
       signatoryRole: offerLetter?.signatoryRole || 'Chief executive Officer',
       location: offerLetter?.location || 'Bengaluru Corporate HQ',
       issuedDate: offerLetter?.issuedDate || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      companyName: offerLetter?.companyName || 'TRADE NEXUS',
+      companyAddress: offerLetter?.companyAddress || '456 Business Avenue, Financial District, Your City, 5005001',
+      companyPhone: offerLetter?.companyPhone || '+91 98765 43210',
+      companyEmail: offerLetter?.companyEmail || 'info@tradenexus.com',
+      companyWebsite: offerLetter?.companyWebsite || 'www.tradenexus.com',
     };
 
     const { generateOfferLetterPdf } = await import('../services/pdfGenerator.js');
@@ -370,22 +377,42 @@ router.post('/generate/offer-letter', async (req: Request, res: Response) => {
     if (existingLetter) {
       db.prepare(`
         UPDATE offer_letters
-        SET candidateName = ?, candidateEmail = ?, candidatePhone = ?, roleTitle = ?, department = ?,
-            annualCtc = ?, monthlyGross = ?, joiningDate = ?, reportingManager = ?, location = ?, issuedDate = ?
+        SET candidateName = ?, candidateEmail = ?, candidatePhone = ?, candidateAddress = ?,
+            roleTitle = ?, department = ?, employeeType = ?, salaryType = ?,
+            annualCtc = ?, monthlyGross = ?, joiningDate = ?, acceptanceDeadline = ?,
+            reportingManager = ?, signatoryName = ?, signatoryRole = ?,
+            location = ?, issuedDate = ?,
+            companyName = ?, companyAddress = ?, companyPhone = ?, companyEmail = ?, companyWebsite = ?
         WHERE id = ?
       `).run(
-        payload.candidateName, payload.candidateEmail, payload.candidatePhone, payload.roleTitle, payload.department,
-        payload.annualCtc, payload.monthlyGross, payload.joiningDate, payload.reportingManager, payload.location, payload.issuedDate,
+        payload.candidateName, payload.candidateEmail, payload.candidatePhone, payload.candidateAddress,
+        payload.roleTitle, payload.department, payload.employeeType, payload.salaryType,
+        payload.annualCtc, payload.monthlyGross, payload.joiningDate, payload.acceptanceDeadline,
+        payload.reportingManager, payload.signatoryName, payload.signatoryRole,
+        payload.location, payload.issuedDate,
+        payload.companyName, payload.companyAddress, payload.companyPhone, payload.companyEmail, payload.companyWebsite,
         existingLetter.id
       );
       offerId = existingLetter.id;
     } else {
       db.prepare(`
-        INSERT INTO offer_letters (id, candidateName, candidateEmail, candidatePhone, roleTitle, department, annualCtc, monthlyGross, joiningDate, reportingManager, location, issuedDate)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO offer_letters (
+          id, candidateName, candidateEmail, candidatePhone, candidateAddress,
+          roleTitle, department, employeeType, salaryType,
+          annualCtc, monthlyGross, joiningDate, acceptanceDeadline,
+          reportingManager, signatoryName, signatoryRole,
+          location, issuedDate,
+          companyName, companyAddress, companyPhone, companyEmail, companyWebsite
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
-        offerId, payload.candidateName, payload.candidateEmail, payload.candidatePhone, payload.roleTitle, payload.department,
-        payload.annualCtc, payload.monthlyGross, payload.joiningDate, payload.reportingManager, payload.location, payload.issuedDate
+        offerId,
+        payload.candidateName, payload.candidateEmail, payload.candidatePhone, payload.candidateAddress,
+        payload.roleTitle, payload.department, payload.employeeType, payload.salaryType,
+        payload.annualCtc, payload.monthlyGross, payload.joiningDate, payload.acceptanceDeadline,
+        payload.reportingManager, payload.signatoryName, payload.signatoryRole,
+        payload.location, payload.issuedDate,
+        payload.companyName, payload.companyAddress, payload.companyPhone, payload.companyEmail, payload.companyWebsite
       );
     }
 

@@ -679,8 +679,8 @@ export const DigitalIdCardModal: React.FC = () => {
                 {customCompanyPhone}
               </div>
 
-              {/* Overlaid dynamic signatory */}
-              <div className="absolute right-[5%] bottom-[16%] w-[33%] text-center">
+              {/* Overlaid dynamic signatory - sits immediately beneath handwritten signature with no gap */}
+              <div className="absolute right-[5%] top-[56.5%] w-[33%] text-center">
                 <div className="font-bold text-[8.5px] sm:text-[9px] text-[#041026] leading-tight truncate">
                   {customSignatoryName}
                 </div>
