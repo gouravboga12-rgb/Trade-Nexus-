@@ -2451,6 +2451,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           dateTime: data.dateTime,
           agenda: data.agenda,
           type: data.type,
+          status: data.status,
           targetAudience: data.targetAudience,
           targetTeam: data.targetTeam,
           targetEmployeeId: data.targetEmployeeId,
@@ -2572,8 +2573,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const joinMeeting = (mtg: TeamMeeting) => {
     setActiveMeetingRoom(mtg);
 
-    // If host or admin, mark meeting as LIVE
-    if (mtg.status !== 'LIVE' && (currentRole === 'team_leader' || currentRole === 'admin' || currentRole === 'hr')) {
+    // Only actual meeting host or Admin may transition an upcoming meeting to LIVE
+    const isActualHost = Boolean(
+      (mtg.hostEmpCode && profile?.empCode && mtg.hostEmpCode.trim().toLowerCase() === profile.empCode.trim().toLowerCase()) ||
+      (mtg.hostName && profile?.name && mtg.hostName.trim().toLowerCase() === profile.name.trim().toLowerCase()) ||
+      (currentRole === 'admin')
+    );
+
+    if (mtg.status !== 'LIVE' && isActualHost) {
       updateTeamMeeting(mtg.id, { status: 'LIVE' });
     }
 
@@ -2591,7 +2598,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const leaveMeeting = () => {
-    if ((currentRole === 'team_leader' || currentRole === 'admin') && activeMeetingRoom) {
+    const isActualHost = activeMeetingRoom ? Boolean(
+      (activeMeetingRoom.hostEmpCode && profile?.empCode && activeMeetingRoom.hostEmpCode.trim().toLowerCase() === profile.empCode.trim().toLowerCase()) ||
+      (activeMeetingRoom.hostName && profile?.name && activeMeetingRoom.hostName.trim().toLowerCase() === profile.name.trim().toLowerCase()) ||
+      (currentRole === 'admin')
+    ) : false;
+
+    if (isActualHost && activeMeetingRoom) {
       updateTeamMeeting(activeMeetingRoom.id, { status: 'COMPLETED' });
       triggerToast('✓ Meeting concluded and saved');
     } else {

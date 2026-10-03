@@ -346,10 +346,32 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT /api/team-meetings/:id
 router.put('/:id', (req: Request, res: Response) => {
   try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const role = user.role === 'employee' ? 'telecaller' : user.role;
+    if (role === 'telecaller') {
+      return res.status(403).json({ error: 'Forbidden: Telecallers cannot modify meetings' });
+    }
+
     const { id } = req.params;
     const existing = db.prepare('SELECT * FROM team_meetings WHERE id = ?').get(id) as any;
     if (!existing) {
       return res.status(404).json({ error: 'Meeting not found' });
+    }
+
+    const isHost = Boolean(
+      (existing.hostEmpCode && user.empCode && existing.hostEmpCode.toLowerCase() === user.empCode.toLowerCase()) ||
+      (existing.hostName && user.name && existing.hostName.toLowerCase() === user.name.toLowerCase())
+    );
+
+    if (role !== 'admin' && !isHost) {
+      // If non-host is trying to change meeting metadata, block it
+      if (req.body.title && req.body.title !== existing.title) {
+        return res.status(403).json({ error: 'Forbidden: Only the meeting host or Admin can modify meeting details' });
+      }
     }
 
     const merged = { ...existing, ...req.body };
@@ -381,8 +403,30 @@ router.put('/:id', (req: Request, res: Response) => {
 // DELETE /api/team-meetings/:id
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const role = user.role === 'employee' ? 'telecaller' : user.role;
+    if (role === 'telecaller') {
+      return res.status(403).json({ error: 'Forbidden: Telecallers cannot delete meetings' });
+    }
+
     const { id } = req.params;
     const existing = db.prepare('SELECT * FROM team_meetings WHERE id = ?').get(id) as any;
+    if (!existing) {
+      return res.status(404).json({ error: 'Meeting not found' });
+    }
+
+    const isHost = Boolean(
+      (existing.hostEmpCode && user.empCode && existing.hostEmpCode.toLowerCase() === user.empCode.toLowerCase()) ||
+      (existing.hostName && user.name && existing.hostName.toLowerCase() === user.name.toLowerCase())
+    );
+
+    if (role !== 'admin' && !isHost) {
+      return res.status(403).json({ error: 'Forbidden: Only the meeting host or Admin can cancel/delete this meeting' });
+    }
 
     if (existing && existing.zoomMeetingId) {
       try {

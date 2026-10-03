@@ -340,6 +340,7 @@ export const api = {
     targetEmployeeId?: string;
     invitedMemberName?: string;
     includeAdmin?: boolean | number;
+    status?: string;
     priority?: string;
     attendeesCount?: number;
   }) => request<TeamMeeting>('/team-meetings/create-zoom', { method: 'POST', body: JSON.stringify(data) }),
