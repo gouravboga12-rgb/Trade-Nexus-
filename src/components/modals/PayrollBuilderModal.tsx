@@ -10,6 +10,7 @@ import { PayslipDocument } from '../payroll/PayslipDocument';
 import {
   MONTHS, PAYROLL_SECTIONS, PayrollField, buildDraftFromEmployee, computePayrollTotals,
   missingRequiredFields, toPayrollPayload, periodSortValue, formatINR, defaultPayDate,
+  getPayrollAvailableYears,
 } from '../payroll/payrollTemplate';
 
 interface Props {
@@ -51,6 +52,7 @@ export const PayrollBuilderModal: React.FC<Props> = ({ isOpen, onClose, initialP
     [teamMembers]
   );
   const employee = employees.find(e => e.id === employeeId) || teamMembers.find(e => e.id === employeeId);
+  const availableYears = useMemo(() => getPayrollAvailableYears(year), [year]);
 
   const isDispatched = record?.payrollStatus === 'DISPATCHED';
   const readOnly = isDispatched && !revising;
@@ -372,7 +374,7 @@ export const PayrollBuilderModal: React.FC<Props> = ({ isOpen, onClose, initialP
             <label htmlFor="payroll-year" className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1 block">Year <span className="text-rose-500">*</span></label>
             <select id="payroll-year" value={year} onChange={e => changePeriod(month, Number(e.target.value))}
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-[#0A2540] focus:border-[#00C9A7] outline-none">
-              {Array.from({ length: 7 }, (_, i) => now.getFullYear() - 3 + i).map(y => <option key={y} value={y}>{y}</option>)}
+              {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
         </div>
