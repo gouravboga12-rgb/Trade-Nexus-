@@ -47,6 +47,9 @@ import {
   CameraOff,
   RotateCw,
   Receipt,
+  ToggleLeft,
+  ToggleRight,
+  RefreshCw,
 } from 'lucide-react';
 import { ExcelLeadUploadModal } from '../components/modals/ExcelLeadUploadModal';
 import { AddEmployeeModal } from '../components/modals/AddEmployeeModal';
@@ -124,6 +127,9 @@ export const AdminDashboardView: React.FC = () => {
     logout,
     autoDistributeFreshLeads,
     refreshResources,
+    calendarSettings,
+    updateCalendarSettings,
+    reEvaluateTodayAttendance,
   } = useApp();
 
   useScreenData('adminDashboard');
@@ -203,6 +209,7 @@ export const AdminDashboardView: React.FC = () => {
   const [locating, setLocating] = useState(false);
   const [showOfficeEditor, setShowOfficeEditor] = useState(false);
   const [showCalendarConfig, setShowCalendarConfig] = useState(false);
+  const [calendarInitialTab, setCalendarInitialTab] = useState<'CALENDAR' | 'POLICY' | 'HOLIDAYS'>('CALENDAR');
   const [isAdminMapExpanded, setIsAdminMapExpanded] = useState(false);
   const [adminDeviceLocation, setAdminDeviceLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [adminDistanceToOffice, setAdminDistanceToOffice] = useState<number | null>(null);
@@ -1864,7 +1871,7 @@ export const AdminDashboardView: React.FC = () => {
         {/* -------------------------------------------------- Attendance */}
         {tab === 'attendance' && (
           <div className="space-y-3 animate-in fade-in duration-150">
-            {/* Header: Just Attendance Heading & Compact Export Button */}
+            {/* Header: Attendance Heading, Timing & Policy Button & Export Button */}
             <div className="flex items-center justify-between pt-0.5">
               <div>
                 <h2 className="font-display font-black text-xl text-[#0A2540]">Attendance</h2>
@@ -1872,22 +1879,105 @@ export const AdminDashboardView: React.FC = () => {
                   {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'short' })}
                 </p>
               </div>
-              <button
-                onClick={() => {
-                  downloadCsv(
-                    'Attendance',
-                    'Name,Team,Status,Check-in,Method',
-                    teamMembers.map(
-                      (m) => `"${m.name}","${m.group}","${m.attendanceStatus}","${m.checkInTime || ''}","${m.checkInMethod || ''}"`
-                    )
-                  );
-                  triggerToast('✓ Attendance ledger CSV exported');
-                }}
-                className="flex items-center gap-1.5 text-xs font-bold text-[#00A88B] bg-[#E6FAF6] px-2.5 py-1.5 rounded-xl border border-[#00C9A7]/40 hover:bg-[#00C9A7] hover:text-[#0A2540] transition-colors cursor-pointer shadow-2xs"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCalendarInitialTab('POLICY');
+                    setShowCalendarConfig(true);
+                    setTab('more');
+                  }}
+                  className="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-[#00C9A7] hover:text-[#00A88B] transition-colors cursor-pointer shadow-2xs"
+                  title="Configure Shift Timings & Late Policy"
+                >
+                  <Clock className="w-3.5 h-3.5 text-[#00C9A7]" />
+                  <span>Timing & Policy</span>
+                </button>
+                <button
+                  onClick={() => {
+                    downloadCsv(
+                      'Attendance',
+                      'Name,Team,Status,Check-in,Method',
+                      teamMembers.map(
+                        (m) => `"${m.name}","${m.group}","${m.attendanceStatus}","${m.checkInTime || ''}","${m.checkInMethod || ''}"`
+                      )
+                    );
+                    triggerToast('✓ Attendance ledger CSV exported');
+                  }}
+                  className="flex items-center gap-1.5 text-xs font-bold text-[#00A88B] bg-[#E6FAF6] px-2.5 py-1.5 rounded-xl border border-[#00C9A7]/40 hover:bg-[#00C9A7] hover:text-[#0A2540] transition-colors cursor-pointer shadow-2xs"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Shift & Late-Tag Control Banner */}
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-teal-50 text-[#00A88B] flex items-center justify-center flex-shrink-0">
+                  <Clock className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-bold text-xs text-[#0A2540]">Company Shift &amp; Late Policy</h4>
+                    <span
+                      className={`text-[9px] font-mono font-black px-2 py-0.5 rounded-full border shadow-2xs ${
+                        calendarSettings?.enableLateMarking !== false
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                          : 'bg-purple-50 text-purple-700 border-purple-300'
+                      }`}
+                    >
+                      {calendarSettings?.enableLateMarking !== false ? '● LATE TAG ENFORCED' : '○ LATE TAG DISABLED'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Cutoff: <span className="font-bold text-slate-700">{calendarSettings?.punchInWindowEnd || '09:30 AM'}</span>
+                    {' • '}
+                    Shift: <span className="font-bold text-slate-700">{calendarSettings?.shiftStartTime || '09:30 AM'} — {calendarSettings?.shiftEndTime || '06:30 PM'}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const nextState = calendarSettings?.enableLateMarking === false;
+                    await updateCalendarSettings({
+                      enableLateMarking: nextState,
+                      applyToToday: true,
+                    });
+                    triggerToast(nextState ? '✓ Late tagging enabled & applied to today' : '✓ Late tagging disabled: all check-ins set to PRESENT');
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs active:scale-95 ${
+                    calendarSettings?.enableLateMarking !== false
+                      ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  }`}
+                >
+                  {calendarSettings?.enableLateMarking !== false ? (
+                    <>
+                      <ToggleRight className="w-4 h-4 text-rose-500" />
+                      <span>Turn Off Late Tag</span>
+                    </>
+                  ) : (
+                    <>
+                      <ToggleLeft className="w-4 h-4 text-emerald-200" />
+                      <span>Enable Late Tag</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => reEvaluateTodayAttendance()}
+                  title="Recalculate today's attendance records using current shift policy"
+                  className="p-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             {/* Compact 2x2 Attendance Action Filter Buttons (Just Name & Numbers, No Icons) */}
@@ -2747,7 +2837,7 @@ export const AdminDashboardView: React.FC = () => {
                     <h4 className="font-bold text-sm text-[#0A2540] group-hover:text-[#00A88B] transition-colors">
                       Company Calendar & Holidays
                     </h4>
-                    <span className="text-xs text-slate-500">Weekly off schedule & official holidays</span>
+                    <span className="text-xs text-slate-500">Weekly off schedule, official holidays &amp; shift timings</span>
                   </div>
                 </div>
                 <ChevronRight className={`w-5 h-5 text-slate-300 group-hover:text-[#00C9A7] transition-transform ${showCalendarConfig ? 'rotate-90' : ''}`} />
@@ -2755,7 +2845,7 @@ export const AdminDashboardView: React.FC = () => {
 
               {showCalendarConfig && (
                 <div className="animate-in fade-in duration-150 pt-1">
-                  <AdminCalendarConfig />
+                  <AdminCalendarConfig initialTab={calendarInitialTab} />
                 </div>
               )}
             </div>
