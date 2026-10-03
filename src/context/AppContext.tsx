@@ -1671,6 +1671,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         api.createOnboarding(newOnboarding),
         api.createOfferLetter(newOfferLetter),
       ]);
+      // Automatically generate canonical ID Card & Offer Letter in employee_documents
+      api.generateIdCard(empId, {
+        name: data.name,
+        role: data.roleTitle || newMember.role,
+        empCode,
+        bloodGroup: data.bloodGroup || 'O+ ve',
+        dob: data.dob || '05/11/1997',
+        phone: data.phone || '9876543210',
+        empType: data.employeeType || 'Full - Time',
+        address: data.address || 'Flat 204, Highrise Apts, Hyd',
+        avatar: data.avatar || undefined,
+      }).catch(console.warn);
+      api.generateOfferLetter(empId, newOfferLetter).catch(console.warn);
       api.sendOnboardingEmail(newMember, newOfferLetter).catch(console.warn);
     } catch (err) {
       console.warn('API error creating employee:', err);
@@ -1735,9 +1748,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     triggerToast(`✓ Offer letter generated for ${data.candidateName}`);
 
     try {
-      await api.createOfferLetter(newOffer);
+      const matchedEmp = teamMembers.find(m => 
+        (m.name && m.name.toLowerCase() === data.candidateName.toLowerCase()) ||
+        (m.email && data.candidateEmail && m.email.toLowerCase() === data.candidateEmail.toLowerCase())
+      );
+      const res = await api.generateOfferLetter(matchedEmp?.id, newOffer);
+      if (res?.offerLetter?.id) {
+        newOffer.id = res.offerLetter.id;
+      }
     } catch (err) {
-      console.warn('API create offer letter error:', err);
+      console.warn('API generate offer letter error, falling back to createOfferLetter:', err);
+      try {
+        await api.createOfferLetter(newOffer);
+      } catch (createErr) {
+        console.warn('API create offer letter error:', createErr);
+      }
     }
   };
 

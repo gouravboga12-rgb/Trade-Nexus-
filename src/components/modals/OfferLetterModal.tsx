@@ -17,6 +17,10 @@ import signatureVidhyaSagar from '../../assets/signature-vidhya-sagar.png';
 import watermarkEmblem from '../../assets/watermark-emblem.png';
 import headerOffer from '../../assets/header-offer.png';
 import corporateFooter from '../../assets/corporate-footer.png';
+import iconPin from '../../assets/icon-pin.png';
+import iconPhone from '../../assets/icon-phone.png';
+import iconMail from '../../assets/icon-mail.png';
+import iconGlobe from '../../assets/icon-globe.png';
 
 export const OfferLetterModal: React.FC = () => {
   const { 
@@ -136,10 +140,15 @@ export const OfferLetterModal: React.FC = () => {
           <div className="flex items-center gap-2">
             {canEdit && (
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (isEditing && formData) {
                     setSelectedOfferLetter(formData);
-                    triggerToast(`✓ Offer letter updated for ${formData.candidateName}`);
+                    try {
+                      await api.generateOfferLetter(undefined, formData);
+                      triggerToast(`✓ Offer letter updated & PDF refreshed for ${formData.candidateName}`);
+                    } catch {
+                      triggerToast(`✓ Offer letter updated for ${formData.candidateName}`);
+                    }
                   }
                   setIsEditing(!isEditing);
                 }}
@@ -287,59 +296,32 @@ export const OfferLetterModal: React.FC = () => {
               <img src={headerOffer} alt="Trade Nexus Header" className="w-full object-cover select-none" />
             </div>
 
-            {/* Center Background Watermark (Matching 1.png) */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0">
-              <img src={watermarkEmblem} alt="Trade Nexus Watermark" className="w-72 h-72 object-contain opacity-[0.06]" />
+            {/* Background Watermark (Bottom Right behind signature matching template) */}
+            <div className="absolute right-6 bottom-20 pointer-events-none select-none z-0">
+              <img src={watermarkEmblem} alt="Trade Nexus Watermark" className="w-56 h-56 object-contain opacity-[0.06]" />
             </div>
 
             {/* Document Body */}
-            <div className="p-4 sm:p-7 space-y-4 sm:space-y-5 flex-1 relative">
-              
-              {/* Background Watermark (Bottom Right) */}
-              <div className="absolute right-4 bottom-12 opacity-5 pointer-events-none select-none">
-                <div className="w-48 h-48 sm:w-64 sm:h-64 rounded-full border-8 border-[#0A2540] flex items-center justify-center">
-                  <TrendingUp className="w-32 h-32 sm:w-40 sm:h-40 text-[#0A2540] stroke-[2]" />
-                </div>
-              </div>
+            <div className="p-4 sm:p-7 space-y-4 sm:space-y-5 flex-1 relative z-10">
 
               {/* Company Info & Issue Date */}
               <div className="flex justify-between items-start gap-2 border-b border-slate-100 pb-3 text-[11px] sm:text-xs">
-                <div className="space-y-1 text-slate-700">
+                <div className="space-y-1.5 text-slate-700">
                   <p className="font-display font-extrabold text-xs sm:text-sm text-[#0A2540]">Trade Nexus</p>
-                  <p className="flex items-center gap-1.5 text-slate-600">
-                    <span 
-                      className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 text-[#00A88B]"
-                      style={{ backgroundColor: '#E6FAF6', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
-                    >
-                      <MapPin className="w-2.5 h-2.5" />
-                    </span>
+                  <p className="flex items-center gap-2 text-slate-600">
+                    <img src={iconPin} alt="Location" className="w-4 h-4 object-contain flex-shrink-0" />
                     <span>123 Business Avenue, Financial District, Your City, 500001</span>
                   </p>
-                  <p className="flex items-center gap-1.5 text-slate-600">
-                    <span 
-                      className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 text-[#00A88B]"
-                      style={{ backgroundColor: '#E6FAF6', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
-                    >
-                      <Phone className="w-2.5 h-2.5" />
-                    </span>
+                  <p className="flex items-center gap-2 text-slate-600">
+                    <img src={iconPhone} alt="Phone" className="w-4 h-4 object-contain flex-shrink-0" />
                     <span>+91 98765 43210</span>
                   </p>
-                  <p className="flex items-center gap-1.5 text-slate-600">
-                    <span 
-                      className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 text-[#00A88B]"
-                      style={{ backgroundColor: '#E6FAF6', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
-                    >
-                      <Mail className="w-2.5 h-2.5" />
-                    </span>
+                  <p className="flex items-center gap-2 text-slate-600">
+                    <img src={iconMail} alt="Email" className="w-4 h-4 object-contain flex-shrink-0" />
                     <span>info@tradenexus.com</span>
                   </p>
-                  <p className="flex items-center gap-1.5 text-slate-600">
-                    <span 
-                      className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 text-[#00A88B]"
-                      style={{ backgroundColor: '#E6FAF6', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
-                    >
-                      <Globe className="w-2.5 h-2.5" />
-                    </span>
+                  <p className="flex items-center gap-2 text-slate-600">
+                    <img src={iconGlobe} alt="Website" className="w-4 h-4 object-contain flex-shrink-0" />
                     <span>www.tradenexus.com</span>
                   </p>
                 </div>

@@ -6,17 +6,23 @@ import {
   Download, 
   Printer, 
   Upload, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  Globe,
-  TrendingUp,
   Edit3,
-  User,
-  Check
+  Check,
+  Building,
+  UserCheck,
+  Mail,
 } from 'lucide-react';
-import signatureVidhyaSagar from '../../assets/signature-vidhya-sagar.png';
-import idCardTopBrand from '../../assets/id-card-top-brand.png';
+import idCardHeader from '../../assets/id-card-header.png';
+import defaultIdAvatar from '../../assets/default-id-avatar.png';
+import idCardFooterDefault from '../../assets/id-card-footer-default.png';
+import idCardFooterClean from '../../assets/id-card-footer-clean.png';
+
+const DEFAULT_COMPANY_ADDRESS = '123 Business Avenue, Financial District, Your City, 500001';
+const DEFAULT_COMPANY_EMAIL = 'info@tradenexus.com';
+const DEFAULT_COMPANY_WEBSITE = 'www.tradenexus.com';
+const DEFAULT_COMPANY_PHONE = '+91 98765 43210';
+const DEFAULT_SIGNATORY_NAME = 'T.Vidhya Sagar';
+const DEFAULT_SIGNATORY_ROLE = 'Chief executive Officer';
 
 export const DigitalIdCardModal: React.FC = () => {
   const { 
@@ -24,10 +30,10 @@ export const DigitalIdCardModal: React.FC = () => {
     setIsIdCardModalOpen, 
     profile, 
     teamMembers, 
-    triggerToast,
-    selectedIdCardEmpId,
-    updateEmployeeAvatar,
-    updateEmployee,
+    triggerToast, 
+    selectedIdCardEmpId, 
+    updateEmployeeAvatar, 
+    updateEmployee, 
     currentRole,
   } = useApp();
 
@@ -42,14 +48,22 @@ export const DigitalIdCardModal: React.FC = () => {
   const [isSendingEmail, setIsSendingEmail] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Editable fields state
+  // Editable employee fields
   const [customName, setCustomName] = useState('');
   const [customRole, setCustomRole] = useState('');
   const [customEmpCode, setCustomEmpCode] = useState('');
   const [customEmpType, setCustomEmpType] = useState('Full - Time');
   const [customBloodGroup, setCustomBloodGroup] = useState('O+ ve');
   const [customDob, setCustomDob] = useState('05/11/1997');
-  const [customPhone, setCustomPhone] = useState('9876543210');
+  const [customPhone, setCustomPhone] = useState('0000XXXX97');
+
+  // Editable company contact & signatory fields
+  const [customCompanyAddress, setCustomCompanyAddress] = useState(DEFAULT_COMPANY_ADDRESS);
+  const [customCompanyEmail, setCustomCompanyEmail] = useState(DEFAULT_COMPANY_EMAIL);
+  const [customCompanyWebsite, setCustomCompanyWebsite] = useState(DEFAULT_COMPANY_WEBSITE);
+  const [customCompanyPhone, setCustomCompanyPhone] = useState(DEFAULT_COMPANY_PHONE);
+  const [customSignatoryName, setCustomSignatoryName] = useState(DEFAULT_SIGNATORY_NAME);
+  const [customSignatoryRole, setCustomSignatoryRole] = useState(DEFAULT_SIGNATORY_ROLE);
 
   useEffect(() => {
     if (selectedIdCardEmpId) {
@@ -60,7 +74,7 @@ export const DigitalIdCardModal: React.FC = () => {
   }, [selectedIdCardEmpId, isIdCardModalOpen, canEditIdCard, teamMembers, selectedEmpId]);
 
   useEffect(() => {
-    if (isEditing) return; // Prevent background polls from wiping user's uncommitted edits
+    if (isEditing) return; // Prevent background updates from overwriting uncommitted edits
     const matched = teamMembers.find(m => m.id === selectedEmpId || m.empCode === selectedEmpId);
     if (matched) {
       setCustomName(matched.name || '');
@@ -69,7 +83,7 @@ export const DigitalIdCardModal: React.FC = () => {
       setCustomEmpType((matched as any).employeeType || (matched as any).empType || 'Full - Time');
       setCustomBloodGroup((matched as any).bloodGroup || 'O+ ve');
       setCustomDob((matched as any).dob || '05/11/1997');
-      setCustomPhone((matched as any).emergencyPhone || matched.phone || '9876543210');
+      setCustomPhone((matched as any).emergencyPhone || matched.phone || '0000XXXX97');
       setCustomPhotoUrl(matched.avatar ? matched.avatar : null);
     } else if (profile) {
       setCustomName(profile.name || 'Employee');
@@ -78,7 +92,7 @@ export const DigitalIdCardModal: React.FC = () => {
       setCustomEmpType('Full - Time');
       setCustomBloodGroup(profile.bloodGroup || 'O+ ve');
       setCustomDob('05/11/1997');
-      setCustomPhone(profile.phone || '9876543210');
+      setCustomPhone(profile.phone || '0000XXXX97');
       setCustomPhotoUrl(profile.avatar || null);
     }
   }, [selectedEmpId, teamMembers, profile, isIdCardModalOpen, isEditing]);
@@ -93,16 +107,20 @@ export const DigitalIdCardModal: React.FC = () => {
       setCustomEmpType((matched as any).employeeType || (matched as any).empType || 'Full - Time');
       setCustomBloodGroup((matched as any).bloodGroup || 'O+ ve');
       setCustomDob((matched as any).dob || '05/11/1997');
-      setCustomPhone((matched as any).emergencyPhone || matched.phone || '9876543210');
+      setCustomPhone((matched as any).emergencyPhone || matched.phone || '0000XXXX97');
       setCustomPhotoUrl(matched.avatar ? matched.avatar : null);
     }
   };
 
   if (!isIdCardModalOpen) return null;
 
-  const initials = customName.trim() 
-    ? customName.trim().split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase() 
-    : 'TN';
+  const isDefaultFooter = 
+    customCompanyAddress.trim() === DEFAULT_COMPANY_ADDRESS &&
+    customCompanyEmail.trim() === DEFAULT_COMPANY_EMAIL &&
+    customCompanyWebsite.trim() === DEFAULT_COMPANY_WEBSITE &&
+    customCompanyPhone.trim() === DEFAULT_COMPANY_PHONE &&
+    customSignatoryName.trim() === DEFAULT_SIGNATORY_NAME &&
+    customSignatoryRole.trim() === DEFAULT_SIGNATORY_ROLE;
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -114,7 +132,7 @@ export const DigitalIdCardModal: React.FC = () => {
         if (selectedEmpId) {
           updateEmployeeAvatar(selectedEmpId, dataUrl);
         }
-        triggerToast(`✓ Photo updated & saved for ${customName}'s ID card`);
+        triggerToast(`✓ Photo updated for ${customName}'s ID card`);
       };
       reader.readAsDataURL(file);
     }
@@ -127,21 +145,29 @@ export const DigitalIdCardModal: React.FC = () => {
     }, 100);
   };
 
+  const cardPayload = {
+    name: customName,
+    role: customRole,
+    empCode: customEmpCode,
+    empType: customEmpType,
+    bloodGroup: customBloodGroup,
+    dob: customDob,
+    phone: customPhone,
+    address: customCompanyAddress,
+    email: customCompanyEmail,
+    website: customCompanyWebsite,
+    companyPhone: customCompanyPhone,
+    signatoryName: customSignatoryName,
+    signatoryRole: customSignatoryRole,
+    avatar: customPhotoUrl || undefined,
+  };
+
   const handleDownload = async () => {
     try {
       triggerToast(`⏳ Generating & downloading official ID Card PDF for ${customName}...`);
       await api.downloadIdCard(
         { id: selectedEmpId, email: profile.email },
-        {
-          name: customName,
-          role: customRole,
-          empCode: customEmpCode,
-          bloodGroup: customBloodGroup,
-          dob: customDob,
-          phone: customPhone,
-          empType: customEmpType,
-          avatar: customPhotoUrl || undefined,
-        }
+        cardPayload
       );
       triggerToast(`✓ Official Digital ID Card PDF downloaded successfully!`);
     } catch (err: any) {
@@ -175,7 +201,7 @@ export const DigitalIdCardModal: React.FC = () => {
       }
       const res = await api.sendIdCardEmail(
         { id: selectedEmpId, email: targetEmail, name: customName, empCode: customEmpCode, role: customRole, phone: customPhone, bloodGroup: customBloodGroup, dob: customDob, avatar: customPhotoUrl || undefined },
-        { name: customName, role: customRole, empCode: customEmpCode, bloodGroup: customBloodGroup, dob: customDob, phone: customPhone, email: targetEmail, avatar: customPhotoUrl || undefined }
+        { ...cardPayload, email: targetEmail }
       );
       if (res.success) {
         triggerToast(`✓ Official ID Card PDF successfully dispatched to ${targetEmail}!`);
@@ -189,34 +215,35 @@ export const DigitalIdCardModal: React.FC = () => {
     }
   };
 
-  const handleToggleEdit = async () => {
-    if (isEditing && selectedEmpId) {
-      setIsSaving(true);
-      try {
-        await updateEmployee(selectedEmpId, {
-          name: customName,
-          role: customRole,
-          empCode: customEmpCode,
-          bloodGroup: customBloodGroup,
-          phone: customPhone,
-          emergencyPhone: customPhone,
-          dob: customDob,
-          employeeType: customEmpType,
-          empType: customEmpType,
-          avatar: customPhotoUrl || undefined,
-        } as any);
-        triggerToast(`✓ Saved ID card details for ${customName}`);
-        setIsEditing(false);
-      } catch (err: any) {
-        console.warn('Failed to save ID card edits:', err);
-        triggerToast(`⚠️ Failed to save: ${err.message || 'Server error'}`);
-        // Keep isEditing true so user doesn't lose their input
-      } finally {
-        setIsSaving(false);
-      }
-      return;
+  const handleSaveAndGenerate = async () => {
+    if (!selectedEmpId) return;
+    setIsSaving(true);
+    try {
+      // 1. Update SQLite employee profile and AppContext state
+      await updateEmployee(selectedEmpId, {
+        name: customName,
+        role: customRole,
+        empCode: customEmpCode,
+        bloodGroup: customBloodGroup,
+        phone: customPhone,
+        emergencyPhone: customPhone,
+        dob: customDob,
+        employeeType: customEmpType,
+        empType: customEmpType,
+        avatar: customPhotoUrl || undefined,
+      } as any);
+
+      // 2. Generate canonical PDF and store into employee_documents table
+      await api.generateIdCard(selectedEmpId, cardPayload);
+
+      triggerToast(`✓ Official ID Card generated & saved to Employee Documents!`);
+      setIsEditing(false);
+    } catch (err: any) {
+      console.warn('Failed to save & generate ID card:', err);
+      triggerToast(`⚠️ Failed to save: ${err.message || 'Server error'}`);
+    } finally {
+      setIsSaving(false);
     }
-    setIsEditing(!isEditing);
   };
 
   return (
@@ -224,16 +251,16 @@ export const DigitalIdCardModal: React.FC = () => {
       <div className="bg-white rounded-none sm:rounded-3xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col max-h-[96vh] printable-modal-dialog print:max-w-none print:rounded-none print:border-none print:shadow-none print:max-h-none">
         
         {/* Top Header */}
-        <div className="bg-[#06152B] px-5 py-3.5 text-white flex items-center justify-between border-b border-slate-800 print:hidden flex-shrink-0">
+        <div className="bg-[#010D35] px-5 py-3.5 text-white flex items-center justify-between border-b border-slate-800 print:hidden flex-shrink-0">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#00C9A7] animate-pulse" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#00C2CB] animate-pulse" />
             <h3 className="font-display font-bold text-sm text-white">Official Identity Card Studio</h3>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={handleDownload}
-              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#00A88B] to-[#00C9A7] text-[#0A2540] text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs hover:brightness-105 cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#00A88B] to-[#00C2CB] text-[#010D35] text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs hover:brightness-105 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Download PDF</span>
@@ -241,28 +268,36 @@ export const DigitalIdCardModal: React.FC = () => {
 
             {canEditIdCard && (
               <button
-                onClick={handleToggleEdit}
+                onClick={() => {
+                  if (isEditing) {
+                    handleSaveAndGenerate();
+                  } else {
+                    setIsEditing(true);
+                  }
+                }}
                 disabled={isSaving}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   isSaving 
                     ? 'bg-amber-400 text-slate-900 opacity-90' 
                     : isEditing 
-                    ? 'bg-[#00C9A7] text-[#0A2540] hover:bg-[#00b093]' 
+                    ? 'bg-[#00C2CB] text-[#010D35] hover:bg-[#00b093]' 
                     : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
                 }`}
               >
                 {isSaving ? (
                   <div className="w-3.5 h-3.5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+                ) : isEditing ? (
+                  <Check className="w-3.5 h-3.5" />
                 ) : (
                   <Edit3 className="w-3.5 h-3.5" />
                 )}
-                <span>{isSaving ? 'Saving...' : isEditing ? 'Save & Done' : 'Edit'}</span>
+                <span>{isSaving ? 'Generating...' : isEditing ? 'Save & Generate' : 'Edit Fields'}</span>
               </button>
             )}
 
             <button 
               onClick={() => setIsIdCardModalOpen(false)}
-              className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+              className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -278,7 +313,7 @@ export const DigitalIdCardModal: React.FC = () => {
                 <select
                   value={selectedEmpId}
                   onChange={(e) => handleSelectEmployee(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 font-bold text-[#0A2540] text-xs focus:outline-none focus:border-[#00C9A7] truncate cursor-pointer"
+                  className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 font-bold text-[#0A2540] text-xs focus:outline-none focus:border-[#00C2CB] truncate cursor-pointer"
                 >
                   {teamMembers.map(m => (
                     <option key={m.id} value={m.id}>{m.name} ({m.empCode} • {m.role})</option>
@@ -301,7 +336,7 @@ export const DigitalIdCardModal: React.FC = () => {
           {canEditIdCard && (
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="px-3 py-1.5 rounded-xl bg-white border border-slate-300 hover:border-[#00C9A7] text-slate-700 font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-all flex-shrink-0 cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-white border border-slate-300 hover:border-[#00C2CB] text-slate-700 font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-all flex-shrink-0 cursor-pointer"
             >
               <Upload className="w-3.5 h-3.5 text-[#00A88B]" />
               <span>Upload Photo</span>
@@ -309,71 +344,154 @@ export const DigitalIdCardModal: React.FC = () => {
           )}
         </div>
 
-        {/* Edit fields collapsible drawer */}
+        {/* Comprehensive Edit Fields Collapsible Drawer */}
         {isEditing && (
-          <div className="p-3.5 bg-slate-100 border-b border-slate-200 text-xs grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-48 overflow-y-auto print:hidden">
+          <div className="p-3.5 bg-slate-100 border-b border-slate-200 text-xs space-y-3 max-h-56 overflow-y-auto print:hidden">
+            {/* Section 1: Employee Credentials */}
             <div>
-              <label className="text-[10px] font-bold text-slate-500 block">Name</label>
-              <input 
-                type="text" 
-                value={customName} 
-                onChange={(e) => setCustomName(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-800"
-              />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                Employee Information
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 block">Name</label>
+                  <input 
+                    type="text" 
+                    value={customName} 
+                    onChange={(e) => setCustomName(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-800 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 block">Designation</label>
+                  <input 
+                    type="text" 
+                    value={customRole} 
+                    onChange={(e) => setCustomRole(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-800 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 block">Emp. ID</label>
+                  <input 
+                    type="text" 
+                    value={customEmpCode} 
+                    onChange={(e) => setCustomEmpCode(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-mono font-bold text-slate-800 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 block">Emp. Type</label>
+                  <input 
+                    type="text" 
+                    value={customEmpType} 
+                    onChange={(e) => setCustomEmpType(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-800 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 block">Blood Group</label>
+                  <input 
+                    type="text" 
+                    value={customBloodGroup} 
+                    onChange={(e) => setCustomBloodGroup(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-800 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 block">D.O.B.</label>
+                  <input 
+                    type="text" 
+                    value={customDob} 
+                    onChange={(e) => setCustomDob(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-mono font-bold text-slate-800 text-xs"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-slate-600 block">Cell</label>
+                  <input 
+                    type="text" 
+                    value={customPhone} 
+                    onChange={(e) => setCustomPhone(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-mono font-bold text-slate-800 text-xs"
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 block">Designation</label>
-              <input 
-                type="text" 
-                value={customRole} 
-                onChange={(e) => setCustomRole(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-800"
-              />
+
+            {/* Section 2: Company Contact & Signatory Customization */}
+            <div className="pt-2 border-t border-slate-200">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                Company & Signatory Customization (Optional)
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="col-span-2 sm:col-span-3">
+                  <label className="text-[10px] font-bold text-slate-600 block">Corporate Address</label>
+                  <input 
+                    type="text" 
+                    value={customCompanyAddress} 
+                    onChange={(e) => setCustomCompanyAddress(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 text-slate-800 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 block">Company Email</label>
+                  <input 
+                    type="text" 
+                    value={customCompanyEmail} 
+                    onChange={(e) => setCustomCompanyEmail(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 text-slate-800 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 block">Website</label>
+                  <input 
+                    type="text" 
+                    value={customCompanyWebsite} 
+                    onChange={(e) => setCustomCompanyWebsite(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 text-slate-800 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 block">Phone</label>
+                  <input 
+                    type="text" 
+                    value={customCompanyPhone} 
+                    onChange={(e) => setCustomCompanyPhone(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 text-slate-800 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 block">Signatory Name</label>
+                  <input 
+                    type="text" 
+                    value={customSignatoryName} 
+                    onChange={(e) => setCustomSignatoryName(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-800 text-xs"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-slate-600 block">Signatory Role</label>
+                  <input 
+                    type="text" 
+                    value={customSignatoryRole} 
+                    onChange={(e) => setCustomSignatoryRole(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 text-slate-800 text-xs"
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 block">Emp. ID</label>
-              <input 
-                type="text" 
-                value={customEmpCode} 
-                onChange={(e) => setCustomEmpCode(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-mono font-bold text-slate-800"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 block">Emp. Type</label>
-              <input 
-                type="text" 
-                value={customEmpType} 
-                onChange={(e) => setCustomEmpType(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-800"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 block">Blood Group</label>
-              <input 
-                type="text" 
-                value={customBloodGroup} 
-                onChange={(e) => setCustomBloodGroup(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-800"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 block">D.O.B.</label>
-              <input 
-                type="text" 
-                value={customDob} 
-                onChange={(e) => setCustomDob(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-mono font-bold text-slate-800"
-              />
-            </div>
-            <div className="col-span-2">
-              <label className="text-[10px] font-bold text-slate-500 block">Phone / Mobile</label>
-              <input 
-                type="text" 
-                value={customPhone} 
-                onChange={(e) => setCustomPhone(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-mono font-bold text-slate-800"
-              />
+
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={handleSaveAndGenerate}
+                disabled={isSaving}
+                className="px-4 py-1.5 rounded-xl bg-[#00C2CB] hover:bg-[#00b093] text-[#010D35] font-black text-xs shadow-xs cursor-pointer flex items-center gap-1.5"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{isSaving ? 'Generating & Storing PDF...' : 'Save & Generate ID Card'}</span>
+              </button>
             </div>
           </div>
         )}
@@ -381,62 +499,53 @@ export const DigitalIdCardModal: React.FC = () => {
         {/* Vertical Printable ID Card (Exact Template matching tradenexus-id.png) */}
         <div id="digital-id-card-print-container" className="p-4 sm:p-6 overflow-y-auto bg-slate-100/60 flex flex-col justify-center items-center flex-1 printable-scroll-container print:p-0 print:bg-white">
           
-          {/* Print-Only Official A4 Document Header */}
-          <div className="hidden print:flex flex-col items-center justify-center text-center pb-8 pt-4">
-            <h1 className="font-display font-black text-xl text-[#0A2540] tracking-widest uppercase">TRADE NEXUS</h1>
+          {/* Print-Only Official Document Header */}
+          <div className="hidden print:flex flex-col items-center justify-center text-center pb-6 pt-2">
+            <h1 className="font-display font-black text-xl text-[#010D35] tracking-widest uppercase">TRADE NEXUS</h1>
             <p className="text-[11px] font-bold text-[#00A88B] tracking-wider mt-0.5 uppercase">Official Employee Identity Card</p>
-            <p className="text-[9px] text-slate-400 mt-1">Authorized personnel badge · Please cut along the outer card boundaries for laminated badge ID</p>
+            <p className="text-[9px] text-slate-400 mt-1">Authorized personnel badge · Dimensions: 591 × 1004 canonical</p>
           </div>
 
           <div 
             id="digital-id-card-sheet"
-            className="w-[340px] text-white rounded-[32px] overflow-hidden shadow-xl print:shadow-none relative flex flex-col justify-between print:border print:border-slate-300 print:my-0 flex-shrink-0"
+            className="w-[330px] sm:w-[340px] text-white rounded-[28px] overflow-hidden shadow-2xl print:shadow-none relative flex flex-col justify-between print:border print:border-slate-300 print:my-0 flex-shrink-0"
             style={{ 
-              backgroundColor: '#051326',
-              minHeight: '580px',
+              backgroundColor: '#010D35',
+              aspectRatio: '591 / 1004',
               WebkitPrintColorAdjust: 'exact',
               printColorAdjust: 'exact'
             }}
           >
             
-            {/* Top Brand Header matching tradenexus-id.png */}
-            <div className="w-full relative z-10 overflow-hidden flex justify-center">
-              <img src={idCardTopBrand} alt="Trade Nexus" className="w-full object-cover select-none" />
+            {/* Top Brand Header with Lanyard Slot matching tradenexus-id.png */}
+            <div className="w-full relative z-10 overflow-hidden flex justify-center select-none">
+              <img src={idCardHeader} alt="Trade Nexus" className="w-full object-cover select-none pointer-events-none" />
             </div>
 
-            {/* Circular Photo with Concentric Cyan Glowing Ring */}
-            <div className="flex justify-center my-2.5 relative z-10">
+            {/* Circular Photo with Concentric Glowing Cyan Ring */}
+            <div className="flex justify-center -mt-2 mb-1 relative z-10">
               <div 
                 onClick={() => canEditIdCard && fileInputRef.current?.click()}
                 title={canEditIdCard ? "Click to change or upload employee photo" : customName}
-                className={`w-28 h-28 rounded-full p-1 shadow-2xl flex items-center justify-center relative ${canEditIdCard ? 'cursor-pointer group' : 'cursor-default'}`}
+                className={`w-28 h-28 rounded-full p-[3px] shadow-2xl flex items-center justify-center relative ${canEditIdCard ? 'cursor-pointer group' : 'cursor-default'}`}
                 style={{ 
-                  background: 'linear-gradient(135deg, #00C9A7 0%, #2CD5B5 50%, #0A2540 100%)',
-                  boxShadow: '0 8px 24px rgba(0, 201, 167, 0.35)'
+                  background: 'linear-gradient(135deg, #00C2CB 0%, #00E5FF 50%, #010D35 100%)',
+                  boxShadow: '0 8px 24px rgba(0, 194, 203, 0.4)'
                 }}
               >
                 <div 
-                  className="w-full h-full rounded-full overflow-hidden flex items-center justify-center relative"
-                  style={{ backgroundColor: '#0A2540', border: '3px solid #051326' }}
+                  className="w-full h-full rounded-full overflow-hidden flex items-center justify-center relative bg-[#010D35]"
                 >
-                  {customPhotoUrl ? (
-                    <img src={customPhotoUrl} alt={customName} className="w-full h-full object-cover" />
-                  ) : (
-                    <div 
-                      className="w-full h-full flex items-center justify-center font-display font-black text-3xl"
-                      style={{ 
-                        background: 'linear-gradient(180deg, #133353 0%, #06152B 100%)',
-                        color: '#00C9A7'
-                      }}
-                    >
-                      {initials}
-                    </div>
-                  )}
+                  <img 
+                    src={customPhotoUrl || defaultIdAvatar} 
+                    alt={customName} 
+                    className="w-full h-full object-cover" 
+                  />
 
                   {/* Hover Upload Overlay — Admin/HR only */}
                   {canEditIdCard && (
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[9px] font-bold">
-                      <Upload className="w-4 h-4 text-[#00C9A7] mb-0.5" />
+                      <Upload className="w-4 h-4 text-[#00C2CB] mb-0.5" />
                       <span>Change</span>
                     </div>
                   )}
@@ -445,148 +554,103 @@ export const DigitalIdCardModal: React.FC = () => {
             </div>
 
             {/* Employee Name & Designation */}
-            <div className="text-center px-4 space-y-1 relative z-10">
-              <h3 className="font-display font-black text-lg text-white tracking-widest uppercase">
+            <div className="text-center px-4 space-y-0.5 relative z-10">
+              <h3 className="font-display font-black text-lg text-white tracking-wider uppercase leading-tight">
                 {customName || 'NAME'}
               </h3>
               <p 
-                className="text-[11px] font-extrabold tracking-[0.2em] uppercase"
-                style={{ color: '#00C9A7' }}
+                className="text-[11px] font-extrabold tracking-[0.18em] uppercase"
+                style={{ color: '#00C2CB' }}
               >
                 {customRole || 'DESIGNATION'}
               </p>
               <div 
-                className="w-10 h-0.5 mx-auto rounded-full mt-1"
-                style={{ backgroundColor: '#00C9A7' }}
+                className="w-10 h-0.5 mx-auto rounded-full mt-1.5"
+                style={{ backgroundColor: '#00C2CB' }}
               />
             </div>
 
-            {/* Clean Key Details Matrix */}
-            <div className="px-8 py-2 text-xs font-semibold space-y-1.5 text-slate-200 relative z-10">
+            {/* Clean Key Details Matrix (Exact tradenexus-id.png) */}
+            <div className="px-9 py-1 text-xs font-semibold space-y-1 text-slate-200 relative z-10">
               <div className="grid grid-cols-12 gap-1 items-center">
-                <span className="col-span-5 text-slate-300 font-bold">Emp. ID</span>
-                <span className="col-span-1 text-slate-400 font-bold">:</span>
-                <span className="col-span-6 font-mono font-bold text-white text-sm">{customEmpCode || '001'}</span>
+                <span className="col-span-5 text-slate-300 font-medium text-[11px]">Emp. ID</span>
+                <span className="col-span-1 text-white font-bold text-center">:</span>
+                <span className="col-span-6 font-mono font-bold text-white text-xs">{customEmpCode || '001'}</span>
               </div>
               <div className="grid grid-cols-12 gap-1 items-center">
-                <span className="col-span-5 text-slate-300 font-bold">Emp. Type</span>
-                <span className="col-span-1 text-slate-400 font-bold">:</span>
-                <span className="col-span-6 font-bold text-white">{customEmpType || 'Full - Time'}</span>
+                <span className="col-span-5 text-slate-300 font-medium text-[11px]">Emp. Type</span>
+                <span className="col-span-1 text-white font-bold text-center">:</span>
+                <span className="col-span-6 font-bold text-white text-xs">{customEmpType || 'Full - Time'}</span>
               </div>
               <div className="grid grid-cols-12 gap-1 items-center">
-                <span className="col-span-5 text-slate-300 font-bold">Blood Group</span>
-                <span className="col-span-1 text-slate-400 font-bold">:</span>
-                <span className="col-span-6 font-bold text-white">{customBloodGroup || 'O+ ve'}</span>
+                <span className="col-span-5 text-slate-300 font-medium text-[11px]">Blood Group</span>
+                <span className="col-span-1 text-white font-bold text-center">:</span>
+                <span className="col-span-6 font-bold text-white text-xs">{customBloodGroup || 'O+ ve'}</span>
               </div>
               <div className="grid grid-cols-12 gap-1 items-center">
-                <span className="col-span-5 text-slate-300 font-bold">D.O.B.</span>
-                <span className="col-span-1 text-slate-400 font-bold">:</span>
-                <span className="col-span-6 font-mono font-bold text-white">{customDob || '05/11/1997'}</span>
+                <span className="col-span-5 text-slate-300 font-medium text-[11px]">D.O.B.</span>
+                <span className="col-span-1 text-white font-bold text-center">:</span>
+                <span className="col-span-6 font-mono font-bold text-white text-xs">{customDob || '05/11/1997'}</span>
               </div>
               <div className="grid grid-cols-12 gap-1 items-center">
-                <span className="col-span-5 text-slate-300 font-bold">Cell</span>
-                <span className="col-span-1 text-slate-400 font-bold">:</span>
-                <span className="col-span-6 font-mono font-bold text-white truncate">
-                  {customPhone || '9876543210'}
+                <span className="col-span-5 text-slate-300 font-medium text-[11px]">Cell</span>
+                <span className="col-span-1 text-white font-bold text-center">:</span>
+                <span className="col-span-6 font-mono font-bold text-white text-xs truncate">
+                  {customPhone || '0000XXXX97'}
                 </span>
               </div>
             </div>
 
             {/* Bottom Curved Wave Container with Corporate Info & Signature (Exact tradenexus-id.png) */}
-            <div 
-              className="relative bg-white text-[#0A2540] px-5 pt-5 pb-4 mt-2 border-t-4 shadow-xl"
-              style={{ 
-                borderTopColor: '#00C9A7',
-                borderTopLeftRadius: '36px',
-                borderTopRightRadius: '36px',
-                WebkitPrintColorAdjust: 'exact',
-                printColorAdjust: 'exact'
-              }}
-            >
-              
-
-
-              <div className="flex items-end justify-between relative z-10 gap-2">
-                
-                {/* Left Contact Details with Circular Dark Icons */}
-                <div className="space-y-1.5 text-[8.5px] font-bold text-slate-700 max-w-[170px]">
-                  <div className="flex items-center gap-1.5">
-                    <div 
-                      className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: '#051326', color: '#00C9A7' }}
-                    >
-                      <MapPin className="w-2.5 h-2.5" />
-                    </div>
-                    <span className="leading-tight">123 Business Avenue, Financial District, 500001</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <div 
-                      className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: '#051326', color: '#00C9A7' }}
-                    >
-                      <Mail className="w-2.5 h-2.5" />
-                    </div>
-                    <span className="truncate">info@tradenexus.com</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <div 
-                      className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: '#051326', color: '#00C9A7' }}
-                    >
-                      <Globe className="w-2.5 h-2.5" />
-                    </div>
-                    <span className="truncate">www.tradenexus.com</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <div 
-                      className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: '#051326', color: '#00C9A7' }}
-                    >
-                      <Phone className="w-2.5 h-2.5" />
-                    </div>
-                    <span className="truncate">+91 98765 43210</span>
-                  </div>
-                </div>
-
-                {/* Right Signature Block matching tradenexus-id.png */}
-                <div className="text-right flex-shrink-0 space-y-0.5 pr-1">
-                  <div className="py-0.5 flex justify-end">
-                    <img 
-                      src={signatureVidhyaSagar} 
-                      alt="T. Vidhya Sagar" 
-                      className="h-6 w-auto object-contain select-none"
-                    />
-                  </div>
-                  <p className="font-bold text-[9px] text-[#0A2540] leading-none">
-                    T.Vidhya Sagar
-                  </p>
-                  <p className="text-[7.5px] text-slate-500 font-semibold leading-tight">
-                    Chief executive Officer
-                  </p>
-                </div>
-
+            {isDefaultFooter ? (
+              <div className="w-full relative z-10 mt-1 select-none pointer-events-none">
+                <img src={idCardFooterDefault} alt="Trade Nexus Footer" className="w-full object-cover" />
               </div>
+            ) : (
+              <div className="w-full relative z-10 mt-1 select-none overflow-hidden">
+                <img src={idCardFooterClean} alt="Trade Nexus Footer" className="w-full object-cover" />
+                
+                {/* Overlaid dynamic contact details matching exact icon positions */}
+                <div className="absolute left-[17%] top-[27.7%] right-[38%] text-[7.5px] font-bold text-[#041026] leading-tight line-clamp-2">
+                  {customCompanyAddress}
+                </div>
+                <div className="absolute left-[17%] top-[46.2%] right-[38%] text-[8px] font-bold text-[#041026] truncate">
+                  {customCompanyEmail}
+                </div>
+                <div className="absolute left-[17%] top-[60.4%] right-[38%] text-[8px] font-bold text-[#041026] truncate">
+                  {customCompanyWebsite}
+                </div>
+                <div className="absolute left-[17%] top-[74.6%] right-[38%] text-[8px] font-bold text-[#041026] truncate">
+                  {customCompanyPhone}
+                </div>
 
-            </div>
+                {/* Overlaid dynamic signatory */}
+                <div className="absolute right-[5%] bottom-[16%] w-[33%] text-center">
+                  <div className="font-bold text-[8.5px] text-[#041026] leading-tight truncate">
+                    {customSignatoryName}
+                  </div>
+                  <div className="text-[7.5px] text-[#041026] leading-tight truncate">
+                    {customSignatoryRole}
+                  </div>
+                </div>
+              </div>
+            )}
 
           </div>
 
-          {/* Print-Only Official Footer */}
-          <div className="hidden print:block text-center pt-8 text-[10px] text-slate-400 tracking-wide">
-            Trade Nexus Corporate HQ · 123 Business Avenue, Financial District · Verification: www.tradenexus.com
+          {/* Print-Only Official Verification Notice */}
+          <div className="hidden print:block text-center pt-6 text-[10px] text-slate-400 tracking-wide">
+            Trade Nexus Corporate HQ · {customCompanyAddress} · Verification: {customCompanyWebsite}
           </div>
 
         </div>
 
-        {/* Modal Footer */}
+        {/* Modal Footer Controls */}
         <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2 print:hidden flex-shrink-0">
           <button
             type="button"
             onClick={() => setIsIdCardModalOpen(false)}
-            className="px-3.5 py-2 rounded-xl border border-slate-300 font-bold text-slate-600 hover:bg-slate-100 text-xs"
+            className="px-3.5 py-2 rounded-xl border border-slate-300 font-bold text-slate-600 hover:bg-slate-100 text-xs cursor-pointer"
           >
             Close
           </button>
@@ -596,7 +660,7 @@ export const DigitalIdCardModal: React.FC = () => {
               type="button"
               disabled={isSendingEmail}
               onClick={handleSendEmail}
-              className="px-3.5 py-2 rounded-xl border border-[#00C9A7]/40 bg-[#E6FAF6] hover:bg-[#D0F7F0] font-bold text-[#00897B] text-xs flex items-center gap-1.5 transition-all shadow-2xs disabled:opacity-50"
+              className="px-3.5 py-2 rounded-xl border border-[#00C2CB]/40 bg-[#E6FAF6] hover:bg-[#D0F7F0] font-bold text-[#00897B] text-xs flex items-center gap-1.5 transition-all shadow-2xs disabled:opacity-50 cursor-pointer"
             >
               <Mail className="w-3.5 h-3.5 text-[#00A88B]" />
               <span>{isSendingEmail ? 'Sending...' : 'Email PDF'}</span>
@@ -605,7 +669,7 @@ export const DigitalIdCardModal: React.FC = () => {
             <button
               type="button"
               onClick={handlePrint}
-              className="px-3.5 py-2 rounded-xl border border-slate-300 font-bold text-slate-700 hover:bg-slate-100 text-xs flex items-center gap-1.5 shadow-2xs"
+              className="px-3.5 py-2 rounded-xl border border-slate-300 font-bold text-slate-700 hover:bg-slate-100 text-xs flex items-center gap-1.5 shadow-2xs cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Print</span>
@@ -614,7 +678,7 @@ export const DigitalIdCardModal: React.FC = () => {
             <button
               type="button"
               onClick={handleDownload}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#00A88B] to-[#00C9A7] text-[#0A2540] font-black text-xs shadow-sm hover:brightness-105 flex items-center gap-1.5"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#00A88B] to-[#00C2CB] text-[#010D35] font-black text-xs shadow-sm hover:brightness-105 flex items-center gap-1.5 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Download PDF</span>

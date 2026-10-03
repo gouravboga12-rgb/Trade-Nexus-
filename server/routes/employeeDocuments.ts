@@ -93,6 +93,55 @@ router.post('/send-onboarding-email', async (req: Request, res: Response) => {
     }
     const { sendEmployeeOnboardingEmail } = await import('../services/emailService.js');
     const result = await sendEmployeeOnboardingEmail(employee, offerLetter);
+
+    // Save Offer Letter to employee_documents if employee ID exists
+    try {
+      const emp = db.prepare('SELECT id FROM team_members WHERE id = ? OR email = ? LIMIT 1').get(employee.id || '', employee.email) as any;
+      const targetEmpId = emp?.id || employee.id;
+      if (targetEmpId) {
+        const { generateOfferLetterPdf } = await import('../services/pdfGenerator.js');
+        const offerPayload = {
+          candidateName: employee.name,
+          candidateEmail: employee.email,
+          candidatePhone: employee.phone,
+          candidateAddress: employee.address || offerLetter?.candidateAddress,
+          roleTitle: employee.roleTitle || employee.role || offerLetter?.roleTitle,
+          annualCtc: offerLetter?.annualCtc,
+          monthlyGross: offerLetter?.monthlyGross,
+          joiningDate: offerLetter?.joiningDate || employee.joiningDate,
+          reportingManager: offerLetter?.reportingManager,
+          acceptanceDeadline: offerLetter?.acceptanceDeadline,
+          signatoryName: offerLetter?.signatoryName,
+          signatoryRole: offerLetter?.signatoryRole,
+          issuedDate: offerLetter?.issuedDate,
+        };
+        const pdfBuf = await generateOfferLetterPdf(offerPayload);
+        const base64Data = `data:application/pdf;base64,${pdfBuf.toString('base64')}`;
+        const safeName = (employee.name || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const fileName = `Official_Offer_Letter_${safeName}.pdf`;
+
+        const existingDoc = db.prepare(`
+          SELECT id FROM employee_documents WHERE employeeId = ? AND category = 'Offer Letter' LIMIT 1
+        `).get(targetEmpId) as any;
+
+        if (existingDoc) {
+          db.prepare(`
+            UPDATE employee_documents 
+            SET title = 'Official Job Offer Letter', fileName = ?, sizeBytes = ?, content = ?, uploadedAt = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `).run(fileName, pdfBuf.length, base64Data, existingDoc.id);
+        } else {
+          db.prepare(`
+            INSERT INTO employee_documents
+              (id, employeeId, title, category, fileName, mimeType, sizeBytes, content, uploadedBy)
+            VALUES (?, ?, 'Official Job Offer Letter', 'Offer Letter', ?, 'application/pdf', ?, ?, 'HR System')
+          `).run(`doc-offer-${Date.now()}`, targetEmpId, fileName, pdfBuf.length, base64Data);
+        }
+      }
+    } catch (saveErr) {
+      console.warn('[Save Offer Doc Warning]', saveErr);
+    }
+
     return res.status(200).json(result);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -129,6 +178,73 @@ router.post('/send-experience-email', async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/employee-documents/generate/id-card
+router.post('/generate/id-card', async (req: Request, res: Response) => {
+  try {
+    const { employeeId, cardData, uploadedBy } = req.body;
+    if (!employeeId) {
+      return res.status(400).json({ error: 'employeeId is required' });
+    }
+
+    // Lookup employee from team_members
+    const emp = db.prepare('SELECT * FROM team_members WHERE id = ? OR empCode = ? LIMIT 1').get(employeeId, employeeId) as any || {};
+    const actualEmpId = emp.id || employeeId;
+
+    const payload = cardData || {};
+    const { generateIdCardPdf } = await import('../services/pdfGenerator.js');
+    const pdfBuf = await generateIdCardPdf(emp, payload);
+    const base64Data = `data:application/pdf;base64,${pdfBuf.toString('base64')}`;
+
+    const safeName = (payload.name || emp.name || 'Staff').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileName = `Official_ID_Card_${safeName}.pdf`;
+
+    // Check if ID Card already exists in employee_documents
+    const existingDoc = db.prepare(`
+      SELECT id FROM employee_documents 
+      WHERE employeeId = ? AND category = 'ID Card'
+      LIMIT 1
+    `).get(actualEmpId) as any;
+
+    let docId = existingDoc?.id;
+    if (existingDoc) {
+      db.prepare(`
+        UPDATE employee_documents 
+        SET title = 'Official Digital ID Card', fileName = ?, sizeBytes = ?, content = ?, uploadedBy = ?, uploadedAt = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(fileName, pdfBuf.length, base64Data, uploadedBy || 'HR Admin', existingDoc.id);
+    } else {
+      docId = `doc-idcard-${Date.now()}`;
+      db.prepare(`
+        INSERT INTO employee_documents
+          (id, employeeId, title, category, fileName, mimeType, sizeBytes, content, uploadedBy)
+        VALUES (?, ?, 'Official Digital ID Card', 'ID Card', ?, 'application/pdf', ?, ?, ?)
+      `).run(docId, actualEmpId, fileName, pdfBuf.length, base64Data, uploadedBy || 'HR Admin');
+    }
+
+    // Update team_members record with updated fields if provided
+    if (payload.avatar && payload.avatar !== emp.avatar) {
+      try {
+        db.prepare('UPDATE team_members SET avatar = ? WHERE id = ?').run(payload.avatar, actualEmpId);
+        db.prepare('UPDATE employee_profiles SET updatedAt = CURRENT_TIMESTAMP WHERE id = ? OR empCode = ?').run(actualEmpId, emp.empCode || '');
+      } catch (uErr) {
+        console.warn('[Sync Avatar Warning]', uErr);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      documentId: docId,
+      fileName,
+      sizeBytes: pdfBuf.length,
+      content: base64Data,
+      message: 'Official ID Card generated and saved successfully.',
+    });
+  } catch (error) {
+    console.error('[Generate ID Card Error]', error);
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 // POST /api/employee-documents/send-id-card-email
 router.post('/send-id-card-email', async (req: Request, res: Response) => {
   try {
@@ -137,10 +253,154 @@ router.post('/send-id-card-email', async (req: Request, res: Response) => {
     if (!targetEmail) {
       return res.status(400).json({ error: 'Employee email address is required' });
     }
+
+    // Generate canonical PDF
+    const { generateIdCardPdf } = await import('../services/pdfGenerator.js');
+    const pdfBuf = await generateIdCardPdf(employee || {}, cardData);
+    const base64Data = `data:application/pdf;base64,${pdfBuf.toString('base64')}`;
+
+    // Ensure it is saved to employee_documents table
+    const empId = employee?.id || cardData?.employeeId || cardData?.empCode;
+    if (empId) {
+      const existingDoc = db.prepare(`
+        SELECT id FROM employee_documents WHERE employeeId = ? AND category = 'ID Card' LIMIT 1
+      `).get(empId) as any;
+
+      const safeName = (cardData?.name || employee?.name || 'Staff').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const fileName = `Official_ID_Card_${safeName}.pdf`;
+
+      if (existingDoc) {
+        db.prepare(`
+          UPDATE employee_documents 
+          SET title = 'Official Digital ID Card', fileName = ?, sizeBytes = ?, content = ?, uploadedAt = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).run(fileName, pdfBuf.length, base64Data, existingDoc.id);
+      } else {
+        const docId = `doc-idcard-${Date.now()}`;
+        db.prepare(`
+          INSERT INTO employee_documents
+            (id, employeeId, title, category, fileName, mimeType, sizeBytes, content, uploadedBy)
+          VALUES (?, ?, 'Official Digital ID Card', 'ID Card', ?, 'application/pdf', ?, ?, 'HR System')
+        `).run(docId, empId, fileName, pdfBuf.length, base64Data);
+      }
+    }
+
     const { sendEmployeeIdCardEmail } = await import('../services/emailService.js');
     const result = await sendEmployeeIdCardEmail(employee || {}, cardData);
     return res.status(200).json(result);
   } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// POST /api/employee-documents/generate/offer-letter
+router.post('/generate/offer-letter', async (req: Request, res: Response) => {
+  try {
+    const { employeeId, offerLetter, uploadedBy } = req.body;
+
+    // Lookup employee from team_members if employeeId or candidate email is provided
+    let emp: any = null;
+    if (employeeId) {
+      emp = db.prepare('SELECT * FROM team_members WHERE id = ? OR empCode = ? LIMIT 1').get(employeeId, employeeId);
+    }
+    if (!emp && offerLetter?.candidateEmail) {
+      emp = db.prepare('SELECT * FROM team_members WHERE email = ? LIMIT 1').get(offerLetter.candidateEmail);
+    }
+    if (!emp && offerLetter?.candidateName) {
+      emp = db.prepare('SELECT * FROM team_members WHERE name = ? LIMIT 1').get(offerLetter.candidateName);
+    }
+
+    const actualEmpId = emp?.id || employeeId || `cand-${Date.now()}`;
+    const payload = {
+      candidateName: offerLetter?.candidateName || emp?.name || 'Candidate',
+      candidateEmail: offerLetter?.candidateEmail || emp?.email || '',
+      candidatePhone: offerLetter?.candidatePhone || emp?.phone || '+91 98765 43210',
+      candidateAddress: offerLetter?.candidateAddress || emp?.address || '123 Anywhere St., Any City, ST 12345',
+      roleTitle: offerLetter?.roleTitle || emp?.role || 'Marketing Coordinator',
+      department: offerLetter?.department || emp?.department || 'Operations',
+      annualCtc: offerLetter?.annualCtc ? Number(offerLetter.annualCtc) : (offerLetter?.monthlyGross ? Number(offerLetter.monthlyGross) * 12 : 8400000),
+      monthlyGross: offerLetter?.monthlyGross ? Number(offerLetter.monthlyGross) : 700000,
+      joiningDate: offerLetter?.joiningDate || emp?.joinDate || 'Immediate',
+      reportingManager: offerLetter?.reportingManager || 'Rosa Maria (Marketing Manager)',
+      acceptanceDeadline: offerLetter?.acceptanceDeadline || 'Within 7 business days',
+      signatoryName: offerLetter?.signatoryName || 'T .Vidhya Sagar',
+      signatoryRole: offerLetter?.signatoryRole || 'Chief executive Officer',
+      location: offerLetter?.location || 'Bengaluru Corporate HQ',
+      issuedDate: offerLetter?.issuedDate || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+    };
+
+    const { generateOfferLetterPdf } = await import('../services/pdfGenerator.js');
+    const pdfBuf = await generateOfferLetterPdf(payload);
+    const base64Data = `data:application/pdf;base64,${pdfBuf.toString('base64')}`;
+
+    const safeName = (payload.candidateName || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileName = `Official_Offer_Letter_${safeName}.pdf`;
+
+    // 1. Upsert into employee_documents table
+    const existingDoc = db.prepare(`
+      SELECT id FROM employee_documents 
+      WHERE employeeId = ? AND category = 'Offer Letter'
+      LIMIT 1
+    `).get(actualEmpId) as any;
+
+    let docId = existingDoc?.id;
+    if (existingDoc) {
+      db.prepare(`
+        UPDATE employee_documents 
+        SET title = 'Official Job Offer Letter', fileName = ?, sizeBytes = ?, content = ?, uploadedBy = ?, uploadedAt = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(fileName, pdfBuf.length, base64Data, uploadedBy || 'HR Admin', existingDoc.id);
+    } else {
+      docId = `doc-offer-${Date.now()}`;
+      db.prepare(`
+        INSERT INTO employee_documents
+          (id, employeeId, title, category, fileName, mimeType, sizeBytes, content, uploadedBy)
+        VALUES (?, ?, 'Official Job Offer Letter', 'Offer Letter', ?, 'application/pdf', ?, ?, ?)
+      `).run(docId, actualEmpId, fileName, pdfBuf.length, base64Data, uploadedBy || 'HR Admin');
+    }
+
+    // 2. Also upsert into offer_letters table to sync registry
+    const existingLetter = db.prepare(`
+      SELECT id FROM offer_letters 
+      WHERE candidateEmail = ? OR candidateName = ?
+      LIMIT 1
+    `).get(payload.candidateEmail, payload.candidateName) as any;
+
+    let offerId = offerLetter?.id || existingLetter?.id || `off-${Date.now()}`;
+    if (existingLetter) {
+      db.prepare(`
+        UPDATE offer_letters
+        SET candidateName = ?, candidateEmail = ?, candidatePhone = ?, roleTitle = ?, department = ?,
+            annualCtc = ?, monthlyGross = ?, joiningDate = ?, reportingManager = ?, location = ?, issuedDate = ?
+        WHERE id = ?
+      `).run(
+        payload.candidateName, payload.candidateEmail, payload.candidatePhone, payload.roleTitle, payload.department,
+        payload.annualCtc, payload.monthlyGross, payload.joiningDate, payload.reportingManager, payload.location, payload.issuedDate,
+        existingLetter.id
+      );
+      offerId = existingLetter.id;
+    } else {
+      db.prepare(`
+        INSERT INTO offer_letters (id, candidateName, candidateEmail, candidatePhone, roleTitle, department, annualCtc, monthlyGross, joiningDate, reportingManager, location, issuedDate)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        offerId, payload.candidateName, payload.candidateEmail, payload.candidatePhone, payload.roleTitle, payload.department,
+        payload.annualCtc, payload.monthlyGross, payload.joiningDate, payload.reportingManager, payload.location, payload.issuedDate
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+      documentId: docId,
+      offerId,
+      fileName,
+      sizeBytes: pdfBuf.length,
+      content: base64Data,
+      offerLetter: { ...payload, id: offerId },
+      message: 'Official Job Offer Letter generated and saved successfully.',
+    });
+  } catch (error) {
+    console.error('[Generate Offer Letter Error]', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });

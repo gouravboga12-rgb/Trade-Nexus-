@@ -40,4 +40,5 @@ server/db/data/*.sqlite*
 
 # Reference materials
 templates errors/
+scratch/
 

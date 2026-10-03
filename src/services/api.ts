@@ -392,6 +392,28 @@ export const api = {
   }) => request<any>('/employee-documents', { method: 'POST', body: JSON.stringify(data) }),
   deleteEmployeeDocument: (id: string) =>
     request<{ deleted: string }>(`/employee-documents/${id}`, { method: 'DELETE' }),
+  generateIdCard: (employeeId: string, cardData?: any) =>
+    request<{ success: boolean; documentId: string; fileName: string; sizeBytes: number; content: string; message: string }>(
+      '/employee-documents/generate/id-card',
+      {
+        method: 'POST',
+        body: JSON.stringify({ employeeId, cardData }),
+      }
+    ),
+  generateOfferLetter: (employeeId?: string, offerLetter?: Partial<OfferLetterData>) =>
+    request<{
+      success: boolean;
+      documentId: string;
+      offerId: string;
+      fileName: string;
+      sizeBytes: number;
+      content: string;
+      offerLetter: OfferLetterData;
+      message: string;
+    }>('/employee-documents/generate/offer-letter', {
+      method: 'POST',
+      body: JSON.stringify({ employeeId, offerLetter }),
+    }),
 
   getPayments: () => request<PaymentVerificationItem[]>('/payments'),
   createPayment: (data: Omit<PaymentVerificationItem, 'id'> & { id?: string }) => 

@@ -136,12 +136,14 @@ export async function generateOfferLetterPdf(data: {
   issuedDate?: string;
   signatoryName?: string;
   signatoryRole?: string;
+  employeeType?: string;
+  salaryType?: string;
 }): Promise<Buffer> {
   const doc = new PDFDocument({
     size: 'A4',
     margins: { top: 0, bottom: 0, left: 0, right: 0 },
     info: {
-      Title: `Job Offer Letter - ${data.candidateName}`,
+      Title: `Job Offer Letter - ${data.candidateName || 'Candidate'}`,
       Author: 'Trade Nexus Corporate HR',
       Subject: 'Official Employment Offer Letter',
       Creator: 'Trade Nexus HRMS',
@@ -152,116 +154,178 @@ export async function generateOfferLetterPdf(data: {
   const pageWidth = 595.28;
   const pageHeight = 841.89;
 
-  // Header Banner & Watermark & Footer (matching 1.png)
+  // 1. Top Header Banner (exact 2480x800 asset matching template)
   drawCorporateHeader(doc, 'header-offer.png', pageWidth, 192);
-  drawWatermark(doc, pageWidth, pageHeight);
+
+  // 2. Watermark Emblem (subtle, lower right, matching template)
+  const wmPath = path.join(ASSETS_DIR, 'watermark-emblem.png');
+  if (fs.existsSync(wmPath)) {
+    doc.save();
+    doc.opacity(0.06);
+    doc.image(wmPath, pageWidth - 260, pageHeight - 330, { width: 300, height: 300 });
+    doc.restore();
+  }
+
+  // 3. Bottom Corporate Footer (exact 2480x223 asset matching template)
   drawCorporateFooter(doc, pageWidth, pageHeight);
 
-  // Body content area starts at y = 202
-  const leftX = 48;
+  // 4. Content Area Layout
+  const leftX = 42;
   const contentW = pageWidth - leftX * 2;
   let currentY = 202;
 
-  // Date (Right aligned)
+  // Issued Date (Right aligned, aligned with "Trade Nexus" header)
   const issuedDate = data.issuedDate || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#475569').text(`Date: ${issuedDate}`, 0, currentY, {
+  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#041026').text(issuedDate, 0, currentY, {
     align: 'right',
     width: pageWidth - leftX,
   });
 
-  // Recipient Block
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#64748B').text('To,', leftX, currentY);
-  doc.fontSize(11).font('Helvetica-Bold').fillColor('#0A2540').text(data.candidateName, leftX, currentY + 12);
-  const candidateAddress = data.candidateAddress || '123 Business Avenue, Financial District, 500001';
-  doc.fontSize(8.5).font('Helvetica').fillColor('#475569').text(candidateAddress, leftX, currentY + 26, { width: 320 });
-
-  currentY += 66;
-
-  // Salutation
-  const firstName = (data.candidateName || '').split(' ')[0] || data.candidateName;
-  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0A2540').text(`Dear ${firstName},`, leftX, currentY);
+  // Company Brand & Contact block (Upper Left under banner)
+  doc.fontSize(11.5).font('Helvetica-Bold').fillColor('#041026').text('Trade Nexus', leftX, currentY);
   currentY += 16;
 
-  // Opening paragraph
-  const role = data.roleTitle || 'Senior Telecaller / SDR';
-  doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text(
-    `We are pleased to extend an offer of employment for the position of ${role} with Trade Nexus. Following our interview discussions, we were thoroughly impressed by your credentials, professional enthusiasm, and alignment with our corporate mission.`,
-    leftX,
-    currentY,
-    { width: contentW, lineGap: 3 }
-  );
-  currentY += 36;
+  // Pin + Address (2 lines)
+  const pinPath = path.join(ASSETS_DIR, 'icon-pin.png');
+  if (fs.existsSync(pinPath)) {
+    doc.image(pinPath, leftX, currentY + 1, { width: 9.5, height: 9.5 });
+  }
+  doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text('123 Business Avenue,', leftX + 15, currentY);
+  currentY += 12;
+  doc.text('Financial District, Your City, 500001', leftX + 15, currentY);
+  currentY += 14;
 
-  // Appointment Table
-  const tableY = currentY;
-  const tRowH = 17;
-  const col1W = 150;
-  const col2W = contentW - col1W;
+  // Phone
+  const phonePath = path.join(ASSETS_DIR, 'icon-phone.png');
+  if (fs.existsSync(phonePath)) {
+    doc.image(phonePath, leftX, currentY + 1, { width: 9.5, height: 9.5 });
+  }
+  doc.text('+91 98765 43210', leftX + 15, currentY);
+  currentY += 14;
 
-  const joinDate = data.joiningDate || 'Immediate';
-  const manager = data.reportingManager || 'Branch Operations Team Leader';
-  const formattedMonthly = typeof data.monthlyGross === 'number'
-    ? `INR ${data.monthlyGross.toLocaleString('en-IN')}`
-    : data.monthlyGross ? `INR ${data.monthlyGross}` : 'INR 7,00,000';
-  const formattedAnnual = typeof data.annualCtc === 'number'
-    ? `INR ${data.annualCtc.toLocaleString('en-IN')}`
-    : data.annualCtc ? `INR ${data.annualCtc}` : 'INR 8,40,000';
-  const deadline = data.acceptanceDeadline || 'Within 7 business days';
+  // Email
+  const mailPath = path.join(ASSETS_DIR, 'icon-mail.png');
+  if (fs.existsSync(mailPath)) {
+    doc.image(mailPath, leftX, currentY + 1, { width: 9.5, height: 9.5 });
+  }
+  doc.text('info@tradenexus.com', leftX + 15, currentY);
+  currentY += 14;
 
-  const rows = [
-    { label: 'Position / Designation', value: role },
-    { label: 'Department / Division', value: data.department || 'Client Acquisition & Trading Operations' },
-    { label: 'Monthly Gross Emoluments', value: formattedMonthly },
-    { label: 'Annual Total CTC', value: formattedAnnual },
-    { label: 'Date of Joining', value: joinDate },
-    { label: 'Reporting Authority', value: manager },
-    { label: 'Work Location', value: 'Trade Nexus Corporate HQ, Financial District' },
-    { label: 'Offer Validity / Acceptance', value: deadline },
-  ];
+  // Website
+  const globePath = path.join(ASSETS_DIR, 'icon-globe.png');
+  if (fs.existsSync(globePath)) {
+    doc.image(globePath, leftX, currentY + 1, { width: 9.5, height: 9.5 });
+  }
+  doc.text('www.tradenexus.com', leftX + 15, currentY);
+  currentY += 22;
 
-  rows.forEach((r, idx) => {
-    const rowY = tableY + idx * tRowH;
-    const bg = idx % 2 === 0 ? '#F8FAFC' : '#FFFFFF';
-    doc.rect(leftX, rowY, contentW, tRowH).fill(bg);
-    doc.rect(leftX, rowY, contentW, tRowH).lineWidth(0.4).strokeColor('#E2E8F0').stroke();
+  // Recipient Block ("To,")
+  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#64748B').text('To,', leftX, currentY);
+  currentY += 13;
 
-    doc.fontSize(8).font('Helvetica-Bold').fillColor('#0A2540').text(r.label, leftX + 8, rowY + 4);
-    doc.fontSize(8).font('Helvetica').fillColor('#334155').text(r.value, leftX + col1W + 8, rowY + 4);
+  const candidateName = data.candidateName || 'Jonathan Patterson';
+  doc.fontSize(11).font('Helvetica-Bold').fillColor('#041026').text(candidateName, leftX, currentY);
+  currentY += 14;
+
+  const candidateAddress = data.candidateAddress || '123 Anywhere St., Any City\nST 12345';
+  doc.fontSize(9.5).font('Helvetica').fillColor('#475569').text(candidateAddress, leftX, currentY, {
+    width: 320,
+    lineGap: 3,
   });
 
-  currentY = tableY + rows.length * tRowH + 14;
+  const addressLines = candidateAddress.split('\n').length;
+  currentY += Math.max(32, addressLines * 13 + 8);
 
-  // Terms and conditions
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text('Terms of Employment & Acceptance', leftX, currentY);
-  currentY += 12;
-  doc.fontSize(8).font('Helvetica').fillColor('#475569').text(
-    'This offer is contingent upon satisfactory completion of background verification and submission of required credentials. Please sign and return the duplicate copy of this offer letter as confirmation of your formal acceptance.',
+  // Salutation
+  const firstName = candidateName.trim().split(' ')[0] || candidateName;
+  doc.fontSize(10.5).font('Helvetica').fillColor('#041026').text(`Dear ${firstName},`, leftX, currentY);
+  currentY += 22;
+
+  // Paragraph 1: Offer & Role
+  const role = data.roleTitle || 'Marketing Coordinator';
+  const joinDate = data.joiningDate || 'September 9, 2025';
+  const reportingManager = data.reportingManager || 'Rosa Maria (Marketing Manager)';
+
+  doc.fontSize(10).font('Helvetica').fillColor('#041026')
+    .text('We are pleased to offer you the position of ', leftX, currentY, { continued: true, lineGap: 5, width: contentW })
+    .font('Helvetica-Bold').fillColor('#00A88B').text(role, { continued: true })
+    .font('Helvetica').fillColor('#041026').text(' at ', { continued: true })
+    .font('Helvetica-Bold').fillColor('#00A88B').text('Trade Nexus', { continued: true })
+    .font('Helvetica').fillColor('#041026').text(', starting on ', { continued: true })
+    .font('Helvetica-Bold').fillColor('#00A88B').text(joinDate, { continued: true })
+    .font('Helvetica').fillColor('#041026').text('. In this role, you will report to ', { continued: true })
+    .font('Helvetica-Bold').fillColor('#00A88B').text(reportingManager, { continued: true })
+    .font('Helvetica').fillColor('#041026').text(' and will be based at our corporate office.');
+
+  currentY = doc.y + 16;
+
+  // Paragraph 2: Remuneration
+  let formattedSalary = 'INR 7,00,000';
+  if (typeof data.monthlyGross === 'number') {
+    formattedSalary = `INR ${data.monthlyGross.toLocaleString('en-IN')}`;
+  } else if (data.monthlyGross) {
+    formattedSalary = String(data.monthlyGross).startsWith('INR') ? String(data.monthlyGross) : `INR ${data.monthlyGross}`;
+  }
+
+  doc.fontSize(10).font('Helvetica').fillColor('#041026')
+    .text('Your monthly salary will be ', leftX, currentY, { continued: true, lineGap: 5, width: contentW })
+    .font('Helvetica-Bold').fillColor('#041026').text(formattedSalary, { continued: true })
+    .font('Helvetica').fillColor('#041026').text(', along with benefits including health insurance, paid leave, internet allowance, and performance bonuses. Full details will be shared upon confirmation.');
+
+  currentY = doc.y + 16;
+
+  // Paragraph 3: Acceptance Deadline
+  const deadline = data.acceptanceDeadline || 'August 30, 2025';
+  doc.fontSize(10).font('Helvetica').fillColor('#041026')
+    .text('Please confirm your acceptance by signing and returning this letter by ', leftX, currentY, { continued: true, lineGap: 5, width: contentW })
+    .font('Helvetica-Bold').fillColor('#00A88B').text(deadline, { continued: true })
+    .font('Helvetica').fillColor('#041026').text('.');
+
+  currentY = doc.y + 16;
+
+  // Paragraph 4: Closing encouragement
+  doc.fontSize(10).font('Helvetica').fillColor('#041026').text(
+    'We look forward to having you onboard and seeing your strategic ideas come to life!',
     leftX,
     currentY,
-    { width: contentW, lineGap: 2.5 }
+    { width: contentW }
   );
-  currentY += 34;
 
-  // Closing Signatures
-  const sigY = currentY;
+  currentY = doc.y + 16;
 
-  // Left: Warm Regards & Authentic Signatory (exact 1.png)
-  doc.fontSize(8.5).font('Helvetica').fillColor('#64748B').text('Warm Regards,', leftX, sigY);
+  // Key Terms
+  const empType = data.employeeType || 'Full-Time';
+  const salType = data.salaryType || 'Monthly Salary';
 
-  drawOfficialSignature(doc, leftX, sigY + 14, 140);
+  doc.fontSize(10).font('Helvetica-Bold').fillColor('#041026').text('Employee Type: ', leftX, currentY, { continued: true });
+  doc.font('Helvetica').fillColor('#334155').text(empType);
+  currentY += 15;
 
-  const sigName = data.signatoryName || 'T .Vidhya Sagar';
-  const sigRole = data.signatoryRole || 'Chief executive Officer';
-  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#00A88B').text(sigName, leftX, sigY + 46);
-  doc.fontSize(8).font('Helvetica').fillColor('#334155').text(sigRole, leftX, sigY + 58);
-  doc.fontSize(8).font('Helvetica').fillColor('#64748B').text('Trade Nexus', leftX, sigY + 68);
+  doc.fontSize(10).font('Helvetica-Bold').fillColor('#041026').text('Salary Type: ', leftX, currentY, { continued: true });
+  doc.font('Helvetica').fillColor('#334155').text(salType);
+  currentY += 20;
 
-  // Right: Candidate Acceptance Signature
-  const rightSigX = pageWidth - leftX - 170;
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#64748B').text('Candidate Acceptance:', rightSigX, sigY);
-  doc.moveTo(rightSigX, sigY + 50).lineTo(rightSigX + 170, sigY + 50).lineWidth(0.8).strokeColor('#94A3B8').stroke();
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text(data.candidateName, rightSigX, sigY + 54);
-  doc.fontSize(7.5).font('Helvetica').fillColor('#64748B').text('Signature & Date of Acceptance', rightSigX, sigY + 65);
+  // Sign-off
+  doc.fontSize(10.5).font('Helvetica').fillColor('#041026').text('Warm Regards,', leftX, currentY);
+  currentY += 10;
+
+  // Signature Block
+  const sigPath = path.join(ASSETS_DIR, 'signature-vidhya-sagar.png');
+  if (fs.existsSync(sigPath)) {
+    doc.image(sigPath, leftX, currentY, { width: 135 });
+  }
+  currentY += 32;
+
+  const signatory = data.signatoryName || 'T .Vidhya Sagar';
+  const signatoryRole = data.signatoryRole || 'Chief executive Officer';
+
+  doc.fontSize(11).font('Helvetica-Bold').fillColor('#00A88B').text(signatory, leftX, currentY);
+  currentY += 13;
+
+  doc.fontSize(9.5).font('Helvetica').fillColor('#041026').text(signatoryRole, leftX, currentY);
+  currentY += 12;
+
+  doc.fontSize(9.5).font('Helvetica').fillColor('#041026').text('Trade Nexus', leftX, currentY);
 
   doc.end();
   return bufferPromise;
@@ -845,77 +909,72 @@ export async function generateTaxInvoicePdf(invoice: any): Promise<Buffer> {
 // 6. OFFICIAL DIGITAL ID CARD PDF GENERATOR (Exact match for tradenexus-id.png)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function generateIdCardPdf(employee: any, cardData?: any): Promise<Buffer> {
+  const empName = (cardData?.name || employee?.name || 'Avery Davis').trim();
+  const role = (cardData?.role || cardData?.designation || employee?.role || employee?.roleTitle || 'Digital Marketing Specialist').trim();
+  const empCode = (cardData?.empCode || employee?.empCode || '001').trim();
+  const rawEmpType = (cardData?.empType || cardData?.employeeType || employee?.employeeType || employee?.empType || 'Full - Time').trim();
+  const blood = (cardData?.bloodGroup || employee?.bloodGroup || 'O+ ve').trim();
+  
+  let rawDob = cardData?.dob || employee?.dob || '05/11/1997';
+  let dob = '05/11/1997';
+  if (rawDob) {
+    const clean = String(rawDob).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+      const [y, m, d] = clean.split('-');
+      dob = `${d}/${m}/${y}`;
+    } else {
+      dob = clean;
+    }
+  }
+
+  const phone = (cardData?.phone || cardData?.cell || cardData?.emergencyPhone || employee?.phone || employee?.emergencyPhone || '0000XXXX97').trim();
+
+  // Custom contact details (default to official template values)
+  const address = cardData?.address || employee?.address || '123 Business Avenue, Financial District, Your City, 500001';
+  const email = cardData?.email || employee?.email || 'info@tradenexus.com';
+  const website = cardData?.website || employee?.website || 'www.tradenexus.com';
+  const companyPhone = cardData?.companyPhone || employee?.companyPhone || '+91 98765 43210';
+  const signatoryName = cardData?.signatoryName || 'T.Vidhya Sagar';
+  const signatoryRole = cardData?.signatoryRole || 'Chief executive Officer';
+
+  const isCustomContact = (
+    address !== '123 Business Avenue, Financial District, Your City, 500001' ||
+    email !== 'info@tradenexus.com' ||
+    website !== 'www.tradenexus.com' ||
+    companyPhone !== '+91 98765 43210' ||
+    signatoryName !== 'T.Vidhya Sagar' ||
+    signatoryRole !== 'Chief executive Officer'
+  );
+
   const doc = new PDFDocument({
-    size: 'A4',
+    size: [591, 1004],
     margins: { top: 0, bottom: 0, left: 0, right: 0 },
     info: {
-      Title: `Employee ID Card - ${employee?.name || cardData?.name}`,
+      Title: `Employee ID Card - ${empName}`,
       Author: 'Trade Nexus Security & HR',
       Subject: 'Official Identity Card Badge',
+      Creator: 'Trade Nexus HRMS',
     }
   });
 
   const bufferPromise = docToBuffer(doc);
-  const pageWidth = 595.28;
-  const pageHeight = 841.89;
 
-  // Background sheet styling
-  doc.rect(0, 0, pageWidth, pageHeight).fill('#F8FAFC');
+  // Background deep navy fill
+  doc.rect(0, 0, 591, 1004).fill('#010D35');
 
-  // Top Page Title for cutting
-  doc.fontSize(14).font('Helvetica-Bold').fillColor('#0A2540').text('TRADE NEXUS OFFICIAL IDENTITY BADGE', 0, 42, { align: 'center' });
-  doc.fontSize(8.5).font('Helvetica').fillColor('#64748B').text('Cut along the outer card boundaries for laminated lanyard badge ID.', 0, 60, { align: 'center' });
-
-  // Badge Dimensions (Centered on page)
-  const badgeW = 270;
-  const badgeH = 430;
-  const badgeX = (pageWidth - badgeW) / 2;
-  const badgeY = 88;
-
-  // Outer Badge Background & Border (Matching #051326 in tradenexus-id.png)
-  doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 20).fill('#051326');
-
-  // Lanyard Punch Hole Indicator
-  const holeW = 44;
-  const holeH = 8;
-  const holeX = badgeX + (badgeW - holeW) / 2;
-  const holeY = badgeY + 10;
-  doc.roundedRect(holeX, holeY, holeW, holeH, 4).fill('#1A2B42');
-  doc.roundedRect(holeX + 4, holeY + 2, holeW - 8, holeH - 4, 2).fill('#051326');
-
-  // Top Brand Header: Official Trade Nexus Logo Emblem (matching tradenexus-id.png)
-  const logoTopY = badgeY + 28;
-  const logoIconPath = path.join(ASSETS_DIR, 'logo-icon.png');
-  const wmEmblemPath = path.join(ASSETS_DIR, 'watermark-emblem.png');
-  const topBrandAsset = path.join(ASSETS_DIR, 'id-card-top-brand.png');
-
-  if (fs.existsSync(topBrandAsset)) {
-    // Draw crisp extracted top brand header (includes lanyard punch hole + circular logo + TRADE NEXUS + TRADE SMART)
-    doc.save();
-    doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 20).clip();
-    doc.image(topBrandAsset, badgeX, badgeY, { width: badgeW });
-    doc.restore();
-  } else {
-    // Fallback vector top brand
-    const emblemToUse = fs.existsSync(wmEmblemPath) ? wmEmblemPath : (fs.existsSync(logoIconPath) ? logoIconPath : null);
-    if (emblemToUse) {
-      doc.image(emblemToUse, badgeX + (badgeW - 28) / 2, logoTopY, { width: 28 });
-    }
-    doc.fontSize(14).font('Helvetica-Bold').fillColor('#FFFFFF').text('TRADE NEXUS', badgeX, logoTopY + 32, { align: 'center', width: badgeW });
-    doc.fontSize(7).font('Helvetica-Bold').fillColor('#00C9A7').text('— TRADE SMART —', badgeX, logoTopY + 47, { align: 'center', width: badgeW });
+  // 1. Header Banner (0 to 270) containing punch hole, logo, TRADE NEXUS, — TRADE SMART —
+  const headerPath = path.join(ASSETS_DIR, 'id-card-header.png');
+  if (fs.existsSync(headerPath)) {
+    doc.image(headerPath, 0, 0, { width: 591, height: 270 });
   }
 
-  // Employee Photo Circle with Concentric Cyan Glowing Ring
-  const avatarY = badgeY + 102;
-  const centerX = badgeX + badgeW / 2;
-  const centerY = avatarY + 36;
-  const radius = 33;
+  // 2. Avatar Circle with glowing cyan ring
+  const cx = 295.5;
+  const cy = 380;
+  const r = 125;
 
-  doc.circle(centerX, centerY, 37).lineWidth(2.5).stroke('#00C9A7');
-  doc.circle(centerX, centerY, radius).fill('#0A2540');
-
-  const empName = cardData?.name || employee?.name || 'Avery Davis';
-  const initials = empName.split(' ').filter(Boolean).map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() || 'TN';
+  // Concentric outer cyan ring
+  doc.circle(cx, cy, 134).lineWidth(7.5).strokeColor('#00C2CB').stroke();
 
   let drewImage = false;
   const rawAvatar = cardData?.avatar || employee?.avatar;
@@ -931,126 +990,96 @@ export async function generateIdCardPdf(employee: any, cardData?: any): Promise<
           if (res.ok) {
             imgBuffer = Buffer.from(await res.arrayBuffer());
           }
-        } catch (fetchErr) {
-          // Ignore network avatar error
+        } catch {
+          // ignore network avatar error
         }
       }
 
       if (imgBuffer && imgBuffer.length > 0) {
         doc.save();
-        doc.circle(centerX, centerY, radius).clip();
-        doc.image(imgBuffer, centerX - radius, centerY - radius, {
-          cover: [radius * 2, radius * 2],
+        doc.circle(cx, cy, r).clip();
+        doc.image(imgBuffer, cx - r, cy - r, {
+          cover: [r * 2, r * 2],
           align: 'center',
           valign: 'center'
         });
         doc.restore();
         drewImage = true;
       }
-    } catch (imgErr) {
-      // Fall back to initials
+    } catch {
+      // Fall back
     }
   }
 
   if (!drewImage) {
-    doc.fontSize(18).font('Helvetica-Bold').fillColor('#00C9A7').text(initials, centerX - 14, centerY - 9);
-  }
-
-  // Employee Name & Designation (Matching tradenexus-id.png)
-  const role = cardData?.role || employee?.role || employee?.roleTitle || 'Digital Marketing Specialist';
-  doc.fontSize(12).font('Helvetica-Bold').fillColor('#FFFFFF').text(empName.toUpperCase(), badgeX + 10, avatarY + 78, {
-    align: 'center',
-    width: badgeW - 20,
-  });
-
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#00C9A7').text(role.toUpperCase(), badgeX + 10, avatarY + 93, {
-    align: 'center',
-    width: badgeW - 20,
-  });
-
-  // Divider
-  doc.rect(badgeX + 35, avatarY + 106, badgeW - 70, 1).fill('#00C9A7');
-
-  // Key Details Matrix inside badge
-  const gridY = avatarY + 114;
-  const empCode = cardData?.empCode || employee?.empCode || 'TNX-042';
-  const blood = cardData?.bloodGroup || employee?.bloodGroup || 'O+ ve';
-  let rawDob = cardData?.dob || employee?.dob || '05/11/1997';
-  let dob = '05/11/1997';
-  if (rawDob) {
-    const clean = String(rawDob).trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
-      const [y, m, d] = clean.split('-');
-      dob = `${d}/${m}/${y}`;
+    const defaultAvatarPath = path.join(ASSETS_DIR, 'default-id-avatar.png');
+    if (fs.existsSync(defaultAvatarPath)) {
+      doc.save();
+      doc.circle(cx, cy, r).clip();
+      doc.image(defaultAvatarPath, cx - r, cy - r, { width: r * 2, height: r * 2 });
+      doc.restore();
     } else {
-      dob = clean;
+      const initials = empName.split(' ').filter(Boolean).map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() || 'TN';
+      doc.circle(cx, cy, r).fill('#0A2540');
+      doc.fontSize(44).font('Helvetica-Bold').fillColor('#00C2CB').text(initials, cx - 35, cy - 22);
     }
   }
 
-  const rawEmpType = cardData?.empType || cardData?.employeeType || employee?.employeeType || 'Full - Time';
-  const phone = cardData?.phone || cardData?.emergencyPhone || employee?.phone || employee?.emergencyPhone || '9876543210';
+  // 3. Name & Designation (exact template font sizes & colors)
+  doc.fontSize(25).font('Helvetica-Bold').fillColor('#FFFFFF').text(empName.toUpperCase(), 0, 524, {
+    align: 'center',
+    width: 591,
+    characterSpacing: 1.2
+  });
 
-  const drawDetailRow = (label: string, val: string, yPos: number) => {
-    doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#94A3B8').text(label, badgeX + 32, yPos);
-    doc.text(':', badgeX + 90, yPos);
-    doc.fontSize(8).font('Helvetica-Bold').fillColor('#FFFFFF').text(val, badgeX + 100, yPos);
-  };
+  doc.fontSize(14).font('Helvetica-Bold').fillColor('#00C2CB').text(role.toUpperCase(), 0, 555, {
+    align: 'center',
+    width: 591,
+    characterSpacing: 1.5
+  });
 
-  drawDetailRow('Emp. ID', empCode, gridY);
-  drawDetailRow('Emp. Type', rawEmpType, gridY + 13);
-  drawDetailRow('Blood Group', blood, gridY + 26);
-  drawDetailRow('D.O.B.', dob, gridY + 39);
-  drawDetailRow('Cell', phone, gridY + 52);
+  // Small cyan accent bar under designation
+  doc.rect(272, 576, 47, 3).fill('#00C2CB');
 
-  // Bottom Curved White Card Container (Matching tradenexus-id.png)
-  const cardBottomH = 110;
-  const cardBottomY = badgeY + badgeH - cardBottomH;
+  // 4. Details Table Grid (matching tradenexus-id.png)
+  const rows = [
+    { label: 'Emp. ID', val: empCode },
+    { label: 'Emp. Type', val: rawEmpType },
+    { label: 'Blood Group', val: blood },
+    { label: 'D.O.B.', val: dob },
+    { label: 'Cell', val: phone },
+  ];
 
-  doc.save();
-  doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 20).clip();
+  let curY = 618;
+  rows.forEach(row => {
+    doc.fontSize(13.5).font('Helvetica').fillColor('#CBD5E1').text(row.label, 148, curY);
+    doc.fontSize(13.5).font('Helvetica-Bold').fillColor('#FFFFFF').text(':', 292, curY);
+    doc.fontSize(14).font('Helvetica-Bold').fillColor('#FFFFFF').text(row.val, 328, curY);
+    curY += 24;
+  });
 
-  const botAssetPath = path.join(ASSETS_DIR, 'id-card-bottom.png');
-  if (fs.existsSync(botAssetPath)) {
-    doc.image(botAssetPath, badgeX, cardBottomY, { width: badgeW, height: cardBottomH });
+  // 5. Footer (y = 744 to 1004)
+  if (isCustomContact) {
+    const footerCleanPath = path.join(ASSETS_DIR, 'id-card-footer-clean.png');
+    if (fs.existsSync(footerCleanPath)) {
+      doc.image(footerCleanPath, 0, 744, { width: 591, height: 260 });
+    }
+
+    // Dynamic contact details on left
+    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#041026').text(address, 100, 816, { width: 250, lineGap: 1 });
+    doc.fontSize(10.5).font('Helvetica-Bold').fillColor('#041026').text(email, 100, 864, { width: 250 });
+    doc.fontSize(10.5).font('Helvetica-Bold').fillColor('#041026').text(website, 100, 901, { width: 250 });
+    doc.fontSize(10.5).font('Helvetica-Bold').fillColor('#041026').text(companyPhone, 100, 938, { width: 250 });
+
+    // Dynamic signatory details on right
+    doc.fontSize(11).font('Helvetica-Bold').fillColor('#041026').text(signatoryName, 400, 888, { width: 175, align: 'center' });
+    doc.fontSize(9.5).font('Helvetica').fillColor('#041026').text(signatoryRole, 400, 903, { width: 175, align: 'center' });
   } else {
-    // White background
-    doc.rect(badgeX, cardBottomY, badgeW, cardBottomH).fill('#FFFFFF');
-    doc.rect(badgeX, cardBottomY, badgeW, 3).fill('#00C9A7');
-
-    // Contact details on left
-    const contactY = cardBottomY + 10;
-    doc.circle(badgeX + 18, contactY + 5, 4).fill('#051326');
-    doc.fontSize(5.5).font('Helvetica-Bold').fillColor('#334155').text('123 Business Avenue,\nFinancial District, 500001', badgeX + 26, contactY, { width: 110 });
-
-    doc.circle(badgeX + 18, contactY + 20, 4).fill('#051326');
-    doc.fontSize(6.5).font('Helvetica-Bold').fillColor('#334155').text('info@tradenexus.com', badgeX + 26, contactY + 17);
-
-    doc.circle(badgeX + 18, contactY + 34, 4).fill('#051326');
-    doc.fontSize(6.5).font('Helvetica-Bold').fillColor('#334155').text('www.tradenexus.com', badgeX + 26, contactY + 31);
-
-    doc.circle(badgeX + 18, contactY + 48, 4).fill('#051326');
-    doc.fontSize(6.5).font('Helvetica-Bold').fillColor('#334155').text('+91 98765 43210', badgeX + 26, contactY + 45);
-
-    // Signature Block on right
-    const sigRightX = badgeX + badgeW - 120;
-    drawOfficialSignature(doc, sigRightX, cardBottomY + 12, 100);
-    doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#0A2540').text('T. Vidhya Sagar', sigRightX, cardBottomY + 38);
-    doc.fontSize(6.5).font('Helvetica').fillColor('#64748B').text('Chief executive Officer', sigRightX, cardBottomY + 48);
-
-    // Bottom Notice Bar
-    doc.rect(badgeX, cardBottomY + cardBottomH - 18, badgeW, 18).fill('#051326');
-    doc.fontSize(6.5).font('Helvetica-Bold').fillColor('#00C9A7').text(
-      'AUTHORISED CORPORATE PERSONNEL  •  IDENTITY VERIFIED',
-      badgeX,
-      cardBottomY + cardBottomH - 13,
-      { align: 'center', width: badgeW }
-    );
+    const footerDefaultPath = path.join(ASSETS_DIR, 'id-card-footer-default.png');
+    if (fs.existsSync(footerDefaultPath)) {
+      doc.image(footerDefaultPath, 0, 744, { width: 591, height: 260 });
+    }
   }
-
-  doc.restore();
-
-  // Outer border stroke
-  doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 20).lineWidth(1).strokeColor('#00C9A7').stroke();
 
   doc.end();
   return bufferPromise;

@@ -72,42 +72,14 @@ export const ProfileSelfServiceView: React.FC = () => {
     (c.employeeName && c.employeeName.toLowerCase() === profile.name.toLowerCase())
   );
 
-  const effectiveExperienceCert: ExperienceCertData = myExperienceCert || {
-    id: `exp-${profile.empCode || '001'}`,
-    employeeName: profile.name || 'Trade Nexus Employee',
-    empCode: profile.empCode || 'TNX-001',
-    guardianName: 'Trade Nexus Corporation',
-    designation: profile.roleTitle || (profile as any).role || 'Sales Executive',
-    department: profile.department || 'Client Acquisition',
-    startDate: profile.joinDate || '01 January 2024',
-    endDate: 'Present',
-    refNumber: `TNX/EXP/${new Date().getFullYear()}/${profile.empCode || '001'}`,
-    issuedDate: new Date().toLocaleDateString('en-GB'),
-    conductRemarks: `During their tenure, ${profile.name || 'the employee'} performed all assigned duties with sincerity, professionalism, and dedication. They demonstrated strong capability and maintained smooth operations throughout their period of employment. Their conduct and performance were satisfactory throughout.`,
-    signatoryName: 'T. Vidhya Sagar',
-    signatoryRole: 'Chief Executive Officer',
-  };
+  const effectiveExperienceCert: ExperienceCertData | null = myExperienceCert || null;
 
   const myRelievingLetter = relievingLetters.find(r => 
     (r.empCode && r.empCode.toLowerCase() === profile.empCode.toLowerCase()) || 
     (r.employeeName && r.employeeName.toLowerCase() === profile.name.toLowerCase())
   );
 
-  const effectiveRelievingLetter: RelievingLetterData = myRelievingLetter || {
-    id: `rel-${profile.empCode || '001'}`,
-    employeeName: profile.name || 'Trade Nexus Employee',
-    empCode: profile.empCode || 'TNX-001',
-    designation: profile.roleTitle || (profile as any).role || 'Sales Executive',
-    department: profile.department || 'Client Acquisition',
-    employeeType: 'Full-Time Regular',
-    employeeAddress: profile.address || 'Bengaluru Corporate HQ',
-    joiningDate: profile.joinDate || '01 Jan 2024',
-    resignationDate: '15 May 2025',
-    lastWorkingDate: '31 May 2025',
-    issuedDate: '01 June 2025',
-    signatoryName: 'T. Vidhya Sagar',
-    signatoryRole: 'Chief Executive Officer',
-  };
+  const effectiveRelievingLetter: RelievingLetterData | null = myRelievingLetter || null;
 
   const handleDirectDownloadIdCard = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -145,6 +117,7 @@ export const ProfileSelfServiceView: React.FC = () => {
 
   const handleDirectDownloadExperienceCert = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!effectiveExperienceCert) return;
     try {
       triggerToast(`⏳ Generating & downloading official Experience Certificate PDF for ${profile.name}...`);
       await api.downloadExperienceCert({ name: profile.name, email: profile.email }, effectiveExperienceCert);
@@ -156,6 +129,7 @@ export const ProfileSelfServiceView: React.FC = () => {
 
   const handleDirectDownloadRelievingLetter = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!effectiveRelievingLetter) return;
     try {
       triggerToast(`⏳ Generating & downloading official Relieving Letter PDF for ${profile.name}...`);
       await api.downloadRelievingLetter({ name: profile.name, email: profile.email }, effectiveRelievingLetter);
@@ -472,53 +446,57 @@ export const ProfileSelfServiceView: React.FC = () => {
             </button>
           </div>
 
-          {/* Card 3: Experience Certificate */}
-          <div 
-            onClick={() => openExperienceCertModal(effectiveExperienceCert)}
-            className="rounded-3xl p-3.5 px-4 bg-white border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center justify-between cursor-pointer hover:border-slate-200 transition-all group active:scale-[0.99]"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center flex-shrink-0">
-                <Award className="w-4.5 h-4.5" />
-              </div>
-              <div>
-                <h4 className="font-display font-bold text-sm text-[#0A2540]">Experience Certificate</h4>
-                <p className="text-[11px] text-slate-400 font-medium">Ref: {effectiveExperienceCert.refNumber}</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleDirectDownloadExperienceCert}
-              title="Download Official Experience Certificate PDF"
-              className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-amber-500 text-slate-600 hover:text-white border border-slate-200/80 flex items-center justify-center transition-all shadow-2xs cursor-pointer"
+          {/* Card 3: Experience Certificate (Visible ONLY when issued by HR) */}
+          {effectiveExperienceCert && (
+            <div 
+              onClick={() => openExperienceCertModal(effectiveExperienceCert)}
+              className="rounded-3xl p-3.5 px-4 bg-white border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center justify-between cursor-pointer hover:border-slate-200 transition-all group active:scale-[0.99]"
             >
-              <Download className="w-3.5 h-3.5" />
-            </button>
-          </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center flex-shrink-0">
+                  <Award className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h4 className="font-display font-bold text-sm text-[#0A2540]">Experience Certificate</h4>
+                  <p className="text-[11px] text-slate-400 font-medium">Ref: {effectiveExperienceCert.refNumber}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleDirectDownloadExperienceCert}
+                title="Download Official Experience Certificate PDF"
+                className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-amber-500 text-slate-600 hover:text-white border border-slate-200/80 flex items-center justify-center transition-all shadow-2xs cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
-          {/* Card 4: Relieving Letter */}
-          <div 
-            onClick={() => openRelievingLetterModal(effectiveRelievingLetter)}
-            className="rounded-3xl p-3.5 px-4 bg-white border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center justify-between cursor-pointer hover:border-slate-200 transition-all group active:scale-[0.99]"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-teal-50 text-[#00A88B] border border-teal-100 flex items-center justify-center flex-shrink-0">
-                <Briefcase className="w-4.5 h-4.5" />
-              </div>
-              <div>
-                <h4 className="font-display font-bold text-sm text-[#0A2540]">Relieving Letter</h4>
-                <p className="text-[11px] text-slate-400 font-medium">LWD: {effectiveRelievingLetter.lastWorkingDate}</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleDirectDownloadRelievingLetter}
-              title="Download Official Relieving Letter PDF"
-              className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-[#00A88B] text-slate-600 hover:text-white border border-slate-200/80 flex items-center justify-center transition-all shadow-2xs cursor-pointer"
+          {/* Card 4: Relieving Letter (Visible ONLY when issued by HR) */}
+          {effectiveRelievingLetter && (
+            <div 
+              onClick={() => openRelievingLetterModal(effectiveRelievingLetter)}
+              className="rounded-3xl p-3.5 px-4 bg-white border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex items-center justify-between cursor-pointer hover:border-slate-200 transition-all group active:scale-[0.99]"
             >
-              <Download className="w-3.5 h-3.5" />
-            </button>
-          </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-teal-50 text-[#00A88B] border border-teal-100 flex items-center justify-center flex-shrink-0">
+                  <Briefcase className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h4 className="font-display font-bold text-sm text-[#0A2540]">Relieving Letter</h4>
+                  <p className="text-[11px] text-slate-400 font-medium">LWD: {effectiveRelievingLetter.lastWorkingDate}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleDirectDownloadRelievingLetter}
+                title="Download Official Relieving Letter PDF"
+                className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-[#00A88B] text-slate-600 hover:text-white border border-slate-200/80 flex items-center justify-center transition-all shadow-2xs cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
