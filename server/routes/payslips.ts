@@ -68,8 +68,12 @@ router.post('/', (req: Request, res: Response) => {
   try {
     const { 
       id, employeeId, empCode, employeeName, roleTitle, department,
+      employeeType, payDate,
       month, year, basicSalary, hra, specialAllowance, incentives, 
-      pfDeduction, taxDeduction, netPay, generatedDate, status,
+      housingAllowance, transportation, performanceBonus,
+      pfDeduction, taxDeduction, healthInsurance, pensionContribution,
+      netPay, generatedDate, status,
+      authorizedName, authorizedRole,
       email, bankName, bankAccountNumber, paymentMode,
       customNotes, changeRemarks, modifiedBy, modifiedAt
     } = req.body;
@@ -88,21 +92,47 @@ router.post('/', (req: Request, res: Response) => {
     const resolvedAcc = bankAccountNumber || emp?.bankAccountNumber || '50200084920194';
     const resolvedPayMode = paymentMode || 'Bank Transfer';
 
+    const finalEmployeeType = employeeType || 'Full - Time';
+    const finalPayDate = payDate || generatedDate || `31 ${month} ${year}`;
+    const finalBasic = Number(basicSalary) || 0;
+    const finalHra = hra !== undefined ? Number(hra) : (housingAllowance !== undefined ? Number(housingAllowance) : 0);
+    const finalAllowance = specialAllowance !== undefined ? Number(specialAllowance) : (transportation !== undefined ? Number(transportation) : 0);
+    const finalBonus = performanceBonus !== undefined ? Number(performanceBonus) : (incentives !== undefined ? Number(incentives) : 0);
+    const finalPf = pfDeduction !== undefined ? Number(pfDeduction) : (pensionContribution !== undefined ? Number(pensionContribution) : 0);
+    const finalTax = Number(taxDeduction) || 0;
+    const finalHealth = healthInsurance !== undefined ? Number(healthInsurance) : 500;
+    const finalPension = pensionContribution !== undefined ? Number(pensionContribution) : (finalPf || 200);
+
+    const computedNetPay = netPay !== undefined 
+      ? Number(netPay) 
+      : (finalBasic + finalHra + finalAllowance + finalBonus) - (finalTax + finalHealth + finalPension);
+
+    const finalAuthName = authorizedName || 'Muhammad Patel';
+    const finalAuthRole = authorizedRole || 'Finance Manager – Trade Nexus';
+
     db.prepare(`
       INSERT INTO payslips (
         id, employeeId, empCode, employeeName, roleTitle, department, 
+        employeeType, payDate,
         month, year, basicSalary, hra, specialAllowance, incentives, 
-        pfDeduction, taxDeduction, netPay, generatedDate, status,
+        housingAllowance, transportation, performanceBonus,
+        pfDeduction, taxDeduction, healthInsurance, pensionContribution,
+        netPay, generatedDate, status,
         email, bankName, bankAccountNumber, paymentMode,
+        authorizedName, authorizedRole,
         customNotes, changeRemarks, modifiedBy, modifiedAt
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       payId, employeeId || null, empCode || null, employeeName || null, roleTitle || null, department || null,
-      month, Number(year) || new Date().getFullYear(), Number(basicSalary) || 0, Number(hra) || 0,
-      Number(specialAllowance) || 0, Number(incentives) || 0, Number(pfDeduction) || 0,
-      Number(taxDeduction) || 0, Number(netPay) || 0, generatedDate || 'Today', status || 'PAID',
+      finalEmployeeType, finalPayDate,
+      month, Number(year) || new Date().getFullYear(),
+      finalBasic, finalHra, finalAllowance, finalBonus,
+      finalHra, finalAllowance, finalBonus,
+      finalPf, finalTax, finalHealth, finalPension,
+      computedNetPay, generatedDate || 'Today', status || 'PAID',
       resolvedEmail, resolvedBank, resolvedAcc, resolvedPayMode,
+      finalAuthName, finalAuthRole,
       customNotes || null, changeRemarks || null, modifiedBy || null, modifiedAt || new Date().toISOString()
     );
 
@@ -165,32 +195,44 @@ router.put('/:id', (req: Request, res: Response) => {
       employeeName = existing.employeeName,
       roleTitle = existing.roleTitle,
       department = existing.department,
+      employeeType = existing.employeeType || 'Full - Time',
+      payDate = existing.payDate || existing.generatedDate || `31 ${existing.month} ${existing.year}`,
       basicSalary = existing.basicSalary,
       hra = existing.hra,
       specialAllowance = existing.specialAllowance,
       incentives = existing.incentives,
+      housingAllowance = existing.housingAllowance ?? existing.hra,
+      transportation = existing.transportation ?? existing.specialAllowance,
+      performanceBonus = existing.performanceBonus ?? existing.incentives,
       pfDeduction = existing.pfDeduction,
       taxDeduction = existing.taxDeduction,
+      healthInsurance = existing.healthInsurance ?? 500,
+      pensionContribution = existing.pensionContribution ?? 200,
       netPay,
       status = existing.status,
       email = existing.email,
       bankName = existing.bankName,
       bankAccountNumber = existing.bankAccountNumber,
       paymentMode = existing.paymentMode,
+      authorizedName = existing.authorizedName || 'Muhammad Patel',
+      authorizedRole = existing.authorizedRole || 'Finance Manager – Trade Nexus',
       customNotes = existing.customNotes,
       changeRemarks = existing.changeRemarks,
       modifiedBy = (req as any).user?.name || 'HR Manager',
     } = req.body;
 
     const numBasic = Number(basicSalary) || 0;
-    const numHra = Number(hra) || 0;
-    const numAllowance = Number(specialAllowance) || 0;
-    const numIncentives = Number(incentives) || 0;
+    const numHra = housingAllowance !== undefined ? Number(housingAllowance) : (Number(hra) || 0);
+    const numAllowance = transportation !== undefined ? Number(transportation) : (Number(specialAllowance) || 0);
+    const numIncentives = performanceBonus !== undefined ? Number(performanceBonus) : (Number(incentives) || 0);
     const numPf = Number(pfDeduction) || 0;
     const numTax = Number(taxDeduction) || 0;
+    const numHealth = Number(healthInsurance) || 0;
+    const numPension = Number(pensionContribution) || 0;
+    
     const computedNetPay = netPay !== undefined 
       ? Number(netPay) 
-      : (numBasic + numHra + numAllowance + numIncentives) - (numPf + numTax);
+      : (numBasic + numHra + numAllowance + numIncentives) - (numTax + numHealth + numPension);
 
     const nowIso = new Date().toISOString();
 
@@ -199,18 +241,27 @@ router.put('/:id', (req: Request, res: Response) => {
         employeeName = ?,
         roleTitle = ?,
         department = ?,
+        employeeType = ?,
+        payDate = ?,
         basicSalary = ?,
         hra = ?,
         specialAllowance = ?,
         incentives = ?,
+        housingAllowance = ?,
+        transportation = ?,
+        performanceBonus = ?,
         pfDeduction = ?,
         taxDeduction = ?,
+        healthInsurance = ?,
+        pensionContribution = ?,
         netPay = ?,
         status = ?,
         email = ?,
         bankName = ?,
         bankAccountNumber = ?,
         paymentMode = ?,
+        authorizedName = ?,
+        authorizedRole = ?,
         customNotes = ?,
         changeRemarks = ?,
         modifiedBy = ?,
@@ -218,9 +269,13 @@ router.put('/:id', (req: Request, res: Response) => {
       WHERE id = ?
     `).run(
       employeeName, roleTitle, department,
-      numBasic, numHra, numAllowance, numIncentives, numPf, numTax,
+      employeeType, payDate,
+      numBasic, numHra, numAllowance, numIncentives,
+      numHra, numAllowance, numIncentives,
+      numPf, numTax, numHealth, numPension,
       computedNetPay, status,
       email || null, bankName || null, bankAccountNumber || null, paymentMode || null,
+      authorizedName, authorizedRole,
       customNotes || null, changeRemarks || null,
       modifiedBy, nowIso, id
     );
@@ -250,25 +305,31 @@ router.post('/bulk', async (req: Request, res: Response) => {
     const insertPayslip = db.prepare(`
       INSERT INTO payslips (
         id, employeeId, empCode, employeeName, roleTitle, department,
+        employeeType, payDate,
         month, year, basicSalary, hra, specialAllowance, incentives,
-        pfDeduction, taxDeduction, netPay, generatedDate, status,
-        email, bankName, bankAccountNumber, paymentMode
+        housingAllowance, transportation, performanceBonus,
+        pfDeduction, taxDeduction, healthInsurance, pensionContribution,
+        netPay, generatedDate, status,
+        email, bankName, bankAccountNumber, paymentMode,
+        authorizedName, authorizedRole
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const generateMany = db.transaction((members: any[]) => {
       for (const m of members) {
         const payId = `ps-${numericYear}-${monthClean.toLowerCase()}-${m.id}`;
-        // Compute personalized compensation
+        // Compute personalized compensation matching template proportions
         const totalSalary = m.salary || 40000;
         const basic = Math.round(totalSalary * 0.5);
-        const hra = Math.round(totalSalary * 0.3);
-        const specialAllowance = Math.round(totalSalary * 0.2);
-        const incentives = m.salesAchieved && m.salesAchieved > 0 ? Math.round(m.salesAchieved * 0.05) : 0;
-        const pfDeduction = Math.min(1800, Math.round(basic * 0.12));
-        const taxDeduction = totalSalary > 50000 ? Math.round(totalSalary * 0.05) : 0;
-        const netPay = (basic + hra + specialAllowance + incentives) - (pfDeduction + taxDeduction);
+        const housing = Math.round(totalSalary * 0.3);
+        const transportation = Math.round(totalSalary * 0.2);
+        const bonus = m.salesAchieved && m.salesAchieved > 0 ? Math.round(m.salesAchieved * 0.05) : 0;
+        const healthInsurance = 500;
+        const pensionContribution = 200;
+        const tax = totalSalary > 50000 ? Math.round(totalSalary * 0.05) : 3000;
+        const netPay = (basic + housing + transportation + bonus) - (tax + healthInsurance + pensionContribution);
+        const payDate = `31 ${monthClean} ${numericYear}`;
 
         // Delete existing payslip for this employee, month, and year
         db.prepare('DELETE FROM payslips WHERE (employeeId = ? OR empCode = ?) AND LOWER(month) = ? AND year = ?')
@@ -276,9 +337,13 @@ router.post('/bulk', async (req: Request, res: Response) => {
 
         insertPayslip.run(
           payId, m.id, m.empCode, m.name, m.role, m.groupName || 'General',
-          monthClean, numericYear, basic, hra, specialAllowance, incentives,
-          pfDeduction, taxDeduction, netPay, `01 ${monthClean} ${numericYear}`, 'PAID',
-          m.email || null, m.bankName || 'HDFC Bank', m.bankAccountNumber || '50200084920194', 'Bank Transfer'
+          m.employeeType || 'Full - Time', payDate,
+          monthClean, numericYear, basic, housing, transportation, bonus,
+          housing, transportation, bonus,
+          pensionContribution, tax, healthInsurance, pensionContribution,
+          netPay, `01 ${monthClean} ${numericYear}`, 'PAID',
+          m.email || null, m.bankName || 'HDFC Bank', m.bankAccountNumber || '50200084920194', 'Bank Transfer',
+          'Muhammad Patel', 'Finance Manager – Trade Nexus'
         );
 
         const created = db.prepare('SELECT * FROM payslips WHERE id = ?').get(payId);

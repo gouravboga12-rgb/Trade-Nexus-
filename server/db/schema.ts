@@ -97,17 +97,39 @@ export function initializeDatabaseSchema() {
     -- 7. Payslips
     CREATE TABLE IF NOT EXISTS payslips (
       id TEXT PRIMARY KEY,
+      employeeId TEXT,
+      empCode TEXT,
+      employeeName TEXT,
+      roleTitle TEXT,
+      department TEXT,
+      employeeType TEXT DEFAULT 'Full - Time',
+      payDate TEXT,
       month TEXT NOT NULL,
       year INTEGER NOT NULL,
       basicSalary REAL NOT NULL,
       hra REAL NOT NULL,
       specialAllowance REAL NOT NULL,
       incentives REAL NOT NULL DEFAULT 0,
+      housingAllowance REAL,
+      transportation REAL,
+      performanceBonus REAL DEFAULT 0,
       pfDeduction REAL NOT NULL DEFAULT 0,
       taxDeduction REAL NOT NULL DEFAULT 0,
+      healthInsurance REAL DEFAULT 0,
+      pensionContribution REAL DEFAULT 0,
       netPay REAL NOT NULL,
       generatedDate TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'PAID',
+      email TEXT,
+      bankName TEXT,
+      bankAccountNumber TEXT,
+      paymentMode TEXT DEFAULT 'Bank Transfer',
+      authorizedName TEXT DEFAULT 'Muhammad Patel',
+      authorizedRole TEXT DEFAULT 'Finance Manager – Trade Nexus',
+      customNotes TEXT,
+      changeRemarks TEXT,
+      modifiedBy TEXT,
+      modifiedAt TEXT,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -392,12 +414,21 @@ function runMigrations() {
   addColumnIfMissing('leave_requests', 'employeeName', 'TEXT');
   addColumnIfMissing('leave_requests', 'employeeCode', 'TEXT');
 
-  // Payslips per employee
+  // Payslips per employee & dynamic fields
   addColumnIfMissing('payslips', 'employeeId', 'TEXT');
   addColumnIfMissing('payslips', 'empCode', 'TEXT');
   addColumnIfMissing('payslips', 'employeeName', 'TEXT');
   addColumnIfMissing('payslips', 'roleTitle', 'TEXT');
   addColumnIfMissing('payslips', 'department', 'TEXT');
+  addColumnIfMissing('payslips', 'employeeType', "TEXT DEFAULT 'Full - Time'");
+  addColumnIfMissing('payslips', 'payDate', 'TEXT');
+  addColumnIfMissing('payslips', 'housingAllowance', 'REAL');
+  addColumnIfMissing('payslips', 'transportation', 'REAL');
+  addColumnIfMissing('payslips', 'performanceBonus', 'REAL DEFAULT 0');
+  addColumnIfMissing('payslips', 'healthInsurance', 'REAL DEFAULT 0');
+  addColumnIfMissing('payslips', 'pensionContribution', 'REAL DEFAULT 0');
+  addColumnIfMissing('payslips', 'authorizedName', "TEXT DEFAULT 'Muhammad Patel'");
+  addColumnIfMissing('payslips', 'authorizedRole', "TEXT DEFAULT 'Finance Manager – Trade Nexus'");
   try {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_payslips_employee ON payslips(employeeId);`);
   } catch {}
@@ -656,6 +687,15 @@ function runMigrations() {
     { table: 'payslips', column: 'bankName',          definition: 'TEXT' },
     { table: 'payslips', column: 'bankAccountNumber', definition: 'TEXT' },
     { table: 'payslips', column: 'paymentMode',       definition: "TEXT DEFAULT 'Bank Transfer'" },
+    { table: 'payslips', column: 'employeeType',      definition: "TEXT DEFAULT 'Full - Time'" },
+    { table: 'payslips', column: 'payDate',           definition: "TEXT" },
+    { table: 'payslips', column: 'housingAllowance',  definition: "REAL" },
+    { table: 'payslips', column: 'transportation',    definition: "REAL" },
+    { table: 'payslips', column: 'performanceBonus',  definition: "REAL DEFAULT 0" },
+    { table: 'payslips', column: 'healthInsurance',   definition: "REAL DEFAULT 0" },
+    { table: 'payslips', column: 'pensionContribution', definition: "REAL DEFAULT 0" },
+    { table: 'payslips', column: 'authorizedName',    definition: "TEXT DEFAULT 'Muhammad Patel'" },
+    { table: 'payslips', column: 'authorizedRole',    definition: "TEXT DEFAULT 'Finance Manager – Trade Nexus'" },
     { table: 'employee_profiles', column: 'checkOutTime', definition: 'TEXT DEFAULT NULL' },
     // Offer letters dynamic customization fields
     { table: 'offer_letters', column: 'candidateAddress',   definition: "TEXT DEFAULT 'Bengaluru Corporate Office'" },

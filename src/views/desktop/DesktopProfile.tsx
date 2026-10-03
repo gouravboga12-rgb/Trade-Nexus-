@@ -263,7 +263,14 @@ export const DesktopProfile: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {payslips.map((pay) => (
+                  {payslips.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-500 font-medium text-xs">
+                        No salary statements issued yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    payslips.map((pay) => (
                     <tr key={pay.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3.5 px-3 font-display font-bold text-sm text-[#0A2540]">
                         {pay.month} {pay.year}
@@ -301,7 +308,7 @@ export const DesktopProfile: React.FC = () => {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )))}
                 </tbody>
               </table>
             </div>

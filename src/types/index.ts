@@ -151,14 +151,21 @@ export interface PayslipItem {
   email?: string;
   roleTitle?: string;
   department?: string;
+  employeeType?: string;
+  payDate?: string;
   month: string;
   year: number;
   basicSalary: number;
   hra: number;
   specialAllowance: number;
   incentives: number;
+  housingAllowance?: number;
+  transportation?: number;
+  performanceBonus?: number;
   pfDeduction: number;
   taxDeduction: number;
+  healthInsurance?: number;
+  pensionContribution?: number;
   netPay: number;
   generatedDate: string;
   status: 'PAID' | 'PROCESSED' | 'PENDING' | 'REVISED';
@@ -167,6 +174,8 @@ export interface PayslipItem {
   bankName?: string;
   bankAccountNumber?: string;
   paymentMode?: string;
+  authorizedName?: string;
+  authorizedRole?: string;
   modifiedBy?: string;
   modifiedAt?: string;
 }

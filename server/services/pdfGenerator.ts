@@ -584,68 +584,87 @@ export async function generatePayslipPdf(employee: any, payslip: any): Promise<B
   let currentY = 196;
 
   const empName = payslip.employeeName || employee?.name || 'Avery Davis';
-  const empCode = payslip.empCode || employee?.empCode || 'TNX-042';
+  const empCode = payslip.empCode || payslip.employeeCode || employee?.empCode || 'TNX-042';
   const role = payslip.roleTitle || employee?.role || employee?.roleTitle || 'Digital Marketing Specialist';
-  const dept = payslip.department || employee?.groupName || employee?.department || 'Marketing & Communications';
+  const dept = payslip.department || employee?.groupName || employee?.department || 'Marketing';
   const month = payslip.month || 'August';
   const year = payslip.year || new Date().getFullYear();
+  const empType = payslip.employeeType || 'Full - Time';
+  const payDate = payslip.payDate || `31 ${month} ${year}`;
 
-  // Employee Information Grid (Matching 4.png)
-  doc.rect(leftX, currentY, contentW, 58).fill('#F8FAFC');
-  doc.rect(leftX, currentY, contentW, 58).lineWidth(0.6).strokeColor('#E2E8F0').stroke();
+  // Employee Information Grid (2-Column format matching 4.png)
+  doc.rect(leftX, currentY, contentW, 68).fill('#F8FAFC');
+  doc.rect(leftX, currentY, contentW, 68).lineWidth(0.6).strokeColor('#E2E8F0').stroke();
 
   const c1X = leftX + 14;
-  const c2X = leftX + 175;
-  const c3X = leftX + 350;
+  const c2X = leftX + 270;
 
-  // Row 1
-  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#64748B').text('EMPLOYEE NAME', c1X, currentY + 10);
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text(empName, c1X, currentY + 20);
+  // Left Column (Month, Employee Name, Employee ID, Department)
+  let rowY = currentY + 9;
+  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#64748B').text('Month', c1X, rowY);
+  doc.text(':', c1X + 85, rowY);
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0A2540').text(`${month} ${year}`, c1X + 95, rowY);
 
-  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#64748B').text('EMPLOYEE ID', c2X, currentY + 10);
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text(empCode, c2X, currentY + 20);
+  rowY += 13;
+  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#64748B').text('Employee Name', c1X, rowY);
+  doc.text(':', c1X + 85, rowY);
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0A2540').text(empName, c1X + 95, rowY);
 
-  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#64748B').text('PAY PERIOD', c3X, currentY + 10);
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#00A88B').text(`${month} ${year}`.toUpperCase(), c3X, currentY + 20);
+  rowY += 13;
+  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#64748B').text('Employee ID', c1X, rowY);
+  doc.text(':', c1X + 85, rowY);
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0A2540').text(empCode, c1X + 95, rowY);
 
-  // Row 2
-  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#64748B').text('DESIGNATION', c1X, currentY + 34);
-  doc.fontSize(8).font('Helvetica').fillColor('#334155').text(role, c1X, currentY + 44);
+  rowY += 13;
+  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#64748B').text('Department', c1X, rowY);
+  doc.text(':', c1X + 85, rowY);
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0A2540').text(dept, c1X + 95, rowY);
 
-  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#64748B').text('DEPARTMENT', c2X, currentY + 34);
-  doc.fontSize(8).font('Helvetica').fillColor('#334155').text(dept, c2X, currentY + 44);
+  // Right Column (Designation, Employee Type, Pay Date)
+  rowY = currentY + 9;
+  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#64748B').text('Designation', c2X, rowY);
+  doc.text(':', c2X + 85, rowY);
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0A2540').text(role, c2X + 95, rowY);
 
-  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#64748B').text('STATUS', c3X, currentY + 34);
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#00A88B').text(payslip.status || 'PAID', c3X, currentY + 44);
+  rowY += 13;
+  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#64748B').text('Employee Type', c2X, rowY);
+  doc.text(':', c2X + 85, rowY);
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0A2540').text(empType, c2X + 95, rowY);
 
-  currentY += 72;
+  rowY += 13;
+  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#64748B').text('Pay Date', c2X, rowY);
+  doc.text(':', c2X + 85, rowY);
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0A2540').text(payDate, c2X + 95, rowY);
+
+  currentY += 80;
 
   // Earnings & Deductions Tables (Matching 4.png)
-  const basic = Number(payslip.basicSalary) || 28000;
-  const hra = Number(payslip.hra) || 12000;
-  const allowance = Number(payslip.specialAllowance) || 5000;
-  const incentives = Number(payslip.incentives) || 0;
+  const basic = Number(payslip.basicSalary) || 30000;
+  const hra = payslip.housingAllowance !== undefined ? Number(payslip.housingAllowance) : (Number(payslip.hra) || 5000);
+  const allowance = payslip.transportation !== undefined ? Number(payslip.transportation) : (Number(payslip.specialAllowance) || 2000);
+  const incentives = payslip.performanceBonus !== undefined ? Number(payslip.performanceBonus) : (Number(payslip.incentives) || 3000);
   const totalEarnings = basic + hra + allowance + incentives;
 
-  const pf = Number(payslip.pfDeduction) || 1800;
-  const tax = Number(payslip.taxDeduction) || 0;
-  const totalDeductions = pf + tax;
+  const tax = Number(payslip.taxDeduction) || 3000;
+  const healthInsurance = payslip.healthInsurance !== undefined ? Number(payslip.healthInsurance) : (Number(payslip.pfDeduction) || 500);
+  const pension = payslip.pensionContribution !== undefined ? Number(payslip.pensionContribution) : 200;
+  const totalDeductions = tax + healthInsurance + pension;
   const netPay = payslip.netPay !== undefined ? Number(payslip.netPay) : totalEarnings - totalDeductions;
 
-  // 1. EARNINGS TABLE
+  // 1. EARNINGS TABLE (Exact match for 4.png)
   doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0A2540').text('EARNINGS', leftX, currentY);
   currentY += 12;
 
-  doc.rect(leftX, currentY, contentW, 18).fill('#081031');
+  doc.rect(leftX, currentY, contentW, 18).fill('#06152B');
   doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#FFFFFF').text('DESCRIPTION', leftX + 10, currentY + 5);
   doc.text('AMOUNT (INR)', leftX, currentY + 5, { width: contentW - 10, align: 'right' });
   currentY += 18;
 
   const earnRows = [
     { desc: 'Basic Salary', amt: basic },
-    { desc: 'House Rent Allowance (HRA)', amt: hra },
-    { desc: 'Special Allowance', amt: allowance },
-    ...(incentives > 0 ? [{ desc: 'Performance Incentives / Bonus', amt: incentives }] : []),
+    { desc: 'Housing Allowance', amt: hra },
+    { desc: 'Transportation', amt: allowance },
+    { desc: 'Performance Bonus', amt: incentives },
   ];
 
   earnRows.forEach((r, idx) => {
@@ -661,7 +680,7 @@ export async function generatePayslipPdf(employee: any, payslip: any): Promise<B
     currentY += 16;
   });
 
-  // Total Earnings Row
+  // Total Earnings Row (Matching 4.png green tint)
   doc.rect(leftX, currentY, contentW, 18).fill('#E6FAF6');
   doc.fontSize(8).font('Helvetica-Bold').fillColor('#0A2540').text('TOTAL EARNINGS', leftX + 10, currentY + 5);
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#00A88B').text(
@@ -672,18 +691,19 @@ export async function generatePayslipPdf(employee: any, payslip: any): Promise<B
   );
   currentY += 26;
 
-  // 2. DEDUCTIONS TABLE
+  // 2. DEDUCTIONS TABLE (Exact match for 4.png)
   doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0A2540').text('DEDUCTIONS', leftX, currentY);
   currentY += 12;
 
-  doc.rect(leftX, currentY, contentW, 18).fill('#081031');
+  doc.rect(leftX, currentY, contentW, 18).fill('#06152B');
   doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#FFFFFF').text('DESCRIPTION', leftX + 10, currentY + 5);
   doc.text('AMOUNT (INR)', leftX, currentY + 5, { width: contentW - 10, align: 'right' });
   currentY += 18;
 
   const dedRows = [
-    { desc: 'Provident Fund (PF)', amt: pf },
-    { desc: 'Professional Tax / Income Tax', amt: tax },
+    { desc: 'Tax (Federal + State)', amt: tax },
+    { desc: 'Health Insurance', amt: healthInsurance },
+    { desc: 'Pension Contribution', amt: pension },
   ];
 
   dedRows.forEach((r, idx) => {
@@ -700,7 +720,7 @@ export async function generatePayslipPdf(employee: any, payslip: any): Promise<B
   });
 
   // Total Deductions Row
-  doc.rect(leftX, currentY, contentW, 18).fill('#FEF2F2');
+  doc.rect(leftX, currentY, contentW, 18).fill('#E6FAF6');
   doc.fontSize(8).font('Helvetica-Bold').fillColor('#0A2540').text('TOTAL DEDUCTIONS', leftX + 10, currentY + 5);
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#DC2626').text(
     `INR ${totalDeductions.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
@@ -714,31 +734,34 @@ export async function generatePayslipPdf(employee: any, payslip: any): Promise<B
   const sumY = currentY;
 
   // Left Details
-  doc.fontSize(9).font('Helvetica-Bold').fillColor('#0A2540').text('NET TAKE-HOME PAY', leftX, sumY);
-  doc.text(':', leftX + 110, sumY);
+  doc.fontSize(9).font('Helvetica-Bold').fillColor('#0A2540').text('NET PAY', leftX, sumY);
+  doc.text(':', leftX + 100, sumY);
   doc.fontSize(12).font('Helvetica-Bold').fillColor('#00A88B').text(
     `INR ${netPay.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
-    leftX + 122,
+    leftX + 112,
     sumY - 1
   );
 
-  const bankAcc = payslip.bankAccountNumber || employee?.bankAccountNumber || '50200084920194';
-  const bankName = payslip.bankName || employee?.bankName || 'HDFC Bank';
+  const bankAcc = payslip.bankAccountNumber || employee?.bankAccountNumber || '123 4567 890';
   const payMode = payslip.paymentMode || 'Bank Transfer';
 
   doc.fontSize(8).font('Helvetica-Bold').fillColor('#0A2540').text('Bank Account', leftX, sumY + 20);
-  doc.text(':', leftX + 110, sumY + 20);
-  doc.fontSize(8).font('Helvetica').fillColor('#475569').text(`${bankName} - ${bankAcc}`, leftX + 122, sumY + 20);
+  doc.text(':', leftX + 100, sumY + 20);
+  doc.fontSize(8).font('Helvetica').fillColor('#475569').text(bankAcc, leftX + 112, sumY + 20);
 
   doc.fontSize(8).font('Helvetica-Bold').fillColor('#0A2540').text('Payment Mode', leftX, sumY + 34);
-  doc.text(':', leftX + 110, sumY + 34);
-  doc.fontSize(8).font('Helvetica').fillColor('#475569').text(payMode, leftX + 122, sumY + 34);
+  doc.text(':', leftX + 100, sumY + 34);
+  doc.fontSize(8).font('Helvetica').fillColor('#475569').text(payMode, leftX + 112, sumY + 34);
 
   // Right Signatory: Authorized Signatory (matching 4.png, Finance Manager – Trade Nexus / Muhammad Patel)
   const sigRightX = 370;
+  const authRole = payslip.authorizedRole || 'Finance Manager – Trade Nexus';
+  const authName = payslip.authorizedName || 'Muhammad Patel';
+
   doc.fontSize(7.5).font('Helvetica').fillColor('#64748B').text('Authorized by:', sigRightX, sumY);
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text('Finance Manager – Trade Nexus', sigRightX, sumY + 12);
-  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0A2540').text('Muhammad Patel', sigRightX, sumY + 45);
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text(authRole, sigRightX, sumY + 12);
+  doc.fontSize(11).font('Helvetica-Oblique').fillColor('#334155').text(authName, sigRightX, sumY + 28);
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text(authName, sigRightX, sumY + 45);
 
   doc.end();
   return bufferPromise;

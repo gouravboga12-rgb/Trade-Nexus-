@@ -12,7 +12,8 @@ import {
   CreditCard,
   Mail,
   Calendar,
-  Briefcase
+  Briefcase,
+  ShieldCheck
 } from 'lucide-react';
 import { PayslipItem } from '../../types';
 
@@ -31,6 +32,8 @@ export const EditPayslipModal: React.FC<EditPayslipModalProps> = ({ payslip, isO
   const [email, setEmail] = useState<string>('');
   const [roleTitle, setRoleTitle] = useState<string>('');
   const [department, setDepartment] = useState<string>('');
+  const [employeeType, setEmployeeType] = useState<string>('Full - Time');
+  const [payDate, setPayDate] = useState<string>('');
 
   // Pay Period & Status
   const [month, setMonth] = useState<string>('August');
@@ -39,18 +42,23 @@ export const EditPayslipModal: React.FC<EditPayslipModalProps> = ({ payslip, isO
 
   // Banking Details
   const [bankName, setBankName] = useState<string>('HDFC Bank');
-  const [bankAccountNumber, setBankAccountNumber] = useState<string>('50200084920194');
+  const [bankAccountNumber, setBankAccountNumber] = useState<string>('123 4567 890');
   const [paymentMode, setPaymentMode] = useState<string>('Bank Transfer');
 
+  // Signatory Details
+  const [authorizedRole, setAuthorizedRole] = useState<string>('Finance Manager – Trade Nexus');
+  const [authorizedName, setAuthorizedName] = useState<string>('Muhammad Patel');
+
   // Earnings
-  const [basicSalary, setBasicSalary] = useState<number>(0);
-  const [hra, setHra] = useState<number>(0);
-  const [specialAllowance, setSpecialAllowance] = useState<number>(0);
-  const [incentives, setIncentives] = useState<number>(0);
+  const [basicSalary, setBasicSalary] = useState<number>(30000);
+  const [hra, setHra] = useState<number>(5000);
+  const [specialAllowance, setSpecialAllowance] = useState<number>(2000);
+  const [incentives, setIncentives] = useState<number>(3000);
 
   // Deductions
-  const [pfDeduction, setPfDeduction] = useState<number>(0);
-  const [taxDeduction, setTaxDeduction] = useState<number>(0);
+  const [taxDeduction, setTaxDeduction] = useState<number>(3000);
+  const [healthInsurance, setHealthInsurance] = useState<number>(500);
+  const [pensionContribution, setPensionContribution] = useState<number>(200);
 
   // Notes & Audit
   const [changeRemarks, setChangeRemarks] = useState<string>('');
@@ -65,18 +73,23 @@ export const EditPayslipModal: React.FC<EditPayslipModalProps> = ({ payslip, isO
       setEmail(payslip.email || '');
       setRoleTitle(payslip.roleTitle || '');
       setDepartment(payslip.department || 'Client Acquisition');
+      setEmployeeType(payslip.employeeType || 'Full - Time');
+      setPayDate(payslip.payDate || `31 ${payslip.month || 'August'} ${payslip.year || 2025}`);
       setMonth(payslip.month || 'August');
       setYear(Number(payslip.year) || new Date().getFullYear());
       setStatus(payslip.status || 'PAID');
       setBankName(payslip.bankName || 'HDFC Bank');
-      setBankAccountNumber(payslip.bankAccountNumber || '50200084920194');
+      setBankAccountNumber(payslip.bankAccountNumber || '123 4567 890');
       setPaymentMode(payslip.paymentMode || 'Bank Transfer');
-      setBasicSalary(Number(payslip.basicSalary) || 0);
-      setHra(Number(payslip.hra) || 0);
-      setSpecialAllowance(Number(payslip.specialAllowance) || 0);
-      setIncentives(Number(payslip.incentives) || 0);
-      setPfDeduction(Number(payslip.pfDeduction) || 0);
-      setTaxDeduction(Number(payslip.taxDeduction) || 0);
+      setAuthorizedRole(payslip.authorizedRole || 'Finance Manager – Trade Nexus');
+      setAuthorizedName(payslip.authorizedName || 'Muhammad Patel');
+      setBasicSalary(Number(payslip.basicSalary) || 30000);
+      setHra(payslip.housingAllowance !== undefined ? Number(payslip.housingAllowance) : (Number(payslip.hra) || 5000));
+      setSpecialAllowance(payslip.transportation !== undefined ? Number(payslip.transportation) : (Number(payslip.specialAllowance) || 2000));
+      setIncentives(payslip.performanceBonus !== undefined ? Number(payslip.performanceBonus) : (Number(payslip.incentives) || 3000));
+      setTaxDeduction(Number(payslip.taxDeduction) || 3000);
+      setHealthInsurance(payslip.healthInsurance !== undefined ? Number(payslip.healthInsurance) : (Number(payslip.pfDeduction) || 500));
+      setPensionContribution(payslip.pensionContribution !== undefined ? Number(payslip.pensionContribution) : 200);
       setChangeRemarks(payslip.changeRemarks || '');
       setCustomNotes(payslip.customNotes || '');
     }
@@ -85,7 +98,7 @@ export const EditPayslipModal: React.FC<EditPayslipModalProps> = ({ payslip, isO
   if (!isOpen || !payslip) return null;
 
   const totalEarnings = (Number(basicSalary) || 0) + (Number(hra) || 0) + (Number(specialAllowance) || 0) + (Number(incentives) || 0);
-  const totalDeductions = (Number(pfDeduction) || 0) + (Number(taxDeduction) || 0);
+  const totalDeductions = (Number(taxDeduction) || 0) + (Number(healthInsurance) || 0) + (Number(pensionContribution) || 0);
   const computedNetPay = totalEarnings - totalDeductions;
   const hrModifier = currentUser?.name || profile.name || 'HR Manager';
 
@@ -95,18 +108,27 @@ export const EditPayslipModal: React.FC<EditPayslipModalProps> = ({ payslip, isO
     email: email.trim(),
     roleTitle: roleTitle.trim(),
     department: department.trim(),
+    employeeType: employeeType.trim(),
+    payDate: payDate.trim(),
     month,
     year: Number(year) || new Date().getFullYear(),
     status,
     bankName: bankName.trim(),
     bankAccountNumber: bankAccountNumber.trim(),
     paymentMode: paymentMode.trim(),
+    authorizedRole: authorizedRole.trim(),
+    authorizedName: authorizedName.trim(),
     basicSalary: Number(basicSalary) || 0,
     hra: Number(hra) || 0,
+    housingAllowance: Number(hra) || 0,
     specialAllowance: Number(specialAllowance) || 0,
+    transportation: Number(specialAllowance) || 0,
     incentives: Number(incentives) || 0,
-    pfDeduction: Number(pfDeduction) || 0,
+    performanceBonus: Number(incentives) || 0,
+    pfDeduction: Number(healthInsurance) || 0,
+    healthInsurance: Number(healthInsurance) || 0,
     taxDeduction: Number(taxDeduction) || 0,
+    pensionContribution: Number(pensionContribution) || 0,
     netPay: computedNetPay,
     changeRemarks: changeRemarks.trim() || 'Payroll customized by HR',
     customNotes: customNotes.trim(),
@@ -258,6 +280,32 @@ export const EditPayslipModal: React.FC<EditPayslipModalProps> = ({ payslip, isO
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Employee Type
+                </label>
+                <input
+                  type="text"
+                  value={employeeType}
+                  onChange={(e) => setEmployeeType(e.target.value)}
+                  placeholder="e.g. Full - Time"
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-xs text-[#0A2540] focus:outline-none focus:border-[#00C9A7]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Pay Date
+                </label>
+                <input
+                  type="text"
+                  value={payDate}
+                  onChange={(e) => setPayDate(e.target.value)}
+                  placeholder="e.g. 31 August 2025"
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-xs text-[#0A2540] focus:outline-none focus:border-[#00C9A7]"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -317,7 +365,7 @@ export const EditPayslipModal: React.FC<EditPayslipModalProps> = ({ payslip, isO
                   type="text"
                   value={bankAccountNumber}
                   onChange={(e) => setBankAccountNumber(e.target.value)}
-                  placeholder="e.g. 50200084920194"
+                  placeholder="e.g. 123 4567 890"
                   className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 font-mono text-xs font-bold text-[#0A2540]"
                 />
               </div>
@@ -369,7 +417,7 @@ export const EditPayslipModal: React.FC<EditPayslipModalProps> = ({ payslip, isO
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  House Rent Allowance (HRA) (₹)
+                  Housing Allowance (HRA) (₹)
                 </label>
                 <input
                   type="number"
@@ -382,7 +430,7 @@ export const EditPayslipModal: React.FC<EditPayslipModalProps> = ({ payslip, isO
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Special / Transportation Allowance (₹)
+                  Transportation / Special Allowance (₹)
                 </label>
                 <input
                   type="number"
@@ -395,7 +443,7 @@ export const EditPayslipModal: React.FC<EditPayslipModalProps> = ({ payslip, isO
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Incentives / Commission / Bonus (₹)
+                  Performance Bonus / Incentives (₹)
                 </label>
                 <input
                   type="number"
@@ -420,23 +468,10 @@ export const EditPayslipModal: React.FC<EditPayslipModalProps> = ({ payslip, isO
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Provident Fund (PF) (₹)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={pfDeduction}
-                  onChange={(e) => setPfDeduction(Number(e.target.value))}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 font-mono text-xs font-bold text-rose-600 focus:bg-white focus:outline-none focus:border-[#00C9A7]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Tax / TDS / Professional Tax (₹)
+                  Tax (Federal + State) (₹)
                 </label>
                 <input
                   type="number"
@@ -444,6 +479,68 @@ export const EditPayslipModal: React.FC<EditPayslipModalProps> = ({ payslip, isO
                   value={taxDeduction}
                   onChange={(e) => setTaxDeduction(Number(e.target.value))}
                   className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 font-mono text-xs font-bold text-rose-600 focus:bg-white focus:outline-none focus:border-[#00C9A7]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Health Insurance (₹)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={healthInsurance}
+                  onChange={(e) => setHealthInsurance(Number(e.target.value))}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 font-mono text-xs font-bold text-rose-600 focus:bg-white focus:outline-none focus:border-[#00C9A7]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Pension Contribution (₹)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={pensionContribution}
+                  onChange={(e) => setPensionContribution(Number(e.target.value))}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 font-mono text-xs font-bold text-rose-600 focus:bg-white focus:outline-none focus:border-[#00C9A7]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 5: Authorized Signatory Details */}
+          <div className="space-y-3 bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80">
+            <h4 className="font-display font-black text-xs uppercase tracking-wider text-[#0A2540] flex items-center gap-1.5 border-b border-slate-200 pb-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#00A88B]" />
+              <span>Authorized Signatory (Exact 4.png)</span>
+            </h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Authorized Role Title
+                </label>
+                <input
+                  type="text"
+                  value={authorizedRole}
+                  onChange={(e) => setAuthorizedRole(e.target.value)}
+                  placeholder="Finance Manager – Trade Nexus"
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-xs font-bold text-[#0A2540]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Authorized Signatory Name
+                </label>
+                <input
+                  type="text"
+                  value={authorizedName}
+                  onChange={(e) => setAuthorizedName(e.target.value)}
+                  placeholder="Muhammad Patel"
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-xs font-bold text-[#0A2540]"
                 />
               </div>
             </div>
@@ -466,7 +563,7 @@ export const EditPayslipModal: React.FC<EditPayslipModalProps> = ({ payslip, isO
             </div>
           </div>
 
-          {/* SECTION 5: Change Remarks & Audit Trail */}
+          {/* SECTION 6: Change Remarks & Audit Trail */}
           <div className="space-y-3 pt-1 border-t border-slate-200">
             <div>
               <div className="flex items-center justify-between mb-1">
