@@ -520,7 +520,7 @@ export const GenerateExperienceCertModal: React.FC<GenerateExperienceCertModalPr
           </form>
         ) : (
           /* Live Document Preview matching exact 2.png layout */
-          <div className="flex-1 min-h-0 flex flex-col">
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
             {/* Scrollable preview area */}
             <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-slate-100/80 flex flex-col items-center gap-4">
             
