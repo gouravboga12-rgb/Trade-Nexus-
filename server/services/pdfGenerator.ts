@@ -1049,9 +1049,9 @@ export async function generateIdCardPdf(employee: any, cardData?: any): Promise<
   });
 
   // Small cyan accent bar under designation
-  doc.rect(272, 576, 47, 3).fill('#00C2CB');
+  doc.rect(272, 574, 47, 3).fill('#00C2CB');
 
-  // 4. Details Table Grid (matching tradenexus-id.png)
+  // 4. Details Table Grid (matching tradenexus-id.png, spaced cleanly above wave at 732)
   const rows = [
     { label: 'Emp. ID', val: empCode },
     { label: 'Emp. Type', val: rawEmpType },
@@ -1060,36 +1060,29 @@ export async function generateIdCardPdf(employee: any, cardData?: any): Promise<
     { label: 'Cell', val: phone },
   ];
 
-  let curY = 618;
+  let curY = 604;
   rows.forEach(row => {
     doc.fontSize(13.5).font('Helvetica').fillColor('#CBD5E1').text(row.label, 148, curY);
     doc.fontSize(13.5).font('Helvetica-Bold').fillColor('#FFFFFF').text(':', 292, curY);
     doc.fontSize(14).font('Helvetica-Bold').fillColor('#FFFFFF').text(row.val, 328, curY);
-    curY += 24;
+    curY += 21.5;
   });
 
-  // 5. Footer (y = 744 to 1004)
-  if (isCustomContact) {
-    const footerCleanPath = path.join(ASSETS_DIR, 'id-card-footer-clean.png');
-    if (fs.existsSync(footerCleanPath)) {
-      doc.image(footerCleanPath, 0, 744, { width: 591, height: 260 });
-    }
-
-    // Dynamic contact details on left
-    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#041026').text(address, 100, 816, { width: 250, lineGap: 1 });
-    doc.fontSize(10.5).font('Helvetica-Bold').fillColor('#041026').text(email, 100, 864, { width: 250 });
-    doc.fontSize(10.5).font('Helvetica-Bold').fillColor('#041026').text(website, 100, 901, { width: 250 });
-    doc.fontSize(10.5).font('Helvetica-Bold').fillColor('#041026').text(companyPhone, 100, 938, { width: 250 });
-
-    // Dynamic signatory details on right
-    doc.fontSize(11).font('Helvetica-Bold').fillColor('#041026').text(signatoryName, 400, 888, { width: 175, align: 'center' });
-    doc.fontSize(9.5).font('Helvetica').fillColor('#041026').text(signatoryRole, 400, 903, { width: 175, align: 'center' });
-  } else if (!fs.existsSync(fullFramePath)) {
-    const footerDefaultPath = path.join(ASSETS_DIR, 'id-card-footer-default.png');
-    if (fs.existsSync(footerDefaultPath)) {
-      doc.image(footerDefaultPath, 0, 744, { width: 591, height: 260 });
-    }
+  // 5. Footer (y = 744 to 1004) - Always clean dynamic overlay
+  const footerCleanPath = path.join(ASSETS_DIR, 'id-card-footer-clean.png');
+  if (fs.existsSync(footerCleanPath)) {
+    doc.image(footerCleanPath, 0, 744, { width: 591, height: 260 });
   }
+
+  // Dynamic contact details on left
+  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#041026').text(address, 100, 816, { width: 250, lineGap: 1 });
+  doc.fontSize(10.5).font('Helvetica-Bold').fillColor('#041026').text(email, 100, 864, { width: 250 });
+  doc.fontSize(10.5).font('Helvetica-Bold').fillColor('#041026').text(website, 100, 901, { width: 250 });
+  doc.fontSize(10.5).font('Helvetica-Bold').fillColor('#041026').text(companyPhone, 100, 938, { width: 250 });
+
+  // Dynamic signatory details on right
+  doc.fontSize(11).font('Helvetica-Bold').fillColor('#041026').text(signatoryName, 400, 888, { width: 175, align: 'center' });
+  doc.fontSize(9.5).font('Helvetica').fillColor('#041026').text(signatoryRole, 400, 903, { width: 175, align: 'center' });
 
   doc.end();
   return bufferPromise;

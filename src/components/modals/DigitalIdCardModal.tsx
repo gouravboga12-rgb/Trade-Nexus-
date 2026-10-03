@@ -84,6 +84,12 @@ export const DigitalIdCardModal: React.FC = () => {
       setCustomDob((matched as any).dob || '05/11/1997');
       setCustomPhone((matched as any).emergencyPhone || matched.phone || '0000XXXX97');
       setCustomPhotoUrl(matched.avatar ? matched.avatar : null);
+      if ((matched as any).companyAddress) setCustomCompanyAddress((matched as any).companyAddress);
+      if ((matched as any).companyEmail) setCustomCompanyEmail((matched as any).companyEmail);
+      if ((matched as any).companyWebsite) setCustomCompanyWebsite((matched as any).companyWebsite);
+      if ((matched as any).companyPhone) setCustomCompanyPhone((matched as any).companyPhone);
+      if ((matched as any).signatoryName) setCustomSignatoryName((matched as any).signatoryName);
+      if ((matched as any).signatoryRole) setCustomSignatoryRole((matched as any).signatoryRole);
     } else if (profile) {
       setCustomName(profile.name || 'Employee');
       setCustomRole(profile.roleTitle || 'Sales Executive');
@@ -108,18 +114,16 @@ export const DigitalIdCardModal: React.FC = () => {
       setCustomDob((matched as any).dob || '05/11/1997');
       setCustomPhone((matched as any).emergencyPhone || matched.phone || '0000XXXX97');
       setCustomPhotoUrl(matched.avatar ? matched.avatar : null);
+      if ((matched as any).companyAddress) setCustomCompanyAddress((matched as any).companyAddress);
+      if ((matched as any).companyEmail) setCustomCompanyEmail((matched as any).companyEmail);
+      if ((matched as any).companyWebsite) setCustomCompanyWebsite((matched as any).companyWebsite);
+      if ((matched as any).companyPhone) setCustomCompanyPhone((matched as any).companyPhone);
+      if ((matched as any).signatoryName) setCustomSignatoryName((matched as any).signatoryName);
+      if ((matched as any).signatoryRole) setCustomSignatoryRole((matched as any).signatoryRole);
     }
   };
 
   if (!isIdCardModalOpen) return null;
-
-  const isDefaultFooter = 
-    customCompanyAddress.trim() === DEFAULT_COMPANY_ADDRESS &&
-    customCompanyEmail.trim() === DEFAULT_COMPANY_EMAIL &&
-    customCompanyWebsite.trim() === DEFAULT_COMPANY_WEBSITE &&
-    customCompanyPhone.trim() === DEFAULT_COMPANY_PHONE &&
-    customSignatoryName.trim() === DEFAULT_SIGNATORY_NAME &&
-    customSignatoryRole.trim() === DEFAULT_SIGNATORY_ROLE;
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -230,12 +234,18 @@ export const DigitalIdCardModal: React.FC = () => {
         employeeType: customEmpType,
         empType: customEmpType,
         avatar: customPhotoUrl || undefined,
+        companyAddress: customCompanyAddress,
+        companyEmail: customCompanyEmail,
+        companyWebsite: customCompanyWebsite,
+        companyPhone: customCompanyPhone,
+        signatoryName: customSignatoryName,
+        signatoryRole: customSignatoryRole,
       } as any);
 
       // 2. Generate canonical PDF and store into employee_documents table
       await api.generateIdCard(selectedEmpId, cardPayload);
 
-      triggerToast(`✓ Official ID Card generated & saved to Employee Documents!`);
+      triggerToast(`✓ Official ID Card & Address saved to Employee Documents!`);
       setIsEditing(false);
     } catch (err: any) {
       console.warn('Failed to save & generate ID card:', err);
@@ -419,69 +429,110 @@ export const DigitalIdCardModal: React.FC = () => {
             </div>
 
             {/* Section 2: Company Contact & Signatory Customization */}
-            <div className="pt-2 border-t border-slate-200">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-                Company & Signatory Customization (Optional)
-              </span>
+            <div className="pt-2.5 border-t border-slate-200">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-black uppercase tracking-wider text-teal-700 flex items-center gap-1.5">
+                  <Building className="w-3.5 h-3.5 text-teal-600" />
+                  <span>ID Card Footer &amp; Badge Address (Live Editable)</span>
+                </span>
+                <span className="text-[9px] font-bold text-slate-400">Updates bottom white badge section in real time</span>
+              </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <div className="col-span-2 sm:col-span-3">
-                  <label className="text-[10px] font-bold text-slate-600 block">Corporate Address</label>
+                  <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+                    Corporate Address (Printed beside 📍 Pin Icon)
+                  </label>
                   <input 
                     type="text" 
                     value={customCompanyAddress} 
                     onChange={(e) => setCustomCompanyAddress(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 text-slate-800 text-xs"
+                    placeholder="123 Business Avenue, Financial District, Your City, 500001"
+                    className="w-full bg-white border border-slate-300 focus:border-teal-500 rounded-lg px-2.5 py-1 text-slate-800 text-xs font-semibold shadow-2xs"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-600 block">Company Email</label>
+                  <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+                    Company Email (beside ✉️ Mail)
+                  </label>
                   <input 
                     type="text" 
                     value={customCompanyEmail} 
                     onChange={(e) => setCustomCompanyEmail(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 text-slate-800 text-xs"
+                    className="w-full bg-white border border-slate-300 focus:border-teal-500 rounded-lg px-2.5 py-1 text-slate-800 text-xs shadow-2xs"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-600 block">Website</label>
+                  <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+                    Website (beside 🌐 Globe)
+                  </label>
                   <input 
                     type="text" 
                     value={customCompanyWebsite} 
                     onChange={(e) => setCustomCompanyWebsite(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 text-slate-800 text-xs"
+                    className="w-full bg-white border border-slate-300 focus:border-teal-500 rounded-lg px-2.5 py-1 text-slate-800 text-xs shadow-2xs"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-600 block">Phone</label>
+                  <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+                    Official Phone (beside 📞 Phone)
+                  </label>
                   <input 
                     type="text" 
                     value={customCompanyPhone} 
                     onChange={(e) => setCustomCompanyPhone(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 text-slate-800 text-xs"
+                    className="w-full bg-white border border-slate-300 focus:border-teal-500 rounded-lg px-2.5 py-1 text-slate-800 text-xs shadow-2xs"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-600 block">Signatory Name</label>
+                  <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+                    Signatory Name
+                  </label>
                   <input 
                     type="text" 
                     value={customSignatoryName} 
                     onChange={(e) => setCustomSignatoryName(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-bold text-slate-800 text-xs"
+                    className="w-full bg-white border border-slate-300 focus:border-teal-500 rounded-lg px-2.5 py-1 font-bold text-slate-800 text-xs shadow-2xs"
                   />
                 </div>
-                <div className="col-span-2">
-                  <label className="text-[10px] font-bold text-slate-600 block">Signatory Role</label>
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+                    Signatory Role
+                  </label>
                   <input 
                     type="text" 
                     value={customSignatoryRole} 
                     onChange={(e) => setCustomSignatoryRole(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 text-slate-800 text-xs"
+                    className="w-full bg-white border border-slate-300 focus:border-teal-500 rounded-lg px-2.5 py-1 text-slate-800 text-xs shadow-2xs"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end pt-1">
+            {/* Bottom Actions of Drawer */}
+            <div className="flex items-center justify-between pt-1.5 border-t border-slate-200 mt-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomCompanyAddress(DEFAULT_COMPANY_ADDRESS);
+                    setCustomCompanyEmail(DEFAULT_COMPANY_EMAIL);
+                    setCustomCompanyWebsite(DEFAULT_COMPANY_WEBSITE);
+                    setCustomCompanyPhone(DEFAULT_COMPANY_PHONE);
+                    setCustomSignatoryName(DEFAULT_SIGNATORY_NAME);
+                    setCustomSignatoryRole(DEFAULT_SIGNATORY_ROLE);
+                    triggerToast('✓ Reset address & contact to defaults');
+                  }}
+                  className="px-2.5 py-1 rounded-lg border border-slate-300 hover:bg-slate-200 text-slate-600 text-[10px] font-bold transition-colors cursor-pointer"
+                  title="Reset corporate address and contact to defaults"
+                >
+                  Reset Defaults
+                </button>
+                <span className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <Check className="w-3 h-3 text-teal-600" />
+                  Address Live-Synced
+                </span>
+              </div>
+
               <button
                 type="button"
                 onClick={handleSaveAndGenerate}
@@ -507,7 +558,7 @@ export const DigitalIdCardModal: React.FC = () => {
 
           <div 
             id="digital-id-card-sheet"
-            className="w-[330px] sm:w-[340px] text-white rounded-[28px] overflow-hidden shadow-2xl print:shadow-none relative print:border print:border-slate-300 print:my-0 flex-shrink-0"
+            className="w-[340px] sm:w-[355px] text-white rounded-[28px] overflow-hidden shadow-2xl print:shadow-none relative print:border print:border-slate-300 print:my-0 flex-shrink-0"
             style={{ 
               backgroundImage: `url(${idCardTemplateFrame})`,
               backgroundSize: '100% 100%',
@@ -521,7 +572,7 @@ export const DigitalIdCardModal: React.FC = () => {
             {/* Circular Photo with Concentric Glowing Cyan Ring */}
             <div 
               className="absolute left-1/2 -translate-x-1/2 z-10"
-              style={{ top: '27.5%', width: '38%', aspectRatio: '1 / 1' }}
+              style={{ top: '26.8%', width: '37%', aspectRatio: '1 / 1' }}
             >
               <div 
                 onClick={() => canEditIdCard && fileInputRef.current?.click()}
@@ -555,87 +606,89 @@ export const DigitalIdCardModal: React.FC = () => {
             {/* Employee Name & Designation */}
             <div 
               className="absolute left-0 right-0 text-center px-4 space-y-0.5 z-10"
-              style={{ top: '51.8%' }}
+              style={{ top: '49.8%' }}
             >
-              <h3 className="font-display font-black text-lg text-white tracking-wider uppercase leading-tight truncate px-2">
+              <h3 className="font-display font-black text-base sm:text-lg text-white tracking-wider uppercase leading-tight truncate px-2">
                 {customName || 'NAME'}
               </h3>
               <p 
-                className="text-[11px] font-extrabold tracking-[0.18em] uppercase truncate px-2"
+                className="text-[10.5px] sm:text-[11px] font-extrabold tracking-[0.16em] uppercase truncate px-2"
                 style={{ color: '#00C2CB' }}
               >
                 {customRole || 'DESIGNATION'}
               </p>
               <div 
-                className="w-10 h-0.5 mx-auto rounded-full mt-1.5"
+                className="w-9 h-0.5 mx-auto rounded-full mt-1"
                 style={{ backgroundColor: '#00C2CB' }}
               />
             </div>
 
-            {/* Clean Key Details Matrix (Exact tradenexus-id.png) */}
+            {/* Clean Key Details Matrix (Exact tradenexus-id.png, tightly spaced cleanly above wave at 73%) */}
             <div 
-              className="absolute left-0 right-0 px-9 py-1 text-xs font-semibold space-y-1 text-slate-200 z-10"
-              style={{ top: '61.5%' }}
+              className="absolute left-0 right-0 px-8 py-0 text-slate-200 z-10 space-y-0.5"
+              style={{ top: '58.5%' }}
             >
               <div className="grid grid-cols-12 gap-1 items-center">
-                <span className="col-span-5 text-slate-300 font-medium text-[11px]">Emp. ID</span>
-                <span className="col-span-1 text-white font-bold text-center">:</span>
-                <span className="col-span-6 font-mono font-bold text-white text-xs">{customEmpCode || '001'}</span>
+                <span className="col-span-5 text-slate-300 font-medium text-[10.5px] leading-tight">Emp. ID</span>
+                <span className="col-span-1 text-white font-bold text-center text-[10.5px] leading-tight">:</span>
+                <span className="col-span-6 font-mono font-bold text-white text-[11px] leading-tight truncate">{customEmpCode || '001'}</span>
               </div>
               <div className="grid grid-cols-12 gap-1 items-center">
-                <span className="col-span-5 text-slate-300 font-medium text-[11px]">Emp. Type</span>
-                <span className="col-span-1 text-white font-bold text-center">:</span>
-                <span className="col-span-6 font-bold text-white text-xs">{customEmpType || 'Full - Time'}</span>
+                <span className="col-span-5 text-slate-300 font-medium text-[10.5px] leading-tight">Emp. Type</span>
+                <span className="col-span-1 text-white font-bold text-center text-[10.5px] leading-tight">:</span>
+                <span className="col-span-6 font-bold text-white text-[11px] leading-tight truncate">{customEmpType || 'Full - Time'}</span>
               </div>
               <div className="grid grid-cols-12 gap-1 items-center">
-                <span className="col-span-5 text-slate-300 font-medium text-[11px]">Blood Group</span>
-                <span className="col-span-1 text-white font-bold text-center">:</span>
-                <span className="col-span-6 font-bold text-white text-xs">{customBloodGroup || 'O+ ve'}</span>
+                <span className="col-span-5 text-slate-300 font-medium text-[10.5px] leading-tight">Blood Group</span>
+                <span className="col-span-1 text-white font-bold text-center text-[10.5px] leading-tight">:</span>
+                <span className="col-span-6 font-bold text-white text-[11px] leading-tight truncate">{customBloodGroup || 'O+ ve'}</span>
               </div>
               <div className="grid grid-cols-12 gap-1 items-center">
-                <span className="col-span-5 text-slate-300 font-medium text-[11px]">D.O.B.</span>
-                <span className="col-span-1 text-white font-bold text-center">:</span>
-                <span className="col-span-6 font-mono font-bold text-white text-xs">{customDob || '05/11/1997'}</span>
+                <span className="col-span-5 text-slate-300 font-medium text-[10.5px] leading-tight">D.O.B.</span>
+                <span className="col-span-1 text-white font-bold text-center text-[10.5px] leading-tight">:</span>
+                <span className="col-span-6 font-mono font-bold text-white text-[11px] leading-tight truncate">{customDob || '05/11/1997'}</span>
               </div>
               <div className="grid grid-cols-12 gap-1 items-center">
-                <span className="col-span-5 text-slate-300 font-medium text-[11px]">Cell</span>
-                <span className="col-span-1 text-white font-bold text-center">:</span>
-                <span className="col-span-6 font-mono font-bold text-white text-xs truncate">
+                <span className="col-span-5 text-slate-300 font-medium text-[10.5px] leading-tight">Cell</span>
+                <span className="col-span-1 text-white font-bold text-center text-[10.5px] leading-tight">:</span>
+                <span className="col-span-6 font-mono font-bold text-white text-[11px] leading-tight truncate">
                   {customPhone || '0000XXXX97'}
                 </span>
               </div>
             </div>
 
-            {/* Bottom Footer Area */}
-            {!isDefaultFooter && (
-              <div className="absolute bottom-0 left-0 right-0 z-10 select-none overflow-hidden h-[25.8%]">
-                <img src={idCardFooterClean} alt="Trade Nexus Footer" className="w-full h-full object-cover" />
-                
-                {/* Overlaid dynamic contact details matching exact icon positions */}
-                <div className="absolute left-[17%] top-[27.7%] right-[38%] text-[7.5px] font-bold text-[#041026] leading-tight line-clamp-2">
-                  {customCompanyAddress}
-                </div>
-                <div className="absolute left-[17%] top-[46.2%] right-[38%] text-[8px] font-bold text-[#041026] truncate">
-                  {customCompanyEmail}
-                </div>
-                <div className="absolute left-[17%] top-[60.4%] right-[38%] text-[8px] font-bold text-[#041026] truncate">
-                  {customCompanyWebsite}
-                </div>
-                <div className="absolute left-[17%] top-[74.6%] right-[38%] text-[8px] font-bold text-[#041026] truncate">
-                  {customCompanyPhone}
-                </div>
+            {/* Bottom Footer Area - Always rendered with live dynamic text and address */}
+            <div 
+              onClick={() => canEditIdCard && setIsEditing(true)}
+              title={canEditIdCard ? "Click to edit badge address, email, phone & signatory" : undefined}
+              className={`absolute bottom-0 left-0 right-0 z-10 select-none overflow-hidden h-[25.8%] ${canEditIdCard ? 'cursor-pointer group' : ''}`}
+            >
+              <img src={idCardFooterClean} alt="Trade Nexus Footer" className="w-full h-full object-cover" />
+              
+              {/* Overlaid dynamic contact details matching exact icon positions */}
+              <div className="absolute left-[17%] top-[27.7%] right-[38%] text-[7.5px] sm:text-[8px] font-bold text-[#041026] leading-tight line-clamp-2">
+                {customCompanyAddress}
+              </div>
+              <div className="absolute left-[17%] top-[46.2%] right-[38%] text-[8px] sm:text-[8.5px] font-bold text-[#041026] truncate">
+                {customCompanyEmail}
+              </div>
+              <div className="absolute left-[17%] top-[60.4%] right-[38%] text-[8px] sm:text-[8.5px] font-bold text-[#041026] truncate">
+                {customCompanyWebsite}
+              </div>
+              <div className="absolute left-[17%] top-[74.6%] right-[38%] text-[8px] sm:text-[8.5px] font-bold text-[#041026] truncate">
+                {customCompanyPhone}
+              </div>
 
-                {/* Overlaid dynamic signatory */}
-                <div className="absolute right-[5%] bottom-[16%] w-[33%] text-center">
-                  <div className="font-bold text-[8.5px] text-[#041026] leading-tight truncate">
-                    {customSignatoryName}
-                  </div>
-                  <div className="text-[7.5px] text-[#041026] leading-tight truncate">
-                    {customSignatoryRole}
-                  </div>
+              {/* Overlaid dynamic signatory */}
+              <div className="absolute right-[5%] bottom-[16%] w-[33%] text-center">
+                <div className="font-bold text-[8.5px] sm:text-[9px] text-[#041026] leading-tight truncate">
+                  {customSignatoryName}
+                </div>
+                <div className="text-[7.5px] sm:text-[8px] text-[#041026] leading-tight truncate">
+                  {customSignatoryRole}
                 </div>
               </div>
-            )}
+            </div>
 
           </div>
 
