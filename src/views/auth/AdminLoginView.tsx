@@ -196,9 +196,9 @@ export const AdminLoginView: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Direct Fast-Access Infographic */}
-      <div className="px-5 mt-4">
-        <div className="bg-white border border-slate-200 rounded-3xl p-4 shadow-sm text-center space-y-1">
+      {/* 3. Direct Fast-Access Infographic (Disabled / Non-functional informational guide) */}
+      <div className="px-5 mt-4 select-none pointer-events-none" aria-hidden="true">
+        <div className="bg-white/80 border border-slate-200/90 rounded-3xl p-4 shadow-xs text-center space-y-1 opacity-75 cursor-default">
           <span className="text-[11px] font-extrabold text-[#0A2540] uppercase tracking-wider block">
             Super Admin Direct Access
           </span>

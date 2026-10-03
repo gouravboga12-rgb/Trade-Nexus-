@@ -199,19 +199,16 @@ export const TeamLeaderLoginView: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. 3-Step Supervisor Access Flow Infographic */}
-      <div className="px-5 mt-4">
-        <div className="bg-white border border-slate-200 rounded-3xl p-4 shadow-sm">
+      {/* 3. 3-Step Supervisor Access Flow Infographic (Disabled / Non-functional informational guide) */}
+      <div className="px-5 mt-4 select-none pointer-events-none" aria-hidden="true">
+        <div className="bg-white/80 border border-slate-200/90 rounded-3xl p-4 shadow-xs opacity-75 cursor-default">
           <span className="text-[11px] font-extrabold text-[#0A2540] uppercase tracking-wider block text-center mb-3">
             Supervisor Verification Process
           </span>
 
-          <div className="flex items-center justify-between text-center relative">
+          <div className="flex items-center justify-between text-center relative pointer-events-none">
             {/* Step 1: Login */}
-            <div 
-              onClick={() => setAuthStep('LOGIN')}
-              className="flex-1 flex flex-col items-center cursor-pointer hover:opacity-80 transition-all"
-            >
+            <div className="flex-1 flex flex-col items-center">
               <div className="w-10 h-10 rounded-2xl bg-[#E6FAF6] border border-[#00C9A7]/40 flex items-center justify-center text-[#00A88B] relative mb-1.5 shadow-2xs">
                 <Shield className="w-5 h-5" />
                 <span className="w-4 h-4 rounded-full bg-[#00C9A7] text-[#0A2540] font-black text-[9px] flex items-center justify-center absolute -top-1 -right-1">1</span>
@@ -220,13 +217,10 @@ export const TeamLeaderLoginView: React.FC = () => {
               <span className="text-[9px] text-slate-400 leading-tight block">Executive access</span>
             </div>
 
-            <div className="text-slate-300 font-bold px-1">➔</div>
+            <div className="text-slate-300 font-bold px-1 select-none">➔</div>
 
             {/* Step 2: Face Scan */}
-            <div 
-              onClick={() => setAuthStep('FACE_SCAN')}
-              className="flex-1 flex flex-col items-center cursor-pointer hover:opacity-80 transition-all"
-            >
+            <div className="flex-1 flex flex-col items-center">
               <div className="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 relative mb-1.5 shadow-2xs">
                 <ScanFace className="w-5 h-5" />
                 <span className="w-4 h-4 rounded-full bg-[#0A2540] text-white font-black text-[9px] flex items-center justify-center absolute -top-1 -right-1">2</span>
@@ -235,13 +229,10 @@ export const TeamLeaderLoginView: React.FC = () => {
               <span className="text-[9px] text-slate-400 leading-tight block">Biometric kiosk</span>
             </div>
 
-            <div className="text-slate-300 font-bold px-1">➔</div>
+            <div className="text-slate-300 font-bold px-1 select-none">➔</div>
 
             {/* Step 3: Marked */}
-            <div 
-              onClick={() => setAuthStep('ATTENDANCE_SUCCESS')}
-              className="flex-1 flex flex-col items-center cursor-pointer hover:opacity-80 transition-all"
-            >
+            <div className="flex-1 flex flex-col items-center">
               <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 relative mb-1.5 shadow-2xs">
                 <CheckCircle2 className="w-5 h-5" />
                 <span className="w-4 h-4 rounded-full bg-emerald-600 text-white text-[9px] font-black flex items-center justify-center absolute -top-1 -right-1">3</span>
