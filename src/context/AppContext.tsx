@@ -1663,6 +1663,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       signatoryRole: data.signatoryRole || 'Chief executive Officer',
       employeeType: data.employeeType || 'Full Time',
       salaryType: data.salaryType || 'Monthly Gross / Annual CTC',
+      companyName: data.companyName || 'Trade Nexus',
+      companyAddress: data.companyAddress || '123 Business Avenue, Financial District, Your City, 500001',
+      companyPhone: data.companyPhone || '+91 98765 43210',
+      companyEmail: data.companyEmail || 'info@tradenexus.com',
+      companyWebsite: data.companyWebsite || 'www.tradenexus.com',
     };
     setOfferLetters(prev => [newOfferLetter, ...prev]);
     setSelectedOfferLetter(newOfferLetter);

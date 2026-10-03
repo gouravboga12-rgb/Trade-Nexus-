@@ -182,25 +182,29 @@ export async function generateOfferLetterPdf(data: {
   });
 
   // Company Brand & Contact block (Upper Left under banner)
-  doc.fontSize(11.5).font('Helvetica-Bold').fillColor('#041026').text('Trade Nexus', leftX, currentY);
+  const companyName = (data as any).companyName || 'Trade Nexus';
+  const companyAddress = (data as any).companyAddress || '123 Business Avenue, Financial District, Your City, 500001';
+  const companyPhone = (data as any).companyPhone || '+91 98765 43210';
+  const companyEmail = (data as any).companyEmail || 'info@tradenexus.com';
+  const companyWebsite = (data as any).companyWebsite || 'www.tradenexus.com';
+
+  doc.fontSize(11.5).font('Helvetica-Bold').fillColor('#041026').text(companyName, leftX, currentY);
   currentY += 16;
 
-  // Pin + Address (2 lines)
+  // Pin + Address (multiline or 2 lines)
   const pinPath = path.join(ASSETS_DIR, 'icon-pin.png');
   if (fs.existsSync(pinPath)) {
     doc.image(pinPath, leftX, currentY + 1, { width: 9.5, height: 9.5 });
   }
-  doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text('123 Business Avenue,', leftX + 15, currentY);
-  currentY += 12;
-  doc.text('Financial District, Your City, 500001', leftX + 15, currentY);
-  currentY += 14;
+  doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text(companyAddress, leftX + 15, currentY, { width: 280, lineGap: 2 });
+  currentY = doc.y + 3;
 
   // Phone
   const phonePath = path.join(ASSETS_DIR, 'icon-phone.png');
   if (fs.existsSync(phonePath)) {
     doc.image(phonePath, leftX, currentY + 1, { width: 9.5, height: 9.5 });
   }
-  doc.text('+91 98765 43210', leftX + 15, currentY);
+  doc.text(companyPhone, leftX + 15, currentY);
   currentY += 14;
 
   // Email
@@ -208,7 +212,7 @@ export async function generateOfferLetterPdf(data: {
   if (fs.existsSync(mailPath)) {
     doc.image(mailPath, leftX, currentY + 1, { width: 9.5, height: 9.5 });
   }
-  doc.text('info@tradenexus.com', leftX + 15, currentY);
+  doc.text(companyEmail, leftX + 15, currentY);
   currentY += 14;
 
   // Website
@@ -216,7 +220,7 @@ export async function generateOfferLetterPdf(data: {
   if (fs.existsSync(globePath)) {
     doc.image(globePath, leftX, currentY + 1, { width: 9.5, height: 9.5 });
   }
-  doc.text('www.tradenexus.com', leftX + 15, currentY);
+  doc.text(companyWebsite, leftX + 15, currentY);
   currentY += 22;
 
   // Recipient Block ("To,")
@@ -250,7 +254,7 @@ export async function generateOfferLetterPdf(data: {
     .text('We are pleased to offer you the position of ', leftX, currentY, { continued: true, lineGap: 5, width: contentW })
     .font('Helvetica-Bold').fillColor('#00A88B').text(role, { continued: true })
     .font('Helvetica').fillColor('#041026').text(' at ', { continued: true })
-    .font('Helvetica-Bold').fillColor('#00A88B').text('Trade Nexus', { continued: true })
+    .font('Helvetica-Bold').fillColor('#00A88B').text(companyName, { continued: true })
     .font('Helvetica').fillColor('#041026').text(', starting on ', { continued: true })
     .font('Helvetica-Bold').fillColor('#00A88B').text(joinDate, { continued: true })
     .font('Helvetica').fillColor('#041026').text('. In this role, you will report to ', { continued: true })
@@ -325,7 +329,7 @@ export async function generateOfferLetterPdf(data: {
   doc.fontSize(9.5).font('Helvetica').fillColor('#041026').text(signatoryRole, leftX, currentY);
   currentY += 12;
 
-  doc.fontSize(9.5).font('Helvetica').fillColor('#041026').text('Trade Nexus', leftX, currentY);
+  doc.fontSize(9.5).font('Helvetica').fillColor('#041026').text(companyName, leftX, currentY);
 
   doc.end();
   return bufferPromise;

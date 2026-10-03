@@ -395,6 +395,11 @@ export interface OfferLetterData {
   signatoryRole?: string;
   employeeType?: string;
   salaryType?: string;
+  companyName?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  companyWebsite?: string;
 }
 
 export interface NewEmployeeInput {
@@ -435,6 +440,11 @@ export interface NewEmployeeInput {
   signatoryRole?: string;
   issuedDate?: string;
   salaryType?: string;
+  companyName?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  companyWebsite?: string;
 }
 
 export interface PaymentVerificationItem {

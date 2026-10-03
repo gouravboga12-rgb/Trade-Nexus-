@@ -507,7 +507,7 @@ export const DigitalIdCardModal: React.FC = () => {
 
           <div 
             id="digital-id-card-sheet"
-            className="w-[330px] sm:w-[340px] text-white rounded-[28px] overflow-hidden shadow-2xl print:shadow-none relative flex flex-col justify-between print:border print:border-slate-300 print:my-0 flex-shrink-0"
+            className="w-[330px] sm:w-[340px] text-white rounded-[28px] overflow-hidden shadow-2xl print:shadow-none relative print:border print:border-slate-300 print:my-0 flex-shrink-0"
             style={{ 
               backgroundImage: `url(${idCardTemplateFrame})`,
               backgroundSize: '100% 100%',
@@ -518,15 +518,15 @@ export const DigitalIdCardModal: React.FC = () => {
               printColorAdjust: 'exact'
             }}
           >
-            {/* Top Header Clearance Spacer */}
-            <div className="w-full pt-[27.5%] select-none pointer-events-none" />
-
             {/* Circular Photo with Concentric Glowing Cyan Ring */}
-            <div className="flex justify-center -mt-1 mb-1 relative z-10">
+            <div 
+              className="absolute left-1/2 -translate-x-1/2 z-10"
+              style={{ top: '27.5%', width: '38%', aspectRatio: '1 / 1' }}
+            >
               <div 
                 onClick={() => canEditIdCard && fileInputRef.current?.click()}
                 title={canEditIdCard ? "Click to change or upload employee photo" : customName}
-                className={`w-28 h-28 rounded-full p-[3px] shadow-2xl flex items-center justify-center relative ${canEditIdCard ? 'cursor-pointer group' : 'cursor-default'}`}
+                className={`w-full h-full rounded-full p-[3px] shadow-2xl flex items-center justify-center relative ${canEditIdCard ? 'cursor-pointer group' : 'cursor-default'}`}
                 style={{ 
                   background: 'linear-gradient(135deg, #00C2CB 0%, #00E5FF 50%, #020E37 100%)',
                   boxShadow: '0 8px 24px rgba(0, 194, 203, 0.35)'
@@ -553,12 +553,15 @@ export const DigitalIdCardModal: React.FC = () => {
             </div>
 
             {/* Employee Name & Designation */}
-            <div className="text-center px-4 space-y-0.5 relative z-10">
-              <h3 className="font-display font-black text-lg text-white tracking-wider uppercase leading-tight">
+            <div 
+              className="absolute left-0 right-0 text-center px-4 space-y-0.5 z-10"
+              style={{ top: '51.8%' }}
+            >
+              <h3 className="font-display font-black text-lg text-white tracking-wider uppercase leading-tight truncate px-2">
                 {customName || 'NAME'}
               </h3>
               <p 
-                className="text-[11px] font-extrabold tracking-[0.18em] uppercase"
+                className="text-[11px] font-extrabold tracking-[0.18em] uppercase truncate px-2"
                 style={{ color: '#00C2CB' }}
               >
                 {customRole || 'DESIGNATION'}
@@ -570,7 +573,10 @@ export const DigitalIdCardModal: React.FC = () => {
             </div>
 
             {/* Clean Key Details Matrix (Exact tradenexus-id.png) */}
-            <div className="px-9 py-1 text-xs font-semibold space-y-1 text-slate-200 relative z-10">
+            <div 
+              className="absolute left-0 right-0 px-9 py-1 text-xs font-semibold space-y-1 text-slate-200 z-10"
+              style={{ top: '61.5%' }}
+            >
               <div className="grid grid-cols-12 gap-1 items-center">
                 <span className="col-span-5 text-slate-300 font-medium text-[11px]">Emp. ID</span>
                 <span className="col-span-1 text-white font-bold text-center">:</span>
@@ -601,11 +607,8 @@ export const DigitalIdCardModal: React.FC = () => {
             </div>
 
             {/* Bottom Footer Area */}
-            {isDefaultFooter ? (
-              /* Template frame already contains authentic footer graphic & signature */
-              <div className="w-full h-[25.8%] select-none pointer-events-none" />
-            ) : (
-              <div className="w-full relative z-10 select-none overflow-hidden h-[25.8%]">
+            {!isDefaultFooter && (
+              <div className="absolute bottom-0 left-0 right-0 z-10 select-none overflow-hidden h-[25.8%]">
                 <img src={idCardFooterClean} alt="Trade Nexus Footer" className="w-full h-full object-cover" />
                 
                 {/* Overlaid dynamic contact details matching exact icon positions */}

@@ -354,6 +354,69 @@ export const OfferLetterModal: React.FC = () => {
                   className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-semibold text-slate-800"
                 />
               </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block">Employee Type</label>
+                <input 
+                  type="text" 
+                  value={formData.employeeType || 'Full-Time'} 
+                  onChange={(e) => setFormData({ ...formData, employeeType: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-semibold text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block">Salary Type</label>
+                <input 
+                  type="text" 
+                  value={formData.salaryType || 'Monthly Salary'} 
+                  onChange={(e) => setFormData({ ...formData, salaryType: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-semibold text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block">Company Name</label>
+                <input 
+                  type="text" 
+                  value={formData.companyName || 'Trade Nexus'} 
+                  onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-semibold text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block">Company Address</label>
+                <input 
+                  type="text" 
+                  value={formData.companyAddress || '123 Business Avenue, Financial District, Your City, 500001'} 
+                  onChange={(e) => setFormData({ ...formData, companyAddress: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-semibold text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block">Company Phone</label>
+                <input 
+                  type="text" 
+                  value={formData.companyPhone || '+91 98765 43210'} 
+                  onChange={(e) => setFormData({ ...formData, companyPhone: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-semibold text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block">Company Email</label>
+                <input 
+                  type="text" 
+                  value={formData.companyEmail || 'info@tradenexus.com'} 
+                  onChange={(e) => setFormData({ ...formData, companyEmail: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-semibold text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block">Company Website</label>
+                <input 
+                  type="text" 
+                  value={formData.companyWebsite || 'www.tradenexus.com'} 
+                  onChange={(e) => setFormData({ ...formData, companyWebsite: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 font-semibold text-slate-800"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -391,22 +454,24 @@ export const OfferLetterModal: React.FC = () => {
               {/* Company Info & Issue Date */}
               <div className="flex justify-between items-start gap-2 border-b border-slate-100 pb-3 text-[11px] sm:text-xs">
                 <div className="space-y-1.5 text-slate-700">
-                  <p className="font-display font-extrabold text-xs sm:text-sm text-[#0A2540]">Trade Nexus</p>
+                  <p className="font-display font-extrabold text-xs sm:text-sm text-[#0A2540]">
+                    {formData.companyName || 'Trade Nexus'}
+                  </p>
                   <p className="flex items-center gap-2 text-slate-600">
                     <img src={iconPin} alt="Location" className="w-4 h-4 object-contain flex-shrink-0" />
-                    <span>123 Business Avenue, Financial District, Your City, 500001</span>
+                    <span>{formData.companyAddress || '123 Business Avenue, Financial District, Your City, 500001'}</span>
                   </p>
                   <p className="flex items-center gap-2 text-slate-600">
                     <img src={iconPhone} alt="Phone" className="w-4 h-4 object-contain flex-shrink-0" />
-                    <span>+91 98765 43210</span>
+                    <span>{formData.companyPhone || '+91 98765 43210'}</span>
                   </p>
                   <p className="flex items-center gap-2 text-slate-600">
                     <img src={iconMail} alt="Email" className="w-4 h-4 object-contain flex-shrink-0" />
-                    <span>info@tradenexus.com</span>
+                    <span>{formData.companyEmail || 'info@tradenexus.com'}</span>
                   </p>
                   <p className="flex items-center gap-2 text-slate-600">
                     <img src={iconGlobe} alt="Website" className="w-4 h-4 object-contain flex-shrink-0" />
-                    <span>www.tradenexus.com</span>
+                    <span>{formData.companyWebsite || 'www.tradenexus.com'}</span>
                   </p>
                 </div>
 
@@ -431,7 +496,7 @@ export const OfferLetterModal: React.FC = () => {
                 <p>
                   We are pleased to offer you the position of{' '}
                   <strong className="text-[#00A88B] font-bold">{formData.roleTitle}</strong> at{' '}
-                  <strong className="text-[#0A2540] font-bold">Trade Nexus</strong>, starting on{' '}
+                  <strong className="text-[#0A2540] font-bold">{formData.companyName || 'Trade Nexus'}</strong>, starting on{' '}
                   <strong className="text-[#00A88B] font-bold">{formData.joiningDate}</strong>. In this role, you will report to{' '}
                   <strong className="text-[#00A88B] font-bold">{formData.reportingManager}</strong> and will be based at our corporate office.
                 </p>
@@ -450,8 +515,8 @@ export const OfferLetterModal: React.FC = () => {
                 </p>
 
                 <div className="space-y-0.5 font-bold text-slate-800 pt-1">
-                  <p><strong>Employee Type:</strong> Full-Time</p>
-                  <p><strong>Salary Type:</strong> Monthly Salary</p>
+                  <p><strong>Employee Type:</strong> {formData.employeeType || 'Full-Time'}</p>
+                  <p><strong>Salary Type:</strong> {formData.salaryType || 'Monthly Salary'}</p>
                 </div>
               </div>
 
@@ -473,10 +538,10 @@ export const OfferLetterModal: React.FC = () => {
                     className="font-display font-black text-xs sm:text-sm"
                     style={{ color: '#00A88B', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
                   >
-                    {signatory}
+                    {formData.signatoryName || signatory}
                   </p>
-                  <p className="text-[10px] sm:text-xs font-semibold text-slate-700">{signatoryRole}</p>
-                  <p className="text-[10px] sm:text-xs text-slate-500">Trade Nexus</p>
+                  <p className="text-[10px] sm:text-xs font-semibold text-slate-700">{formData.signatoryRole || signatoryRole}</p>
+                  <p className="text-[10px] sm:text-xs text-slate-500">{formData.companyName || 'Trade Nexus'}</p>
                 </div>
               </div>
 

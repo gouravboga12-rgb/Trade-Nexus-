@@ -86,10 +86,15 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
     new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
   );
   const [acceptanceDeadline, setAcceptanceDeadline] = useState('Within 7 business days');
-  const [signatoryName, setSignatoryName] = useState('T .Vidhya Sagar');
+  const [signatoryName, setSignatoryName] = useState('T.Vidhya Sagar');
   const [signatoryRole, setSignatoryRole] = useState('Chief executive Officer');
   const [workLocation, setWorkLocation] = useState('Bengaluru Corporate HQ, India');
-  const [salaryType, setSalaryType] = useState('Monthly Gross / Annual CTC');
+  const [salaryType, setSalaryType] = useState('Monthly Salary');
+  const [companyName, setCompanyName] = useState('Trade Nexus');
+  const [companyAddress, setCompanyAddress] = useState('123 Business Avenue, Financial District, Your City, 500001');
+  const [companyPhone, setCompanyPhone] = useState('+91 98765 43210');
+  const [companyEmail, setCompanyEmail] = useState('info@tradenexus.com');
+  const [companyWebsite, setCompanyWebsite] = useState('www.tradenexus.com');
 
   // 10. Login Credentials & Success Modal State
   const [password, setPassword] = useState(`TNX@${Math.floor(1000 + Math.random() * 9000)}`);
@@ -355,6 +360,11 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
       signatoryRole: signatoryRole.trim(),
       issuedDate: offerLetterIssuedDate.trim(),
       salaryType,
+      companyName: companyName.trim() || 'Trade Nexus',
+      companyAddress: companyAddress.trim() || '123 Business Avenue, Financial District, Your City, 500001',
+      companyPhone: companyPhone.trim() || '+91 98765 43210',
+      companyEmail: companyEmail.trim() || 'info@tradenexus.com',
+      companyWebsite: companyWebsite.trim() || 'www.tradenexus.com',
     });
 
     setCreatedCredentials({
@@ -1131,9 +1141,74 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
                   type="text"
                   value={salaryType}
                   onChange={(e) => setSalaryType(e.target.value)}
-                  placeholder="e.g. Monthly Gross / Annual CTC"
+                  placeholder="e.g. Monthly Salary / Annual CTC"
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
                 />
+              </div>
+            </div>
+
+            {/* Sub-Card: Dynamic Company Letterhead & Contact Info */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-3 mt-3">
+              <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider">
+                <Building className="w-3.5 h-3.5 text-teal-600" />
+                <span>Company Letterhead &amp; Contact (Offer Letter Header)</span>
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 mb-1">Company Legal Name</label>
+                  <input
+                    type="text"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="Trade Nexus"
+                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 mb-1">Official Company Phone</label>
+                  <input
+                    type="text"
+                    value={companyPhone}
+                    onChange={(e) => setCompanyPhone(e.target.value)}
+                    placeholder="+91 98765 43210"
+                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 mb-1">Official Company Email</label>
+                  <input
+                    type="text"
+                    value={companyEmail}
+                    onChange={(e) => setCompanyEmail(e.target.value)}
+                    placeholder="info@tradenexus.com"
+                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 mb-1">Official Website</label>
+                  <input
+                    type="text"
+                    value={companyWebsite}
+                    onChange={(e) => setCompanyWebsite(e.target.value)}
+                    placeholder="www.tradenexus.com"
+                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-600 mb-1">Corporate HQ / Registered Address</label>
+                  <input
+                    type="text"
+                    value={companyAddress}
+                    onChange={(e) => setCompanyAddress(e.target.value)}
+                    placeholder="123 Business Avenue, Financial District, Your City, 500001"
+                    className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
+                  />
+                </div>
               </div>
             </div>
           </div>

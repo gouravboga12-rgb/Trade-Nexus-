@@ -60,6 +60,13 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
   const [signatoryName, setSignatoryName] = useState('T .Vidhya Sagar');
   const [signatoryRole, setSignatoryRole] = useState('Chief executive Officer');
 
+  // Company Brand & Contact Header
+  const [companyName, setCompanyName] = useState('Trade Nexus');
+  const [companyAddress, setCompanyAddress] = useState('123 Business Avenue, Financial District, Your City, 500001');
+  const [companyPhone, setCompanyPhone] = useState('+91 98765 43210');
+  const [companyEmail, setCompanyEmail] = useState('info@tradenexus.com');
+  const [companyWebsite, setCompanyWebsite] = useState('www.tradenexus.com');
+
   if (!isOpen) return null;
 
   // Deduplicate candidates by name and email to prevent repeats like Akash Deep
@@ -142,6 +149,11 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
       signatoryRole: signatoryRole.trim(),
       employeeType,
       salaryType,
+      companyName: companyName.trim(),
+      companyAddress: companyAddress.trim(),
+      companyPhone: companyPhone.trim(),
+      companyEmail: companyEmail.trim(),
+      companyWebsite: companyWebsite.trim(),
     };
 
     generateOfferLetter(newOffer);
@@ -453,6 +465,71 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
                 placeholder="e.g. Chief executive Officer"
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
               />
+            </div>
+          </div>
+
+          {/* Section 9: Company Brand & Contact Header (Dynamic Letterhead) */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-3">
+            <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider">
+              <Building className="w-3.5 h-3.5 text-teal-600" />
+              <span>Company Letterhead &amp; Contact Information</span>
+            </span>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 mb-1">Company Legal Name</label>
+                <input
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="Trade Nexus"
+                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 mb-1">Official Company Phone</label>
+                <input
+                  type="text"
+                  value={companyPhone}
+                  onChange={(e) => setCompanyPhone(e.target.value)}
+                  placeholder="+91 98765 43210"
+                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 mb-1">Official Company Email</label>
+                <input
+                  type="text"
+                  value={companyEmail}
+                  onChange={(e) => setCompanyEmail(e.target.value)}
+                  placeholder="info@tradenexus.com"
+                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 mb-1">Official Website</label>
+                <input
+                  type="text"
+                  value={companyWebsite}
+                  onChange={(e) => setCompanyWebsite(e.target.value)}
+                  placeholder="www.tradenexus.com"
+                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-bold text-slate-600 mb-1">Corporate HQ / Registered Address</label>
+                <input
+                  type="text"
+                  value={companyAddress}
+                  onChange={(e) => setCompanyAddress(e.target.value)}
+                  placeholder="123 Business Avenue, Financial District, Your City, 500001"
+                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                />
+              </div>
             </div>
           </div>
 
