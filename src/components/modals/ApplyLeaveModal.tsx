@@ -17,7 +17,7 @@ const MONTHS = [
   { value: 11, label: '12 - Dec', name: 'Dec' },
 ];
 
-const YEARS = [2025, 2026, 2027];
+const YEARS = Array.from({ length: 7 }, (_, i) => new Date().getFullYear() - 1 + i);
 
 export const ApplyLeaveModal: React.FC = () => {
   const { isLeaveModalOpen, setIsLeaveModalOpen, submitLeaveRequest, profile } = useApp();

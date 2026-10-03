@@ -226,15 +226,24 @@ export const periodSortValue = (p: Partial<PayslipItem>) =>
 
 export const formatINR = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-/** Available years for payroll generation: spans from 2020 through at least currentYear + 10 (or 2035+), guaranteeing 2030, 2031, etc. are always accessible. */
-export function getPayrollAvailableYears(selectedYear?: number): number[] {
+/**
+ * Generates an optimized, dynamically advancing list of years for payroll.
+ * - Starts from at least 2020 (or currentYear - 5).
+ * - Extends well into the future (at least 15 years ahead, up to 2040+).
+ * - Automatically rolls forward as calendar years advance.
+ * - Automatically includes any selected year or existing record year so no historical or custom year is ever lost.
+ */
+export function getPayrollAvailableYears(selectedYear?: number, extraYears?: number[]): number[] {
   const currentYear = new Date().getFullYear();
-  const sel = Number(selectedYear);
-  const start = Math.min(2020, currentYear - 5, Number.isFinite(sel) && sel > 0 ? sel : 2020);
-  const end = Math.max(2035, currentYear + 10, Number.isFinite(sel) && sel > 0 ? sel : 2035);
-  const years: number[] = [];
-  for (let y = start; y <= end; y++) {
-    years.push(y);
+  const startYear = Math.min(2020, currentYear - 5);
+  const endYear = Math.max(currentYear + 15, 2040);
+  const yearSet = new Set<number>();
+  for (let y = startYear; y <= endYear; y++) {
+    yearSet.add(y);
   }
-  return years;
+  if (selectedYear && !isNaN(selectedYear)) yearSet.add(Number(selectedYear));
+  if (extraYears) {
+    extraYears.forEach(y => { if (y && !isNaN(y)) yearSet.add(Number(y)); });
+  }
+  return Array.from(yearSet).sort((a, b) => a - b);
 }

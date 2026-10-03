@@ -52,11 +52,15 @@ export const PayrollBuilderModal: React.FC<Props> = ({ isOpen, onClose, initialP
     [teamMembers]
   );
   const employee = employees.find(e => e.id === employeeId) || teamMembers.find(e => e.id === employeeId);
-  const availableYears = useMemo(() => getPayrollAvailableYears(year), [year]);
 
   const isDispatched = record?.payrollStatus === 'DISPATCHED';
   const readOnly = isDispatched && !revising;
   const totals = computePayrollTotals(form);
+
+  const availableYears = useMemo(
+    () => getPayrollAvailableYears(year, payslips.map(p => Number(p.year))),
+    [year, payslips]
+  );
 
   /** Load the record for employee + period, or prefill a fresh draft from the employee master. */
   const loadPeriod = (empId: string, m: string, y: number) => {
