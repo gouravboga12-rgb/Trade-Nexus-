@@ -2532,17 +2532,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const normalizeMeetingUrl = (mtg: TeamMeeting, role: string): string | null => {
-    // Only the actual meeting host/creator gets the zoomStartUrl (which requires host credentials).
-    // All attendees, participants, other TLs, and HR staff must receive zoomJoinUrl or meetingLink.
-    const isActualHost = Boolean(
-      (mtg.hostEmpCode && profile?.empCode && mtg.hostEmpCode.trim().toLowerCase() === profile.empCode.trim().toLowerCase()) ||
-      (mtg.hostName && profile?.name && mtg.hostName.trim().toLowerCase() === profile.name.trim().toLowerCase()) ||
-      (role === 'admin' && (mtg.hostRole === 'admin' || !mtg.hostRole))
-    );
+    // Only Super Admin gets the official zoomStartUrl (which assumes the corporate host identity "Trade nexus Trade smart").
+    // All other roles (HR, Team Leader, Telecaller/Employee) MUST receive zoomJoinUrl so they appear under their individual names.
+    const isSuperAdmin = role === 'admin';
 
-    let url = (isActualHost && mtg.zoomStartUrl)
+    let url = (isSuperAdmin && mtg.zoomStartUrl)
       ? mtg.zoomStartUrl
       : (mtg.zoomJoinUrl || mtg.meetingLink || '');
+
+    // Determine the participant's display name for Zoom
+    const userDisplayName = isSuperAdmin
+      ? 'Trade nexus Trade smart'
+      : (profile?.name?.trim() || (role === 'hr' ? 'HR Manager' : role === 'team_leader' ? 'Team Leader' : 'Employee'));
 
     if (typeof url === 'string' && url.trim()) {
       url = url.trim();
@@ -2551,9 +2552,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
       try {
         const parsed = new URL(url);
-        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-          return url;
+        // Only append display name parameters to join URLs (not start URLs with zak tokens)
+        if (!url.includes('/s/') && !url.includes('zak=')) {
+          parsed.searchParams.set('uname', userDisplayName);
+          parsed.searchParams.set('un', userDisplayName);
         }
+        return parsed.toString();
       } catch {
         // Fall back to ID parsing if URL format failed
       }
@@ -2563,7 +2567,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const cleanId = String(mtg.zoomMeetingId).replace(/\D/g, '');
       if (cleanId.length >= 8) {
         const passParam = mtg.zoomPassword ? `?pwd=${encodeURIComponent(mtg.zoomPassword)}` : '';
-        return `https://zoom.us/j/${cleanId}${passParam}`;
+        const nameParam = `&uname=${encodeURIComponent(userDisplayName)}&un=${encodeURIComponent(userDisplayName)}`;
+        return passParam 
+          ? `https://zoom.us/j/${cleanId}${passParam}${nameParam}`
+          : `https://zoom.us/j/${cleanId}?uname=${encodeURIComponent(userDisplayName)}&un=${encodeURIComponent(userDisplayName)}`;
       }
     }
 
