@@ -29,6 +29,7 @@ export const InvoiceModal: React.FC = () => {
     setIsInvoiceModalOpen, 
     selectedInvoice, 
     resendInvoiceEmail,
+    updateInvoice,
     triggerToast 
   } = useApp();
 
@@ -62,24 +63,37 @@ export const InvoiceModal: React.FC = () => {
     }
   };
 
+  const handleToggleEdit = async () => {
+    if (isEditing && formData) {
+      const ok = await updateInvoice(formData);
+      if (ok) triggerToast('✓ Invoice changes saved');
+    }
+    setIsEditing(!isEditing);
+  };
+
   const handleSendEmail = async () => {
     if (!formData?.clientEmail) {
-      triggerToast('⚠️ Client email address is required');
+      triggerToast('⚠️ Customer email address is required');
       return;
     }
     setIsSendingEmail(true);
-    triggerToast(`Dispatching official Tax Invoice PDF to ${formData.clientEmail}...`);
     try {
-      const ok = await resendInvoiceEmail(formData.id);
-      if (ok) {
-        triggerToast(`✓ Tax Invoice PDF dispatched to ${formData.clientEmail}!`);
-      }
+      // Persist any edits first so the emailed PDF matches the preview
+      const saved = await updateInvoice(formData);
+      if (!saved) return;
+      setIsEditing(false);
+      triggerToast(`Generating PDF & sending to ${formData.clientEmail}...`);
+      await resendInvoiceEmail(formData.id);
+      setFormData(prev => prev ? { ...prev, status: 'SENT' } : prev);
     } catch (err: any) {
       triggerToast(`⚠️ Email dispatch failed: ${err.message || 'Error'}`);
     } finally {
       setIsSendingEmail(false);
     }
   };
+
+  const setField = <K extends keyof InvoiceData>(key: K, value: InvoiceData[K]) =>
+    setFormData(prev => prev ? { ...prev, [key]: value } : prev);
 
   const handleItemChange = (index: number, field: keyof InvoiceItem, value: any) => {
     const updatedItems = [...formData.items];
@@ -184,13 +198,13 @@ export const InvoiceModal: React.FC = () => {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setIsEditing(!isEditing)}
+              onClick={handleToggleEdit}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 isEditing ? 'bg-[#00C9A7] text-[#0A2540]' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
               }`}
             >
               <Edit3 className="w-3.5 h-3.5" />
-              <span>{isEditing ? 'Done Editing' : 'Edit Items'}</span>
+              <span>{isEditing ? 'Save Changes' : 'Edit Invoice'}</span>
             </button>
 
             <button
@@ -208,7 +222,7 @@ export const InvoiceModal: React.FC = () => {
               className="px-3.5 py-1.5 rounded-xl border border-[#00C9A7]/40 bg-[#E6FAF6] hover:bg-[#D0F7F0] font-bold text-[#00897B] text-xs flex items-center gap-1.5 transition-all shadow-2xs disabled:opacity-50 cursor-pointer"
             >
               <Mail className="w-3.5 h-3.5 text-[#00A88B]" />
-              <span>{isSendingEmail ? 'Sending...' : 'Email Client'}</span>
+              <span>{isSendingEmail ? 'Sending...' : 'Email Customer'}</span>
             </button>
 
             <button
@@ -291,11 +305,33 @@ export const InvoiceModal: React.FC = () => {
                     INVOICE
                   </h2>
                   <div className="inline-block bg-[#00C9A7]/20 border border-[#00C9A7]/50 rounded-lg px-3 py-1 text-xs font-bold text-[#00C9A7]">
-                    #{formData.invoiceNumber}
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={formData.invoiceNumber}
+                        onChange={(e) => setField('invoiceNumber', e.target.value)}
+                        className="bg-transparent text-[#00C9A7] font-bold w-36 outline-none"
+                      />
+                    ) : (
+                      <>#{formData.invoiceNumber}</>
+                    )}
                   </div>
-                  <div className="mt-3 text-xs text-slate-300 space-y-0.5">
-                    <p><span className="text-slate-400">Date:</span> <span className="font-semibold text-white">{formData.date}</span></p>
-                    <p><span className="text-slate-400">Due Date:</span> <span className="font-semibold text-white">{formData.dueDate || '10 July 2025'}</span></p>
+                  <div className="mt-3 text-xs text-slate-300 space-y-1">
+                    {isEditing ? (
+                      <>
+                        <p className="flex items-center gap-1 sm:justify-end"><span className="text-slate-400">Date:</span>
+                          <input type="text" value={formData.date} onChange={(e) => setField('date', e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-white w-32" />
+                        </p>
+                        <p className="flex items-center gap-1 sm:justify-end"><span className="text-slate-400">Due Date:</span>
+                          <input type="text" value={formData.dueDate || ''} onChange={(e) => setField('dueDate', e.target.value)} className="bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-white w-32" />
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p><span className="text-slate-400">Date:</span> <span className="font-semibold text-white">{formData.date}</span></p>
+                        {formData.dueDate && <p><span className="text-slate-400">Due Date:</span> <span className="font-semibold text-white">{formData.dueDate}</span></p>}
+                      </>
+                    )}
                     <p><span className="text-slate-400">Status:</span> <span className="font-bold text-[#00C9A7] uppercase">{formData.status}</span></p>
                   </div>
                 </div>
@@ -481,19 +517,38 @@ export const InvoiceModal: React.FC = () => {
                       <CreditCard className="w-3.5 h-3.5 text-[#00C9A7]" />
                       Payment Information
                     </h5>
-                    <div className="space-y-1 text-slate-600">
-                      <p><span className="font-semibold text-slate-800">Bank Name:</span> {formData.bankName}</p>
-                      <p><span className="font-semibold text-slate-800">Account No:</span> {formData.accountNumber}</p>
-                      <p><span className="font-semibold text-slate-800">IFSC / SWIFT:</span> {formData.ifscCode || 'HDFC0001234'}</p>
-                      <p><span className="font-semibold text-slate-800">Payment ID:</span> {formData.paymentEmail}</p>
-                    </div>
+                    {isEditing ? (
+                      <div className="grid grid-cols-1 gap-1.5">
+                        <input type="text" value={formData.bankName} onChange={(e) => setField('bankName', e.target.value)} placeholder="Bank Name" className="w-full text-xs p-1.5 border border-slate-300 rounded bg-white" />
+                        <input type="text" value={formData.accountNumber} onChange={(e) => setField('accountNumber', e.target.value)} placeholder="Account Number" className="w-full text-xs p-1.5 border border-slate-300 rounded bg-white font-mono" />
+                        <input type="text" value={formData.ifscCode || ''} onChange={(e) => setField('ifscCode', e.target.value)} placeholder="IFSC / SWIFT" className="w-full text-xs p-1.5 border border-slate-300 rounded bg-white font-mono" />
+                        <input type="text" value={formData.paymentEmail} onChange={(e) => setField('paymentEmail', e.target.value)} placeholder="Payment Email / UPI" className="w-full text-xs p-1.5 border border-slate-300 rounded bg-white" />
+                      </div>
+                    ) : (
+                      <div className="space-y-1 text-slate-600">
+                        <p><span className="font-semibold text-slate-800">Bank Name:</span> {formData.bankName}</p>
+                        <p><span className="font-semibold text-slate-800">Account No:</span> {formData.accountNumber}</p>
+                        {formData.ifscCode && <p><span className="font-semibold text-slate-800">IFSC / SWIFT:</span> {formData.ifscCode}</p>}
+                        <p><span className="font-semibold text-slate-800">Payment Email:</span> {formData.paymentEmail}</p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="bg-[#00C9A7]/5 border border-[#00C9A7]/20 p-3.5 rounded-xl text-xs">
-                    <p className="font-bold text-[#0A2540] mb-1">Important Terms & Notes:</p>
-                    <p className="text-slate-600 text-[11px] leading-relaxed">
-                      {formData.note || 'Payment is due within 15 days of invoice date. All payments subject to Trade Nexus enterprise services master agreement.'}
-                    </p>
+                    <p className="font-bold text-[#0A2540] mb-1">Notes:</p>
+                    {isEditing ? (
+                      <textarea
+                        value={formData.note || ''}
+                        onChange={(e) => setField('note', e.target.value)}
+                        rows={4}
+                        placeholder="One note per line"
+                        className="w-full text-[11px] p-1.5 border border-slate-300 rounded bg-white"
+                      />
+                    ) : (
+                      <p className="text-slate-600 text-[11px] leading-relaxed whitespace-pre-line">
+                        {formData.note || 'Payment is due within 15 days of invoice date.'}
+                      </p>
+                    )}
                   </div>
                 </div>
 

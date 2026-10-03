@@ -843,11 +843,20 @@ export async function generateTaxInvoicePdf(invoice: any): Promise<Buffer> {
   const invDate = invoice.date || new Date().toLocaleDateString('en-GB');
 
   // Column 1: Bill To
+  const clientCompany = invoice.clientCompany || '';
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text('BILL TO:', leftX, currentY);
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#334155').text(clientName, leftX, currentY + 12);
-  doc.fontSize(7.5).font('Helvetica').fillColor('#64748B').text(clientPhone, leftX, currentY + 24);
-  doc.fontSize(7.5).font('Helvetica').fillColor('#64748B').text(clientAddress, leftX, currentY + 35, { width: 140 });
-  doc.fontSize(7.5).font('Helvetica').fillColor('#64748B').text(clientEmail, leftX, currentY + 46, { width: 140 });
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#334155').text(clientName, leftX, currentY + 12, { width: 160 });
+  let billY = currentY + 24;
+  if (clientCompany) {
+    doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#475569').text(clientCompany, leftX, billY, { width: 160 });
+    billY += 11;
+  }
+  doc.fontSize(7.5).font('Helvetica').fillColor('#64748B').text(clientPhone, leftX, billY, { width: 160 });
+  billY += 11;
+  doc.fontSize(7.5).font('Helvetica').fillColor('#64748B').text(clientEmail, leftX, billY, { width: 160 });
+  billY += 11;
+  doc.fontSize(7.5).font('Helvetica').fillColor('#64748B').text(clientAddress, leftX, billY, { width: 160 });
+  const billEndY = doc.y;
 
   // Column 2: From
   const col2X = leftX + 175;
@@ -864,7 +873,12 @@ export async function generateTaxInvoicePdf(invoice: any): Promise<Buffer> {
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text('DATE:', col3X, currentY + 16);
   doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text(invDate, col3X + 75, currentY + 16);
 
-  currentY += 72;
+  if (invoice.dueDate) {
+    doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text('DUE DATE:', col3X, currentY + 32);
+    doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text(String(invoice.dueDate), col3X + 75, currentY + 32);
+  }
+
+  currentY = Math.max(currentY + 72, billEndY + 14, doc.y + 14);
 
   // 4-Column Items Table (Matching 5.png: DESCRIPTION | QTY | PRICE | TOTAL)
   doc.rect(leftX, currentY, contentW, 20).fill('#081031');
@@ -902,63 +916,79 @@ export async function generateTaxInvoicePdf(invoice: any): Promise<Buffer> {
   });
 
   const subTotal = invoice.subTotal !== undefined ? Number(invoice.subTotal) : calculatedSubTotal;
+  const taxRate = invoice.taxRate !== undefined && invoice.taxRate !== null ? Number(invoice.taxRate) : 0;
+  const taxAmount = invoice.taxAmount !== undefined && invoice.taxAmount !== null
+    ? Number(invoice.taxAmount)
+    : (subTotal * taxRate) / 100;
+  const grandTotal = invoice.grandTotal !== undefined && invoice.grandTotal !== null
+    ? Number(invoice.grandTotal)
+    : subTotal + taxAmount;
+  const fmt = (n: number) => `INR ${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  // Sub Total Box (Matching 5.png dark navy box)
+  // Totals block (Sub Total, GST, Grand Total)
   currentY += 10;
   const subBoxW = 200;
   const subBoxX = leftX + contentW - subBoxW;
+
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#334155').text('SUB TOTAL', subBoxX + 14, currentY + 4);
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text(fmt(subTotal), subBoxX, currentY + 4, { width: subBoxW - 14, align: 'right' });
+  currentY += 16;
+
+  if (taxRate > 0 || taxAmount > 0) {
+    doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text(`GST (${taxRate}%)`, subBoxX + 14, currentY + 4);
+    doc.fontSize(8.5).font('Helvetica').fillColor('#0A2540').text(fmt(taxAmount), subBoxX, currentY + 4, { width: subBoxW - 14, align: 'right' });
+    currentY += 18;
+  }
+
   doc.rect(subBoxX, currentY, subBoxW, 26).fill('#081031');
-  doc.fontSize(9).font('Helvetica-Bold').fillColor('#FFFFFF').text('SUB TOTAL', subBoxX + 14, currentY + 8);
-  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#00C9A7').text(
-    `INR ${subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
-    subBoxX,
-    currentY + 8,
-    { width: subBoxW - 14, align: 'right' }
-  );
+  doc.fontSize(9).font('Helvetica-Bold').fillColor('#FFFFFF').text('TOTAL', subBoxX + 14, currentY + 8);
+  doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#00C9A7').text(fmt(grandTotal), subBoxX, currentY + 8, { width: subBoxW - 14, align: 'right' });
 
   currentY += 40;
 
-  // Underlined Note Lines (Matching 5.png)
+  // Underlined Note Lines (HR-entered notes, one per line)
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#0A2540').text('Note:', leftX, currentY);
   currentY += 14;
 
-  const notes = [
-    invoice.note || 'All payments are due within 15 days of invoice date.',
-    'Please quote invoice number in all payment references.',
-    'For any billing questions, please reach out to billing@tradenexus.live.',
-  ];
+  const notes = String(invoice.note || 'All payments are due within 15 days of invoice date.')
+    .split(/\r?\n/)
+    .map((s: string) => s.trim())
+    .filter(Boolean);
 
-  notes.forEach((nt) => {
-    doc.fontSize(7.5).font('Helvetica').fillColor('#475569').text(nt, leftX, currentY);
-    doc.moveTo(leftX, currentY + 11).lineTo(leftX + 270, currentY + 11).lineWidth(0.4).strokeColor('#E2E8F0').stroke();
-    currentY += 16;
+  notes.forEach((nt: string) => {
+    doc.fontSize(7.5).font('Helvetica').fillColor('#475569').text(nt, leftX, currentY, { width: 300 });
+    const lineY = doc.y + 2;
+    doc.moveTo(leftX, lineY).lineTo(leftX + 300, lineY).lineWidth(0.4).strokeColor('#E2E8F0').stroke();
+    currentY = lineY + 5;
   });
 
   // Bottom Section: Payment Information (Left) and Large "Thank You!" (Right) (Exact match for 5.png)
   currentY += 10;
 
   // Payment Info (Left Box)
-  const payBoxW = 220;
-  doc.rect(leftX, currentY, payBoxW, 58).fill('#F8FAFC');
-  doc.rect(leftX, currentY, payBoxW, 58).lineWidth(0.5).strokeColor('#E2E8F0').stroke();
+  const payBoxW = 240;
+  doc.rect(leftX, currentY, payBoxW, 69).fill('#F8FAFC');
+  doc.rect(leftX, currentY, payBoxW, 69).lineWidth(0.5).strokeColor('#E2E8F0').stroke();
 
   doc.fontSize(8).font('Helvetica-Bold').fillColor('#0A2540').text('Payment Information:', leftX + 10, currentY + 8);
 
   const bankName = invoice.bankName || 'HDFC Bank';
   const accNum = invoice.accountNumber || '50200084920194';
+  const ifsc = invoice.ifscCode || '';
   const payEmail = invoice.paymentEmail || 'billing@tradenexus.live';
 
-  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#475569').text('Bank', leftX + 10, currentY + 22);
-  doc.text(':', leftX + 55, currentY + 22);
-  doc.fontSize(7.5).font('Helvetica').fillColor('#0A2540').text(bankName, leftX + 65, currentY + 22);
-
-  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#475569').text('No Bank', leftX + 10, currentY + 33);
-  doc.text(':', leftX + 55, currentY + 33);
-  doc.fontSize(7.5).font('Helvetica').fillColor('#0A2540').text(accNum, leftX + 65, currentY + 33);
-
-  doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#475569').text('Email', leftX + 10, currentY + 44);
-  doc.text(':', leftX + 55, currentY + 44);
-  doc.fontSize(7.5).font('Helvetica').fillColor('#0A2540').text(payEmail, leftX + 65, currentY + 44);
+  const payRows: [string, string][] = [
+    ['Bank', bankName],
+    ['A/C No', accNum],
+    ...(ifsc ? [['IFSC', ifsc] as [string, string]] : []),
+    ['Email', payEmail],
+  ];
+  payRows.forEach(([label, val], i) => {
+    const y = currentY + 22 + i * 11;
+    doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#475569').text(label, leftX + 10, y);
+    doc.text(':', leftX + 55, y);
+    doc.fontSize(7.5).font('Helvetica').fillColor('#0A2540').text(val, leftX + 65, y, { width: payBoxW - 75 });
+  });
 
   // Large Serif "Thank You!" on the Right (Matching 5.png, NO Samira Hadid signature!)
   doc.fontSize(32).font('Times-Italic').fillColor('#0A2540').text('Thank You!', leftX + 310, currentY + 12);

@@ -462,6 +462,10 @@ export const api = {
     request<{ success: boolean; emailResult?: any }>(`/invoices/${id}/resend`, { method: 'POST' }),
   deleteInvoice: (id: string) =>
     request<{ deleted: string }>(`/invoices/${id}`, { method: 'DELETE' }),
+  updateInvoiceStatus: (id: string, status: 'PAID' | 'PENDING' | 'SENT' | 'OVERDUE') =>
+    request<InvoiceData>(`/invoices/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  updateInvoice: (id: string, data: Partial<InvoiceData>) =>
+    request<InvoiceData>(`/invoices/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   // Document Email Dispatchers
   sendOnboardingEmail: (employee: Partial<TeamMember>, offerLetter?: Partial<OfferLetterData>) =>

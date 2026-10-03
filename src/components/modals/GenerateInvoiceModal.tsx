@@ -22,19 +22,20 @@ interface GenerateInvoiceModalProps {
 export const GenerateInvoiceModal: React.FC<GenerateInvoiceModalProps> = ({ isOpen, onClose }) => {
   const { 
     generateInvoice, 
-    setSelectedInvoice, 
-    setIsInvoiceModalOpen, 
     triggerToast 
   } = useApp();
 
-  const [invoiceNumber, setInvoiceNumber] = useState(`INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`);
-  const [date, setDate] = useState('26 June 2025');
-  const [dueDate, setDueDate] = useState('10 July 2025');
-  const [clientName, setClientName] = useState('Estelle Darcy');
-  const [clientCompany, setClientCompany] = useState('Darcy Global Trading Ltd.');
-  const [clientPhone, setClientPhone] = useState('+91 98765 43210');
-  const [clientEmail, setClientEmail] = useState('billing@darcytrading.com');
-  const [clientAddress, setClientAddress] = useState('Plot 44, Financial District, Hyderabad - 500081');
+  const todayLabel = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+  const dueLabel = new Date(Date.now() + 15 * 86400000).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  const [invoiceNumber, setInvoiceNumber] = useState(`INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+  const [date, setDate] = useState(todayLabel);
+  const [dueDate, setDueDate] = useState(dueLabel);
+  const [clientName, setClientName] = useState('');
+  const [clientCompany, setClientCompany] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
+  const [clientAddress, setClientAddress] = useState('');
   const [fromName, setFromName] = useState('Trade Nexus Finance');
   const [fromRole, setFromRole] = useState('Finance & Accounts Department');
   const [fromPhone, setFromPhone] = useState('+91 40 4829 1000');
@@ -42,13 +43,11 @@ export const GenerateInvoiceModal: React.FC<GenerateInvoiceModalProps> = ({ isOp
   const [fromAddress, setFromAddress] = useState('Level 12, Nexus Cyber Tower, HITEC City, Hyderabad - 500081');
   
   const [items, setItems] = useState<InvoiceItem[]>([
-    { id: 'item-1', description: 'Enterprise Trading Desk Platform CRM Licensing', quantity: 1, unitPrice: 25000, total: 25000 },
-    { id: 'item-2', description: 'Real-time Market Telephony & Call Analytics Setup', quantity: 1, unitPrice: 15000, total: 15000 },
-    { id: 'item-3', description: 'Dedicated SDR Allocation & Technical SLA Support', quantity: 1, unitPrice: 5000, total: 5000 }
+    { id: 'item-1', description: '', quantity: 1, unitPrice: 0, total: 0 },
   ]);
 
   const [taxRate, setTaxRate] = useState(18);
-  const [note, setNote] = useState('Payment is due within 15 days of invoice date. Thank you for your business!');
+  const [note, setNote] = useState('Payment is due within 15 days of invoice date.\nPlease quote the invoice number in all payment references.\nThank you for your business!');
   const [bankName, setBankName] = useState('HDFC Bank');
   const [accountNumber, setAccountNumber] = useState('50200084920194');
   const [ifscCode, setIfscCode] = useState('HDFC0001234');
@@ -71,7 +70,7 @@ export const GenerateInvoiceModal: React.FC<GenerateInvoiceModalProps> = ({ isOp
   const handleAddItem = () => {
     setItems([
       ...items,
-      { id: `item-${Date.now()}`, description: 'Additional Corporate Service Package', quantity: 1, unitPrice: 10000, total: 10000 }
+      { id: `item-${Date.now()}`, description: '', quantity: 1, unitPrice: 0, total: 0 }
     ]);
   };
 
@@ -90,7 +89,15 @@ export const GenerateInvoiceModal: React.FC<GenerateInvoiceModalProps> = ({ isOp
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!clientName.trim()) {
-      triggerToast('Please enter client name');
+      triggerToast('Please enter customer name');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail.trim())) {
+      triggerToast('Please enter a valid customer email address');
+      return;
+    }
+    if (items.some(it => !it.description.trim())) {
+      triggerToast('Every line item needs a description');
       return;
     }
 
@@ -121,16 +128,9 @@ export const GenerateInvoiceModal: React.FC<GenerateInvoiceModalProps> = ({ isOp
       status: 'PENDING'
     };
 
+    // generateInvoice saves to the server, emails the customer and opens the preview
     generateInvoice(newInvoice);
-
-    const fullInvoice: InvoiceData = {
-      ...newInvoice,
-      id: `inv-${Date.now().toString().slice(-4)}`
-    };
-    setSelectedInvoice(fullInvoice);
     onClose();
-    setIsInvoiceModalOpen(true);
-    triggerToast(`✓ Commercial Invoice #${invoiceNumber} created successfully!`);
   };
 
   return (
@@ -224,13 +224,14 @@ export const GenerateInvoiceModal: React.FC<GenerateInvoiceModalProps> = ({ isOp
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Email Address</label>
+                <label className="font-bold text-slate-700 block mb-1">Customer Email * <span className="font-normal text-slate-400">(invoice PDF is sent here)</span></label>
                 <input
                   type="email"
                   value={clientEmail}
                   onChange={(e) => setClientEmail(e.target.value)}
                   placeholder="billing@company.com"
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800"
+                  required
                 />
               </div>
 
@@ -372,8 +373,41 @@ export const GenerateInvoiceModal: React.FC<GenerateInvoiceModalProps> = ({ isOp
                 placeholder="IFSC / SWIFT"
                 className="p-2 bg-white border border-slate-200 rounded-xl text-xs font-mono"
               />
+              <input
+                type="text"
+                value={paymentEmail}
+                onChange={(e) => setPaymentEmail(e.target.value)}
+                placeholder="Payment Email / UPI"
+                className="p-2 bg-white border border-slate-200 rounded-xl text-xs sm:col-span-3"
+              />
             </div>
           </div>
+
+          {/* Notes */}
+          <div>
+            <label className="font-bold text-slate-900 block mb-1">Notes <span className="font-normal text-slate-400">(one per line)</span></label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={3}
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs"
+            />
+          </div>
+
+          {/* From / Issuer */}
+          <details className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+            <summary className="font-bold text-slate-900 cursor-pointer flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-[#00A88B]" />
+              From / Issuer Details
+            </summary>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+              <input type="text" value={fromName} onChange={(e) => setFromName(e.target.value)} placeholder="Issuer Name" className="p-2 bg-white border border-slate-200 rounded-xl text-xs" />
+              <input type="text" value={fromRole} onChange={(e) => setFromRole(e.target.value)} placeholder="Department" className="p-2 bg-white border border-slate-200 rounded-xl text-xs" />
+              <input type="text" value={fromPhone} onChange={(e) => setFromPhone(e.target.value)} placeholder="Phone" className="p-2 bg-white border border-slate-200 rounded-xl text-xs" />
+              <input type="text" value={fromEmail} onChange={(e) => setFromEmail(e.target.value)} placeholder="Email" className="p-2 bg-white border border-slate-200 rounded-xl text-xs" />
+              <input type="text" value={fromAddress} onChange={(e) => setFromAddress(e.target.value)} placeholder="Address" className="p-2 bg-white border border-slate-200 rounded-xl text-xs sm:col-span-2" />
+            </div>
+          </details>
 
           {/* Footer Submit */}
           <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
@@ -390,7 +424,7 @@ export const GenerateInvoiceModal: React.FC<GenerateInvoiceModalProps> = ({ isOp
               className="px-6 py-2.5 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs shadow-lg shadow-[#00C9A7]/25 flex items-center gap-2 transition-all active:scale-95"
             >
               <Send className="w-4 h-4" />
-              <span>Generate Tax Invoice</span>
+              <span>Generate PDF & Send to Customer</span>
             </button>
           </div>
 

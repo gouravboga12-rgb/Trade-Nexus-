@@ -115,7 +115,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
   const activeTab = onTabChange ? currentTab : activeSubTab;
   const setTab = onTabChange || setActiveSubTab;
 
-  const [documentsSubTab, setDocumentsSubTab] = useState<'all' | 'id_cards' | 'offers' | 'experience' | 'relieving' | 'payslips' | 'invoices'>('all');
+  const [documentsSubTab, setDocumentsSubTab] = useState<'all' | 'id_cards' | 'offers' | 'experience' | 'relieving' | 'payslips'>('all');
   const [docSearchQuery, setDocSearchQuery] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -1025,13 +1025,12 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-2.5 rounded-2xl border border-slate-200 shadow-xs">
             <div className="flex flex-wrap items-center gap-1.5">
               {[
-                { id: 'all', label: 'All Templates (6)', icon: Layers },
+                { id: 'all', label: 'All Templates (5)', icon: Layers },
                 { id: 'id_cards', label: 'ID Cards', icon: QrCode },
                 { id: 'offers', label: 'Job Letters', icon: FileText },
                 { id: 'experience', label: 'Experience Certs', icon: Award },
                 { id: 'relieving', label: 'Relieving Letters', icon: Briefcase },
                 { id: 'payslips', label: 'Payroll Slips', icon: CreditCard },
-                { id: 'invoices', label: 'Invoices', icon: Receipt },
               ].map((tab) => {
                 const Icon = tab.icon;
                 const active = documentsSubTab === tab.id;
@@ -1278,11 +1277,11 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                     <span className="text-xs font-bold text-cyan-700">{invoices.length} Invoices Active</span>
                     <button
-                      onClick={() => openGenerateInvoiceModal()}
+                      onClick={() => setTab('invoices')}
                       className="px-4 py-2 rounded-xl bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs transition-all flex items-center gap-1.5"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Create Invoice</span>
+                      <Receipt className="w-3.5 h-3.5" />
+                      <span>Go to Invoices</span>
                     </button>
                   </div>
                 </div>
@@ -1580,76 +1579,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
             </div>
           )}
 
-          {(documentsSubTab === 'invoices' || documentsSubTab === 'all') && (
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div>
-                  <h3 className="font-display font-black text-base text-[#0A2540]">Commercial Invoices Registry</h3>
-                  <p className="text-xs text-slate-400">B2B client invoices and billing settlements</p>
-                </div>
-                <button
-                  onClick={() => openGenerateInvoiceModal()}
-                  className="px-3.5 py-1.5 bg-[#00C9A7] text-[#0A2540] font-bold text-xs rounded-xl flex items-center gap-1.5"
-                >
-                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                  <span>Create Invoice</span>
-                </button>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                      <th className="pb-3">Invoice No</th>
-                      <th className="pb-3">Client / Organization</th>
-                      <th className="pb-3">Date</th>
-                      <th className="pb-3">Amount</th>
-                      <th className="pb-3">Status</th>
-                      <th className="pb-3 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {invoices.map((inv) => (
-                      <tr key={inv.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3 font-mono font-bold text-[#0A2540]">{inv.invoiceNumber}</td>
-                        <td className="py-3 font-medium text-slate-800">
-                          {inv.clientName}
-                          {inv.clientCompany && <span className="text-slate-400 block text-[10px]">{inv.clientCompany}</span>}
-                        </td>
-                        <td className="py-3 text-slate-600">{inv.date}</td>
-                        <td className="py-3 font-mono font-bold text-[#00A88B]">₹{Number(inv.grandTotal).toLocaleString('en-IN')}</td>
-                        <td className="py-3">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
-                            inv.status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                          }`}>
-                            {inv.status}
-                          </span>
-                        </td>
-                        <td className="py-3 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => resendInvoiceEmail(inv.id)}
-                              className="px-2.5 py-1 bg-cyan-50 hover:bg-cyan-100 text-cyan-900 border border-cyan-300 font-bold text-xs rounded-lg transition-all flex items-center gap-1 cursor-pointer"
-                              title={`Email Commercial Invoice to ${inv.clientEmail || 'client'}`}
-                            >
-                              <Mail className="w-3 h-3 text-cyan-700" />
-                              <span>Email</span>
-                            </button>
-                            <button
-                              onClick={() => openInvoiceModal(inv)}
-                              className="px-3 py-1 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-lg transition-all cursor-pointer"
-                            >
-                              Open / Print
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          {/* Customer Invoices are managed in the dedicated Invoices tab — not shown here */}
 
         </div>
       )}

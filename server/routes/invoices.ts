@@ -110,7 +110,7 @@ router.post('/', async (req: Request, res: Response) => {
       fromAddress || null,
       itemsJson,
       Number(subTotal) || 0,
-      Number(taxRate) || 18,
+      taxRate !== undefined && taxRate !== null && taxRate !== '' ? Number(taxRate) : 18,
       Number(taxAmount) || 0,
       Number(grandTotal) || 0,
       note || null,
@@ -130,11 +130,53 @@ router.post('/', async (req: Request, res: Response) => {
     sendCustomerInvoiceEmail({
       ...saved,
       items: typeof saved.items === 'string' ? JSON.parse(saved.items) : saved.items,
+    }).then(() => {
+      // Mark as SENT after successful email dispatch
+      db.prepare("UPDATE invoices SET status = 'SENT' WHERE id = ?").run(invId);
     }).catch((err) => console.warn('[Invoice Email Warning]', err));
 
     return res.status(201).json({
       ...saved,
       items: typeof saved.items === 'string' ? JSON.parse(saved.items) : saved.items,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// PUT /api/invoices/:id (Update all editable invoice fields)
+router.put('/:id', (req: Request, res: Response) => {
+  try {
+    const existing = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id) as any;
+    if (!existing) return res.status(404).json({ error: 'Invoice not found' });
+
+    const fields = [
+      'invoiceNumber', 'clientName', 'clientCompany', 'clientEmail', 'clientPhone', 'clientAddress',
+      'fromName', 'fromRole', 'fromPhone', 'fromEmail', 'fromAddress',
+      'subTotal', 'taxRate', 'taxAmount', 'grandTotal', 'note',
+      'bankName', 'accountNumber', 'ifscCode', 'paymentEmail', 'status', 'date', 'dueDate',
+    ];
+    const sets: string[] = [];
+    const params: any[] = [];
+    for (const f of fields) {
+      if (req.body[f] !== undefined) {
+        sets.push(`${f} = ?`);
+        params.push(req.body[f]);
+      }
+    }
+    if (req.body.items !== undefined) {
+      sets.push('items = ?');
+      params.push(typeof req.body.items === 'string' ? req.body.items : JSON.stringify(req.body.items));
+    }
+    if (sets.length) {
+      params.push(req.params.id);
+      db.prepare(`UPDATE invoices SET ${sets.join(', ')} WHERE id = ?`).run(...params);
+    }
+
+    const updated = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id) as any;
+    return res.status(200).json({
+      ...updated,
+      items: typeof updated.items === 'string' ? JSON.parse(updated.items) : updated.items,
     });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -152,7 +194,32 @@ router.post('/:id/resend', async (req: Request, res: Response) => {
       items: typeof inv.items === 'string' ? JSON.parse(inv.items) : inv.items,
     });
 
-    return res.status(200).json({ success: true, emailResult: emailRes });
+    // Update status to SENT after successful email dispatch
+    if (emailRes?.success !== false) {
+      db.prepare("UPDATE invoices SET status = 'SENT' WHERE id = ?").run(req.params.id);
+    }
+
+    const updated = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id) as any;
+    return res.status(200).json({ success: true, emailResult: emailRes, invoice: updated });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// PATCH /api/invoices/:id/status (Update invoice status, e.g. mark as PAID)
+router.patch('/:id/status', (req: Request, res: Response) => {
+  try {
+    const { status } = req.body;
+    if (!['PENDING', 'SENT', 'PAID', 'OVERDUE'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status value' });
+    }
+    const result = db.prepare('UPDATE invoices SET status = ? WHERE id = ?').run(status, req.params.id);
+    if (!result.changes) return res.status(404).json({ error: 'Invoice not found' });
+    const updated = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id) as any;
+    return res.status(200).json({
+      ...updated,
+      items: typeof updated.items === 'string' ? JSON.parse(updated.items) : updated.items,
+    });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }

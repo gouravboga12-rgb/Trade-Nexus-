@@ -18,6 +18,7 @@ import {
   FileText
 } from 'lucide-react';
 import { InvoiceData } from '../../types';
+import { api } from '../../services/api';
 
 interface InvoicesLedgerProps {
   panelTitle?: string;
@@ -34,6 +35,7 @@ export const InvoicesLedger: React.FC<InvoicesLedgerProps> = ({
     setSelectedInvoice,
     setIsInvoiceModalOpen,
     resendInvoiceEmail,
+    updateInvoiceStatus,
     triggerToast,
   } = useApp();
 
@@ -41,7 +43,7 @@ export const InvoicesLedger: React.FC<InvoicesLedgerProps> = ({
   const [customStartDate, setCustomStartDate] = useState(getTodayDateIST());
   const [customEndDate, setCustomEndDate] = useState(getTodayDateIST());
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'SENT' | 'PAID' | 'DRAFT'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'SENT' | 'PAID' | 'OVERDUE'>('ALL');
   const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
 
   const todayStr = getTodayDateIST();
@@ -114,6 +116,15 @@ export const InvoicesLedger: React.FC<InvoicesLedgerProps> = ({
       triggerToast(`✗ Failed to dispatch email for #${inv.invoiceNumber}`);
     } finally {
       setSendingInvoiceId(null);
+    }
+  };
+
+  const handleDownloadPdf = async (inv: InvoiceData) => {
+    try {
+      triggerToast(`⏳ Generating PDF for #${inv.invoiceNumber}...`);
+      await api.downloadInvoice(inv);
+    } catch (err: any) {
+      triggerToast(`⚠️ Download failed: ${err.message || 'Server error'}`);
     }
   };
 
@@ -268,6 +279,8 @@ export const InvoicesLedger: React.FC<InvoicesLedgerProps> = ({
                       className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
                         inv.status === 'PAID'
                           ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : inv.status === 'SENT'
+                          ? 'bg-cyan-100 text-cyan-800 border border-cyan-200'
                           : inv.status === 'OVERDUE'
                           ? 'bg-rose-100 text-rose-800 border border-rose-200'
                           : 'bg-amber-100 text-amber-800 border border-amber-200'
@@ -302,7 +315,7 @@ export const InvoicesLedger: React.FC<InvoicesLedgerProps> = ({
                     ₹{(inv.grandTotal || 0).toLocaleString('en-IN')}
                   </span>
                   <span className="text-[10px] text-slate-400 block font-mono">
-                    Sub: ₹{(inv.subTotal || 0).toLocaleString('en-IN')} · Tax: ₹{(inv.tax || 0).toLocaleString('en-IN')}
+                    Sub: ₹{(inv.subTotal || 0).toLocaleString('en-IN')} · Tax: ₹{(inv.taxAmount || 0).toLocaleString('en-IN')}
                   </span>
                 </div>
               </div>
@@ -330,7 +343,23 @@ export const InvoicesLedger: React.FC<InvoicesLedgerProps> = ({
               )}
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-1 border-t border-slate-100">
+                {inv.status !== 'PAID' && (
+                  <button
+                    onClick={() => updateInvoiceStatus(inv.id, 'PAID')}
+                    className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Mark as Paid</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => handleDownloadPdf(inv)}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>PDF</span>
+                </button>
                 <button
                   onClick={() => handlePreviewInvoice(inv)}
                   className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"

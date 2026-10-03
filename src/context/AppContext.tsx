@@ -292,6 +292,8 @@ interface AppContextType {
   openInvoiceModal: (invoice?: InvoiceData) => void;
   openGenerateInvoiceModal: () => void;
   resendInvoiceEmail: (id: string) => Promise<boolean>;
+  updateInvoiceStatus: (id: string, status: 'PAID' | 'PENDING' | 'SENT' | 'OVERDUE') => Promise<boolean>;
+  updateInvoice: (invoice: InvoiceData) => Promise<boolean>;
   sendPayslipEmailToEmployee: (payslipId: string, email?: string) => Promise<boolean>;
   sendRelievingLetterEmailToEmployee: (employee: Partial<TeamMember>, letter: Partial<RelievingLetterData>) => Promise<boolean>;
   sendExperienceCertEmailToEmployee: (employee: Partial<TeamMember>, cert: Partial<ExperienceCertData>) => Promise<boolean>;
@@ -1915,13 +1917,43 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const res = await api.resendInvoice(id);
       if (res.success) {
-        triggerToast('✓ Invoice re-sent to client email successfully');
+        // Optimistically update invoice status to SENT in local state
+        setInvoices(prev => prev.map(inv =>
+          inv.id === id ? { ...inv, status: 'SENT' as const } : inv
+        ));
+        triggerToast('✓ Invoice dispatched to customer email successfully');
         return true;
       }
       triggerToast('✗ Failed to dispatch email. Check SMTP settings.');
       return false;
     } catch (err) {
       triggerToast('✗ Failed to re-send invoice email.');
+      return false;
+    }
+  };
+
+  const updateInvoiceStatus = async (id: string, status: 'PAID' | 'PENDING' | 'SENT' | 'OVERDUE'): Promise<boolean> => {
+    try {
+      // Optimistic update in local state
+      setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, status } : inv));
+      await api.updateInvoiceStatus(id, status);
+      triggerToast(`✓ Invoice marked as ${status}`);
+      return true;
+    } catch (err) {
+      triggerToast('✗ Failed to update invoice status');
+      refreshResources(['invoices']);
+      return false;
+    }
+  };
+
+  const updateInvoice = async (invoice: InvoiceData): Promise<boolean> => {
+    setInvoices(prev => prev.map(inv => inv.id === invoice.id ? invoice : inv));
+    setSelectedInvoice(invoice);
+    try {
+      await api.updateInvoice(invoice.id, invoice);
+      return true;
+    } catch (err: any) {
+      triggerToast(`✗ Failed to save invoice changes: ${err?.message || 'Server error'}`);
       return false;
     }
   };
@@ -3330,6 +3362,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         openInvoiceModal,
         openGenerateInvoiceModal,
         resendInvoiceEmail,
+        updateInvoiceStatus,
+        updateInvoice,
         sendPayslipEmailToEmployee,
         sendRelievingLetterEmailToEmployee,
         sendExperienceCertEmailToEmployee,

@@ -598,6 +598,6 @@ export interface InvoiceData {
   accountNumber: string;
   ifscCode?: string;
   paymentEmail: string;
-  status: 'PAID' | 'PENDING' | 'OVERDUE';
+  status: 'PAID' | 'PENDING' | 'SENT' | 'OVERDUE';
 }
 
