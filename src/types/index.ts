@@ -77,6 +77,10 @@ export interface CalendarSettings {
   gracePeriodMinutes: number; // e.g. 15
   halfDayThresholdHours: number; // e.g. 4.0
   fullDayThresholdHours: number; // e.g. 8.0
+  enableLateMarking?: boolean; // if false, Late tag is turned off & punches are marked PRESENT
+  punchInWindowStart?: string; // e.g. "08:00 AM"
+  punchInWindowEnd?: string;   // e.g. "09:30 AM" (cutoff for on-time punch-in)
+  autoPunchOutTime?: string;   // e.g. "11:59 PM"
   updatedAt?: string;
 }
 

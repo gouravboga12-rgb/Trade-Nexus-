@@ -32,6 +32,9 @@ import {
   Building2,
   Receipt,
   Calendar,
+  ToggleLeft,
+  ToggleRight,
+  RefreshCw,
 } from 'lucide-react';
 import { OfficeSettings, TeamMember, UserRole, PaymentVerificationItem } from '../../types';
 import { api } from '../../services/api';
@@ -89,6 +92,9 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     deleteEmployee,
     triggerToast,
     autoDistributeFreshLeads,
+    calendarSettings,
+    updateCalendarSettings,
+    reEvaluateTodayAttendance,
   } = useApp();
 
   useScreenData('adminDashboard');
@@ -1002,6 +1008,92 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
             <span>Download to Excel</span>
           </button>
         </PageHead>
+
+        {/* Quick Shift & Late-Tag Control Banner */}
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-bold">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                  Official Shift Window
+                </span>
+                <span className="text-xs font-mono font-black text-slate-800">
+                  {calendarSettings?.shiftStartTime || '09:30 AM'} — {calendarSettings?.shiftEndTime || '06:30 PM'}
+                </span>
+              </div>
+            </div>
+
+            <div className="h-8 w-px bg-slate-200 hidden sm:block" />
+
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Punch-In Window &amp; Cutoff
+              </span>
+              <span className="text-xs font-mono font-bold text-slate-700">
+                {calendarSettings?.punchInWindowStart || '08:00 AM'} to {calendarSettings?.punchInWindowEnd || '09:30 AM'}
+              </span>
+            </div>
+
+            <div className="h-8 w-px bg-slate-200 hidden sm:block" />
+
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Late Arrival Tag
+              </span>
+              <span
+                className={`text-[10px] font-mono font-black px-2 py-0.5 rounded-md border ${
+                  calendarSettings?.enableLateMarking !== false
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'bg-purple-50 text-purple-700 border-purple-200'
+                }`}
+              >
+                {calendarSettings?.enableLateMarking !== false ? '● ACTIVE (CUTOFF ENFORCED)' : '○ DISABLED (FLEXIBLE)'}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                const nextState = calendarSettings?.enableLateMarking === false;
+                updateCalendarSettings({
+                  enableLateMarking: nextState,
+                  applyToToday: true
+                });
+              }}
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer shadow-2xs active:scale-95 ${
+                calendarSettings?.enableLateMarking !== false
+                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+              }`}
+            >
+              {calendarSettings?.enableLateMarking !== false ? (
+                <>
+                  <ToggleRight className="w-4 h-4 text-emerald-600" />
+                  <span>Turn Off Late Tag</span>
+                </>
+              ) : (
+                <>
+                  <ToggleLeft className="w-4 h-4 text-emerald-200" />
+                  <span>Enable Late Tag</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => reEvaluateTodayAttendance()}
+              title="Recalculate today's attendance records using current shift policy"
+              className="p-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
 
         {/* Hierarchy Company Calendar & Holidays Configuration */}
         <AdminCalendarConfig />

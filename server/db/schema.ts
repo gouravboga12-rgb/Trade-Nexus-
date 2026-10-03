@@ -658,6 +658,10 @@ function runMigrations() {
       gracePeriodMinutes INTEGER NOT NULL DEFAULT 15,
       halfDayThresholdHours REAL NOT NULL DEFAULT 4.0,
       fullDayThresholdHours REAL NOT NULL DEFAULT 8.0,
+      enableLateMarking INTEGER NOT NULL DEFAULT 1,
+      punchInWindowStart TEXT NOT NULL DEFAULT '08:00 AM',
+      punchInWindowEnd TEXT NOT NULL DEFAULT '09:30 AM',
+      autoPunchOutTime TEXT NOT NULL DEFAULT '11:59 PM',
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -783,6 +787,11 @@ function runMigrations() {
     { table: 'team_members', column: 'companyWebsite',      definition: "TEXT" },
     { table: 'team_members', column: 'signatoryName',       definition: "TEXT" },
     { table: 'team_members', column: 'signatoryRole',       definition: "TEXT" },
+    // Calendar & Shift Timing Settings
+    { table: 'calendar_settings', column: 'enableLateMarking',   definition: "INTEGER NOT NULL DEFAULT 1" },
+    { table: 'calendar_settings', column: 'punchInWindowStart',  definition: "TEXT NOT NULL DEFAULT '08:00 AM'" },
+    { table: 'calendar_settings', column: 'punchInWindowEnd',    definition: "TEXT NOT NULL DEFAULT '09:30 AM'" },
+    { table: 'calendar_settings', column: 'autoPunchOutTime',    definition: "TEXT NOT NULL DEFAULT '11:59 PM'" },
   ];
 
   for (const { table, column, definition } of columnMigrations) {

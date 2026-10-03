@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
   Calendar as CalendarIcon, 
@@ -17,18 +17,28 @@ import {
   CalendarDays,
   Sun,
   AlertCircle,
-  RotateCcw
+  RotateCcw,
+  ToggleLeft,
+  ToggleRight,
+  Zap,
+  Info
 } from 'lucide-react';
 import { CompanyHoliday, CalendarSettings } from '../../types';
 import confetti from 'canvas-confetti';
 
-export const AdminCalendarConfig: React.FC = () => {
+interface AdminCalendarConfigProps {
+  initialTab?: 'CALENDAR' | 'POLICY' | 'HOLIDAYS';
+  id?: string;
+}
+
+export const AdminCalendarConfig: React.FC<AdminCalendarConfigProps> = ({ initialTab = 'CALENDAR' }) => {
   const {
     weeklyOffDays,
     toggleWeeklyOffDay,
     setWeeklyOffDays,
     calendarSettings,
     updateCalendarSettings,
+    reEvaluateTodayAttendance,
     companyHolidays,
     addCompanyHoliday,
     deleteCompanyHoliday,
@@ -38,7 +48,7 @@ export const AdminCalendarConfig: React.FC = () => {
   } = useApp();
 
   // Navigation Tab State
-  const [activeTab, setActiveTab] = useState<'CALENDAR' | 'POLICY' | 'HOLIDAYS'>('CALENDAR');
+  const [activeTab, setActiveTab] = useState<'CALENDAR' | 'POLICY' | 'HOLIDAYS'>(initialTab);
 
   // -------------------------------------------------------------
   // Visual Month Calendar State
@@ -145,10 +155,40 @@ export const AdminCalendarConfig: React.FC = () => {
   );
   const [shiftStart, setShiftStart] = useState(calendarSettings?.shiftStartTime || '09:30 AM');
   const [shiftEnd, setShiftEnd] = useState(calendarSettings?.shiftEndTime || '06:30 PM');
-  const [graceMins, setGraceMins] = useState(calendarSettings?.gracePeriodMinutes || 15);
-  const [halfDayHours, setHalfDayHours] = useState(calendarSettings?.halfDayThresholdHours || 4.0);
-  const [fullDayHours, setFullDayHours] = useState(calendarSettings?.fullDayThresholdHours || 8.0);
+  const [graceMins, setGraceMins] = useState(calendarSettings?.gracePeriodMinutes ?? 15);
+  const [halfDayHours, setHalfDayHours] = useState(calendarSettings?.halfDayThresholdHours ?? 4.0);
+  const [fullDayHours, setFullDayHours] = useState(calendarSettings?.fullDayThresholdHours ?? 8.0);
+  const [enableLateMarking, setEnableLateMarking] = useState<boolean>(
+    calendarSettings?.enableLateMarking !== undefined ? calendarSettings.enableLateMarking : true
+  );
+  const [punchInWindowStart, setPunchInWindowStart] = useState(
+    calendarSettings?.punchInWindowStart || '08:00 AM'
+  );
+  const [punchInWindowEnd, setPunchInWindowEnd] = useState(
+    calendarSettings?.punchInWindowEnd || calendarSettings?.shiftStartTime || '09:30 AM'
+  );
+  const [autoPunchOutTime, setAutoPunchOutTime] = useState(
+    calendarSettings?.autoPunchOutTime || '11:59 PM'
+  );
+  const [applyToToday, setApplyToToday] = useState(true);
   const [isSavingPolicy, setIsSavingPolicy] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
+
+  // Synchronize form with calendarSettings from AppContext
+  useEffect(() => {
+    if (calendarSettings) {
+      setWeekendPreset(calendarSettings.weekendPolicy || 'SUNDAY_ONLY');
+      setShiftStart(calendarSettings.shiftStartTime || '09:30 AM');
+      setShiftEnd(calendarSettings.shiftEndTime || '06:30 PM');
+      setGraceMins(calendarSettings.gracePeriodMinutes ?? 15);
+      setHalfDayHours(calendarSettings.halfDayThresholdHours ?? 4.0);
+      setFullDayHours(calendarSettings.fullDayThresholdHours ?? 8.0);
+      setEnableLateMarking(calendarSettings.enableLateMarking !== false);
+      setPunchInWindowStart(calendarSettings.punchInWindowStart || '08:00 AM');
+      setPunchInWindowEnd(calendarSettings.punchInWindowEnd || calendarSettings.shiftStartTime || '09:30 AM');
+      setAutoPunchOutTime(calendarSettings.autoPunchOutTime || '11:59 PM');
+    }
+  }, [calendarSettings]);
 
   const applyWeekendPreset = (preset: CalendarSettings['weekendPolicy']) => {
     setWeekendPreset(preset);
@@ -172,7 +212,12 @@ export const AdminCalendarConfig: React.FC = () => {
         gracePeriodMinutes: Number(graceMins),
         halfDayThresholdHours: Number(halfDayHours),
         fullDayThresholdHours: Number(fullDayHours),
+        enableLateMarking,
+        punchInWindowStart,
+        punchInWindowEnd,
+        autoPunchOutTime,
         weeklyOffDays,
+        applyToToday,
       });
 
       confetti({
@@ -182,6 +227,20 @@ export const AdminCalendarConfig: React.FC = () => {
       });
     } finally {
       setIsSavingPolicy(false);
+    }
+  };
+
+  const handleRecalculateNow = async () => {
+    setIsRecalculating(true);
+    try {
+      await reEvaluateTodayAttendance();
+      confetti({
+        particleCount: 40,
+        spread: 50,
+        origin: { y: 0.6 },
+      });
+    } finally {
+      setIsRecalculating(false);
     }
   };
 
@@ -760,51 +819,145 @@ export const AdminCalendarConfig: React.FC = () => {
             </div>
           </div>
 
-          {/* Section 2: Shift Timings & Attendance Thresholds */}
-          <div className="space-y-4 bg-slate-50/80 p-4 rounded-2xl border border-slate-100">
-            <div>
-              <h4 className="font-display font-black text-sm text-[#0A2540]">
-                Official Shift Timings &amp; Attendance Rules
-              </h4>
-              <p className="text-[11px] text-slate-500">
-                Determines punctuality, late mark thresholds, and half-day work calculations
-              </p>
+          {/* Section 2: Shift Timings & Attendance Rules */}
+          <div className="space-y-5 bg-slate-50/80 p-5 rounded-2xl border border-slate-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
+              <div>
+                <h4 className="font-display font-black text-sm text-[#0A2540] flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-[#00C9A7]" />
+                  <span>Punch-In Window, Shift Timings &amp; Late Policy</span>
+                </h4>
+                <p className="text-[11px] text-slate-500">
+                  Control punch-in windows, late-arrival tags, auto-closure and attendance calculations across all employee portals
+                </p>
+              </div>
+
+              {/* Status Badge */}
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-[10px] font-mono font-black px-3 py-1 rounded-full border shadow-2xs ${
+                    enableLateMarking
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                      : 'bg-purple-50 text-purple-700 border-purple-300'
+                  }`}
+                >
+                  {enableLateMarking ? '● LATE TAGGING ACTIVE' : '○ LATE TAG DISABLED (FLEXIBLE)'}
+                </span>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
+            {/* Master Toggle Banner for Late Marking */}
+            <div className={`p-4 rounded-2xl border transition-all ${
+              enableLateMarking
+                ? 'bg-gradient-to-r from-emerald-50/60 to-white border-emerald-200'
+                : 'bg-gradient-to-r from-purple-50/80 via-white to-purple-50/30 border-purple-200'
+            }`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-display font-bold text-xs text-[#0A2540]">
+                      Enforce Late Arrival Tagging
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      (Global Attendance Rule)
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed max-w-xl">
+                    {enableLateMarking
+                      ? 'Employees punching in after the configured cutoff time will be automatically tagged as LATE on reports and floor registers.'
+                      : 'Late tagging is completely TURNED OFF. Employees can punch in at any time and will always receive PRESENT status without penalty.'}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setEnableLateMarking(!enableLateMarking)}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer shadow-xs active:scale-95 whitespace-nowrap ${
+                    enableLateMarking
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-purple-600 hover:bg-purple-700 text-white'
+                  }`}
+                >
+                  {enableLateMarking ? (
+                    <>
+                      <ToggleRight className="w-4 h-4 text-emerald-200" />
+                      <span>Disable Late Tag</span>
+                    </>
+                  ) : (
+                    <>
+                      <ToggleLeft className="w-4 h-4 text-purple-200" />
+                      <span>Enable Late Tag</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Timings Input Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {/* Punch-In Window Start */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
                 <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                  Shift Start Time
+                  Punch-In Window Opens
                 </label>
                 <div className="relative">
-                  <Clock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                  <input
+                    type="text"
+                    value={punchInWindowStart}
+                    onChange={(e) => setPunchInWindowStart(e.target.value)}
+                    placeholder="08:00 AM"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-2.5 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                  />
+                </div>
+                <span className="text-[10px] text-slate-400 block mt-1">Earliest recommended check-in</span>
+              </div>
+
+              {/* Punch-In Window End / Late Threshold */}
+              <div className={`p-3 rounded-xl border shadow-2xs transition-all ${
+                enableLateMarking ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-200 opacity-60'
+              }`}>
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                  Punch-In Cutoff (Late Threshold)
+                </label>
+                <div className="relative">
+                  <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                  <input
+                    type="text"
+                    value={punchInWindowEnd}
+                    onChange={(e) => setPunchInWindowEnd(e.target.value)}
+                    placeholder="09:30 AM"
+                    disabled={!enableLateMarking}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-2.5 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-[#00C9A7] disabled:bg-slate-100 disabled:text-slate-400"
+                  />
+                </div>
+                <span className="text-[10px] text-slate-400 block mt-1">
+                  {enableLateMarking ? 'Check-ins after this time stamped LATE' : 'Cutoff bypassed (Late tag disabled)'}
+                </span>
+              </div>
+
+              {/* Official Shift Start Time */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                  Official Shift Start
+                </label>
+                <div className="relative">
+                  <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
                   <input
                     type="text"
                     value={shiftStart}
                     onChange={(e) => setShiftStart(e.target.value)}
                     placeholder="09:30 AM"
-                    className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-2.5 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
                   />
                 </div>
+                <span className="text-[10px] text-slate-400 block mt-1">Standard shift beginning</span>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                  Shift End Time
-                </label>
-                <div className="relative">
-                  <Clock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                  <input
-                    type="text"
-                    value={shiftEnd}
-                    onChange={(e) => setShiftEnd(e.target.value)}
-                    placeholder="06:30 PM"
-                    className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
-                  />
-                </div>
-              </div>
-
-              <div>
+              {/* Grace Period */}
+              <div className={`p-3 rounded-xl border shadow-2xs transition-all ${
+                enableLateMarking ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-200 opacity-60'
+              }`}>
                 <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
                   Grace Period (Minutes)
                 </label>
@@ -814,13 +967,52 @@ export const AdminCalendarConfig: React.FC = () => {
                   max="60"
                   value={graceMins}
                   onChange={(e) => setGraceMins(Number(e.target.value))}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                  disabled={!enableLateMarking}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-[#00C9A7] disabled:bg-slate-100 disabled:text-slate-400"
                 />
+                <span className="text-[10px] text-slate-400 block mt-1">Buffer beyond shift start</span>
               </div>
 
-              <div>
+              {/* Shift End Time */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
                 <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                  Half-Day Min Work Hours
+                  Shift End Time
+                </label>
+                <div className="relative">
+                  <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                  <input
+                    type="text"
+                    value={shiftEnd}
+                    onChange={(e) => setShiftEnd(e.target.value)}
+                    placeholder="06:30 PM"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-2.5 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                  />
+                </div>
+                <span className="text-[10px] text-slate-400 block mt-1">Regular shift closing time</span>
+              </div>
+
+              {/* Auto Punch-Out Time */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                  Auto Punch-Out Cutoff
+                </label>
+                <div className="relative">
+                  <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                  <input
+                    type="text"
+                    value={autoPunchOutTime}
+                    onChange={(e) => setAutoPunchOutTime(e.target.value)}
+                    placeholder="11:59 PM"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-2.5 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                  />
+                </div>
+                <span className="text-[10px] text-slate-400 block mt-1">Auto-close missed punches</span>
+              </div>
+
+              {/* Half-Day Hours */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                  Half-Day Threshold (Hours)
                 </label>
                 <input
                   type="number"
@@ -829,13 +1021,15 @@ export const AdminCalendarConfig: React.FC = () => {
                   max="8"
                   value={halfDayHours}
                   onChange={(e) => setHalfDayHours(Number(e.target.value))}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
                 />
+                <span className="text-[10px] text-slate-400 block mt-1">Minimum hours for half day</span>
               </div>
 
-              <div>
+              {/* Full-Day Hours */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
                 <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                  Full-Day Standard Hours
+                  Full-Day Standard (Hours)
                 </label>
                 <input
                   type="number"
@@ -844,21 +1038,49 @@ export const AdminCalendarConfig: React.FC = () => {
                   max="12"
                   value={fullDayHours}
                   onChange={(e) => setFullDayHours(Number(e.target.value))}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
                 />
+                <span className="text-[10px] text-slate-400 block mt-1">Target work duration</span>
               </div>
 
-              <div className="flex items-end">
-                <button
-                  type="button"
-                  onClick={handleSavePolicy}
-                  disabled={isSavingPolicy}
-                  className="w-full bg-[#0A2540] hover:bg-[#00C9A7] hover:text-[#0A2540] text-white font-black text-xs py-2 px-4 rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <ShieldCheck className="w-4 h-4 text-[#00C9A7] group-hover:text-[#0A2540]" />
-                  <span>{isSavingPolicy ? 'Saving Policy...' : 'Save Policy to SQLite'}</span>
-                </button>
+              {/* Apply retroactively toggle */}
+              <div className="bg-slate-100/70 p-3 rounded-xl border border-slate-200 flex flex-col justify-center">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={applyToToday}
+                    onChange={(e) => setApplyToToday(e.target.checked)}
+                    className="w-4 h-4 rounded text-[#00C9A7] focus:ring-[#00C9A7]"
+                  />
+                  <span>Apply to Today's Attendance</span>
+                </label>
+                <span className="text-[10px] text-slate-400 block mt-1">
+                  Immediately recalculate active punches for today
+                </span>
               </div>
+            </div>
+
+            {/* Action Buttons Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200/80">
+              <button
+                type="button"
+                onClick={handleRecalculateNow}
+                disabled={isRecalculating}
+                className="flex items-center gap-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl shadow-2xs transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isRecalculating ? 'animate-spin' : ''}`} />
+                <span>{isRecalculating ? 'Recalculating...' : "Re-evaluate Today's Attendance"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSavePolicy}
+                disabled={isSavingPolicy}
+                className="bg-[#0A2540] hover:bg-[#00C9A7] hover:text-[#0A2540] text-white font-black text-xs py-2.5 px-6 rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-2 disabled:opacity-50"
+              >
+                <ShieldCheck className="w-4 h-4 text-[#00C9A7] group-hover:text-[#0A2540]" />
+                <span>{isSavingPolicy ? 'Saving Timing Policy...' : 'Save Timing Policy'}</span>
+              </button>
             </div>
           </div>
         </div>

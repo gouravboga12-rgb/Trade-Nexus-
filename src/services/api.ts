@@ -549,8 +549,10 @@ export const api = {
   loadPresetHolidays: () =>
     request<CompanyHoliday[]>('/calendar/holidays/bulk-preset', { method: 'POST' }),
   getCalendarSettings: () => request<CalendarSettings>('/calendar/settings'),
-  updateCalendarSettings: (data: Partial<CalendarSettings>) =>
-    request<CalendarSettings>('/calendar/settings', { method: 'PUT', body: JSON.stringify(data) }),
+  updateCalendarSettings: (data: Partial<CalendarSettings> & { applyToToday?: boolean }) =>
+    request<CalendarSettings & { recalculatedCount?: number }>('/calendar/settings', { method: 'PUT', body: JSON.stringify(data) }),
+  reEvaluateTodayAttendance: () =>
+    request<{ success: boolean; count: number; message: string }>('/attendance/re-evaluate-today', { method: 'POST' }),
 
   // Binary PDF Downloaders (True file downloads to user's device)
   downloadOfferLetter: (offerLetter: Partial<OfferLetterData>) =>

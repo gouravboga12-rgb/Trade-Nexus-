@@ -23,3 +23,15 @@ export function getCurrentTimeIST(dateObj: Date = new Date()): string {
     return dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 }
+
+export function minutesOfDay(t?: string | null): number | null {
+  if (!t) return null;
+  const m = String(t).trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  if (!m) return null;
+  let hours = parseInt(m[1], 10);
+  if (m[3]) {
+    hours %= 12;
+    if (m[3].toUpperCase() === 'PM') hours += 12;
+  }
+  return hours * 60 + parseInt(m[2], 10);
+}

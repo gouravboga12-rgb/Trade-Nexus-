@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
-import { getTodayDateIST, getCurrentTimeIST } from '../utils/dateUtils.js';
+import { getTodayDateIST, getCurrentTimeIST, minutesOfDay } from '../utils/dateUtils.js';
 import { sweepUnclosedAttendance } from '../services/attendanceLifecycle.js';
+import { recalculateTodayAttendance } from './calendar.js';
 
 const router = Router();
 
@@ -22,19 +23,6 @@ function metresBetween(lat1: number, lng1: number, lat2: number, lng2: number): 
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
   return Math.round(earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-}
-
-/** "09:05 AM" -> minutes since midnight, or null if unparseable. */
-function minutesOfDay(t?: string | null): number | null {
-  if (!t) return null;
-  const m = t.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
-  if (!m) return null;
-  let hours = parseInt(m[1], 10);
-  if (m[3]) {
-    hours %= 12;
-    if (m[3].toUpperCase() === 'PM') hours += 12;
-  }
-  return hours * 60 + parseInt(m[2], 10);
 }
 
 /**
@@ -292,17 +280,34 @@ router.post('/', (req: Request, res: Response) => {
       locationStatus = 'OFFICE_NOT_SET';
     }
 
-    // Evaluate shift cutoff: check if punch-in is after shiftStartTime + gracePeriodMinutes
+    // Evaluate shift cutoff: check if punch-in is after punchInWindowEnd or shiftStartTime + gracePeriodMinutes
     let effectiveStatus = status;
     if (!effectiveStatus || effectiveStatus === 'PRESENT') {
       try {
-        const cal = db.prepare('SELECT shiftStartTime, gracePeriodMinutes FROM calendar_settings WHERE id = ?').get('settings-default') as any;
-        if (cal && cal.shiftStartTime) {
-          const shiftStartMin = minutesOfDay(cal.shiftStartTime);
+        const cal = db.prepare('SELECT shiftStartTime, gracePeriodMinutes, enableLateMarking, punchInWindowEnd FROM calendar_settings WHERE id = ?').get('settings-default') as any;
+        const isLateEnabled = cal?.enableLateMarking !== 0 && cal?.enableLateMarking !== false;
+        
+        if (!isLateEnabled) {
+          // Admin has disabled Late tags: all valid punch-ins receive PRESENT
+          effectiveStatus = 'PRESENT';
+        } else if (cal) {
+          // Late marking is enabled: check if punch-in exceeds configured cutoff
+          let cutoffMin: number | null = null;
+          if (cal.punchInWindowEnd) {
+            cutoffMin = minutesOfDay(cal.punchInWindowEnd);
+          }
+          if (cutoffMin === null && cal.shiftStartTime) {
+            const shiftStartMin = minutesOfDay(cal.shiftStartTime);
+            if (shiftStartMin !== null) {
+              cutoffMin = shiftStartMin + (Number(cal.gracePeriodMinutes) || 0);
+            }
+          }
+
           const checkInMin = minutesOfDay(resolvedCheckIn);
-          const grace = Number(cal.gracePeriodMinutes) || 0;
-          if (shiftStartMin !== null && checkInMin !== null) {
-            effectiveStatus = checkInMin > shiftStartMin + grace ? 'LATE' : 'PRESENT';
+          if (cutoffMin !== null && checkInMin !== null) {
+            effectiveStatus = checkInMin > cutoffMin ? 'LATE' : 'PRESENT';
+          } else {
+            effectiveStatus = 'PRESENT';
           }
         }
       } catch (e) {
@@ -489,6 +494,17 @@ router.delete('/', (req: Request, res: Response) => {
     const today = getTodayDateIST();
     const info = db.prepare('DELETE FROM attendance_records WHERE date = ?').run(today);
     return res.status(200).json({ success: true, count: info.changes, message: `Cleared ${info.changes} records for ${today}` });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// POST /api/attendance/re-evaluate-today — admin action to re-evaluate today's active punches against current timing rules
+router.post('/re-evaluate-today', (req: Request, res: Response) => {
+  try {
+    const cal = db.prepare('SELECT * FROM calendar_settings WHERE id = ?').get('settings-default') as any;
+    const count = recalculateTodayAttendance(cal || {});
+    return res.status(200).json({ success: true, count, message: `Re-evaluated ${count} attendance records for today` });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }

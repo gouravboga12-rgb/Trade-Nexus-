@@ -198,7 +198,8 @@ interface AppContextType {
   setWeeklyOffDays: (days: number[]) => void;
   toggleWeeklyOffDay: (dayIndex: number) => void;
   calendarSettings: CalendarSettings;
-  updateCalendarSettings: (settings: Partial<CalendarSettings>) => Promise<void>;
+  updateCalendarSettings: (settings: Partial<CalendarSettings> & { applyToToday?: boolean }) => Promise<void>;
+  reEvaluateTodayAttendance: () => Promise<number>;
   companyHolidays: CompanyHoliday[];
   addCompanyHoliday: (holiday: Omit<CompanyHoliday, 'id'> & { id?: string; description?: string }) => Promise<void>;
   deleteCompanyHoliday: (id: string) => Promise<void>;
@@ -497,6 +498,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     gracePeriodMinutes: 15,
     halfDayThresholdHours: 4.0,
     fullDayThresholdHours: 8.0,
+    enableLateMarking: true,
+    punchInWindowStart: '08:00 AM',
+    punchInWindowEnd: '09:30 AM',
+    autoPunchOutTime: '11:59 PM',
   });
 
   const [companyHolidays, setCompanyHolidaysState] = useState<CompanyHoliday[]>([]);
@@ -515,7 +520,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setWeeklyOffDays(updated);
   };
 
-  const updateCalendarSettings = async (settings: Partial<CalendarSettings>) => {
+  const updateCalendarSettings = async (settings: Partial<CalendarSettings> & { applyToToday?: boolean }) => {
     setCalendarSettingsState(prev => ({ ...prev, ...settings }));
     if (settings.weeklyOffDays) {
       setWeeklyOffDaysState(settings.weeklyOffDays);
@@ -524,14 +529,47 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const updated = await api.updateCalendarSettings(settings);
       setCalendarSettingsState(updated);
       if (updated.weeklyOffDays) setWeeklyOffDaysState(updated.weeklyOffDays);
-      triggerToast('✓ Shift timings & attendance policies saved to database');
+      if (updated.recalculatedCount !== undefined && updated.recalculatedCount > 0) {
+        // Refresh attendance records & team members to show updated status
+        const [recs, members] = await Promise.all([
+          api.getAttendance(),
+          api.getTeamMembers()
+        ]);
+        setAttendanceLogs(recs as any);
+        setTeamMembers(members);
+        triggerToast(`✓ Shift timings saved. Updated ${updated.recalculatedCount} attendance records for today`);
+      } else {
+        triggerToast('✓ Shift timings & attendance policies saved to database');
+      }
     } catch {
       triggerToast('✓ Updated calendar policies');
     }
   };
 
+  const reEvaluateTodayAttendance = async (): Promise<number> => {
+    try {
+      const res = await api.reEvaluateTodayAttendance();
+      const [recs, members] = await Promise.all([
+        api.getAttendance(),
+        api.getTeamMembers()
+      ]);
+      setAttendanceLogs(recs as any);
+      setTeamMembers(members);
+      triggerToast(`✓ Re-evaluated today's attendance (${res.count} updated)`);
+      return res.count;
+    } catch (e: any) {
+      triggerToast(`⚠️ Failed to re-evaluate: ${e.message}`);
+      return 0;
+    }
+  };
+
   const computeAttendanceStatus = (checkInTimeStr: string): 'PRESENT' | 'LATE' => {
     try {
+      // If Admin has turned off late marking globally, everyone gets PRESENT
+      if (calendarSettings.enableLateMarking === false) {
+        return 'PRESENT';
+      }
+
       const parseTimeToMin = (tStr: string): number | null => {
         if (!tStr) return null;
         const clean = tStr.trim();
@@ -547,12 +585,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return hours * 60 + minutes;
       };
 
-      const shiftStartMin = parseTimeToMin(calendarSettings.shiftStartTime);
-      const checkInMin = parseTimeToMin(checkInTimeStr);
-      const grace = Number(calendarSettings.gracePeriodMinutes) || 0;
+      let cutoffMin: number | null = null;
+      if (calendarSettings.punchInWindowEnd) {
+        cutoffMin = parseTimeToMin(calendarSettings.punchInWindowEnd);
+      }
+      if (cutoffMin === null && calendarSettings.shiftStartTime) {
+        const startMin = parseTimeToMin(calendarSettings.shiftStartTime);
+        if (startMin !== null) {
+          cutoffMin = startMin + (Number(calendarSettings.gracePeriodMinutes) || 0);
+        }
+      }
 
-      if (shiftStartMin !== null && checkInMin !== null) {
-        if (checkInMin > shiftStartMin + grace) {
+      const checkInMin = parseTimeToMin(checkInTimeStr);
+      if (cutoffMin !== null && checkInMin !== null) {
+        if (checkInMin > cutoffMin) {
           return 'LATE';
         }
       }
@@ -3275,6 +3321,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         toggleWeeklyOffDay,
         calendarSettings,
         updateCalendarSettings,
+        reEvaluateTodayAttendance,
         companyHolidays,
         addCompanyHoliday,
         deleteCompanyHoliday,

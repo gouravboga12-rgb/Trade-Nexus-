@@ -1,5 +1,6 @@
 import express from 'express';
 import db from '../db/connection.js';
+import { getTodayDateIST, minutesOfDay } from '../utils/dateUtils.js';
 
 const router = express.Router();
 
@@ -37,6 +38,12 @@ function formatSettings(row: any) {
     gracePeriodMinutes: Number(row.gracePeriodMinutes ?? 15),
     halfDayThresholdHours: Number(row.halfDayThresholdHours ?? 4.0),
     fullDayThresholdHours: Number(row.fullDayThresholdHours ?? 8.0),
+    enableLateMarking: row.enableLateMarking !== undefined && row.enableLateMarking !== null
+      ? Boolean(Number(row.enableLateMarking))
+      : true,
+    punchInWindowStart: row.punchInWindowStart || '08:00 AM',
+    punchInWindowEnd: row.punchInWindowEnd || row.shiftStartTime || '09:30 AM',
+    autoPunchOutTime: row.autoPunchOutTime || '11:59 PM',
     updatedAt: row.updatedAt
   };
 }
@@ -145,6 +152,59 @@ router.get('/settings', (req, res) => {
   }
 });
 
+/** Recalculate today's attendance records when shift rules or late flags are updated */
+export function recalculateTodayAttendance(settings: any): number {
+  try {
+    const today = getTodayDateIST();
+    const records = db.prepare(`
+      SELECT * FROM attendance_records 
+      WHERE date = ? AND checkIn IS NOT NULL
+    `).all(today) as any[];
+
+    const isLateEnabled = settings.enableLateMarking !== 0 && settings.enableLateMarking !== false;
+    
+    // Evaluate Cutoff in minutes
+    let cutoffMin: number | null = null;
+    if (settings.punchInWindowEnd) {
+      cutoffMin = minutesOfDay(settings.punchInWindowEnd);
+    }
+    if (cutoffMin === null && settings.shiftStartTime) {
+      const startMin = minutesOfDay(settings.shiftStartTime);
+      if (startMin !== null) {
+        cutoffMin = startMin + (Number(settings.gracePeriodMinutes) || 0);
+      }
+    }
+
+    let updatedCount = 0;
+    for (const r of records) {
+      // Disputed / rejected by admin stays flagged as ABSENT
+      if (r.disputedByAdmin) continue;
+
+      let newStatus = 'PRESENT';
+      if (isLateEnabled && cutoffMin !== null) {
+        const checkInMin = minutesOfDay(r.checkIn);
+        if (checkInMin !== null && checkInMin > cutoffMin) {
+          newStatus = 'LATE';
+        }
+      }
+
+      if (r.status !== newStatus) {
+        db.prepare('UPDATE attendance_records SET status = ? WHERE id = ?').run(newStatus, r.id);
+        if (r.employeeId) {
+          db.prepare('UPDATE team_members SET attendanceStatus = ? WHERE id = ? OR empCode = ?').run(
+            newStatus, r.employeeId, r.employeeId
+          );
+        }
+        updatedCount++;
+      }
+    }
+    return updatedCount;
+  } catch (e) {
+    console.warn('[Recalculate Today Attendance Error]', e);
+    return 0;
+  }
+}
+
 // PUT /api/calendar/settings
 router.put('/settings', (req, res) => {
   try {
@@ -157,6 +217,10 @@ router.put('/settings', (req, res) => {
       gracePeriodMinutes: 15,
       halfDayThresholdHours: 4.0,
       fullDayThresholdHours: 8.0,
+      enableLateMarking: true,
+      punchInWindowStart: '08:00 AM',
+      punchInWindowEnd: '09:30 AM',
+      autoPunchOutTime: '11:59 PM',
     };
 
     const weeklyOffDays = req.body.weeklyOffDays !== undefined ? req.body.weeklyOffDays : current.weeklyOffDays;
@@ -166,11 +230,19 @@ router.put('/settings', (req, res) => {
     const gracePeriodMinutes = req.body.gracePeriodMinutes !== undefined ? req.body.gracePeriodMinutes : current.gracePeriodMinutes;
     const halfDayThresholdHours = req.body.halfDayThresholdHours !== undefined ? req.body.halfDayThresholdHours : current.halfDayThresholdHours;
     const fullDayThresholdHours = req.body.fullDayThresholdHours !== undefined ? req.body.fullDayThresholdHours : current.fullDayThresholdHours;
+    const enableLateMarking = req.body.enableLateMarking !== undefined
+      ? (req.body.enableLateMarking ? 1 : 0)
+      : (current.enableLateMarking ? 1 : 0);
+    const punchInWindowStart = req.body.punchInWindowStart !== undefined ? req.body.punchInWindowStart : current.punchInWindowStart;
+    const punchInWindowEnd = req.body.punchInWindowEnd !== undefined ? req.body.punchInWindowEnd : current.punchInWindowEnd;
+    const autoPunchOutTime = req.body.autoPunchOutTime !== undefined ? req.body.autoPunchOutTime : current.autoPunchOutTime;
 
     const stmt = db.prepare(`
       INSERT OR REPLACE INTO calendar_settings (
-        id, weeklyOffDays, weekendPolicy, shiftStartTime, shiftEndTime, gracePeriodMinutes, halfDayThresholdHours, fullDayThresholdHours, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        id, weeklyOffDays, weekendPolicy, shiftStartTime, shiftEndTime, gracePeriodMinutes,
+        halfDayThresholdHours, fullDayThresholdHours, enableLateMarking,
+        punchInWindowStart, punchInWindowEnd, autoPunchOutTime, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     `);
 
     stmt.run(
@@ -181,11 +253,26 @@ router.put('/settings', (req, res) => {
       shiftEndTime,
       Number(gracePeriodMinutes),
       Number(halfDayThresholdHours),
-      Number(fullDayThresholdHours)
+      Number(fullDayThresholdHours),
+      enableLateMarking,
+      punchInWindowStart,
+      punchInWindowEnd,
+      autoPunchOutTime
     );
 
     const updated = db.prepare('SELECT * FROM calendar_settings WHERE id = ?').get('settings-default');
-    res.json(formatSettings(updated));
+    const formatted = formatSettings(updated);
+
+    // Apply retroactively to today's active punches if requested or by default
+    let recalculatedCount = 0;
+    if (req.body.applyToToday !== false) {
+      recalculatedCount = recalculateTodayAttendance(formatted);
+    }
+
+    res.json({
+      ...formatted,
+      recalculatedCount
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

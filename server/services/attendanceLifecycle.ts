@@ -28,8 +28,8 @@ function minutesOfDay(t?: string | null): number | null {
 export function sweepUnclosedAttendance(): number {
   try {
     const today = getTodayDateIST();
-    const cal = db.prepare('SELECT shiftStartTime, shiftEndTime FROM calendar_settings WHERE id = ?').get('settings-default') as CalendarSettingsRow | undefined;
-    const defaultEndTime = cal?.shiftEndTime || '06:30 PM';
+    const cal = db.prepare('SELECT shiftStartTime, shiftEndTime, autoPunchOutTime FROM calendar_settings WHERE id = ?').get('settings-default') as (CalendarSettingsRow & { autoPunchOutTime?: string }) | undefined;
+    const defaultEndTime = cal?.autoPunchOutTime || cal?.shiftEndTime || '06:30 PM';
 
     // 1. Find all records from previous days that have a checkIn but never punched out
     const unclosedRecords = db.prepare(`
