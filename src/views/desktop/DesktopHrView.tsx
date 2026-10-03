@@ -39,7 +39,8 @@ import {
 } from 'lucide-react';
 import { CandidateInterview, OnboardingEmployee, ExitEmployee, PaymentVerificationItem, TeamMember, PayslipItem } from '../../types';
 import { AddEmployeeModal } from '../../components/modals/AddEmployeeModal';
-import { EditPayslipModal } from '../../components/modals/EditPayslipModal';
+import { PayrollBuilderModal } from '../../components/modals/PayrollBuilderModal';
+import { computePayrollTotals, periodSortValue } from '../../components/payroll/payrollTemplate';
 import { RejectedLeaveBanner } from '../../components/common/RejectedLeaveBanner';
 import { Employee360ProfileView } from '../Employee360ProfileView';
 import { EmployeeAvatar } from '../../components/common/EmployeeAvatar';
@@ -74,7 +75,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
     toggleOnboardingChecklist, 
     toggleExitChecklist, 
     verifyPayment, 
-    generateBulkPayslips, 
+    deletePayslip, 
     teamMeetings,
     joinMeeting,
     updateTeamMeeting,
@@ -130,11 +131,18 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
   const [candTime, setCandTime] = useState('Tomorrow • 02:30 PM');
   const [candInterviewer, setCandInterviewer] = useState('Select Interviewer');
 
-  const [payrollMonth, setPayrollMonth] = useState('May');
-  const [payrollYear, setPayrollYear] = useState('2025');
-  const [payslipSelectionMode, setPayslipSelectionMode] = useState<'ALL' | 'SPECIFIC'>('ALL');
-  const [selectedEmpIdsForPayroll, setSelectedEmpIdsForPayroll] = useState<string[]>(teamMembers.map(m => m.id));
-  const [selectedPayslipForEdit, setSelectedPayslipForEdit] = useState<PayslipItem | null>(null);
+  // Payroll Builder: null = new payroll, otherwise the record being edited / viewed
+  const [builderPayslip, setBuilderPayslip] = useState<PayslipItem | null>(null);
+  const [payrollStatusFilter, setPayrollStatusFilter] = useState<'ALL' | 'DRAFT' | 'DISPATCHED'>('ALL');
+  const openPayrollBuilder = (ps?: PayslipItem | null) => {
+    setBuilderPayslip(ps || null);
+    setIsPayslipGenModalOpen(true);
+  };
+  const payrollRows = useMemo(() => payslips
+    .filter(p => payrollStatusFilter === 'ALL' || (payrollStatusFilter === 'DISPATCHED' ? p.payrollStatus === 'DISPATCHED' : p.payrollStatus !== 'DISPATCHED'))
+    .slice()
+    .sort((a, b) => periodSortValue(b) - periodSortValue(a) || (a.employeeName || '').localeCompare(b.employeeName || '')),
+  [payslips, payrollStatusFilter]);
 
   // HR Zoom Meeting Scheduler States
   const [isHrMeetingModalOpen, setIsHrMeetingModalOpen] = useState(false);
@@ -234,13 +242,6 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
     triggerToast(`✓ Zoom meeting scheduled for ${scopeLabel}!`);
   };
 
-  const handleBulkPayrollSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    generateBulkPayslips(payrollMonth, payrollYear, payslipSelectionMode === 'SPECIFIC' ? selectedEmpIdsForPayroll : undefined);
-    setIsPayslipGenModalOpen(false);
-    triggerToast(`✓ Generated ${payrollMonth} ${payrollYear} payslips for ${payslipSelectionMode === 'ALL' ? totalEmployees : selectedEmpIdsForPayroll.length} employees!`);
-  };
-
   const exportHrReportCSV = () => {
     const csvContent = "data:text/csv;charset=utf-8," 
       + "Name,Role,Group,Status,CheckIn,Dials,Sales Achieved\n"
@@ -323,11 +324,11 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
             </button>
 
             <button
-              onClick={() => setIsPayslipGenModalOpen(true)}
+              onClick={() => openPayrollBuilder()}
               className="flex items-center gap-2 bg-[#E6FAF6] border border-[#00C9A7]/30 text-[#00A88B] font-bold text-xs px-4 py-2.5 rounded-xl hover:bg-[#00C9A7]/20 transition-all shadow-xs"
             >
               <CreditCard className="w-4 h-4" />
-              <span>Run Payroll</span>
+              <span>Create Payroll</span>
             </button>
 
             <button
@@ -1236,7 +1237,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                     </p>
                   </div>
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-xs font-bold text-emerald-600">{payslips.length} Slips Generated</span>
+                    <span className="text-xs font-bold text-emerald-600">{payslips.filter(p => p.payrollStatus === 'DISPATCHED').length} Dispatched</span>
                     <button
                       onClick={() => {
                         const first = payslips[0];
@@ -1633,17 +1634,31 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
       {activeTab === 'payroll' && (
         <div className="space-y-6 animate-in fade-in duration-150">
           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
                 <h3 className="font-display font-black text-xl text-[#0A2540]">Payroll Management</h3>
-                <p className="text-xs text-slate-500">Corporate salary disbursements, tax deductions and payslip batches</p>
+                <p className="text-xs text-slate-500">Customize each employee's monthly payroll, preview it, then dispatch. Employees only see dispatched payroll.</p>
               </div>
-              <button
-                onClick={() => setIsPayslipGenModalOpen(true)}
-                className="flex items-center gap-2 bg-[#00C9A7] text-[#0A2540] font-black text-xs px-5 py-2.5 rounded-xl shadow-xs"
-              >
-                <Plus className="w-4 h-4" /> Run Bulk Payroll
-              </button>
+              <div className="flex items-center gap-2">
+                <div className="flex bg-slate-100 rounded-xl p-1">
+                  {(['ALL', 'DRAFT', 'DISPATCHED'] as const).map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setPayrollStatusFilter(f)}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-black transition-all cursor-pointer ${payrollStatusFilter === f ? 'bg-white text-[#0A2540] shadow-xs' : 'text-slate-500'}`}
+                    >
+                      {f === 'ALL' ? `All (${payslips.length})` : f === 'DRAFT' ? `Drafts (${payslips.filter(p => p.payrollStatus !== 'DISPATCHED').length})` : `Dispatched (${payslips.filter(p => p.payrollStatus === 'DISPATCHED').length})`}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  id="hr-create-payroll"
+                  onClick={() => openPayrollBuilder()}
+                  className="flex items-center gap-2 bg-[#00C9A7] text-[#0A2540] font-black text-xs px-5 py-2.5 rounded-xl shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" /> Create Payroll
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -1651,74 +1666,118 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                 <thead>
                   <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                     <th className="pb-3">Employee</th>
-                    <th className="pb-3">Period</th>
-                    <th className="pb-3">Basic Salary</th>
-                    <th className="pb-3">HRA</th>
-                    <th className="pb-3">Special Allowance</th>
-                    <th className="pb-3">Incentives</th>
+                    <th className="pb-3">Month</th>
+                    <th className="pb-3">Status</th>
+                    <th className="pb-3">Dispatched On</th>
+                    <th className="pb-3">Total Earnings</th>
                     <th className="pb-3">Deductions</th>
                     <th className="pb-3">Net Pay</th>
-                    <th className="pb-3">Status</th>
                     <th className="pb-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">
-                  {payslips.map((ps) => (
+                  {payrollRows.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="py-10 text-center font-sans text-xs text-slate-400">
+                        {payrollStatusFilter === 'ALL'
+                          ? 'No payroll created yet. Click "Create Payroll" to customize and dispatch a month.'
+                          : `No ${payrollStatusFilter.toLowerCase()} payroll.`}
+                      </td>
+                    </tr>
+                  )}
+                  {payrollRows.map((ps) => {
+                    const t = computePayrollTotals(ps);
+                    const dispatched = ps.payrollStatus === 'DISPATCHED';
+                    return (
                     <tr key={ps.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3.5 font-sans font-bold text-[#0A2540]">
-                        <div className="flex items-center gap-1.5">
-                          <span>{ps.employeeName || 'Staff Member'}</span>
-                          {ps.changeRemarks && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 font-bold font-sans" title={ps.changeRemarks}>
-                              Customized
-                            </span>
-                          )}
-                        </div>
+                        <span>{ps.employeeName || 'Staff Member'}</span>
                         <span className="text-[10px] text-slate-400 font-mono block">{ps.empCode || ps.employeeCode || ps.id}</span>
                       </td>
                       <td className="py-3.5 font-sans font-bold text-slate-700">
                         {ps.month} {ps.year}
                       </td>
-                      <td className="py-3.5 text-slate-700">₹{ps.basicSalary.toLocaleString()}</td>
-                      <td className="py-3.5 text-slate-700">₹{ps.hra.toLocaleString()}</td>
-                      <td className="py-3.5 text-slate-700">₹{ps.specialAllowance.toLocaleString()}</td>
-                      <td className="py-3.5 text-emerald-600 font-bold">₹{ps.incentives.toLocaleString()}</td>
-                      <td className="py-3.5 text-rose-600 font-bold">₹{(ps.pfDeduction + ps.taxDeduction).toLocaleString()}</td>
-                      <td className="py-3.5 font-black text-[#00A88B] text-sm">₹{ps.netPay.toLocaleString()}</td>
                       <td className="py-3.5">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold font-sans ${
-                          ps.status === 'REVISED' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                          dispatched ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                         }`}>
-                          {ps.status || 'PAID'}
+                          {dispatched ? 'DISPATCHED' : 'DRAFT'}
                         </span>
                       </td>
+                      <td className="py-3.5 font-sans text-slate-500">
+                        {ps.dispatchedAt ? (
+                          <>
+                            {new Date(ps.dispatchedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            <span className="block text-[10px] text-slate-400">by {ps.dispatchedBy || 'HR'}</span>
+                          </>
+                        ) : '—'}
+                      </td>
+                      <td className="py-3.5 text-slate-700">₹{t.totalEarnings.toLocaleString('en-IN')}</td>
+                      <td className="py-3.5 text-rose-600 font-bold">₹{t.totalDeductions.toLocaleString('en-IN')}</td>
+                      <td className="py-3.5 font-black text-[#00A88B] text-sm">₹{t.netPay.toLocaleString('en-IN')}</td>
                       <td className="py-3.5 text-right font-sans">
                         <div className="flex items-center justify-end gap-1.5">
+                          {dispatched ? (
+                            <>
+                              <button
+                                onClick={() => openPayslipModal(ps)}
+                                className="px-2.5 py-1.5 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-xl transition-all cursor-pointer"
+                              >
+                                View
+                              </button>
+                              <button
+                                onClick={() => sendPayslipEmailToEmployee(ps.id, ps.email)}
+                                className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold text-xs rounded-xl flex items-center gap-1 transition-all cursor-pointer"
+                                title={`Resend payroll email (${ps.email || 'on record'})`}
+                              >
+                                <Mail className="w-3.5 h-3.5 text-emerald-700" />
+                                <span>Resend Email</span>
+                              </button>
+                              <button
+                                onClick={() => openPayrollBuilder(ps)}
+                                className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl flex items-center gap-1 transition-all cursor-pointer"
+                              >
+                                <FileEdit className="w-3.5 h-3.5" />
+                                <span>Manage</span>
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => openPayslipModal(ps)}
+                                className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                              >
+                                Preview
+                              </button>
+                              <button
+                                onClick={() => openPayrollBuilder(ps)}
+                                className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-xl flex items-center gap-1 transition-all cursor-pointer"
+                              >
+                                <FileEdit className="w-3.5 h-3.5" />
+                                <span>Edit Draft</span>
+                              </button>
+                              <button
+                                onClick={() => openPayrollBuilder(ps)}
+                                className="px-2.5 py-1.5 bg-gradient-to-r from-[#00A88B] to-[#00C9A7] text-[#0A2540] font-black text-xs rounded-xl transition-all cursor-pointer"
+                              >
+                                Dispatch
+                              </button>
+                            </>
+                          )}
                           <button
-                            onClick={() => sendPayslipEmailToEmployee(ps.id, ps.email)}
-                            className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold text-xs rounded-xl flex items-center gap-1 transition-all cursor-pointer"
-                            title={`Email Payslip to employee (${ps.email || 'on record'})`}
+                            onClick={() => {
+                              const warn = dispatched ? ' This also removes it from the employee account.' : '';
+                              if (window.confirm(`Delete ${ps.month} ${ps.year} payroll for ${ps.employeeName || 'this staff'}?${warn}`)) deletePayslip(ps.id);
+                            }}
+                            title="Delete payroll"
+                            className="p-1.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
                           >
-                            <Mail className="w-3.5 h-3.5 text-emerald-700" />
-                            <span>Email</span>
-                          </button>
-                          <button
-                            onClick={() => setSelectedPayslipForEdit(ps)}
-                            className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-xl flex items-center gap-1 transition-all cursor-pointer"
-                          >
-                            <FileEdit className="w-3.5 h-3.5" />
-                            <span>Edit Salary</span>
-                          </button>
-                          <button
-                            onClick={() => openPayslipModal(ps)}
-                            className="px-2.5 py-1.5 bg-[#06152B] hover:bg-[#00C9A7] text-white hover:text-[#0A2540] font-bold text-xs rounded-xl transition-all cursor-pointer"
-                          >
-                            View
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  );})}
                 </tbody>
               </table>
             </div>
@@ -1909,130 +1968,11 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
         </div>
       )}
 
-      {/* Run Bulk Payroll Modal */}
-      {isPayslipGenModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white text-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4 border border-slate-200 animate-in zoom-in-95 max-h-[92vh] overflow-y-auto">
-            <h3 className="font-display font-black text-lg text-[#0A2540]">Generate Organization Payroll</h3>
-            <p className="text-xs text-slate-500">Calculate salary components, statutory PF &amp; tax deductions for all active employees or specific staff.</p>
-            <form onSubmit={handleBulkPayrollSubmit} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-slate-600 block mb-1">Payroll Month</label>
-                  <select
-                    value={payrollMonth}
-                    onChange={(e) => setPayrollMonth(e.target.value)}
-                    className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold"
-                  >
-                    {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="font-bold text-slate-600 block mb-1">Financial Year</label>
-                  <input
-                    type="text"
-                    value={payrollYear}
-                    onChange={(e) => setPayrollYear(e.target.value)}
-                    className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold"
-                  />
-                </div>
-              </div>
-
-              {/* Scope Selection: All vs Specific */}
-              <div>
-                <label className="font-bold text-slate-700 block mb-1.5">Dispatch Scope:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPayslipSelectionMode('ALL');
-                      setSelectedEmpIdsForPayroll(teamMembers.map(m => m.id));
-                    }}
-                    className={`p-2.5 rounded-xl border font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
-                      payslipSelectionMode === 'ALL'
-                        ? 'bg-teal-50 border-[#00C9A7] text-teal-950 shadow-2xs font-black'
-                        : 'bg-slate-50 border-slate-200 text-slate-600'
-                    }`}
-                  >
-                    <Check className={`w-3.5 h-3.5 ${payslipSelectionMode === 'ALL' ? 'opacity-100 text-[#00A88B]' : 'opacity-0'}`} />
-                    <span>All {totalEmployees} Employees</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setPayslipSelectionMode('SPECIFIC')}
-                    className={`p-2.5 rounded-xl border font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
-                      payslipSelectionMode === 'SPECIFIC'
-                        ? 'bg-teal-50 border-[#00C9A7] text-teal-950 shadow-2xs font-black'
-                        : 'bg-slate-50 border-slate-200 text-slate-600'
-                    }`}
-                  >
-                    <Check className={`w-3.5 h-3.5 ${payslipSelectionMode === 'SPECIFIC' ? 'opacity-100 text-[#00A88B]' : 'opacity-0'}`} />
-                    <span>Specific Employees</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Employee Checkboxes for Specific Selection */}
-              {payslipSelectionMode === 'SPECIFIC' && (
-                <div className="border border-slate-200 rounded-2xl p-3 bg-slate-50 space-y-2 max-h-48 overflow-y-auto">
-                  <div className="flex items-center justify-between border-b border-slate-200 pb-1">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">Select Individual Staff:</span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedEmpIdsForPayroll(teamMembers.map(m => m.id))}
-                      className="text-[10px] text-[#00A88B] font-bold hover:underline"
-                    >
-                      Select All
-                    </button>
-                  </div>
-                  {teamMembers.map(m => (
-                    <label key={m.id} className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer hover:bg-slate-100/80 p-1 rounded-lg">
-                      <input
-                        type="checkbox"
-                        checked={selectedEmpIdsForPayroll.includes(m.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedEmpIdsForPayroll(prev => [...prev, m.id]);
-                          } else {
-                            setSelectedEmpIdsForPayroll(prev => prev.filter(id => id !== m.id));
-                          }
-                        }}
-                        className="rounded text-[#00C9A7] focus:ring-[#00C9A7]"
-                      />
-                      <span>{m.name} <span className="text-slate-400 font-mono text-[10px]">({m.empCode} • {m.role})</span></span>
-                    </label>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="submit"
-                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#00A88B] to-[#00C9A7] text-[#0A2540] font-black shadow-md shadow-[#00C9A7]/25 hover:brightness-105 active:scale-98 transition-all"
-                >
-                  Generate &amp; Dispatch ({payslipSelectionMode === 'ALL' ? totalEmployees : selectedEmpIdsForPayroll.length} Staff)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsPayslipGenModalOpen(false)}
-                  className="py-3 px-4 rounded-xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit / Customize Payslip Modal */}
-      <EditPayslipModal
-        payslip={selectedPayslipForEdit}
-        isOpen={Boolean(selectedPayslipForEdit)}
-        onClose={() => setSelectedPayslipForEdit(null)}
+      {/* Payroll Builder (select employee → month → customize → preview → dispatch) */}
+      <PayrollBuilderModal
+        isOpen={isPayslipGenModalOpen}
+        initialPayslip={builderPayslip}
+        onClose={() => { setIsPayslipGenModalOpen(false); setBuilderPayslip(null); }}
       />
 
       {/* HR Zoom Meeting Scheduler Modal */}

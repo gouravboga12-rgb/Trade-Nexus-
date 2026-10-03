@@ -19,11 +19,12 @@ import {
   Eye
 } from 'lucide-react';
 import { OfferLetterData, ExperienceCertData, RelievingLetterData } from '../../types';
+import { computePayrollTotals } from '../../components/payroll/payrollTemplate';
 
 export const DesktopProfile: React.FC = () => {
   const { 
     profile, 
-    payslips, 
+    myPayslips: payslips, 
     teamTasks, 
     teamMeetings, 
     joinMeeting,
@@ -255,10 +256,10 @@ export const DesktopProfile: React.FC = () => {
                 <thead>
                   <tr className="border-b border-slate-200 text-slate-400 uppercase tracking-wider font-bold text-[10px]">
                     <th className="pb-3 px-3">Pay Period</th>
-                    <th className="pb-3 px-3">Basic + HRA</th>
-                    <th className="pb-3 px-3">Sales Incentives</th>
-                    <th className="pb-3 px-3">Deductions (PF/Tax)</th>
-                    <th className="pb-3 px-3">Net Take-Home</th>
+                    <th className="pb-3 px-3">Total Earnings</th>
+                    <th className="pb-3 px-3">Total Deductions</th>
+                    <th className="pb-3 px-3">Net Pay</th>
+                    <th className="pb-3 px-3">Issued On</th>
                     <th className="pb-3 px-3 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -266,26 +267,28 @@ export const DesktopProfile: React.FC = () => {
                   {payslips.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-slate-500 font-medium text-xs">
-                        No salary statements issued yet.
+                        No payroll has been issued yet.
                       </td>
                     </tr>
                   ) : (
-                    payslips.map((pay) => (
+                    payslips.map((pay) => {
+                    const t = computePayrollTotals(pay);
+                    return (
                     <tr key={pay.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3.5 px-3 font-display font-bold text-sm text-[#0A2540]">
                         {pay.month} {pay.year}
                       </td>
-                      <td className="py-3.5 px-3 font-mono text-slate-600">
-                        ₹{(pay.basicSalary + pay.hra).toLocaleString()}
-                      </td>
                       <td className="py-3.5 px-3 font-mono font-bold text-emerald-600">
-                        +₹{pay.incentives.toLocaleString()}
+                        ₹{t.totalEarnings.toLocaleString('en-IN')}
                       </td>
                       <td className="py-3.5 px-3 font-mono text-rose-500">
-                        -₹{(pay.pfDeduction + pay.taxDeduction).toLocaleString()}
+                        -₹{t.totalDeductions.toLocaleString('en-IN')}
                       </td>
                       <td className="py-3.5 px-3 font-mono font-extrabold text-sm text-[#0A2540]">
-                        ₹{pay.netPay.toLocaleString()}
+                        ₹{t.netPay.toLocaleString('en-IN')}
+                      </td>
+                      <td className="py-3.5 px-3 text-slate-500">
+                        {pay.dispatchedAt ? new Date(pay.dispatchedAt).toLocaleDateString('en-IN') : '—'}
                       </td>
                       <td className="py-3.5 px-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
@@ -308,7 +311,7 @@ export const DesktopProfile: React.FC = () => {
                         </div>
                       </td>
                     </tr>
-                  )))}
+                  );}))}
                 </tbody>
               </table>
             </div>

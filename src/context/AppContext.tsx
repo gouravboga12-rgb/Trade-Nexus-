@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode, useCallback, useMemo } from 'react';
 import { 
   UserRole, 
   AuthStep,
@@ -186,6 +186,12 @@ interface AppContextType {
   generateBulkPayslips: (month: string, year: string, employeeIds?: string[]) => void;
   updatePayslip: (id: string, updates: Partial<PayslipItem>) => Promise<void>;
   deletePayslip: (id: string) => Promise<void>;
+  /** Save the HR-customized payroll as a DRAFT (creates or updates). Throws ApiError on failure. */
+  savePayrollDraft: (data: Partial<PayslipItem>, opts?: { id?: string; confirmRevision?: boolean }) => Promise<PayslipItem>;
+  /** Finalise + store PDF + email + make visible to the employee. Throws ApiError on failure. */
+  dispatchPayroll: (id: string, opts?: { resend?: boolean }) => Promise<{ payslip: PayslipItem; emailResult?: any }>;
+  /** Only the signed-in user's own payroll that HR has actually dispatched. */
+  myPayslips: PayslipItem[];
 
   // Company Calendar & Holidays (Hierarchy-wide)
   weeklyOffDays: number[];
@@ -1882,7 +1888,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const res = await api.sendPayslipEmail(payslipId, email);
       if (res.success) {
-        triggerToast('✓ Payslip dispatched to employee email');
+        triggerToast('✓ Payroll email re-sent to employee');
         return true;
       }
       triggerToast('✗ Could not send payslip email.');
@@ -2687,6 +2693,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const upsertPayslipLocal = (p: PayslipItem) => {
+    setPayslips(prev => {
+      const exists = prev.some(x => x.id === p.id);
+      return exists ? prev.map(x => (x.id === p.id ? { ...x, ...p } : x)) : [p, ...prev];
+    });
+  };
+
+  const savePayrollDraft = async (
+    data: Partial<PayslipItem>,
+    opts: { id?: string; confirmRevision?: boolean } = {}
+  ): Promise<PayslipItem> => {
+    const saved = opts.id
+      ? await api.updatePayslip(opts.id, { ...data, confirmRevision: opts.confirmRevision })
+      : await api.savePayrollDraft(data);
+    upsertPayslipLocal(saved);
+    return saved;
+  };
+
+  const dispatchPayroll = async (id: string, opts: { resend?: boolean } = {}) => {
+    const result = await api.dispatchPayslip(id, opts);
+    if (result?.payslip) upsertPayslipLocal(result.payslip);
+    return result;
+  };
+
+  const myPayslips = useMemo(() => {
+    const ownIds = [currentUser?.employeeId, currentUser?.id, profile.id].filter(Boolean) as string[];
+    const ownCode = currentUser?.empCode || profile.empCode;
+    return payslips.filter(p =>
+      p.payrollStatus === 'DISPATCHED' &&
+      ((p.employeeId && ownIds.includes(p.employeeId)) || (!!ownCode && (p.empCode === ownCode || p.employeeCode === ownCode)))
+    );
+  }, [payslips, currentUser, profile.id, profile.empCode]);
+
   const logNewCall = async (data: {
     clientName: string;
     companyName: string;
@@ -3154,6 +3193,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         generateBulkPayslips,
         updatePayslip,
         deletePayslip,
+        savePayrollDraft,
+        dispatchPayroll,
+        myPayslips,
         weeklyOffDays,
         setWeeklyOffDays,
         toggleWeeklyOffDay,

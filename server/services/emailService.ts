@@ -476,14 +476,19 @@ export async function sendEmployeePayslipEmail(
     console.warn('[PDF Warning] Failed to generate payslip PDF buffer:', pdfErr);
   }
 
-  const basic = Number(payslip.basicSalary || 0);
-  const hra = Number(payslip.hra || 0);
-  const specialAllowance = Number(payslip.specialAllowance || 0);
-  const pf = Number(payslip.pfDeduction || 0);
-  const tax = Number(payslip.taxDeduction || 0);
-  const grossEarnings = basic + hra + specialAllowance;
-  const totalDeductions = pf + tax;
-  const netPay = Number(payslip.netPay || (grossEarnings - totalDeductions));
+  // Same figures as the attached PDF (payroll template fields)
+  const grossEarnings =
+    Number(payslip.basicSalary || 0) +
+    Number(payslip.housingAllowance ?? payslip.hra ?? 0) +
+    Number(payslip.transportation ?? payslip.specialAllowance ?? 0) +
+    Number(payslip.performanceBonus ?? payslip.incentives ?? 0);
+  const totalDeductions =
+    Number(payslip.taxDeduction || 0) +
+    Number(payslip.healthInsurance ?? 0) +
+    Number(payslip.pensionContribution ?? 0);
+  const netPay = Number(payslip.netPay ?? (grossEarnings - totalDeductions));
+  const displayName = payslip.employeeName || employee.name;
+  const bankAcc = payslip.bankAccountNumber || employee.bankAccountNumber;
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -526,9 +531,9 @@ export async function sendEmployeePayslipEmail(
           </div>
 
           <div>
-            <div style="font-size: 15px; font-weight: 800; color: #0f172a;">${employee.name || payslip.employeeName}</div>
+            <div style="font-size: 15px; font-weight: 800; color: #0f172a;">${displayName}</div>
             <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">
-              Emp Code: <strong>${employee.empCode || payslip.empCode || 'TNX'}</strong> • Designation: <strong>${employee.role || payslip.roleTitle || 'Executive'}</strong>
+              Emp Code: <strong>${payslip.empCode || employee.empCode || 'TNX'}</strong> • Designation: <strong>${payslip.roleTitle || employee.role || 'Executive'}</strong>
             </div>
           </div>
 
@@ -536,7 +541,7 @@ export async function sendEmployeePayslipEmail(
             <div class="net-label">Net Salary Disbursed</div>
             <div class="net-amount">₹${netPay.toLocaleString('en-IN')}</div>
             <div style="font-size: 11px; color: #94a3b8; margin-top: 6px;">
-              Bank: ${employee.bankName || 'HDFC Bank'} • A/C: ${employee.bankAccountNumber ? `••••${String(employee.bankAccountNumber).slice(-4)}` : 'Verified Account'}
+              ${payslip.paymentMode || 'Bank Transfer'} • A/C: ${bankAcc ? `••••${String(bankAcc).replace(/\s+/g, '').slice(-4)}` : 'Verified Account'}
             </div>
           </div>
         </div>
@@ -554,15 +559,15 @@ export async function sendEmployeePayslipEmail(
     const mailOptions: any = {
       from: fromAddress,
       to: toEmail,
-      subject: `[${companyName}] Salary Payslip for ${payslip.month} ${payslip.year} - ${employee.name}`,
-      text: `Hello ${employee.name},\n\nYour salary statement for ${payslip.month} ${payslip.year} has been processed.\nNet Salary: ₹${netPay.toLocaleString('en-IN')}.\n\nPlease download your attached official Payslip PDF for your records.\n\nThank you for your valuable contributions to ${companyName}.`,
+      subject: `[${companyName}] Salary Payslip for ${payslip.month} ${payslip.year} - ${displayName}`,
+      text: `Hello ${displayName},\n\nYour salary statement for ${payslip.month} ${payslip.year} has been processed.\nNet Salary: ₹${netPay.toLocaleString('en-IN')}.\n\nPlease download your attached official Payslip PDF for your records.\n\nThank you for your valuable contributions to ${companyName}.`,
       html: htmlContent,
     };
 
     if (pdfBuffer) {
       mailOptions.attachments = [
         {
-          filename: `Trade_Nexus_Payslip_${payslip.month}_${payslip.year}_${(employee.name || 'Staff').replace(/\s+/g, '_')}.pdf`,
+          filename: `Trade_Nexus_Payslip_${payslip.month}_${payslip.year}_${(displayName || 'Staff').replace(/\s+/g, '_')}.pdf`,
           content: pdfBuffer,
           contentType: 'application/pdf',
         },

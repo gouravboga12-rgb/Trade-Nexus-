@@ -27,7 +27,7 @@ import { OfferLetterData, ExperienceCertData, RelievingLetterData } from '../typ
 export const ProfileSelfServiceView: React.FC = () => {
   const { 
     profile, 
-    payslips, 
+    myPayslips: payslips, 
     teamTasks, 
     teamMeetings, 
     joinMeeting,
@@ -159,7 +159,7 @@ export const ProfileSelfServiceView: React.FC = () => {
     november: 11, nov: 11, december: 12, dec: 12
   };
 
-  // Strict Rolling 3-Month Window: Deduplicated & Chronologically Sorted (Newest First)
+  // Only this user's payroll that HR has dispatched (never drafts, never other employees)
   const rollingPayslips = useMemo(() => {
     const seen = new Set<string>();
     const unique = payslips.filter((p) => {
@@ -176,7 +176,7 @@ export const ProfileSelfServiceView: React.FC = () => {
       return bM - aM;
     });
 
-    return unique.slice(0, 3);
+    return unique;
   }, [payslips]);
 
   const latestPayslip = rollingPayslips[0];
@@ -320,7 +320,7 @@ export const ProfileSelfServiceView: React.FC = () => {
                     {latestPayslip.month} {latestPayslip.year} Statement
                   </h4>
                   <span className="text-[11px] text-slate-400 font-medium">
-                    Disbursed: {latestPayslip.generatedDate}
+                    Issued: {latestPayslip.dispatchedAt ? new Date(latestPayslip.dispatchedAt).toLocaleDateString('en-IN') : latestPayslip.generatedDate}
                   </span>
                 </div>
               </div>
@@ -337,7 +337,7 @@ export const ProfileSelfServiceView: React.FC = () => {
                   NET TAKE-HOME
                 </span>
                 <span className="font-mono-nums font-black text-xl text-[#0A2540] tracking-tight">
-                  ₹{latestPayslip.netPay.toLocaleString()}
+                  ₹{Number(latestPayslip.netPay || 0).toLocaleString('en-IN')}
                 </span>
               </div>
 
@@ -360,7 +360,7 @@ export const ProfileSelfServiceView: React.FC = () => {
                   <Clock className="w-3.5 h-3.5" />
                 </div>
                 <span className="text-xs font-bold text-[#0A2540]">
-                  View All Payslips
+                  View All Payroll ({rollingPayslips.length})
                 </span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 transition-transform group-hover:translate-x-0.5" />
@@ -368,7 +368,7 @@ export const ProfileSelfServiceView: React.FC = () => {
           </div>
         ) : (
           <div className="rounded-3xl p-4 bg-white border border-slate-100 shadow-sm text-center">
-            <p className="text-xs text-slate-500 font-medium">No salary statements issued yet.</p>
+            <p className="text-xs text-slate-500 font-medium">No payroll has been issued yet.</p>
           </div>
         )}
       </div>

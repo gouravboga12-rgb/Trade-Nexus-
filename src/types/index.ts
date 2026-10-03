@@ -178,6 +178,13 @@ export interface PayslipItem {
   authorizedRole?: string;
   modifiedBy?: string;
   modifiedAt?: string;
+  payrollStatus?: 'DRAFT' | 'DISPATCHED';
+  dispatchedAt?: string | null;
+  dispatchedBy?: string | null;
+  emailedAt?: string | null;
+  templateVersion?: string;
+  documentId?: string | null;
+  authorizedSignature?: string | null;
 }
 
 export interface EmployeeProfile {

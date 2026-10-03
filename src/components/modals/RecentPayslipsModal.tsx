@@ -24,15 +24,15 @@ export const RecentPayslipsModal: React.FC = () => {
   const { 
     isRecentPayslipsModalOpen, 
     setIsRecentPayslipsModalOpen, 
-    payslips, 
+    myPayslips, 
     openPayslipModal,
     triggerToast
   } = useApp();
 
-  // Strict Rolling 3-Month Window: Deduplicated & Chronologically Sorted (Newest First)
+  // Only payroll HR has dispatched to this employee — one entry per month, newest first.
   const rollingPayslips = useMemo(() => {
     const seen = new Set<string>();
-    const unique = payslips.filter((p) => {
+    const unique = myPayslips.filter((p) => {
       const key = `${p.month.toLowerCase()}-${p.year}`;
       if (seen.has(key)) return false;
       seen.add(key);
@@ -46,9 +46,8 @@ export const RecentPayslipsModal: React.FC = () => {
       return bM - aM;
     });
 
-    // Exactly the latest 3 rolling months
-    return unique.slice(0, 3);
-  }, [payslips]);
+    return unique;
+  }, [myPayslips]);
 
   if (!isRecentPayslipsModalOpen) return null;
 
@@ -68,7 +67,7 @@ export const RecentPayslipsModal: React.FC = () => {
                   Salary Statements
                 </h3>
                 <span className="text-[9px] font-black uppercase tracking-wider bg-[#00C9A7]/20 text-[#38E1B7] px-2 py-0.5 rounded-full border border-[#00C9A7]/30">
-                  Rolling 3 Months
+                  {rollingPayslips.length} Issued
                 </span>
               </div>
               <p className="text-xs text-slate-300 font-medium">
@@ -95,10 +94,10 @@ export const RecentPayslipsModal: React.FC = () => {
             </div>
             <div className="text-xs text-slate-600 space-y-0.5">
               <p className="font-bold text-slate-800">
-                Rolling 3-Month Window (FIFO)
+                Issued by HR
               </p>
               <p className="text-[11px] leading-relaxed text-slate-500">
-                Displays the 3 most recent monthly statements. When the next month's salary is credited, it replaces the oldest statement automatically.
+                Each month's payroll appears here once HR has finalised and dispatched it. A copy is also emailed to you.
               </p>
             </div>
           </div>
@@ -141,11 +140,11 @@ export const RecentPayslipsModal: React.FC = () => {
                         Net Take-Home
                       </span>
                       <span className="font-mono-nums font-black text-xl text-[#0A2540]">
-                        ₹{pay.netPay.toLocaleString()}
+                        ₹{Number(pay.netPay || 0).toLocaleString('en-IN')}
                       </span>
                     </div>
                     <span className="text-[10px] text-slate-400 font-mono">
-                      Disbursed: {pay.generatedDate}
+                      Issued: {pay.dispatchedAt ? new Date(pay.dispatchedAt).toLocaleDateString('en-IN') : pay.generatedDate}
                     </span>
                   </div>
 
@@ -185,8 +184,8 @@ export const RecentPayslipsModal: React.FC = () => {
             {rollingPayslips.length === 0 && (
               <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-100">
                 <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-bold text-slate-600">No payslips found</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Your monthly statements will appear here once disbursed.</p>
+                <p className="text-xs font-bold text-slate-600">No payroll has been issued yet.</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Your payroll will appear here once HR dispatches it.</p>
               </div>
             )}
           </div>

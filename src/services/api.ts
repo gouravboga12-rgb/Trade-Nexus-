@@ -77,10 +77,12 @@ export function setStoredAuthUser(user: AuthUser | null): void {
 /** Thrown for a non-2xx response, carrying the status so callers can branch. */
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  data: any;
+  constructor(status: number, message: string, data: any = {}) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.data = data;
   }
 }
 
@@ -97,7 +99,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const errBody = await res.json().catch(() => ({}));
-    throw new ApiError(res.status, errBody.error || `Request failed (${res.status})`);
+    throw new ApiError(res.status, errBody.error || `Request failed (${res.status})`, errBody);
   }
 
   return (await res.json()) as T;
@@ -261,13 +263,39 @@ export const api = {
   updateLeave: (id: string, data: Partial<LeaveRequest>) => 
     request<LeaveRequest>(`/leaves/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
-  // Payslips
+  // Payslips / Payroll (Phase 3: DRAFT → DISPATCHED lifecycle)
   getPayslips: () => request<PayslipItem[]>('/payslips'),
-  createPayslip: (data: Omit<PayslipItem, 'id'> & { id?: string }) => 
+  /** Create (or update the existing) DRAFT payroll for an employee + month. */
+  savePayrollDraft: (data: Partial<PayslipItem>) =>
     request<PayslipItem>('/payslips', { method: 'POST', body: JSON.stringify(data) }),
-  updatePayslip: (id: string, data: Partial<PayslipItem>) =>
+  createPayslip: (data: Omit<PayslipItem, 'id'> & { id?: string }) =>
+    request<PayslipItem>('/payslips', { method: 'POST', body: JSON.stringify(data) }),
+  updatePayslip: (id: string, data: Partial<PayslipItem> & { confirmRevision?: boolean }) =>
     request<PayslipItem>(`/payslips/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  generateBulkPayslips: (month: string, year: string, employeeIds?: string[]) => 
+  /** Finalise: render + store PDF, mark DISPATCHED, email employee. `resend` re-dispatches an issued month. */
+  dispatchPayslip: (id: string, opts: { resend?: boolean } = {}) =>
+    request<{ payslip: PayslipItem; emailResult?: any }>(`/payslips/${id}/dispatch`, {
+      method: 'POST',
+      body: JSON.stringify(opts),
+    }),
+  /** Render the exact final payroll PDF for (unsaved) form data and return it as a Blob. */
+  previewPayslipPdf: async (data: Partial<PayslipItem>): Promise<Blob> => {
+    const token = getAuthToken();
+    const res = await fetch(`${API_BASE}/payslips/preview`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new ApiError(res.status, errBody.error || `Preview failed (${res.status})`, errBody);
+    }
+    return res.blob();
+  },
+  generateBulkPayslips: (month: string, year: string, employeeIds?: string[]) =>
     request<PayslipItem[]>('/payslips/bulk', { method: 'POST', body: JSON.stringify({ month, year, employeeIds }) }),
   deletePayslip: (id: string) =>
     request<{ ok: boolean }>(`/payslips/${id}`, { method: 'DELETE' }),
@@ -509,13 +537,16 @@ export const api = {
       'POST'
     ),
 
-  downloadPayslip: (payslip: Partial<PayslipItem>) =>
-    downloadFile(
-      '/payslips/download',
-      `Payslip_${payslip.month || 'Salary'}_${payslip.year || ''}_${(payslip.employeeName || 'Employee').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`,
-      payslip,
-      'POST'
-    ),
+  /**
+   * Saved payroll → GET /payslips/:id/download (server enforces owner + DISPATCHED for employees).
+   * Unsaved HR form data → POST /payslips/download (HR only).
+   */
+  downloadPayslip: (payslip: Partial<PayslipItem>) => {
+    const fileName = `Payslip_${payslip.month || 'Salary'}_${payslip.year || ''}_${(payslip.employeeName || 'Employee').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    return payslip.id
+      ? downloadFile(`/payslips/${encodeURIComponent(payslip.id)}/download`, fileName)
+      : downloadFile('/payslips/download', fileName, payslip, 'POST');
+  },
 
   downloadInvoice: (invoice: Partial<InvoiceData>) =>
     downloadFile(

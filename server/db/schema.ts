@@ -429,8 +429,19 @@ function runMigrations() {
   addColumnIfMissing('payslips', 'pensionContribution', 'REAL DEFAULT 0');
   addColumnIfMissing('payslips', 'authorizedName', "TEXT DEFAULT 'Muhammad Patel'");
   addColumnIfMissing('payslips', 'authorizedRole', "TEXT DEFAULT 'Finance Manager – Trade Nexus'");
+  // Phase 3 payroll workflow: HR customizes a DRAFT, previews it, then DISPATCHES it.
+  // Only DISPATCHED payroll is ever visible to the employee. Legacy rows default to
+  // DRAFT so nothing appears in an employee account until HR explicitly dispatches it.
+  addColumnIfMissing('payslips', 'payrollStatus', "TEXT NOT NULL DEFAULT 'DRAFT'");
+  addColumnIfMissing('payslips', 'dispatchedAt', 'TEXT');
+  addColumnIfMissing('payslips', 'dispatchedBy', 'TEXT');
+  addColumnIfMissing('payslips', 'emailedAt', 'TEXT');
+  addColumnIfMissing('payslips', 'templateVersion', "TEXT DEFAULT 'payroll-slip-v1'");
+  addColumnIfMissing('payslips', 'documentId', 'TEXT');
+  addColumnIfMissing('payslips', 'authorizedSignature', 'TEXT');
   try {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_payslips_employee ON payslips(employeeId);`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_payslips_period ON payslips(employeeId, month, year);`);
   } catch {}
 
   // An employee who has left is deactivated, never deleted — their attendance,
