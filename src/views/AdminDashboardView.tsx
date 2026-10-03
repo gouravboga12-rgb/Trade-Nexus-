@@ -72,7 +72,7 @@ import { ManageEmployeesTab } from './admin/ManageEmployeesTab';
 import { InvoicesLedger } from '../components/common/InvoicesLedger';
 import { getTodayDateIST } from '../utils/dateUtils';
 
-type AdminTab = 'home' | 'people' | 'attendance' | 'leads' | 'revenue' | 'more' | 'approvals' | 'reports' | 'attendance_verification' | 'manage_employees' | 'invoices';
+type AdminTab = 'home' | 'people' | 'attendance' | 'leads' | 'revenue' | 'more' | 'approvals' | 'reports' | 'attendance_verification' | 'manage_employees' | 'invoices' | 'company_calendar';
 
 const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 
@@ -1884,8 +1884,7 @@ export const AdminDashboardView: React.FC = () => {
                   type="button"
                   onClick={() => {
                     setCalendarInitialTab('POLICY');
-                    setShowCalendarConfig(true);
-                    setTab('more');
+                    setTab('company_calendar');
                   }}
                   className="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-[#00C9A7] hover:text-[#00A88B] transition-colors cursor-pointer shadow-2xs"
                   title="Configure Shift Timings & Late Policy"
@@ -2827,25 +2826,59 @@ export const AdminDashboardView: React.FC = () => {
               {/* Company Calendar & Holiday Configuration */}
               <div
                 onClick={() => setShowCalendarConfig((v) => !v)}
-                className="bg-white border border-slate-200/90 hover:border-[#00C9A7] rounded-2xl p-4 shadow-2xs flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+                className={`bg-white border rounded-2xl p-4 shadow-2xs flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group ${
+                  showCalendarConfig
+                    ? 'border-[#00C9A7] ring-2 ring-[#00C9A7]/20 bg-[#E6FAF6]/30'
+                    : 'border-slate-200/90 hover:border-[#00C9A7]'
+                }`}
               >
                 <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-2xl bg-teal-50 text-[#00A88B] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform ${
+                    showCalendarConfig ? 'bg-[#00C9A7] text-[#0A2540]' : 'bg-teal-50 text-[#00A88B]'
+                  }`}>
                     <Calendar className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-sm text-[#0A2540] group-hover:text-[#00A88B] transition-colors">
-                      Company Calendar & Holidays
-                    </h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-sm text-[#0A2540] group-hover:text-[#00A88B] transition-colors">
+                        Company Calendar & Holidays
+                      </h4>
+                      {showCalendarConfig && (
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-[#00C9A7]/20 text-[#00A88B] font-mono">
+                          Active
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs text-slate-500">Weekly off schedule, official holidays &amp; shift timings</span>
                   </div>
                 </div>
-                <ChevronRight className={`w-5 h-5 text-slate-300 group-hover:text-[#00C9A7] transition-transform ${showCalendarConfig ? 'rotate-90' : ''}`} />
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTab('company_calendar');
+                    }}
+                    title="Open in Full Page Mode"
+                    className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                  </button>
+                  <ChevronRight className={`w-5 h-5 text-slate-300 group-hover:text-[#00C9A7] transition-transform ${showCalendarConfig ? 'rotate-90 text-[#00C9A7]' : ''}`} />
+                </div>
               </div>
 
+              {/* Inline Full-Width Expansion spanning all desktop/tablet columns */}
               {showCalendarConfig && (
-                <div className="animate-in fade-in duration-150 pt-1">
-                  <AdminCalendarConfig initialTab={calendarInitialTab} />
+                <div className="col-span-1 md:col-span-2 lg:col-span-3 col-span-full w-full animate-in fade-in duration-200 pt-1">
+                  <AdminCalendarConfig 
+                    initialTab={calendarInitialTab}
+                    onClose={() => setShowCalendarConfig(false)}
+                    onExpandFull={() => {
+                      setShowCalendarConfig(false);
+                      setTab('company_calendar');
+                    }}
+                  />
                 </div>
               )}
             </div>
@@ -2859,6 +2892,25 @@ export const AdminDashboardView: React.FC = () => {
               <span>Logout</span>
             </button>
 
+          </div>
+        )}
+
+        {/* --------------------------------------------------- Company Calendar & Shift Setup Full View */}
+        {tab === 'company_calendar' && (
+          <div className="space-y-4 animate-in fade-in duration-150">
+            <button
+              onClick={() => setTab('more')}
+              className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-[#0A2540] transition-colors mb-1 cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Control Hub</span>
+            </button>
+
+            <AdminCalendarConfig 
+              initialTab={calendarInitialTab}
+              isFullPage={true}
+              onClose={() => setTab('more')}
+            />
           </div>
         )}
 

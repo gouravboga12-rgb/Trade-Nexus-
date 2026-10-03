@@ -21,7 +21,9 @@ import {
   ToggleLeft,
   ToggleRight,
   Zap,
-  Info
+  Info,
+  X,
+  Maximize2,
 } from 'lucide-react';
 import { CompanyHoliday, CalendarSettings } from '../../types';
 import confetti from 'canvas-confetti';
@@ -29,9 +31,17 @@ import confetti from 'canvas-confetti';
 interface AdminCalendarConfigProps {
   initialTab?: 'CALENDAR' | 'POLICY' | 'HOLIDAYS';
   id?: string;
+  onClose?: () => void;
+  onExpandFull?: () => void;
+  isFullPage?: boolean;
 }
 
-export const AdminCalendarConfig: React.FC<AdminCalendarConfigProps> = ({ initialTab = 'CALENDAR' }) => {
+export const AdminCalendarConfig: React.FC<AdminCalendarConfigProps> = ({ 
+  initialTab = 'CALENDAR',
+  onClose,
+  onExpandFull,
+  isFullPage = false,
+}) => {
   const {
     weeklyOffDays,
     toggleWeeklyOffDay,
@@ -338,16 +348,16 @@ export const AdminCalendarConfig: React.FC<AdminCalendarConfigProps> = ({ initia
   }, [selectedDayStr, companyHolidays, weeklyOffDays]);
 
   return (
-    <div className="nexus-card bg-white border border-slate-200 shadow-sm rounded-3xl p-5 md:p-6 space-y-6">
+    <div className="nexus-card bg-white border border-slate-200 shadow-sm rounded-3xl p-4 sm:p-6 lg:p-7 space-y-6 w-full max-w-full">
       {/* --------------------------------------------------------- Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+        <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center shadow-xs flex-shrink-0">
             <CalendarIcon className="w-6 h-6 stroke-[2.2]" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-display font-black text-lg text-[#0A2540] tracking-tight">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-display font-black text-lg md:text-xl text-[#0A2540] tracking-tight">
                 Company Calendar &amp; Attendance Setup
               </h3>
               <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
@@ -355,55 +365,81 @@ export const AdminCalendarConfig: React.FC<AdminCalendarConfigProps> = ({ initia
                 SQLite Synced
               </span>
             </div>
-            <p className="text-xs text-slate-500 font-medium">
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
               Configure company working schedule, shift timings, grace periods, and official gazetted holidays
             </p>
           </div>
         </div>
 
-        {/* Tab Switcher Pills */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200/80 self-start md:self-auto">
-          <button
-            type="button"
-            onClick={() => setActiveTab('CALENDAR')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-              activeTab === 'CALENDAR'
-                ? 'bg-white text-[#0A2540] shadow-xs'
-                : 'text-slate-600 hover:text-[#0A2540]'
-            }`}
-          >
-            <CalendarDays className="w-3.5 h-3.5" />
-            <span>Monthly Grid</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('POLICY')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-              activeTab === 'POLICY'
-                ? 'bg-white text-[#0A2540] shadow-xs'
-                : 'text-slate-600 hover:text-[#0A2540]'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Shift &amp; Policy</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('HOLIDAYS')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-              activeTab === 'HOLIDAYS'
-                ? 'bg-white text-[#0A2540] shadow-xs'
-                : 'text-slate-600 hover:text-[#0A2540]'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-            <span>Official Holidays ({companyHolidays.length})</span>
-          </button>
+        {/* Tab Switcher Pills & Action Buttons */}
+        <div className="flex items-center gap-2 self-start lg:self-auto flex-wrap">
+          <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200/80 overflow-x-auto max-w-full">
+            <button
+              type="button"
+              onClick={() => setActiveTab('CALENDAR')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'CALENDAR'
+                  ? 'bg-white text-[#0A2540] shadow-xs'
+                  : 'text-slate-600 hover:text-[#0A2540]'
+              }`}
+            >
+              <CalendarDays className="w-3.5 h-3.5" />
+              <span>Monthly Grid</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('POLICY')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'POLICY'
+                  ? 'bg-white text-[#0A2540] shadow-xs'
+                  : 'text-slate-600 hover:text-[#0A2540]'
+              }`}
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>Shift &amp; Policy</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('HOLIDAYS')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'HOLIDAYS'
+                  ? 'bg-white text-[#0A2540] shadow-xs'
+                  : 'text-slate-600 hover:text-[#0A2540]'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+              <span>Official Holidays ({companyHolidays.length})</span>
+            </button>
+          </div>
+
+          {onExpandFull && !isFullPage && (
+            <button
+              type="button"
+              onClick={onExpandFull}
+              title="Expand to Full Page"
+              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-[#0A2540] border border-slate-200/80 transition-colors cursor-pointer hidden sm:flex items-center gap-1 text-xs font-bold"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Full Page</span>
+            </button>
+          )}
+
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              title="Close Setup"
+              className="p-2 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200/80 hover:border-rose-200 transition-colors cursor-pointer flex items-center gap-1 text-xs font-bold"
+            >
+              <X className="w-4 h-4" />
+              <span className="hidden sm:inline">Close</span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* Quick Summary Chips */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
         <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3">
           <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">Weekly Schedule</span>
           <span className="font-extrabold text-xs text-[#0A2540] block mt-0.5">
@@ -709,7 +745,7 @@ export const AdminCalendarConfig: React.FC<AdminCalendarConfigProps> = ({ initia
             </div>
 
             {/* Presets Button Group */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
               <button
                 type="button"
                 onClick={() => applyWeekendPreset('SUNDAY_ONLY')}
