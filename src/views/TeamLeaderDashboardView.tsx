@@ -431,7 +431,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
     const raw = teamMeetings.filter(m => m.status === 'LIVE' || m.status === 'UPCOMING');
     const seen = new Set<string>();
     return raw.filter(m => {
-      const key = `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
+      const key = m.id || `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;

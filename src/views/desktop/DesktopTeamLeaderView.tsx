@@ -338,7 +338,7 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
             if (raw.length === 0) return null;
             const seen = new Set<string>();
             const activeMeetings = raw.filter(m => {
-              const key = `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
+              const key = m.id || `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
               if (seen.has(key)) return false;
               seen.add(key);
               return true;
@@ -600,7 +600,7 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
                     const raw = teamMeetings.filter(m => m.status !== 'COMPLETED');
                     const seen = new Set<string>();
                     const deduped = raw.filter(m => {
-                      const key = `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
+                      const key = m.id || `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
                       if (seen.has(key)) return false;
                       seen.add(key);
                       return true;

@@ -200,7 +200,7 @@ export const TelecallerHomeView: React.FC = () => {
         if (activeMeetings.length === 0) return null;
         const seen = new Set<string>();
         const deduplicatedMeetings = activeMeetings.filter(m => {
-          const key = `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
+          const key = m.id || `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
           if (seen.has(key)) return false;
           seen.add(key);
           return true;

@@ -62,11 +62,17 @@ router.get('/', (req: Request, res: Response) => {
            OR hostEmpCode = ?
            OR targetAudience IS NULL
            OR UPPER(targetAudience) IN ('ALL', 'ALL_HR', 'LEADERSHIP')
-           OR targetEmployeeId = ?
-           OR (? != '' AND LOWER(invitedMemberName) = LOWER(?))
-           OR includeAdmin = 1
+           OR targetEmployeeId IN (?, ?, ?)
+           OR (? != '' AND LOWER(invitedMemberName) LIKE '%' || LOWER(?) || '%')
         ORDER BY createdAt DESC
-      `).all(empCode, empId, empName, empName);
+      `).all(
+        empCode,
+        String(user.employeeId || ''),
+        String(user.id || ''),
+        empCode,
+        empName,
+        empName
+      );
       return res.status(200).json(meetings);
     }
 
@@ -78,10 +84,20 @@ router.get('/', (req: Request, res: Response) => {
            OR targetAudience IS NULL
            OR UPPER(targetAudience) IN ('ALL', 'ALL_TL', 'LEADERSHIP')
            OR (targetTeam IS NOT NULL AND ? != '' AND LOWER(targetTeam) = LOWER(?))
-           OR targetEmployeeId = ?
-           OR (? != '' AND LOWER(invitedMemberName) = LOWER(?))
+           OR targetEmployeeId IN (?, ?, ?)
+           OR (? != '' AND LOWER(invitedMemberName) LIKE '%' || LOWER(?) || '%')
         ORDER BY createdAt DESC
-      `).all(empCode, empName, userSquad || '', userSquad || '', empId, empName, empName);
+      `).all(
+        empCode,
+        empName,
+        userSquad || '',
+        userSquad || '',
+        String(user.employeeId || ''),
+        String(user.id || ''),
+        empCode,
+        empName,
+        empName
+      );
       return res.status(200).json(meetings);
     }
 
@@ -91,10 +107,18 @@ router.get('/', (req: Request, res: Response) => {
       WHERE targetAudience IS NULL
          OR UPPER(targetAudience) IN ('ALL', 'ALL_TELECALLER')
          OR (targetTeam IS NOT NULL AND ? != '' AND LOWER(targetTeam) = LOWER(?))
-         OR targetEmployeeId = ?
-         OR (? != '' AND LOWER(invitedMemberName) = LOWER(?))
+         OR targetEmployeeId IN (?, ?, ?)
+         OR (? != '' AND LOWER(invitedMemberName) LIKE '%' || LOWER(?) || '%')
       ORDER BY createdAt DESC
-    `).all(userSquad || '', userSquad || '', empId, empName, empName);
+    `).all(
+      userSquad || '',
+      userSquad || '',
+      String(user.employeeId || ''),
+      String(user.id || ''),
+      empCode,
+      empName,
+      empName
+    );
 
     return res.status(200).json(meetings);
   } catch (error) {
@@ -125,6 +149,7 @@ router.post('/create-zoom', async (req: Request, res: Response) => {
       duration = 60,
       agenda = '',
       type = 'Team Discussion',
+      status = 'UPCOMING',
       targetAudience = 'ALL',
       targetTeam,
       targetEmployeeId,
@@ -190,7 +215,7 @@ router.post('/create-zoom', async (req: Request, res: Response) => {
       resolvedLocation,
       attendeesCount ? Number(attendeesCount) : 6,
       agenda || '',
-      'UPCOMING',
+      status || 'UPCOMING',
       resolvedLink,
       invitedMemberName || null,
       zoomInfo.id || null,

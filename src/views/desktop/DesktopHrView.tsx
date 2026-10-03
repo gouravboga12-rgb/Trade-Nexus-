@@ -352,7 +352,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
         // Deduplicate by normalized title + dateTime so duplicate meetings are never stacked
         const seen = new Set<string>();
         const deduplicatedMeetings = activeMeetings.filter(m => {
-          const key = `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
+          const key = m.id || `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
           if (seen.has(key)) return false;
           seen.add(key);
           return true;

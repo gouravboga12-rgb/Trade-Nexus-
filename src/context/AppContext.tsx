@@ -2531,15 +2531,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const normalizeMeetingUrl = (mtg: TeamMeeting, role: string): string | null => {
-    const isHostOrLeader = 
-      role === 'admin' || 
-      role === 'hr' || 
-      role === 'team_leader' ||
-      (mtg.hostRole && (mtg.hostRole === role || mtg.hostRole === 'admin' || mtg.hostRole === 'hr')) ||
-      (mtg.hostEmpCode && profile?.empCode && mtg.hostEmpCode === profile.empCode) ||
-      (mtg.hostName && profile?.name && mtg.hostName.toLowerCase() === profile.name.toLowerCase());
+    // Only the actual meeting host/creator gets the zoomStartUrl (which requires host credentials).
+    // All attendees, participants, other TLs, and HR staff must receive zoomJoinUrl or meetingLink.
+    const isActualHost = Boolean(
+      (mtg.hostEmpCode && profile?.empCode && mtg.hostEmpCode.trim().toLowerCase() === profile.empCode.trim().toLowerCase()) ||
+      (mtg.hostName && profile?.name && mtg.hostName.trim().toLowerCase() === profile.name.trim().toLowerCase()) ||
+      (role === 'admin' && (mtg.hostRole === 'admin' || !mtg.hostRole))
+    );
 
-    let url = (isHostOrLeader && mtg.zoomStartUrl)
+    let url = (isActualHost && mtg.zoomStartUrl)
       ? mtg.zoomStartUrl
       : (mtg.zoomJoinUrl || mtg.meetingLink || '');
 
