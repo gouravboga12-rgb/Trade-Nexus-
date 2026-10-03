@@ -520,7 +520,9 @@ export const GenerateExperienceCertModal: React.FC<GenerateExperienceCertModalPr
           </form>
         ) : (
           /* Live Document Preview matching exact 2.png layout */
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100/80 flex flex-col items-center">
+          <div className="flex-1 min-h-0 flex flex-col">
+            {/* Scrollable preview area */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 bg-slate-100/80 flex flex-col items-center gap-4">
             
             <div className="w-full max-w-2xl bg-white text-slate-800 rounded-2xl shadow-xl overflow-hidden border border-slate-200 flex flex-col justify-between relative">
               
@@ -596,13 +598,14 @@ export const GenerateExperienceCertModal: React.FC<GenerateExperienceCertModalPr
               </div>
 
             </div>
+            </div>{/* end scrollable */}
 
-            {/* Preview Action Bar */}
-            <div className="w-full max-w-2xl mt-4 flex items-center justify-between">
+            {/* Sticky Action Bar — always visible at bottom */}
+            <div className="flex-shrink-0 px-4 sm:px-6 py-3 bg-white border-t border-slate-200 flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => setActiveTab('edit')}
-                className="px-4 py-2 rounded-xl bg-white border border-slate-300 font-bold text-xs text-slate-700 hover:bg-slate-50 transition-all flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl bg-slate-100 border border-slate-200 font-bold text-xs text-slate-700 hover:bg-slate-200 transition-all flex items-center gap-1.5"
               >
                 <FileEdit className="w-3.5 h-3.5" />
                 <span>Return to Editing</span>
@@ -612,7 +615,7 @@ export const GenerateExperienceCertModal: React.FC<GenerateExperienceCertModalPr
                 type="button"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="px-6 py-2 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs shadow-md shadow-[#00C9A7]/25 flex items-center gap-2 transition-all disabled:opacity-50"
+                className="px-6 py-2.5 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs shadow-md shadow-[#00C9A7]/25 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <>
