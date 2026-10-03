@@ -90,7 +90,7 @@ router.get('/', (req: Request, res: Response) => {
       }
     }
 
-    const members = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, emergencyPhone, dob, employeeType, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup FROM team_members').all();
+    const members = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, emergencyPhone, dob, employeeType, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup, companyAddress, companyPhone, companyEmail, companyWebsite, signatoryName, signatoryRole FROM team_members').all();
     return res.status(200).json(members);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -334,7 +334,7 @@ router.post('/', (req: Request, res: Response) => {
 
     createAtomic();
 
-    const created = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, emergencyPhone, dob, employeeType, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup FROM team_members WHERE id = ?').get(memberId);
+    const created = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, emergencyPhone, dob, employeeType, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup, companyAddress, companyPhone, companyEmail, companyWebsite, signatoryName, signatoryRole FROM team_members WHERE id = ?').get(memberId);
     return res.status(201).json(created);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -351,7 +351,8 @@ router.put('/:id', (req: Request, res: Response) => {
              salesAchieved, salesTarget, conversionRate, portal, email, password, active, 
              deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, 
              panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, 
-             address, bloodGroup 
+             address, bloodGroup, companyAddress, companyPhone, companyEmail, companyWebsite,
+             signatoryName, signatoryRole 
       FROM team_members 
       WHERE id = ? OR empCode = ?
     `).get(id, id) as any;
@@ -397,6 +398,13 @@ router.put('/:id', (req: Request, res: Response) => {
       ? req.body.dob
       : (existing.dob || null);
 
+    const finalCompanyAddress = req.body.companyAddress !== undefined ? req.body.companyAddress : (existing.companyAddress || null);
+    const finalCompanyPhone = req.body.companyPhone !== undefined ? req.body.companyPhone : (existing.companyPhone || null);
+    const finalCompanyEmail = req.body.companyEmail !== undefined ? req.body.companyEmail : (existing.companyEmail || null);
+    const finalCompanyWebsite = req.body.companyWebsite !== undefined ? req.body.companyWebsite : (existing.companyWebsite || null);
+    const finalSignatoryName = req.body.signatoryName !== undefined ? req.body.signatoryName : (existing.signatoryName || null);
+    const finalSignatoryRole = req.body.signatoryRole !== undefined ? req.body.signatoryRole : (existing.signatoryRole || null);
+
     const merged = { 
       ...existing, 
       ...req.body, 
@@ -405,6 +413,12 @@ router.put('/:id', (req: Request, res: Response) => {
       emergencyPhone: finalEmergencyPhone,
       bloodGroup: finalBloodGroup,
       dob: finalDob,
+      companyAddress: finalCompanyAddress,
+      companyPhone: finalCompanyPhone,
+      companyEmail: finalCompanyEmail,
+      companyWebsite: finalCompanyWebsite,
+      signatoryName: finalSignatoryName,
+      signatoryRole: finalSignatoryRole,
     };
 
     db.prepare(`
@@ -419,7 +433,9 @@ router.put('/:id', (req: Request, res: Response) => {
           panDocumentName = ?, panDocumentUrl = ?,
           aadhaarDocumentName = ?, aadhaarDocumentUrl = ?,
           salary = ?, joiningDate = ?, address = ?, bloodGroup = ?,
-          dob = ?, emergencyPhone = ?, employeeType = ?
+          dob = ?, emergencyPhone = ?, employeeType = ?,
+          companyAddress = ?, companyPhone = ?, companyEmail = ?, companyWebsite = ?,
+          signatoryName = ?, signatoryRole = ?
       WHERE id = ? OR empCode = ?
     `).run(
       merged.empCode, merged.name, merged.avatar, merged.role, targetGroup, merged.phone,
@@ -437,6 +453,12 @@ router.put('/:id', (req: Request, res: Response) => {
       finalDob,
       finalEmergencyPhone,
       finalEmployeeType,
+      finalCompanyAddress,
+      finalCompanyPhone,
+      finalCompanyEmail,
+      finalCompanyWebsite,
+      finalSignatoryName,
+      finalSignatoryRole,
       existing.id, existing.empCode
     );
 
@@ -482,7 +504,8 @@ router.put('/:id', (req: Request, res: Response) => {
              attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, 
              salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, 
              bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, 
-             aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup 
+             aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup,
+             companyAddress, companyPhone, companyEmail, companyWebsite, signatoryName, signatoryRole 
       FROM team_members 
       WHERE id = ? OR empCode = ?
     `).get(existing.id, merged.empCode || existing.empCode);

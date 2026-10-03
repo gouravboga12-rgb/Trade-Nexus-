@@ -56,13 +56,25 @@ export const DigitalIdCardModal: React.FC = () => {
   const [customDob, setCustomDob] = useState('05/11/1997');
   const [customPhone, setCustomPhone] = useState('0000XXXX97');
 
-  // Editable company contact & signatory fields
-  const [customCompanyAddress, setCustomCompanyAddress] = useState(DEFAULT_COMPANY_ADDRESS);
-  const [customCompanyEmail, setCustomCompanyEmail] = useState(DEFAULT_COMPANY_EMAIL);
-  const [customCompanyWebsite, setCustomCompanyWebsite] = useState(DEFAULT_COMPANY_WEBSITE);
-  const [customCompanyPhone, setCustomCompanyPhone] = useState(DEFAULT_COMPANY_PHONE);
-  const [customSignatoryName, setCustomSignatoryName] = useState(DEFAULT_SIGNATORY_NAME);
-  const [customSignatoryRole, setCustomSignatoryRole] = useState(DEFAULT_SIGNATORY_ROLE);
+  // Editable company contact & signatory fields (cached in localStorage + saved in SQLite)
+  const [customCompanyAddress, setCustomCompanyAddress] = useState(() => {
+    return (typeof window !== 'undefined' && localStorage.getItem('tnx_idCard_companyAddress')) || DEFAULT_COMPANY_ADDRESS;
+  });
+  const [customCompanyEmail, setCustomCompanyEmail] = useState(() => {
+    return (typeof window !== 'undefined' && localStorage.getItem('tnx_idCard_companyEmail')) || DEFAULT_COMPANY_EMAIL;
+  });
+  const [customCompanyWebsite, setCustomCompanyWebsite] = useState(() => {
+    return (typeof window !== 'undefined' && localStorage.getItem('tnx_idCard_companyWebsite')) || DEFAULT_COMPANY_WEBSITE;
+  });
+  const [customCompanyPhone, setCustomCompanyPhone] = useState(() => {
+    return (typeof window !== 'undefined' && localStorage.getItem('tnx_idCard_companyPhone')) || DEFAULT_COMPANY_PHONE;
+  });
+  const [customSignatoryName, setCustomSignatoryName] = useState(() => {
+    return (typeof window !== 'undefined' && localStorage.getItem('tnx_idCard_signatoryName')) || DEFAULT_SIGNATORY_NAME;
+  });
+  const [customSignatoryRole, setCustomSignatoryRole] = useState(() => {
+    return (typeof window !== 'undefined' && localStorage.getItem('tnx_idCard_signatoryRole')) || DEFAULT_SIGNATORY_ROLE;
+  });
 
   useEffect(() => {
     if (selectedIdCardEmpId) {
@@ -242,7 +254,17 @@ export const DigitalIdCardModal: React.FC = () => {
         signatoryRole: customSignatoryRole,
       } as any);
 
-      // 2. Generate canonical PDF and store into employee_documents table
+      // 2. Cache in localStorage for immediate client hydration
+      try {
+        localStorage.setItem('tnx_idCard_companyAddress', customCompanyAddress);
+        localStorage.setItem('tnx_idCard_companyEmail', customCompanyEmail);
+        localStorage.setItem('tnx_idCard_companyWebsite', customCompanyWebsite);
+        localStorage.setItem('tnx_idCard_companyPhone', customCompanyPhone);
+        localStorage.setItem('tnx_idCard_signatoryName', customSignatoryName);
+        localStorage.setItem('tnx_idCard_signatoryRole', customSignatoryRole);
+      } catch {}
+
+      // 3. Generate canonical PDF and store into employee_documents table
       await api.generateIdCard(selectedEmpId, cardPayload);
 
       triggerToast(`✓ Official ID Card & Address saved to Employee Documents!`);

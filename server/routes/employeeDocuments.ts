@@ -222,12 +222,39 @@ router.post('/generate/id-card', async (req: Request, res: Response) => {
     }
 
     // Update team_members record with updated fields if provided
-    if (payload.avatar && payload.avatar !== emp.avatar) {
+    if (payload) {
       try {
-        db.prepare('UPDATE team_members SET avatar = ? WHERE id = ?').run(payload.avatar, actualEmpId);
+        db.prepare(`
+          UPDATE team_members
+          SET avatar = COALESCE(?, avatar),
+              bloodGroup = COALESCE(?, bloodGroup),
+              dob = COALESCE(?, dob),
+              phone = COALESCE(?, phone),
+              emergencyPhone = COALESCE(?, emergencyPhone),
+              companyAddress = COALESCE(?, companyAddress),
+              companyEmail = COALESCE(?, companyEmail),
+              companyWebsite = COALESCE(?, companyWebsite),
+              companyPhone = COALESCE(?, companyPhone),
+              signatoryName = COALESCE(?, signatoryName),
+              signatoryRole = COALESCE(?, signatoryRole)
+          WHERE id = ? OR empCode = ?
+        `).run(
+          payload.avatar || null,
+          payload.bloodGroup || null,
+          payload.dob || null,
+          payload.phone || null,
+          payload.phone || null,
+          payload.address || null,
+          payload.email || null,
+          payload.website || null,
+          payload.companyPhone || null,
+          payload.signatoryName || null,
+          payload.signatoryRole || null,
+          actualEmpId, actualEmpId
+        );
         db.prepare('UPDATE employee_profiles SET updatedAt = CURRENT_TIMESTAMP WHERE id = ? OR empCode = ?').run(actualEmpId, emp.empCode || '');
       } catch (uErr) {
-        console.warn('[Sync Avatar Warning]', uErr);
+        console.warn('[Sync ID Card Fields Warning]', uErr);
       }
     }
 

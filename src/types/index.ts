@@ -235,6 +235,12 @@ export interface TeamMember {
   emergencyPhone?: string;
   employeeType?: string;
   empType?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  companyWebsite?: string;
+  signatoryName?: string;
+  signatoryRole?: string;
 }
 
 export interface TeamGroup {
