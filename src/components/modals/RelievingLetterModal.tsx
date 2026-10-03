@@ -293,22 +293,22 @@ export const RelievingLetterModal: React.FC = () => {
 
               {/* Date matching 3.png */}
               <div className="font-bold text-slate-800 text-xs sm:text-sm">
-                <span>[{formData.issuedDate || 'DD/MM/YYYY'}]</span>
+                <span>{formData.issuedDate || 'DD/MM/YYYY'}</span>
               </div>
 
               {/* Recipient Details Block matching 3.png */}
               <div className="space-y-0.5 text-xs sm:text-sm font-semibold text-slate-800">
-                <p className="font-black text-[#0A2540]">[{formData.employeeName}]</p>
-                <p>[{formData.designation}]</p>
-                <p>[{formData.department}]</p>
-                <p>[{formData.employeeType || 'Full-Time'}]</p>
-                <p>[Employee ID: {formData.empCode || 'TNX-042'}]</p>
-                <p className="text-slate-600 font-normal whitespace-pre-line">[{formData.employeeAddress || '123 Business Avenue, Financial District, Your City, 500001'}]</p>
+                <p className="font-black text-[#0A2540]">{formData.employeeName}</p>
+                <p>{formData.designation}</p>
+                <p>{formData.department}</p>
+                <p>{formData.employeeType || 'Full-Time'}</p>
+                <p>Employee ID: {formData.empCode || 'TNX-042'}</p>
+                <p className="text-slate-600 font-normal whitespace-pre-line">{formData.employeeAddress || '123 Business Avenue, Financial District, Your City, 500001'}</p>
               </div>
 
               {/* Salutation */}
               <div className="pt-1 text-xs sm:text-sm font-bold text-slate-800">
-                <p>Dear [{firstName}],</p>
+                <p>Dear {firstName},</p>
               </div>
 
               {/* Body Paragraphs matching 3.png or HR custom values */}
@@ -323,26 +323,26 @@ export const RelievingLetterModal: React.FC = () => {
                 ) : (
                   <>
                     <p>
-                      This is to formally inform you that your resignation dated <strong className="text-slate-900">[{formData.resignationDate}]</strong> has been accepted, and your last working day with <strong className="text-[#00A88B] font-bold">[Trade Nexus]</strong> was <strong className="text-slate-900">[{formData.lastWorkingDate}]</strong>.
+                      This is to formally inform you that your resignation dated <strong className="text-slate-900">{formData.resignationDate}</strong> has been accepted, and your last working day with <strong className="text-[#00A88B] font-bold">Trade Nexus</strong> was <strong className="text-slate-900">{formData.lastWorkingDate}</strong>.
                     </p>
 
                     <p>
-                      We would like to confirm that you have been relieved from your duties as <strong className="text-slate-900">[{formData.designation}]</strong> in <strong className="text-slate-900">[{formData.department}]</strong>. We thank you for the dedication, effort, and contributions you have made during your tenure with us, from <strong className="text-slate-900">[{formData.joiningDate}]</strong> to <strong className="text-slate-900">[{formData.lastWorkingDate}]</strong>.
+                      We would like to confirm that you have been relieved from your duties as <strong className="text-slate-900">{formData.designation}</strong> in <strong className="text-slate-900">{formData.department}</strong>. We thank you for the dedication, effort, and contributions you have made during your tenure with us, from <strong className="text-slate-900">{formData.joiningDate}</strong> to <strong className="text-slate-900">{formData.lastWorkingDate}</strong>.
                     </p>
                   </>
                 )}
               </div>
 
               {/* Official Stamp & Signatory Block matching 3.png */}
-              <div className="pt-8 flex justify-end">
-                <div className="text-center space-y-1.5">
+              <div className="pt-8 pb-4 flex justify-end">
+                <div className="text-center space-y-1.5 w-44">
                   
                   {/* Official Circular Trade Nexus Seal Stamp with Signature (Matching 3.png) */}
                   <div className="flex justify-center py-1">
                     <img
                       src={tradeNexusSeal}
                       alt="Trade Nexus Official Seal & Signature"
-                      className="w-36 h-auto object-contain select-none"
+                      className="w-32 h-auto object-contain select-none"
                     />
                   </div>
 

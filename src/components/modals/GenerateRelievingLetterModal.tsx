@@ -94,7 +94,7 @@ export const GenerateRelievingLetterModal: React.FC<GenerateRelievingLetterModal
       `We hereby confirm that you have successfully handed over all corporate assets, systems access credentials, and records. Your full and final settlement accounts have been thoroughly reconciled and processed in accordance with company policy. There are no outstanding liabilities pending against you.`
     );
     setBodyParagraph4(
-      `We take this opportunity to thank you for your committed service and valuable contributions during your association with ${safeComp} from ${safeJoin} to ${safeLwt}, and wish you all the very best for your future personal and career endeavors, ${firstName}.`
+      `We take this opportunity to thank you for your committed service and valuable contributions during your association with ${safeComp} from ${safeJoin} to ${safeLwt}, and wish you all the very best for your future personal and career endeavors.`
     );
   };
 

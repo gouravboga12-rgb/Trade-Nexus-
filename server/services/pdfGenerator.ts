@@ -495,37 +495,51 @@ export async function generateRelievingLetterPdf(employee: any, relievingLetter:
   doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#0A2540').text(`Dear ${empName.split(' ')[0] || empName},`, leftX, currentY);
   currentY += 16;
 
-  doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text(
-    `This has reference to your formal letter of resignation dated ${resignationDate}, wherein you requested to be relieved from your employment responsibilities as ${role} in the ${dept} department at Trade Nexus.`,
-    leftX,
-    currentY,
-    { width: contentW, lineGap: 4 }
-  );
-  currentY += 34;
+  const paragraphs = [
+    relievingLetter.bodyParagraph1,
+    relievingLetter.bodyParagraph2,
+    relievingLetter.bodyParagraph3,
+    relievingLetter.bodyParagraph4,
+  ].filter(Boolean);
 
-  doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text(
-    `We wish to inform you that your resignation has been accepted by the Management, and you are officially relieved from your duties and contractual obligations with Trade Nexus with effect from the close of business working hours on ${lastWorkingDate}.`,
-    leftX,
-    currentY,
-    { width: contentW, lineGap: 4 }
-  );
-  currentY += 34;
+  if (paragraphs.length > 0) {
+    for (const p of paragraphs) {
+      doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text(p, leftX, currentY, { width: contentW, lineGap: 3.5 });
+      currentY += doc.heightOfString(p, { width: contentW, lineGap: 3.5 }) + 10;
+    }
+  } else {
+    doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text(
+      `This has reference to your formal letter of resignation dated ${resignationDate}, wherein you requested to be relieved from your employment responsibilities as ${role} in the ${dept} department at Trade Nexus.`,
+      leftX,
+      currentY,
+      { width: contentW, lineGap: 4 }
+    );
+    currentY += 34;
 
-  doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text(
-    `We hereby confirm that you have successfully handed over all corporate assets, systems access credentials, and records. Your full and final settlement accounts have been thoroughly reconciled and processed in accordance with company policy. There are no outstanding liabilities pending against you.`,
-    leftX,
-    currentY,
-    { width: contentW, lineGap: 4 }
-  );
-  currentY += 36;
+    doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text(
+      `We wish to inform you that your resignation has been accepted by the Management, and you are officially relieved from your duties and contractual obligations with Trade Nexus with effect from the close of business working hours on ${lastWorkingDate}.`,
+      leftX,
+      currentY,
+      { width: contentW, lineGap: 4 }
+    );
+    currentY += 34;
 
-  doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text(
-    `We take this opportunity to thank you for your committed service and valuable contributions during your association with Trade Nexus, and wish you all the very best for your future personal and career endeavors.`,
-    leftX,
-    currentY,
-    { width: contentW, lineGap: 4 }
-  );
-  currentY += 38;
+    doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text(
+      `We hereby confirm that you have successfully handed over all corporate assets, systems access credentials, and records. Your full and final settlement accounts have been thoroughly reconciled and processed in accordance with company policy. There are no outstanding liabilities pending against you.`,
+      leftX,
+      currentY,
+      { width: contentW, lineGap: 4 }
+    );
+    currentY += 36;
+
+    doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text(
+      `We take this opportunity to thank you for your committed service and valuable contributions during your association with Trade Nexus, and wish you all the very best for your future personal and career endeavors.`,
+      leftX,
+      currentY,
+      { width: contentW, lineGap: 4 }
+    );
+    currentY += 38;
+  }
 
   // Closing with Official Seal and Signatory on Right (Exact match for 3.png)
   const rightSealX = pageWidth - leftX - 140;
