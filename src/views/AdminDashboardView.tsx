@@ -212,6 +212,7 @@ export const AdminDashboardView: React.FC = () => {
   const [isScheduleMeetingOpen, setIsScheduleMeetingOpen] = useState(false);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
   const [approvalSubTab, setApprovalSubTab] = useState<'PAYMENTS' | 'LEAVES'>('PAYMENTS');
+  const [revenueFilter, setRevenueFilter] = useState<'today' | 'week' | 'month' | 'all'>('all');
   const [inspectingPayment, setInspectingPayment] = useState<PaymentVerificationItem | null>(null);
   const [isDistributing, setIsDistributing] = useState(false);
 
@@ -386,11 +387,11 @@ export const AdminDashboardView: React.FC = () => {
 
   const verifiedPayments = useMemo(() => uniquePayments.filter(p => p.status === 'VERIFIED'), [uniquePayments]);
   const pendingPaymentsList = useMemo(() => uniquePayments.filter(p => p.status === 'PENDING_HR_AUDIT'), [uniquePayments]);
+  // SOURCE OF TRUTH: Only count revenue from VERIFIED payment records
   const totalVerifiedRevenue = useMemo(() => verifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0), [verifiedPayments]);
   const totalPendingRevenue = useMemo(() => pendingPaymentsList.reduce((sum, p) => sum + (p.dealAmount || 0), 0), [pendingPaymentsList]);
-  const teamSalesTotal = useMemo(() => teamMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0), [teamMembers]);
-  const leadsWonRevenue = useMemo(() => (assignedLeads || []).filter(l => l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0)).reduce((sum, l) => sum + (l.dealValue || 0), 0), [assignedLeads]);
-  const salesAchieved = Math.max(totalVerifiedRevenue, teamSalesTotal, leadsWonRevenue);
+  // salesAchieved = verified payments only (not teamSalesTotal estimates or lead dealValues)
+  const salesAchieved = totalVerifiedRevenue;
 
   const totalRosterTarget = useMemo(() => teamMembers.reduce((sum, m) => sum + (m.salesTarget || 0), 0), [teamMembers]);
   const totalGroupTarget = useMemo(() => (teamGroups || []).reduce((sum, g) => sum + (g.monthlyTarget || 0), 0), [teamGroups]);
@@ -398,10 +399,18 @@ export const AdminDashboardView: React.FC = () => {
 
   const pendingPayments = uniquePayments.filter((p: PaymentVerificationItem) => p.status === 'PENDING_HR_AUDIT');
   const todayYMD = getTodayDateIST();
-  const todayVerifiedSales = verifiedPayments.filter(p => (p.timestamp || '').slice(0, 10) === todayYMD || (p.timestamp || '').toLowerCase().includes('today')).reduce((sum: number, p: PaymentVerificationItem) => sum + (p.dealAmount || 0), 0);
-  const todayPendingSales = pendingPaymentsList.reduce((sum: number, p: PaymentVerificationItem) => sum + (p.dealAmount || 0), 0);
-  const todaySales = todayVerifiedSales > 0 ? todayVerifiedSales : (salesAchieved > 0 ? todayVerifiedSales || Math.round(salesAchieved / Math.max(1, new Date().getDate())) : todayPendingSales);
-  const todayDealsCount = uniquePayments.length;
+  // todaySales = strictly verified payments with today's date; ₹0 if none
+  const todaySales = useMemo(() =>
+    verifiedPayments
+      .filter(p => (p.timestamp || '').slice(0, 10) === todayYMD)
+      .reduce((sum: number, p: PaymentVerificationItem) => sum + (p.dealAmount || 0), 0),
+    [verifiedPayments, todayYMD]
+  );
+  // todayDealsCount = only verified deals closed today
+  const todayDealsCount = useMemo(() =>
+    verifiedPayments.filter(p => (p.timestamp || '').slice(0, 10) === todayYMD).length,
+    [verifiedPayments, todayYMD]
+  );
   const leadsDueToday = clients.filter((c) => c.status === 'Due Today');
 
   const awayWithoutLeave = teamMembers.filter((m) => m.attendanceStatus === 'ABSENT');
@@ -3520,15 +3529,28 @@ export const AdminDashboardView: React.FC = () => {
 
         {/* ---------------------------------------------------- Revenue & Won Deals */}
         {tab === 'revenue' && (() => {
-          const verifiedPayments = uniquePayments.filter((p) => p.status === 'VERIFIED');
+          // --- Date filter helpers ---
+          const now = new Date();
+          const todayStr = getTodayDateIST();
+          const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay());
+          const weekStartStr = weekStart.toISOString().slice(0, 10);
+          const monthStartStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+
+          // Filter all verified payments based on selected date range
+          const allVerified = uniquePayments.filter((p) => p.status === 'VERIFIED');
+          const revenueFilteredPayments = allVerified.filter((p) => {
+            const d = (p.timestamp || '').slice(0, 10);
+            if (revenueFilter === 'today') return d === todayStr;
+            if (revenueFilter === 'week') return d >= weekStartStr;
+            if (revenueFilter === 'month') return d >= monthStartStr;
+            return true; // 'all'
+          });
+
           const pendingPaymentsList = uniquePayments.filter((p) => p.status === 'PENDING_HR_AUDIT');
-          const totalVerifiedRevenue = verifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
+          // SOURCE OF TRUTH: verified payments only
+          const effectiveTotalRevenue = revenueFilteredPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
           const totalPendingRevenue = pendingPaymentsList.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
-          const teamSalesTotal = teamMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0);
-          const convertedLeadsRevenue = (assignedLeads || []).filter((l) => l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0)).reduce((sum, l) => sum + (l.dealValue || 0), 0);
-          const effectiveTotalRevenue = Math.max(totalVerifiedRevenue, teamSalesTotal, convertedLeadsRevenue);
-          const convertedLeadsCount = assignedLeads.filter((l) => l.status === 'CONVERTED').length;
-          const totalWonDeals = Math.max(verifiedPayments.length, convertedLeadsCount);
+          const totalWonDeals = revenueFilteredPayments.length;
           const avgDealValue = totalWonDeals > 0 ? Math.round(effectiveTotalRevenue / totalWonDeals) : 0;
 
           // Build Leaderboard (excluding Admin & HR)
@@ -3536,29 +3558,21 @@ export const AdminDashboardView: React.FC = () => {
             .filter((m) => m.portal !== 'admin' && m.empCode !== 'TNX-AD01' && !(m.role || '').toLowerCase().includes('admin') && m.portal !== 'hr' && !(m.role || '').toLowerCase().includes('hr'))
             .map((m) => {
               const mNameLower = m.name.toLowerCase();
-              const repPayments = paymentVerifications.filter(
+              // Use ONLY verified payments (filtered by date range) for this rep
+              const repVerifiedPayments = revenueFilteredPayments.filter(
                 (p) => (p.telecallerName || '').toLowerCase() === mNameLower
               );
-              const repVerifiedPayments = repPayments.filter((p) => p.status === 'VERIFIED');
-              const repConvertedLeads = assignedLeads.filter(
-                (l) =>
-                  l.status === 'CONVERTED' &&
-                  (l.assignedToEmployeeId === m.id ||
-                    (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === mNameLower))
-              );
 
-              const dealsCount = Math.max(repVerifiedPayments.length, repConvertedLeads.length);
-              const paymentsRevenue = repVerifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
-              const leadsRevenue = repConvertedLeads.reduce((sum, l) => sum + (l.dealValue || 0), 0);
-              const salesAchieved = Math.max(m.salesAchieved || 0, paymentsRevenue, leadsRevenue);
+              const dealsCount = repVerifiedPayments.length;
+              const repRevenue = repVerifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
               const target = m.salesTarget || 500000;
-              const targetPercent = Math.min(100, Math.round((salesAchieved / Math.max(1, target)) * 100));
+              const targetPercent = Math.min(100, Math.round((repRevenue / Math.max(1, target)) * 100));
 
               return {
                 member: m,
                 dials: m.dialsToday || 0,
                 deals: dealsCount,
-                revenue: salesAchieved,
+                revenue: repRevenue,
                 target,
                 targetPercent,
                 conversionRate: m.conversionRate || (m.dialsToday > 0 ? Math.round((dealsCount / m.dialsToday) * 100) : 0),
@@ -3581,8 +3595,28 @@ export const AdminDashboardView: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="font-display font-black text-2xl text-[#0A2540] tracking-tight">Revenue & Won Deals</h2>
-                  <p className="text-xs text-slate-500 font-medium">Sales leaderboard, closed deals & revenue tracking</p>
+                  <p className="text-xs text-slate-500 font-medium">Only verified payments · Sorted by date</p>
                 </div>
+              </div>
+
+              {/* Date Filter Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {(['today', 'week', 'month', 'all'] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setRevenueFilter(f)}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                      revenueFilter === f
+                        ? 'bg-[#0A2540] text-[#00C9A7] shadow-sm'
+                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                    }`}
+                  >
+                    {f === 'today' ? 'Today' : f === 'week' ? 'This Week' : f === 'month' ? 'This Month' : 'All Time'}
+                  </button>
+                ))}
+                <span className="text-[10px] text-slate-400 font-mono ml-auto flex-shrink-0">
+                  {effectiveTotalRevenue > 0 ? inr(effectiveTotalRevenue) : '₹0'} · {totalWonDeals} deals
+                </span>
               </div>
 
               {/* 4 KPI Cards */}
@@ -3665,7 +3699,7 @@ export const AdminDashboardView: React.FC = () => {
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <h3 className="font-bold text-xs text-[#0A2540] uppercase tracking-wider flex items-center gap-1.5">
                     <Wallet className="w-3.5 h-3.5 text-[#00A88B]" />
-                    <span>Won Deals Ledger ({uniquePayments.length})</span>
+                    <span>Won Deals Ledger ({revenueFilteredPayments.length}{revenueFilter !== 'all' ? ` · filtered` : ''})</span>
                   </h3>
                 </div>
 
@@ -3673,7 +3707,7 @@ export const AdminDashboardView: React.FC = () => {
                   <Empty text="No deals logged yet." />
                 ) : (
                   <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-                    {uniquePayments.map((p) => (
+                    {revenueFilteredPayments.map((p) => (
                       <div key={p.id} className="p-3 bg-slate-50/70 rounded-xl border border-slate-200/80 space-y-2">
                         <div className="flex items-start justify-between">
                           <div>

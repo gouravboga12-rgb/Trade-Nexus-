@@ -210,9 +210,8 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
   const verifiedPayments = useMemo(() => uniquePayments.filter(p => p.status === 'VERIFIED'), [uniquePayments]);
   const pendingPaymentsList = useMemo(() => uniquePayments.filter(p => p.status === 'PENDING_HR_AUDIT'), [uniquePayments]);
   const totalVerifiedRevenue = useMemo(() => verifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0), [verifiedPayments]);
-  const teamSalesTotal = useMemo(() => teamMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0), [teamMembers]);
-  const leadsWonRevenue = useMemo(() => (assignedLeads || []).filter(l => l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0)).reduce((sum, l) => sum + (l.dealValue || 0), 0), [assignedLeads]);
-  const salesAchieved = Math.max(totalVerifiedRevenue, teamSalesTotal, leadsWonRevenue);
+  // SOURCE OF TRUTH: only verified payment records drive salesAchieved
+  const salesAchieved = totalVerifiedRevenue;
 
   const totalRosterTarget = useMemo(() => teamMembers.reduce((sum, m) => sum + (m.salesTarget || 0), 0), [teamMembers]);
   const totalGroupTarget = useMemo(() => (teamGroups || []).reduce((sum, g) => sum + (g.monthlyTarget || 0), 0), [teamGroups]);
@@ -1584,16 +1583,12 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
   };
 
   const renderRevenue = () => {
-    // 1. Calculate Aggregates
-    const verifiedPayments = uniquePayments.filter((p) => p.status === 'VERIFIED');
+    // 1. Calculate Aggregates — SOURCE OF TRUTH: verified payments only
+    const allVerifiedPayments = uniquePayments.filter((p) => p.status === 'VERIFIED');
     const pendingPaymentsList = uniquePayments.filter((p) => p.status === 'PENDING_HR_AUDIT');
-    const totalVerifiedRevenue = verifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
+    const effectiveTotalRevenue = allVerifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
     const totalPendingRevenue = pendingPaymentsList.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
-    const teamSalesTotal = teamMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0);
-    const convertedLeadsRevenue = (assignedLeads || []).filter((l) => l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0)).reduce((sum, l) => sum + (l.dealValue || 0), 0);
-    const effectiveTotalRevenue = Math.max(totalVerifiedRevenue, teamSalesTotal, convertedLeadsRevenue);
-    const convertedLeadsCount = assignedLeads.filter((l) => l.status === 'CONVERTED').length;
-    const totalWonDeals = Math.max(verifiedPayments.length, convertedLeadsCount);
+    const totalWonDeals = allVerifiedPayments.length;
     const avgDealValue = totalWonDeals > 0 ? Math.round(effectiveTotalRevenue / totalWonDeals) : 0;
 
     // Build Rep Leaderboard (excluding Admin & HR)
@@ -1601,29 +1596,21 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
       .filter((m) => m.portal !== 'admin' && m.empCode !== 'TNX-AD01' && !(m.role || '').toLowerCase().includes('admin') && m.portal !== 'hr' && !(m.role || '').toLowerCase().includes('hr'))
       .map((m) => {
         const mNameLower = m.name.toLowerCase();
-        const repPayments = uniquePayments.filter(
+        // Verified payments only for this rep
+        const repVerifiedPayments = allVerifiedPayments.filter(
           (p) => (p.telecallerName || '').toLowerCase() === mNameLower
         );
-        const repVerifiedPayments = repPayments.filter((p) => p.status === 'VERIFIED');
-        const repConvertedLeads = assignedLeads.filter(
-          (l) =>
-            l.status === 'CONVERTED' &&
-            (l.assignedToEmployeeId === m.id ||
-              (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === mNameLower))
-        );
 
-        const dealsCount = Math.max(repVerifiedPayments.length, repConvertedLeads.length);
-        const paymentsRevenue = repVerifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
-        const leadsRevenue = repConvertedLeads.reduce((sum, l) => sum + (l.dealValue || 0), 0);
-        const salesAchieved = Math.max(m.salesAchieved || 0, paymentsRevenue, leadsRevenue);
+        const dealsCount = repVerifiedPayments.length;
+        const repRevenue = repVerifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
         const target = m.salesTarget || 500000;
-        const targetPercent = Math.min(100, Math.round((salesAchieved / Math.max(1, target)) * 100));
+        const targetPercent = Math.min(100, Math.round((repRevenue / Math.max(1, target)) * 100));
 
         return {
           member: m,
           dials: m.dialsToday || 0,
           deals: dealsCount,
-          revenue: salesAchieved,
+          revenue: repRevenue,
           target,
           targetPercent,
           conversionRate: m.conversionRate || (m.dialsToday > 0 ? Math.round((dealsCount / m.dialsToday) * 100) : 0),
