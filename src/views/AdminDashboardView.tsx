@@ -360,8 +360,6 @@ export const AdminDashboardView: React.FC = () => {
   const headcount = teamMembers.length;
   const presentToday = teamMembers.filter((m) => m.attendanceStatus === 'PRESENT').length;
   const callsToday = teamMembers.reduce((sum, m) => sum + (m.dialsToday || 0), 0);
-  const salesAchieved = teamMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0);
-  const salesTarget = teamMembers.reduce((sum, m) => sum + (m.salesTarget || 0), 0);
   
   // Deduplicate won deal payment verifications to avoid double cards in Needs Your Attention & Ledger
   const uniquePayments = useMemo<PaymentVerificationItem[]>(() => {
@@ -374,10 +372,23 @@ export const AdminDashboardView: React.FC = () => {
     });
   }, [paymentVerifications]);
 
+  const verifiedPayments = useMemo(() => uniquePayments.filter(p => p.status === 'VERIFIED'), [uniquePayments]);
+  const pendingPaymentsList = useMemo(() => uniquePayments.filter(p => p.status === 'PENDING_HR_AUDIT'), [uniquePayments]);
+  const totalVerifiedRevenue = useMemo(() => verifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0), [verifiedPayments]);
+  const totalPendingRevenue = useMemo(() => pendingPaymentsList.reduce((sum, p) => sum + (p.dealAmount || 0), 0), [pendingPaymentsList]);
+  const teamSalesTotal = useMemo(() => teamMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0), [teamMembers]);
+  const leadsWonRevenue = useMemo(() => (assignedLeads || []).filter(l => l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0)).reduce((sum, l) => sum + (l.dealValue || 0), 0), [assignedLeads]);
+  const salesAchieved = Math.max(totalVerifiedRevenue, teamSalesTotal, leadsWonRevenue);
+
+  const totalRosterTarget = useMemo(() => teamMembers.reduce((sum, m) => sum + (m.salesTarget || 0), 0), [teamMembers]);
+  const totalGroupTarget = useMemo(() => (teamGroups || []).reduce((sum, g) => sum + (g.monthlyTarget || 0), 0), [teamGroups]);
+  const salesTarget = Math.max(totalRosterTarget, totalGroupTarget, 500000);
+
   const pendingPayments = uniquePayments.filter((p: PaymentVerificationItem) => p.status === 'PENDING_HR_AUDIT');
-  const todayVerifiedSales = uniquePayments.filter((p: PaymentVerificationItem) => p.status === 'VERIFIED').reduce((sum: number, p: PaymentVerificationItem) => sum + (p.dealAmount || 0), 0);
-  const todayPendingSales = uniquePayments.filter((p: PaymentVerificationItem) => p.status === 'PENDING_HR_AUDIT').reduce((sum: number, p: PaymentVerificationItem) => sum + (p.dealAmount || 0), 0);
-  const todaySales = todayVerifiedSales > 0 ? todayVerifiedSales : todayPendingSales;
+  const todayYMD = getTodayDateIST();
+  const todayVerifiedSales = verifiedPayments.filter(p => (p.timestamp || '').slice(0, 10) === todayYMD || (p.timestamp || '').toLowerCase().includes('today')).reduce((sum: number, p: PaymentVerificationItem) => sum + (p.dealAmount || 0), 0);
+  const todayPendingSales = pendingPaymentsList.reduce((sum: number, p: PaymentVerificationItem) => sum + (p.dealAmount || 0), 0);
+  const todaySales = todayVerifiedSales > 0 ? todayVerifiedSales : (salesAchieved > 0 ? todayVerifiedSales || Math.round(salesAchieved / Math.max(1, new Date().getDate())) : todayPendingSales);
   const todayDealsCount = uniquePayments.length;
   const leadsDueToday = clients.filter((c) => c.status === 'Due Today');
 
@@ -544,7 +555,7 @@ export const AdminDashboardView: React.FC = () => {
   );
 
   // Admin only sees leaves at PENDING_ADMIN stage (final approval)
-  const pendingLeavesCount = leaveRequests.filter((l) => l.approvalStage === 'PENDING_ADMIN' || (!l.approvalStage && l.status === 'PENDING')).length;
+  const pendingLeavesCount = leaveRequests.filter((l) => l.status === 'PENDING' && l.approvalStage === 'PENDING_ADMIN').length;
   const totalApprovalsWaiting = pendingPayments.length + pendingLeavesCount;
 
   const navItems: { id: AdminTab; label: string; icon: React.FC<{ className?: string }>; badge?: number }[] = [
@@ -833,7 +844,7 @@ export const AdminDashboardView: React.FC = () => {
 
                 <div className="space-y-2">
                   {leaveRequests
-                    .filter((l) => l.approvalStage === 'PENDING_ADMIN' || (!l.approvalStage && l.status === 'PENDING'))
+                    .filter((l) => l.status === 'PENDING' && l.approvalStage === 'PENDING_ADMIN')
                     .slice(0, 3)
                     .map((l) => (
                       <div key={l.id} className="bg-white p-3 rounded-xl border border-amber-200 shadow-2xs space-y-2">
@@ -3091,7 +3102,7 @@ export const AdminDashboardView: React.FC = () => {
                 ) : (
                   <div className="space-y-3">
                     {leaveRequests
-                      .filter((l) => l.status === 'PENDING')
+                      .filter((l) => l.status === 'PENDING' && l.approvalStage === 'PENDING_ADMIN')
                       .map((l) => (
                         <div key={l.id} className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-2xs hover:border-slate-300 transition-all">
                           <div className="flex items-start justify-between gap-3">
@@ -3216,7 +3227,8 @@ export const AdminDashboardView: React.FC = () => {
           const totalVerifiedRevenue = verifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
           const totalPendingRevenue = pendingPaymentsList.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
           const teamSalesTotal = teamMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0);
-          const effectiveTotalRevenue = Math.max(totalVerifiedRevenue, teamSalesTotal);
+          const convertedLeadsRevenue = (assignedLeads || []).filter((l) => l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0)).reduce((sum, l) => sum + (l.dealValue || 0), 0);
+          const effectiveTotalRevenue = Math.max(totalVerifiedRevenue, teamSalesTotal, convertedLeadsRevenue);
           const convertedLeadsCount = assignedLeads.filter((l) => l.status === 'CONVERTED').length;
           const totalWonDeals = Math.max(verifiedPayments.length, convertedLeadsCount);
           const avgDealValue = totalWonDeals > 0 ? Math.round(effectiveTotalRevenue / totalWonDeals) : 0;
@@ -3239,7 +3251,8 @@ export const AdminDashboardView: React.FC = () => {
 
               const dealsCount = Math.max(repVerifiedPayments.length, repConvertedLeads.length);
               const paymentsRevenue = repVerifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
-              const salesAchieved = Math.max(m.salesAchieved || 0, paymentsRevenue);
+              const leadsRevenue = repConvertedLeads.reduce((sum, l) => sum + (l.dealValue || 0), 0);
+              const salesAchieved = Math.max(m.salesAchieved || 0, paymentsRevenue, leadsRevenue);
               const target = m.salesTarget || 500000;
               const targetPercent = Math.min(100, Math.round((salesAchieved / Math.max(1, target)) * 100));
 

@@ -162,7 +162,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
   const presentCount = teamMembers.filter(m => m.attendanceStatus === 'PRESENT').length;
   const onLeaveCount = teamMembers.filter(m => m.attendanceStatus === 'ON_LEAVE').length;
   // HR only sees leaves pending at their stage (PENDING_HR)
-  const pendingLeaves = leaveRequests.filter(r => r.approvalStage === 'PENDING_HR' || (!r.approvalStage && r.status === 'PENDING'));
+  const pendingLeaves = leaveRequests.filter(r => r.status === 'PENDING' && r.approvalStage === 'PENDING_HR');
   
   const uniquePayments = useMemo<PaymentVerificationItem[]>(() => {
     const seen = new Set<string>();
@@ -1759,13 +1759,27 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                     }`}>
                       {req.status}
                     </span>
-                    {(req.approvalStage === 'PENDING_HR' || (!req.approvalStage && req.status === 'PENDING')) && (
+                    {(req.status === 'PENDING' && req.approvalStage === 'PENDING_HR') && (
+                      <>
                       <button
                         onClick={() => approveLeaveRequest(req.id)}
                         className="py-1 px-3 bg-[#00C9A7] text-[#0A2540] font-bold text-xs rounded-lg"
                       >
                         Forward to Admin
                       </button>
+                      <button
+                        onClick={() => rejectLeaveRequest(req.id, 'Rejected by HR')}
+                        className="py-1 px-3 bg-white border border-rose-200 text-rose-600 font-bold text-xs rounded-lg"
+                      >
+                        Reject
+                      </button>
+                      </>
+                    )}
+                    {req.status === 'PENDING' && req.approvalStage === 'PENDING_TEAM_LEADER' && (
+                      <span className="text-[10px] text-slate-400 italic">Awaiting TL</span>
+                    )}
+                    {req.status === 'PENDING' && req.approvalStage === 'PENDING_ADMIN' && (
+                      <span className="text-[10px] text-slate-400 italic">Awaiting Admin</span>
                     )}
                   </div>
                 </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useScreenData } from '../../hooks/useScreenData';
 import { 
@@ -17,6 +17,7 @@ import { getTodayDateIST } from '../../utils/dateUtils';
 
 export const DesktopAttendanceLeaves: React.FC = () => {
   const { 
+    currentUser,
     profile, 
     attendanceLogs, 
     leaveRequests, 
@@ -27,6 +28,19 @@ export const DesktopAttendanceLeaves: React.FC = () => {
   } = useApp();
 
   useScreenData('attendanceLeaves');
+
+  const myLeaveRequests = useMemo(() => {
+    const validIds = new Set([currentUser?.id, currentUser?.employeeId, profile.id].filter(Boolean));
+    const validCodes = new Set([currentUser?.empCode, profile.empCode].filter(Boolean));
+    const validName = (currentUser?.name || profile.name || '').trim().toLowerCase();
+
+    return leaveRequests.filter(req => {
+      if (req.employeeId && validIds.has(req.employeeId)) return true;
+      if (req.employeeCode && validCodes.has(req.employeeCode)) return true;
+      if (req.employeeName && validName && req.employeeName.trim().toLowerCase() === validName) return true;
+      return false;
+    });
+  }, [leaveRequests, currentUser, profile]);
 
   // Navigable month calendar
   const today = new Date();
@@ -215,33 +229,49 @@ export const DesktopAttendanceLeaves: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {leaveRequests.map((req) => (
-                    <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-2 font-bold text-[#0A2540]">{req.leaveType}</td>
-                      <td className="py-3 px-2 font-mono text-slate-600">{req.fromDate} to {req.toDate}</td>
-                      <td className="py-3 px-2 font-mono font-bold text-slate-800">{req.totalDays} Day(s)</td>
-                      <td className="py-3 px-2 text-slate-600 max-w-xs truncate">{req.reason}</td>
-                      <td className="py-3 px-2">
-                        <span className={`inline-block text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${
-                          req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
-                          req.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' :
-                          'bg-amber-100 text-amber-800'
-                        }`}>
-                          {req.status}
-                        </span>
-                      </td>
-                      <td className={`py-3 px-2 text-right font-semibold text-xs ${
-                        req.status === 'REJECTED' ? 'text-rose-600' :
-                        req.approvedBy ? 'text-emerald-700' : 'text-slate-500'
-                      }`}>
-                        {req.approvedBy
-                          ? req.status === 'REJECTED'
-                            ? req.approvedBy
-                            : `✓ Approved by ${req.approvedBy}`
-                          : 'Pending TL Review'}
+                  {myLeaveRequests.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-xs text-slate-400">
+                        No leave requests submitted yet. Click "Apply Leave" above to submit a request.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    myLeaveRequests.map((req) => (
+                      <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 px-2 font-bold text-[#0A2540]">{req.leaveType}</td>
+                        <td className="py-3 px-2 font-mono text-slate-600">{req.fromDate} to {req.toDate}</td>
+                        <td className="py-3 px-2 font-mono font-bold text-slate-800">{req.totalDays} Day(s)</td>
+                        <td className="py-3 px-2 text-slate-600 max-w-xs truncate">{req.reason}</td>
+                        <td className="py-3 px-2">
+                          <span className={`inline-block text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${
+                            req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
+                            req.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' :
+                            'bg-amber-100 text-amber-800'
+                          }`}>
+                            {req.status}
+                          </span>
+                        </td>
+                        <td className={`py-3 px-2 text-right font-semibold text-xs ${
+                          req.status === 'REJECTED' ? 'text-rose-600' :
+                          req.status === 'APPROVED' ? 'text-emerald-700' :
+                          req.approvalStage === 'PENDING_ADMIN' ? 'text-purple-700' :
+                          req.approvalStage === 'PENDING_HR' ? 'text-sky-700' : 'text-amber-700'
+                        }`}>
+                          {req.status === 'APPROVED'
+                            ? `✓ Approved by ${req.approvedBy || 'Super Admin'}`
+                            : req.status === 'REJECTED'
+                            ? (req.approvedBy || `Rejected: ${req.rejectionReason || 'Operational constraint'}`)
+                            : req.approvalStage === 'PENDING_TEAM_LEADER'
+                            ? 'Stage 1/3: Pending TL Approval'
+                            : req.approvalStage === 'PENDING_HR'
+                            ? 'Stage 2/3: Approved by TL • Pending HR'
+                            : req.approvalStage === 'PENDING_ADMIN'
+                            ? 'Stage 3/3: Approved by HR • Pending Admin'
+                            : 'Pending Review'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

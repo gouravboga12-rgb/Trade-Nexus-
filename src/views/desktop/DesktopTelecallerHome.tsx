@@ -70,24 +70,19 @@ export const DesktopTelecallerHome: React.FC = () => {
 
   const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 
-  // User's assigned leads & pipeline breakdown
+  // User's assigned leads & pipeline breakdown strictly for this authenticated employee
   const userLeads = useMemo(() => {
-    if (currentUser?.role === 'telecaller' || currentUser?.role === 'employee') {
-      return assignedLeads;
-    }
     const validIds = new Set(
       [currentUser?.id, currentUser?.employeeId, currentUser?.empCode, profile?.id, profile?.empCode]
         .filter(Boolean)
     );
     const validName = (currentUser?.name || profile?.name || '').trim().toLowerCase();
 
-    const filtered = assignedLeads.filter((l: AssignedLead) => {
+    return (assignedLeads || []).filter((l: AssignedLead) => {
       const matchesId = validIds.has(l.assignedToEmployeeId);
       const matchesName = validName && l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === validName;
-      return matchesId || matchesName || l.assignedToEmployeeId === 'emp-101';
+      return Boolean(matchesId || matchesName);
     });
-
-    return filtered.length > 0 ? filtered : assignedLeads;
   }, [assignedLeads, currentUser, profile]);
 
   const wonCount = userLeads.filter((l: AssignedLead) => l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0)).length;
@@ -112,22 +107,37 @@ export const DesktopTelecallerHome: React.FC = () => {
     return 60;
   }, [stats.todayGoalCalls, userLeads]);
 
+  // Strictly filter call logs belonging to this employee
+  const myCallLogs = useMemo(() => {
+    const validIds = new Set(
+      [currentUser?.id, currentUser?.employeeId, currentUser?.empCode, profile?.id, profile?.empCode]
+        .filter(Boolean)
+    );
+    const validName = (currentUser?.name || profile?.name || '').trim().toLowerCase();
+
+    return (callLogs || []).filter((c) => {
+      const matchId = validIds.has(c.employeeId);
+      const matchClient = validName && c.clientName && c.clientName.toLowerCase() === validName;
+      return Boolean(matchId || matchClient);
+    });
+  }, [callLogs, currentUser, profile]);
+
   const totalDialsCount = useMemo(() => {
     const fromLeads = userLeads.reduce((sum, l) => sum + (l.callCount || (l.status !== 'PENDING' ? 1 : 0)), 0);
-    const fromLogs = (callLogs || []).length;
+    const fromLogs = myCallLogs.length;
     return Math.max(fromLeads, fromLogs, stats.dialsMade || 0);
-  }, [userLeads, callLogs, stats.dialsMade]);
+  }, [userLeads, myCallLogs, stats.dialsMade]);
 
   const effectiveConnected = useMemo(() => {
-    const fromLogs = (callLogs || []).filter(c => c.outcome === 'CONNECTED' || c.outcome === 'INTERESTED' || c.outcome === 'DEAL_CLOSED').length;
+    const fromLogs = myCallLogs.filter(c => c.outcome === 'CONNECTED' || c.outcome === 'INTERESTED' || c.outcome === 'DEAL_CLOSED').length;
     return Math.max(fromLogs, wonCount, stats.connected || 0);
-  }, [callLogs, wonCount, stats.connected]);
+  }, [myCallLogs, wonCount, stats.connected]);
 
   const effectiveInterested = useMemo(() => {
     const fromLeads = userLeads.filter(l => l.status === 'INTERESTED').length;
-    const fromLogs = (callLogs || []).filter(c => c.outcome === 'INTERESTED').length;
+    const fromLogs = myCallLogs.filter(c => c.outcome === 'INTERESTED').length;
     return Math.max(fromLeads, fromLogs, stats.interested || 0);
-  }, [userLeads, callLogs, stats.interested]);
+  }, [userLeads, myCallLogs, stats.interested]);
 
   const goalPercentage = effectiveTodayGoal > 0 ? Math.min(100, Math.round((totalDialsCount / effectiveTodayGoal) * 100)) : 0;
   const tgtPercentage = Math.round((wonDealsRevenue / Math.max(1, effectiveMonthlyTarget)) * 100);

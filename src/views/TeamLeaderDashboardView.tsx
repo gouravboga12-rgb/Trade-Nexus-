@@ -37,6 +37,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
     currentUser,
     profile,
     teamMembers, 
+    teamGroups,
     teamMeetings,
     leaveRequests, 
     assignedLeads,
@@ -144,8 +145,53 @@ export const TeamLeaderDashboardView: React.FC = () => {
     return teamMembers.filter(m => m.salesAchieved > 0).length;
   }, [assignedLeads, teamMembers]);
 
-  // Team Leader only sees leaves pending at their stage
-  const pendingLeaves = leaveRequests.filter(r => r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING'));
+  // Squad identification: Determine the team(s) led by this Team Leader
+  const leaderNameLower = (currentUser?.name || profile?.name || '').trim().toLowerCase();
+  const leaderEmpCode = (currentUser?.empCode || profile?.empCode || '').trim();
+  const leaderId = currentUser?.employeeId || currentUser?.id || profile?.id;
+
+  const mySquadGroups = useMemo(() => {
+    const groups = new Set<string>();
+    (teamGroups || []).forEach(g => {
+      if (g.leaderName && g.leaderName.trim().toLowerCase() === leaderNameLower) {
+        groups.add(g.name.toLowerCase());
+      }
+    });
+    if (profile?.teamName) groups.add(profile.teamName.toLowerCase());
+    if ((profile as any)?.team) groups.add(String((profile as any).team).toLowerCase());
+    if ((currentUser as any)?.group) groups.add(String((currentUser as any).group).toLowerCase());
+    if ((currentUser as any)?.groupName) groups.add(String((currentUser as any).groupName).toLowerCase());
+    return groups;
+  }, [teamGroups, leaderNameLower, profile, currentUser]);
+
+  const isSquadMember = (memOrEmpCode?: string, memName?: string, memTeam?: string) => {
+    if (memTeam && mySquadGroups.has(memTeam.toLowerCase())) return true;
+    if (memOrEmpCode) {
+      const found = teamMembers.find(m => m.id === memOrEmpCode || m.empCode === memOrEmpCode);
+      if (found?.group && mySquadGroups.has(found.group.toLowerCase())) return true;
+    }
+    if (memName) {
+      const found = teamMembers.find(m => m.name.toLowerCase() === memName.toLowerCase());
+      if (found?.group && mySquadGroups.has(found.group.toLowerCase())) return true;
+    }
+    // If no groups found, allow if not the leader themselves
+    if (mySquadGroups.size === 0) return true;
+    return false;
+  };
+
+  // Leaves visible to this TL: leaves belonging strictly to their squad members (excluding the TL themselves)
+  const squadLeaveRequests = useMemo(() => {
+    return leaveRequests.filter(req => {
+      const isSelf = req.employeeId === leaderId || req.employeeCode === leaderEmpCode || (req.employeeName && req.employeeName.toLowerCase() === leaderNameLower);
+      if (isSelf) return false;
+      return isSquadMember(req.employeeId || req.employeeCode, req.employeeName, req.teamName);
+    });
+  }, [leaveRequests, mySquadGroups, leaderId, leaderEmpCode, leaderNameLower, teamMembers]);
+
+  // Team Leader only sees squad leaves pending at their stage
+  const pendingLeaves = useMemo(() => {
+    return squadLeaveRequests.filter(r => r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING'));
+  }, [squadLeaveRequests]);
 
   // Calendar calculations driven by attendanceLogs
   const monthAnchor = useMemo(() => {
@@ -1305,9 +1351,9 @@ export const TeamLeaderDashboardView: React.FC = () => {
                   <span className="text-xs font-bold text-slate-500">Filter Requests:</span>
                   <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
                     {[
-                      { id: 'PENDING', label: 'Pending', count: leaveRequests.filter(r => r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING')).length },
-                      { id: 'APPROVED', label: 'Approved', count: leaveRequests.filter(r => r.status === 'APPROVED').length },
-                      { id: 'REJECTED', label: 'Rejected', count: leaveRequests.filter(r => r.status === 'REJECTED').length },
+                      { id: 'PENDING', label: 'Pending', count: squadLeaveRequests.filter(r => r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING')).length },
+                      { id: 'APPROVED', label: 'Approved', count: squadLeaveRequests.filter(r => r.status === 'APPROVED').length },
+                      { id: 'REJECTED', label: 'Rejected', count: squadLeaveRequests.filter(r => r.status === 'REJECTED').length },
                     ].map(s => (
                       <button
                         key={s.id}
@@ -1328,16 +1374,16 @@ export const TeamLeaderDashboardView: React.FC = () => {
                 </div>
 
                 <div className="space-y-3">
-                  {leaveRequests.filter(r => approvalsFilter === 'PENDING' 
+                  {squadLeaveRequests.filter(r => approvalsFilter === 'PENDING' 
                     ? (r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING'))
                     : r.status === approvalsFilter).length === 0 ? (
                     <div className="text-center py-8 bg-white border border-slate-200 rounded-2xl p-4 space-y-2">
                       <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
                       <span className="text-xs font-bold text-slate-700 block">No {approvalsFilter.toLowerCase()} requests</span>
-                      <span className="text-[10px] text-slate-400 block">All leave requests in this category have been processed.</span>
+                      <span className="text-[10px] text-slate-400 block">All squad leave requests in this category have been processed.</span>
                     </div>
                   ) : (
-                    leaveRequests.filter(r => approvalsFilter === 'PENDING'
+                    squadLeaveRequests.filter(r => approvalsFilter === 'PENDING'
                       ? (r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING'))
                       : r.status === approvalsFilter).map((req) => (
                       <div key={req.id} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2.5">

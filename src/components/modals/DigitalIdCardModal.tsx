@@ -34,12 +34,13 @@ export const DigitalIdCardModal: React.FC = () => {
     updateEmployeeAvatar, 
     updateEmployee, 
     currentRole,
+    currentUser,
   } = useApp();
 
   // Only Admin and HR can edit/upload/switch employees on ID cards
   const canEditIdCard = currentRole === 'admin' || currentRole === 'hr';
 
-  const defaultEmpId = selectedIdCardEmpId || (canEditIdCard && teamMembers.length > 0 ? teamMembers[0].id : profile.id || 'emp-101');
+  const defaultEmpId = selectedIdCardEmpId || (canEditIdCard && teamMembers.length > 0 ? teamMembers[0].id : (profile.id || currentUser?.employeeId || currentUser?.id || teamMembers[0]?.id || ''));
   const [selectedEmpId, setSelectedEmpId] = useState<string>(defaultEmpId);
   const [customPhotoUrl, setCustomPhotoUrl] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);

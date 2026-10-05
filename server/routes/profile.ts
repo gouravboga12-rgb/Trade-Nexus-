@@ -93,8 +93,8 @@ function mergedProfile(user?: any, queryEmpId?: string) {
     } catch {}
   }
 
-  // Fallback to first profile row only if no user context was provided
-  if (!profile) {
+  // Fallback to first profile row ONLY if completely unauthenticated with no user context
+  if (!profile && !user) {
     profile = db.prepare('SELECT * FROM employee_profiles LIMIT 1').get() as any;
   }
   if (!profile) return null;

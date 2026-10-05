@@ -40,7 +40,7 @@ export const ClientsPipelineView: React.FC = () => {
     return assignedLeads.filter((l) => {
       const matchesId = validIds.has(l.assignedToEmployeeId);
       const matchesName = validName && l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === validName;
-      const isMine = matchesId || matchesName || (!l.assignedToEmployeeId && validIds.has('emp-101'));
+      const isMine = Boolean(matchesId || matchesName);
       return isMine && (l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0));
     });
   }, [assignedLeads, profile, currentUser]);

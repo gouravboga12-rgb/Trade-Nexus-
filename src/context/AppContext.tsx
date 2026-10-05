@@ -2094,49 +2094,76 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     triggerToast(`✓ ${leaderName} assigned as Team Leader to ${targetGroup?.name || 'Group'}`);
   };
 
-  // Team Leader & Admin Leave Actions
+  // Team Leader, HR & Admin Hierarchical Leave Actions
   const approveLeaveRequest = async (id: string) => {
+    const approverName = profile.name || currentUser?.name || (currentRole === 'admin' ? 'Super Admin' : currentRole === 'hr' ? 'HR Manager' : 'Team Leader');
     const approverTitle = currentRole === 'admin' ? 'Super Admin' : currentRole === 'hr' ? 'HR Manager' : (profile.name ? `${profile.name} (Team Leader)` : 'Team Leader');
+    const nowIso = new Date().toISOString();
+
     setLeaveRequests(prev => prev.map(req => {
       if (req.id !== id) return req;
-      const currentStage = req.approvalStage || 'PENDING_TEAM_LEADER';
       let nextStage: LeaveRequest['approvalStage'] = 'APPROVED';
       let nextStatus: LeaveRequest['status'] = 'APPROVED';
+      let updated: LeaveRequest = { ...req };
+
       // Advance stage based on current approver role
       if (currentRole === 'team_leader') {
-        // Team leader approves → goes to HR
+        // Team leader approves → advances to HR
         nextStage = 'PENDING_HR';
         nextStatus = 'PENDING';
+        updated = {
+          ...req,
+          approvalStage: nextStage,
+          status: nextStatus,
+          teamLeaderApprovedBy: approverName,
+          teamLeaderApprovedAt: nowIso,
+        };
       } else if (currentRole === 'hr') {
-        // HR approves → goes to Admin
+        // HR approves → advances to Admin
         nextStage = 'PENDING_ADMIN';
         nextStatus = 'PENDING';
+        updated = {
+          ...req,
+          approvalStage: nextStage,
+          status: nextStatus,
+          hrApprovedBy: approverName,
+          hrApprovedAt: nowIso,
+        };
       } else {
-        // Admin final approval
+        // Admin final approval → APPROVED
         nextStage = 'APPROVED';
         nextStatus = 'APPROVED';
+        updated = {
+          ...req,
+          approvalStage: nextStage,
+          status: nextStatus,
+          adminApprovedBy: approverName,
+          adminApprovedAt: nowIso,
+          approvedBy: approverTitle,
+        };
       }
-      const updated: LeaveRequest = {
-        ...req,
-        approvalStage: nextStage,
-        status: nextStatus,
-        approvedBy: nextStatus === 'APPROVED' ? approverTitle : undefined,
-      };
+
       api.updateLeave(id, updated).catch(console.warn);
       return updated;
     }));
+
     const stageMsg = currentRole === 'team_leader' ? 'forwarded to HR' : currentRole === 'hr' ? 'forwarded to Admin' : 'APPROVED';
     triggerToast(`✓ Leave request ${stageMsg} by ${approverTitle}`);
   };
 
   const rejectLeaveRequest = async (id: string, reason: string) => {
     const rejectorTitle = currentRole === 'admin' ? 'Admin' : currentRole === 'hr' ? 'HR' : 'Team Leader';
+    const rejectorName = profile.name || currentUser?.name || rejectorTitle;
+    const targetLeave = leaveRequests.find(r => r.id === id);
+
     setLeaveRequests(prev => prev.map(req => {
       if (req.id === id) {
         const updated: LeaveRequest = {
           ...req,
           status: 'REJECTED',
           approvalStage: 'REJECTED',
+          rejectedBy: `${rejectorName} (${rejectorTitle})`,
+          rejectionReason: reason || 'Operational requirements',
           approvedBy: `Rejected by ${rejectorTitle}: ${reason || 'Operational requirements'}`,
         };
         api.updateLeave(id, updated).catch(console.warn);
@@ -2144,6 +2171,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
       return req;
     }));
+
+    // If the rejected leave belongs to the current user, refund in UI profile state
+    if (targetLeave && (targetLeave.employeeId === profile.id || targetLeave.employeeCode === profile.empCode || (targetLeave.employeeName && targetLeave.employeeName.toLowerCase() === (profile.name || '').toLowerCase()))) {
+      setProfile(prev => ({
+        ...prev,
+        totalLeaveBalance: prev.totalLeaveBalance + (targetLeave.totalDays || 0)
+      }));
+    }
+
     triggerToast(`✗ Leave request REJECTED by ${rejectorTitle}`);
   };
 
@@ -2945,6 +2981,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       employeeCode: profile.empCode,
       employeeId: currentUser?.employeeId || currentUser?.id || profile.id,
       employeeRole: empRole,
+      teamName: profile.teamName || (profile as any).team || (currentUser as any)?.group || (currentUser as any)?.groupName || (teamMembers.find(m => m.id === profile.id || m.empCode === profile.empCode)?.group) || '',
       leaveType: data.leaveType,
       fromDate: data.fromDate,
       toDate: data.toDate,
@@ -2965,10 +3002,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     triggerToast(toastMsg);
 
     try {
-      await Promise.all([
-        api.createLeave(newLeave),
-        api.updateProfile(updatedProfile)
-      ]);
+      // Server deducts the applicant's balance atomically on create
+      await api.createLeave(newLeave);
     } catch (err) {
       console.warn('API leave submit error:', err);
     }

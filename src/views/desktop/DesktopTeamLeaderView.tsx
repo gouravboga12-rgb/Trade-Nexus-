@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useListDefault } from '../../hooks/useListDefault';
 import { useScreenData } from '../../hooks/useScreenData';
@@ -124,8 +124,6 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
 
   const leaderName = currentUser?.name?.trim() || profile?.name?.trim() || 'Team Leader';
 
-  // Team Leader only sees leaves pending at their stage
-  const pendingLeaves = leaveRequests.filter(r => r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING'));
 
   // Leave Approvals filter & search
   const [leaveStatusFilter, setLeaveStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
@@ -134,12 +132,42 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
   // Performance Reports timeframe
   const [reportsTimeframe, setReportsTimeframe] = useState<'today' | 'week' | 'month'>('month');
 
-  // Leave metrics
-  const pendingLeavesCount = leaveRequests.filter(r => r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING')).length;
-  const approvedLeavesCount = leaveRequests.filter(r => r.status === 'APPROVED').length;
-  const rejectedLeavesCount = leaveRequests.filter(r => r.status === 'REJECTED').length;
+  // Squad scoping: TL only sees leave requests of members in the team(s) they lead
+  const tlNameLower = (currentUser?.name || profile?.name || '').trim().toLowerCase();
+  const tlEmpCode = (currentUser?.empCode || profile?.empCode || '').trim();
+  const tlId = currentUser?.employeeId || currentUser?.id || profile?.id;
+  const tlSquadGroups = useMemo(() => {
+    const groups = new Set<string>();
+    (teamGroups || []).forEach(g => {
+      if (g.leaderName && g.leaderName.trim().toLowerCase() === tlNameLower) groups.add(g.name.toLowerCase());
+    });
+    if (profile?.teamName) groups.add(profile.teamName.toLowerCase());
+    return groups;
+  }, [teamGroups, tlNameLower, profile]);
 
-  const filteredLeaves = leaveRequests.filter(req => {
+  const squadLeaveRequests = useMemo(() => leaveRequests.filter(req => {
+    const isSelf = req.employeeId === tlId || (tlEmpCode && req.employeeCode === tlEmpCode) ||
+      (req.employeeName && req.employeeName.trim().toLowerCase() === tlNameLower);
+    if (isSelf) return false;
+    if (tlSquadGroups.size === 0) return true;
+    if (req.teamName && tlSquadGroups.has(req.teamName.toLowerCase())) return true;
+    const mem = teamMembers.find(m =>
+      (req.employeeId && m.id === req.employeeId) ||
+      (req.employeeCode && m.empCode === req.employeeCode) ||
+      (req.employeeName && m.name.toLowerCase() === req.employeeName.toLowerCase())
+    );
+    return Boolean(mem?.group && tlSquadGroups.has(mem.group.toLowerCase()));
+  }), [leaveRequests, tlSquadGroups, teamMembers, tlId, tlEmpCode, tlNameLower]);
+
+  // Team Leader only sees squad leaves pending at their stage
+  const pendingLeaves = squadLeaveRequests.filter(r => r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING'));
+
+  // Leave metrics
+  const pendingLeavesCount = squadLeaveRequests.filter(r => r.approvalStage === 'PENDING_TEAM_LEADER' || (!r.approvalStage && r.status === 'PENDING')).length;
+  const approvedLeavesCount = squadLeaveRequests.filter(r => r.status === 'APPROVED').length;
+  const rejectedLeavesCount = squadLeaveRequests.filter(r => r.status === 'REJECTED').length;
+
+  const filteredLeaves = squadLeaveRequests.filter(req => {
     const matchesFilter = leaveStatusFilter === 'ALL'
       ? true
       : leaveStatusFilter === 'PENDING'
@@ -976,7 +1004,7 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
                     leaveStatusFilter === 'ALL' ? 'bg-white text-[#0A2540] shadow-xs' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
-                  All History ({leaveRequests.length})
+                  All History ({squadLeaveRequests.length})
                 </button>
               </div>
 
@@ -1058,7 +1086,7 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
                           </span>
                         </td>
                         <td className="py-3.5 text-right pr-2">
-                          {req.status === 'PENDING' ? (
+                          {(req.approvalStage === 'PENDING_TEAM_LEADER' || (!req.approvalStage && req.status === 'PENDING')) ? (
                             <div className="flex items-center justify-end gap-2">
                               <button
                                 onClick={() => approveLeaveRequest(req.id)}
@@ -1077,7 +1105,9 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
                             </div>
                           ) : (
                             <span className="text-[11px] text-slate-400 italic">
-                              {req.approvedBy ? `Actioned by ${req.approvedBy}` : 'Processed'}
+                              {req.status === 'PENDING'
+                                ? (req.approvalStage === 'PENDING_HR' ? 'Forwarded • Pending HR' : req.approvalStage === 'PENDING_ADMIN' ? 'Forwarded • Pending Admin' : 'Pending')
+                                : (req.approvedBy ? `Actioned by ${req.approvedBy}` : 'Processed')}
                             </span>
                           )}
                         </td>

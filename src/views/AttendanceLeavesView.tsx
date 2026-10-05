@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useScreenData } from '../hooks/useScreenData';
 import { 
@@ -17,6 +17,7 @@ import { getTodayDateIST } from '../utils/dateUtils';
 
 export const AttendanceLeavesView: React.FC = () => {
   const { 
+    currentUser,
     attendanceLogs, 
     leaveRequests, 
     setIsLeaveModalOpen, 
@@ -29,6 +30,19 @@ export const AttendanceLeavesView: React.FC = () => {
 
   useScreenData('attendanceLeaves');
   const [activeSubTab, setActiveSubTab] = useState<'attendance' | 'leaves'>('attendance');
+
+  const myLeaveRequests = useMemo(() => {
+    const validIds = new Set([currentUser?.id, currentUser?.employeeId, profile.id].filter(Boolean));
+    const validCodes = new Set([currentUser?.empCode, profile.empCode].filter(Boolean));
+    const validName = (currentUser?.name || profile.name || '').trim().toLowerCase();
+
+    return leaveRequests.filter(req => {
+      if (req.employeeId && validIds.has(req.employeeId)) return true;
+      if (req.employeeCode && validCodes.has(req.employeeCode)) return true;
+      if (req.employeeName && validName && req.employeeName.trim().toLowerCase() === validName) return true;
+      return false;
+    });
+  }, [leaveRequests, currentUser, profile]);
 
   // Navigable month calendar
   const today = new Date();
@@ -290,47 +304,68 @@ export const AttendanceLeavesView: React.FC = () => {
           {/* Requests History List */}
           <div className="space-y-2.5">
             <h4 className="font-display font-bold text-xs text-slate-500 px-1">Leave Requests History</h4>
-            {leaveRequests.map((req) => (
-              <div key={req.id} className="nexus-card p-3.5 bg-white border border-slate-200 shadow-sm space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-display font-bold text-sm text-[#0A2540]">{req.leaveType}</span>
-                  <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${
-                    req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : 
-                    req.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' :
-                    'bg-amber-100 text-amber-800'
-                  }`}>
-                    {req.status}
-                  </span>
-                </div>
-
-                <div className="text-xs font-mono text-slate-600">
-                  <span>{req.fromDate} to {req.toDate}</span> • <strong>{req.totalDays} Day(s)</strong>
-                </div>
-
-                <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                  {req.reason}
-                </p>
-
-
-                {req.approvedBy && (
-                  <div className={`text-[10px] font-semibold flex items-center gap-1 ${
-                    req.status === 'REJECTED' ? 'text-rose-600' : 'text-emerald-700'
-                  }`}>
-                    {req.status === 'REJECTED' ? (
-                      <span className="w-3 h-3 flex-shrink-0">✗</span>
-                    ) : (
-                      <CheckCircle2 className="w-3 h-3" />
-                    )}
-                    <span>
-                      {req.status === 'REJECTED'
-                        ? req.approvedBy
-                        : `Approved by ${req.approvedBy}`}
+            {myLeaveRequests.length === 0 ? (
+              <div className="nexus-card p-6 text-center text-xs text-slate-400 bg-white border border-slate-200">
+                No leave requests submitted yet. Tap "Apply Leave" above to submit a request.
+              </div>
+            ) : (
+              myLeaveRequests.map((req) => (
+                <div key={req.id} className="nexus-card p-3.5 bg-white border border-slate-200 shadow-sm space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-display font-bold text-sm text-[#0A2540]">{req.leaveType}</span>
+                    <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${
+                      req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : 
+                      req.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' :
+                      'bg-amber-100 text-amber-800'
+                    }`}>
+                      {req.status}
                     </span>
                   </div>
-                )}
 
-              </div>
-            ))}
+                  <div className="text-xs font-mono text-slate-600">
+                    <span>{req.fromDate} to {req.toDate}</span> • <strong>{req.totalDays} Day(s)</strong>
+                  </div>
+
+                  <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                    {req.reason}
+                  </p>
+
+                  <div className="text-[10px] font-semibold flex items-center gap-1.5 pt-1 border-t border-slate-100">
+                    {req.status === 'APPROVED' ? (
+                      <span className="text-emerald-700 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Approved by {req.approvedBy || 'Super Admin'}</span>
+                      </span>
+                    ) : req.status === 'REJECTED' ? (
+                      <span className="text-rose-600 flex items-center gap-1">
+                        <span className="w-3.5 h-3.5 font-black text-xs">✗</span>
+                        <span>{req.approvedBy || `Rejected by ${req.rejectedBy || 'Management'}: ${req.rejectionReason || 'Operational constraint'}`}</span>
+                      </span>
+                    ) : req.approvalStage === 'PENDING_TEAM_LEADER' ? (
+                      <span className="text-amber-700 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Stage 1/3: Pending Team Leader Approval</span>
+                      </span>
+                    ) : req.approvalStage === 'PENDING_HR' ? (
+                      <span className="text-sky-700 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Stage 2/3: Approved by TL • Pending HR Sanction</span>
+                      </span>
+                    ) : req.approvalStage === 'PENDING_ADMIN' ? (
+                      <span className="text-purple-700 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Stage 3/3: Approved by HR • Pending Super Admin Approval</span>
+                      </span>
+                    ) : (
+                      <span className="text-amber-700 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Pending Review</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}

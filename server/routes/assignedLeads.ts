@@ -116,7 +116,7 @@ router.post('/bulk', (req: Request, res: Response) => {
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(
       batchId, fileName || 'imported_leads.xlsx', 'Just now',
-      Array.isArray(leads) ? leads.length : 0, targetEmployeeName || 'Employee', targetEmployeeId || 'emp-101'
+      Array.isArray(leads) ? leads.length : 0, targetEmployeeName || 'Employee', targetEmployeeId || null
     );
 
     // 2. Insert assigned leads in a transaction

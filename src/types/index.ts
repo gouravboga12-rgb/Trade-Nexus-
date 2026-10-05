@@ -137,12 +137,16 @@ export interface LeaveRequest {
    * hr          → PENDING_ADMIN → APPROVED
    */
   approvalStage?: 'PENDING_TEAM_LEADER' | 'PENDING_HR' | 'PENDING_ADMIN' | 'APPROVED' | 'REJECTED';
+  teamName?: string;
   appliedOn: string;
   approvedBy?: string;
   rejectedBy?: string;
   rejectionReason?: string;
+  teamLeaderApprovedBy?: string;
   teamLeaderApprovedAt?: string;
+  hrApprovedBy?: string;
   hrApprovedAt?: string;
+  adminApprovedBy?: string;
   adminApprovedAt?: string;
 }
 

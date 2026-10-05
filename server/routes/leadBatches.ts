@@ -24,7 +24,7 @@ router.post('/', (req: Request, res: Response) => {
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(
       batchId, fileName || 'Batch.xlsx', uploadedAt || 'Just now',
-      totalLeads ? Number(totalLeads) : 0, assignedToEmployeeName || 'Employee', assignedToEmployeeId || 'emp-101'
+      totalLeads ? Number(totalLeads) : 0, assignedToEmployeeName || 'Employee', assignedToEmployeeId || null
     );
 
     const created = db.prepare('SELECT * FROM lead_batches WHERE id = ?').get(batchId);

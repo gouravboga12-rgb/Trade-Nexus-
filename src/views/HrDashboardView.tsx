@@ -301,7 +301,7 @@ export const HrDashboardView: React.FC = () => {
     leaveRequests.filter((r) => {
       // Exclude deleted employees
       if (r.employeeName && !activeEmpNames.has(r.employeeName.toLowerCase())) return false;
-      return r.approvalStage === 'PENDING_HR' || (!r.approvalStage && r.status === 'PENDING');
+      return r.status === 'PENDING' && r.approvalStage === 'PENDING_HR';
     }).length;
 
   const pendingPaymentsCount = paymentVerifications.filter((p) => p.status === 'PENDING_HR_AUDIT').length;
@@ -317,7 +317,7 @@ export const HrDashboardView: React.FC = () => {
     if (!r.employeeName) return true;
     return activeEmpNames.has(r.employeeName.toLowerCase());
   }), [leaveRequests, activeEmpNames]);
-  const pendingLeaves = useMemo(() => activeLeaveRequests.filter((r) => r.approvalStage === 'PENDING_HR' || (!r.approvalStage && r.status === 'PENDING')), [activeLeaveRequests]);
+  const pendingLeaves = useMemo(() => activeLeaveRequests.filter((r) => r.status === 'PENDING' && r.approvalStage === 'PENDING_HR'), [activeLeaveRequests]);
   const approvedLeaves = useMemo(() => activeLeaveRequests.filter((r) => r.status === 'APPROVED'), [activeLeaveRequests]);
   const rejectedLeaves = useMemo(() => activeLeaveRequests.filter((r) => r.status === 'REJECTED'), [activeLeaveRequests]);
 

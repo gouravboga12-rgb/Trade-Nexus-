@@ -51,24 +51,19 @@ export const DesktopDailyCalling: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<DatePeriod>('TODAY');
   const [customDate, setCustomDate] = useState<string>('');
 
-  // Leads allocated to this telecaller (server already scopes, keep robust fallback)
+  // Leads allocated strictly to this telecaller
   const myAssignedLeads = useMemo(() => {
-    if (currentUser?.role === 'telecaller' || currentUser?.role === 'employee') {
-      return assignedLeads;
-    }
     const validIds = new Set(
       [currentUser?.id, currentUser?.employeeId, currentUser?.empCode, profile?.id, profile?.empCode]
         .filter(Boolean)
     );
     const validName = (currentUser?.name || profile?.name || '').trim().toLowerCase();
 
-    const filtered = assignedLeads.filter((l: AssignedLead) => {
+    return (assignedLeads || []).filter((l: AssignedLead) => {
       const matchesId = validIds.has(l.assignedToEmployeeId);
       const matchesName = validName && l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === validName;
-      return matchesId || matchesName;
+      return Boolean(matchesId || matchesName);
     });
-
-    return filtered.length > 0 ? filtered : assignedLeads;
   }, [assignedLeads, profile, currentUser]);
 
   const uncalledLeads = useMemo(() => myAssignedLeads.filter((l) => l.status === 'PENDING'), [myAssignedLeads]);

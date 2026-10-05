@@ -330,6 +330,13 @@ router.post('/', (req: Request, res: Response) => {
           memberId
         );
       }
+
+      // 4. Insert isolated clean baseline stats for this employee
+      db.prepare(`
+        INSERT OR IGNORE INTO telecaller_stats (
+          id, todayGoalCalls, dialsMade, connected, interested, rejected, averageCallDurationSec, monthlySalesTarget, monthlySalesAchieved
+        ) VALUES (?, ?, 0, 0, 0, 0, 0, ?, 0)
+      `).run(`stat-${memberId}`, goalCalls ? Number(goalCalls) : 60, salesTarget ? Number(salesTarget) : 200000);
     });
 
     createAtomic();

@@ -55,14 +55,10 @@ router.get('/', (req: Request, res: Response) => {
       `).get(targetId, targetEmpCode, user?.name || '', todayStr, `${todayStr}%`) as any;
     }
 
-    // 4. Look up baseline stats row if one exists for this employee
+    // 4. Look up baseline stats row strictly for this employee
     let stats = targetId
-      ? (db.prepare('SELECT * FROM telecaller_stats WHERE id = ?').get(`stat-${targetId}`) as any)
+      ? (db.prepare('SELECT * FROM telecaller_stats WHERE id = ? OR id = ?').get(`stat-${targetId}`, targetId) as any)
       : null;
-
-    if (!stats) {
-      stats = db.prepare('SELECT * FROM telecaller_stats LIMIT 1').get() as any;
-    }
 
     const dialsToday = Math.max(
       Number(leadMetrics?.totalDials || 0),
@@ -123,15 +119,18 @@ router.put('/', (req: Request, res: Response) => {
   try {
     const data = req.body;
     const targetId = data.id || req.user?.employeeId || req.user?.id;
+    const statId = (targetId && String(targetId).startsWith('stat-')) ? targetId : `stat-${targetId || 'default'}`;
     let current = targetId
-      ? (db.prepare('SELECT * FROM telecaller_stats WHERE id = ?').get(targetId) as any)
+      ? (db.prepare('SELECT * FROM telecaller_stats WHERE id = ? OR id = ?').get(targetId, statId) as any)
       : null;
 
     if (!current) {
-      current = db.prepare('SELECT * FROM telecaller_stats LIMIT 1').get() as any;
-    }
-    if (!current) {
-      return res.status(404).json({ error: 'Stats not found' });
+      db.prepare(`
+        INSERT OR IGNORE INTO telecaller_stats (
+          id, todayGoalCalls, dialsMade, connected, interested, rejected, averageCallDurationSec, monthlySalesTarget, monthlySalesAchieved
+        ) VALUES (?, 60, 0, 0, 0, 0, 0, 200000, 0)
+      `).run(statId);
+      current = db.prepare('SELECT * FROM telecaller_stats WHERE id = ?').get(statId) as any;
     }
 
     const merged = { ...current, ...data };
