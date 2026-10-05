@@ -140,6 +140,13 @@ router.put('/', (req: Request, res: Response) => {
     if (data.dailyTarget !== undefined && data.todayGoalCalls === undefined) {
       merged.todayGoalCalls = Number(data.dailyTarget);
     }
+    // Prevent accidental wipe of targets when calling PUT /api/stats with partial/empty targets
+    if (!data.monthlySalesTarget || Number(data.monthlySalesTarget) <= 0) {
+      merged.monthlySalesTarget = current.monthlySalesTarget || 200000;
+    }
+    if (!data.todayGoalCalls && !data.dailyTarget) {
+      merged.todayGoalCalls = current.todayGoalCalls || 60;
+    }
 
     db.prepare(`
       UPDATE telecaller_stats 

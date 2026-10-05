@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useScreenData } from '../hooks/useScreenData';
-import { getTodayDateIST } from '../utils/dateUtils';
+import { getTodayDateIST, getLeadDate, isDateInPeriodIST } from '../utils/dateUtils';
 import { 
   Users, 
   PhoneCall, 
@@ -237,18 +237,8 @@ export const TeamLeaderDashboardView: React.FC = () => {
 
     const isMatchTimeframe = (dateStr?: string) => {
       if (!dateStr) return false;
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) {
-        if (reportsTimeframe === 'today') return dateStr.startsWith(todayYMD);
-        return false;
-      }
-      if (reportsTimeframe === 'today') {
-        return dateStr.startsWith(todayYMD) || d.toISOString().startsWith(todayYMD);
-      } else if (reportsTimeframe === 'week') {
-        return d >= sevenDaysAgo;
-      } else {
-        return d >= startOfMonth;
-      }
+      const mode = reportsTimeframe === 'today' ? 'TODAY' : reportsTimeframe === 'week' ? 'THIS_WEEK' : 'THIS_MONTH';
+      return isDateInPeriodIST(dateStr, mode);
     };
 
     // Filter actual call logs matching timeframe
@@ -258,7 +248,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
     const verifiedPayments = (paymentVerifications || []).filter(p => p.status === 'VERIFIED' && isMatchTimeframe(p.timestamp));
     
     // Converted assigned leads matching timeframe
-    const convertedLeads = (assignedLeads || []).filter(l => l.status === 'CONVERTED' && isMatchTimeframe(l.updatedAt || l.assignedDate));
+    const convertedLeads = (assignedLeads || []).filter(l => l.status === 'CONVERTED' && isMatchTimeframe(getLeadDate(l)));
 
     const ranking = [...teamMembers].map(m => {
       // Find calls logged for this employee in timeframe
@@ -276,7 +266,10 @@ export const TeamLeaderDashboardView: React.FC = () => {
       const pRevenue = empPayments.reduce((s, p) => s + (p.dealAmount || 0), 0);
 
       const empWonLeads = convertedLeads.filter(l => 
-        l.assignedTo === m.name || l.assignedTo === m.id || l.assignedTo === m.empCode
+        l.assignedToEmployeeId === m.id ||
+        l.assignedToEmployeeId === m.empCode ||
+        (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === m.name.toLowerCase()) ||
+        l.assignedTo === m.name
       );
       const lRevenue = empWonLeads.reduce((s, l) => s + (l.dealValue || 0), 0);
 

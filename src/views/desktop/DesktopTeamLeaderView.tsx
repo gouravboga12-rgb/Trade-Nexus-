@@ -40,7 +40,7 @@ import {
   Trash2,
   UserPlus
 } from 'lucide-react';
-import { getTodayDateIST } from '../../utils/dateUtils';
+import { getTodayDateIST, getLeadDate, isDateInPeriodIST } from '../../utils/dateUtils';
 import { TeamMeeting, TeamMember } from '../../types';
 import { RejectedLeaveBanner } from '../../components/common/RejectedLeaveBanner';
 import { TelecallerDetailDrawer } from '../../components/modals/TelecallerDetailDrawer';
@@ -1137,23 +1137,13 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
 
         const isMatchTimeframe = (dateStr?: string) => {
           if (!dateStr) return false;
-          const d = new Date(dateStr);
-          if (isNaN(d.getTime())) {
-            if (isToday) return dateStr.startsWith(todayYMD);
-            return false;
-          }
-          if (isToday) {
-            return dateStr.startsWith(todayYMD) || d.toISOString().startsWith(todayYMD);
-          } else if (isWeek) {
-            return d >= sevenDaysAgo;
-          } else {
-            return d >= startOfMonth;
-          }
+          const mode = isToday ? 'TODAY' : isWeek ? 'THIS_WEEK' : 'THIS_MONTH';
+          return isDateInPeriodIST(dateStr, mode);
         };
 
         const filteredCalls = (callLogs || []).filter(c => isMatchTimeframe(c.date || c.createdAt));
         const verifiedPayments = (paymentVerifications || []).filter(p => p.status === 'VERIFIED' && isMatchTimeframe(p.timestamp));
-        const convertedLeads = (assignedLeads || []).filter(l => l.status === 'CONVERTED' && isMatchTimeframe(l.updatedAt || l.assignedDate));
+        const convertedLeads = (assignedLeads || []).filter(l => l.status === 'CONVERTED' && isMatchTimeframe(getLeadDate(l)));
 
         const memberReportRows = teamMembers.map(member => {
           const empCalls = filteredCalls.filter(c =>
@@ -1166,7 +1156,10 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
           const pRevenue = empPayments.reduce((s, p) => s + (p.dealAmount || 0), 0);
 
           const empWonLeads = convertedLeads.filter(l =>
-            l.assignedTo === member.name || l.assignedTo === member.id || l.assignedTo === member.empCode
+            l.assignedToEmployeeId === member.id ||
+            l.assignedToEmployeeId === member.empCode ||
+            (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === member.name.toLowerCase()) ||
+            l.assignedTo === member.name
           );
           const lRevenue = empWonLeads.reduce((s, l) => s + (l.dealValue || 0), 0);
 

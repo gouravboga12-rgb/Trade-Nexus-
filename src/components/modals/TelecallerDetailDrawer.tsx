@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { TeamMember, AssignedLead, CallLogItem } from '../../types';
+import { getTodayDateIST } from '../../utils/dateUtils';
 import { 
   X, 
   Clock, 
@@ -83,7 +84,7 @@ export const TelecallerDetailDrawer: React.FC<TelecallerDetailDrawerProps> = ({
     assignedToEmployeeId: member.id,
     assignedToEmployeeName: member.name,
     batchId: 'crm-pipeline',
-    assignedDate: 'Today',
+    assignedDate: getTodayDateIST(),
     status: (
       c.status === 'Converted' ? 'CONVERTED' :
       c.status === 'Due Today' ? 'CALLBACK' :

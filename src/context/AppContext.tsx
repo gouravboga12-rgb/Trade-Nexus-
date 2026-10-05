@@ -123,6 +123,8 @@ interface AppContextType {
   loginEmployee: (emailOrCode: string, passwordInput: string) => { success: boolean; member?: TeamMember; error?: string };
   /** Change an employee's details, role or team. */
   updateEmployee: (id: string, changes: Partial<TeamMember>) => Promise<void>;
+  /** Bulk update sales and call targets globally across employees and sync to statistics. */
+  batchUpdateTargets: (targets: Array<{ id: string; salesTarget?: number; goalCalls?: number }>) => Promise<{ success: boolean; updatedCount: number; members: TeamMember[] } | void>;
   /** Switch an employee off without deleting their history, or switch them back on. */
   setEmployeeActive: (id: string, active: boolean) => Promise<void>;
   /** Permanently delete an employee and cascade their associated records. */
@@ -1177,7 +1179,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       assignedToEmployeeId: targetEmployeeId,
       assignedToEmployeeName: targetEmployeeName,
       batchId,
-      assignedDate: 'Today',
+      assignedDate: getTodayDateIST(),
       status: 'PENDING',
       notes: `Imported via ${fileName}`,
       callCount: 0,
@@ -1509,11 +1511,67 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (saved) {
         setTeamMembers(prev => prev.map(m => (m.id === targetId || m.empCode === targetId || m.id === saved.id || m.empCode === saved.empCode || m.id === id || m.empCode === id) ? { ...m, ...saved } : m));
       }
-      refreshResources(['teamMembers', 'teamGroups']).catch(() => {});
+      if (changes.salesTarget !== undefined || changes.goalCalls !== undefined) {
+        if (isCurrentUser) {
+          setStats(prev => ({
+            ...prev,
+            ...(changes.salesTarget !== undefined && { monthlySalesTarget: changes.salesTarget }),
+            ...(changes.goalCalls !== undefined && { todayGoalCalls: changes.goalCalls, dailyTarget: changes.goalCalls }),
+          }));
+        }
+      }
+      refreshResources(['teamMembers', 'teamGroups', 'stats']).catch(() => {});
     } catch (err) {
       console.warn('Employee update failed:', err);
       triggerToast('✗ Could not save those changes to server');
       throw err;
+    }
+  };
+
+  const batchUpdateTargets = async (targets: Array<{ id: string; salesTarget?: number; goalCalls?: number }>) => {
+    resourceSeq.current['teamMembers'] = (resourceSeq.current['teamMembers'] || 0) + 1;
+    resourceSeq.current['stats'] = (resourceSeq.current['stats'] || 0) + 1;
+
+    const targetMap = new Map(targets.map(t => [t.id, t]));
+
+    setTeamMembers(prev => prev.map(m => {
+      const match = targetMap.get(m.id) || targetMap.get(m.empCode);
+      if (!match) return m;
+      return {
+        ...m,
+        ...(match.salesTarget !== undefined && { salesTarget: match.salesTarget }),
+        ...(match.goalCalls !== undefined && { goalCalls: match.goalCalls }),
+      };
+    }));
+
+    const currentEmpId = currentUser?.employeeId || currentUser?.id || profile.id;
+    const currentMatch = targetMap.get(currentEmpId) || (profile.empCode ? targetMap.get(profile.empCode) : undefined);
+    if (currentMatch) {
+      setStats(prev => ({
+        ...prev,
+        ...(currentMatch.salesTarget !== undefined && { monthlySalesTarget: currentMatch.salesTarget }),
+        ...(currentMatch.goalCalls !== undefined && { todayGoalCalls: currentMatch.goalCalls, dailyTarget: currentMatch.goalCalls }),
+      }));
+    }
+
+    try {
+      const res = await api.batchUpdateTargets(targets);
+      if (res?.members && Array.isArray(res.members)) {
+        setTeamMembers(res.members);
+      }
+      refreshResources(['teamMembers', 'stats']).catch(() => {});
+      return res;
+    } catch (err) {
+      console.warn('Batch update targets error, falling back:', err);
+      for (const t of targets) {
+        try {
+          await api.updateTeamMember(t.id, {
+            ...(t.salesTarget !== undefined && { salesTarget: t.salesTarget }),
+            ...(t.goalCalls !== undefined && { goalCalls: t.goalCalls }),
+          });
+        } catch (_) {}
+      }
+      refreshResources(['teamMembers', 'stats']).catch(() => {});
     }
   };
 
@@ -3330,6 +3388,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         createNewEmployee,
         loginEmployee,
         updateEmployee,
+        batchUpdateTargets,
         setEmployeeActive,
         deleteEmployee,
         teamMembers,

@@ -48,7 +48,7 @@ import { TeamGroup } from '../../types';
 import { Employee360ProfileView } from '../Employee360ProfileView';
 import { AdminCalendarConfig } from '../../components/common/AdminCalendarConfig';
 import { AdminScheduleMeetingModal } from '../../components/modals/AdminScheduleMeetingModal';
-import { getTodayDateIST } from '../../utils/dateUtils';
+import { getTodayDateIST, getLeadDate, isDateInPeriodIST } from '../../utils/dateUtils';
 
 interface DesktopAdminViewProps {
   currentTab?: string;
@@ -287,39 +287,15 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
   const yesterdayObj = new Date();
   yesterdayObj.setDate(yesterdayObj.getDate() - 1);
   const yesterdayYMD = yesterdayObj.toISOString().slice(0, 10);
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
-
   const filteredAssignedLeadsByDate = assignedLeads.filter((l) => {
-    if (leadsDateFilter === 'ALL') return true;
-    const leadDate = l.assignedDate || (l.updatedAt || l.createdAt || '').slice(0, 10);
-    if (leadsDateFilter === 'TODAY') {
-      return leadDate === todayYMD || (l.updatedAt || '').startsWith(todayYMD);
-    }
-    if (leadsDateFilter === 'YESTERDAY') {
-      return leadDate === yesterdayYMD;
-    }
-    if (leadsDateFilter === 'THIS_WEEK') {
-      const d = new Date(leadDate || l.updatedAt || '');
-      return !isNaN(d.getTime()) && d >= sevenDaysAgo;
-    }
-    if (leadsDateFilter === 'THIS_MONTH') {
-      const d = new Date(leadDate || l.updatedAt || '');
-      return !isNaN(d.getTime()) && d >= startOfMonth;
-    }
-    if (leadsDateFilter === 'CUSTOM') {
-      return leadDate >= leadsCustomStart && leadDate <= leadsCustomEnd;
-    }
-    return true;
+    return isDateInPeriodIST(getLeadDate(l), leadsDateFilter, leadsCustomStart, leadsCustomEnd);
   });
 
   const leadsPerEmployee = telecallerMembers.map((m) => {
     const mine = filteredAssignedLeadsByDate.filter(
       (l) =>
         l.assignedToEmployeeId === m.id ||
+        l.assignedToEmployeeId === m.empCode ||
         (l.assignedToEmployeeName &&
           l.assignedToEmployeeName.toLowerCase() === m.name.toLowerCase())
     );

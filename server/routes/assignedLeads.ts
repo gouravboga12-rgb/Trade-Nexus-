@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
+import { getTodayDateIST } from '../utils/dateUtils.js';
 
 const router = Router();
 
@@ -92,7 +93,7 @@ router.post('/', (req: Request, res: Response) => {
     `).run(
       leadId, name || 'Lead', phone || '', email || '', company || 'Private Enterprise',
       city || 'Pan-India', assignedToEmployeeId || '', assignedToEmployeeName || 'Unassigned',
-      batchId || 'batch-default', assignedDate || 'Today', status || 'PENDING',
+      batchId || 'batch-default', assignedDate || getTodayDateIST(), status || 'PENDING',
       notes || '', callCount ? Number(callCount) : 0, lastCallTimestamp || null,
       dealValue ? Number(dealValue) : 0, followUpDate || null
     );
@@ -141,7 +142,7 @@ router.post('/bulk', (req: Request, res: Response) => {
         insertLead.run(
           leadId, trimmedName, trimmedPhone, email,
           company, city,
-          targetEmployeeId, targetEmployeeName, batchId, 'Today',
+          targetEmployeeId, targetEmployeeName, batchId, getTodayDateIST(),
           'PENDING', `Imported via ${fileName}`, 0, 0
         );
       }
@@ -246,7 +247,7 @@ router.put('/:id', (req: Request, res: Response) => {
             payId, merged.name, cleanCompany, callerName,
             merged.dealValue, `TXN-${id.slice(-6).toUpperCase()}`,
             merged.customerUpiId ? 'UPI Transfer' : 'Bank Wire / Transfer',
-            'Today', 'PENDING_HR_AUDIT',
+            getTodayDateIST(), 'PENDING_HR_AUDIT',
             merged.customerName || merged.name, merged.customerBankName || null,
             merged.customerAccountNumber || null, merged.customerIfscCode || null, merged.customerUpiId || null
           );

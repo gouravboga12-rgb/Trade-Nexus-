@@ -840,4 +840,34 @@ function runMigrations() {
   } catch (e) {
     // Ignore if table not yet initialized
   }
+
+  // Normalize 'Today' strings in assigned_leads to real ISO dates
+  try {
+    db.prepare(`
+      UPDATE assigned_leads
+      SET assignedDate = CASE
+        WHEN createdAt IS NOT NULL AND length(createdAt) >= 10 THEN substr(createdAt, 1, 10)
+        WHEN updatedAt IS NOT NULL AND length(updatedAt) >= 10 THEN substr(updatedAt, 1, 10)
+        ELSE '2026-09-26'
+      END
+      WHERE assignedDate = 'Today' OR assignedDate IS NULL OR assignedDate = ''
+    `).run();
+  } catch (e) {
+    // Ignore if table not yet initialized
+  }
+
+  // Normalize 'Today' strings in payment_verifications to real ISO dates
+  try {
+    db.prepare(`
+      UPDATE payment_verifications
+      SET timestamp = CASE
+        WHEN createdAt IS NOT NULL AND length(createdAt) >= 10 THEN substr(createdAt, 1, 10)
+        ELSE '2026-09-26'
+      END
+      WHERE timestamp = 'Today' OR timestamp IS NULL OR timestamp = ''
+    `).run();
+  } catch (e) {
+    // Ignore if table not yet initialized
+  }
 }
+

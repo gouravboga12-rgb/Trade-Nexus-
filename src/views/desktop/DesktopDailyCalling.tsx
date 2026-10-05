@@ -113,7 +113,13 @@ export const DesktopDailyCalling: React.FC = () => {
 
     const q = searchQuery.trim().toLowerCase();
     if (!q) return list;
-    return list.filter((l) => l.phone.includes(q));
+    return list.filter((l) =>
+      (l.phone && l.phone.includes(q)) ||
+      (l.name && l.name.toLowerCase().includes(q)) ||
+      (l.company && l.company.toLowerCase().includes(q)) ||
+      (l.city && l.city.toLowerCase().includes(q)) ||
+      (l.notes && l.notes.toLowerCase().includes(q))
+    );
   }, [myAssignedLeads, activeQueueFilter, callbackLeads, interestedLeads, searchQuery]);
 
   const handleDialActive = (lead: AssignedLead) => {

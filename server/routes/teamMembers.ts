@@ -348,6 +348,71 @@ router.post('/', (req: Request, res: Response) => {
   }
 });
 
+// PUT /api/team-members/targets/batch (Bulk update sales targets & call goals)
+router.put('/targets/batch', (req: Request, res: Response) => {
+  try {
+    const { targets } = req.body;
+    if (!Array.isArray(targets) || targets.length === 0) {
+      return res.status(400).json({ error: 'targets array is required' });
+    }
+
+    const updateMemberTarget = db.prepare(`
+      UPDATE team_members
+      SET salesTarget = CASE WHEN ? IS NOT NULL THEN ? ELSE salesTarget END,
+          goalCalls = CASE WHEN ? IS NOT NULL THEN ? ELSE goalCalls END
+      WHERE id = ? OR empCode = ?
+    `);
+
+    const updateStatsTarget = db.prepare(`
+      UPDATE telecaller_stats
+      SET monthlySalesTarget = CASE WHEN ? IS NOT NULL THEN ? ELSE monthlySalesTarget END,
+          todayGoalCalls = CASE WHEN ? IS NOT NULL THEN ? ELSE todayGoalCalls END,
+          updatedAt = CURRENT_TIMESTAMP
+      WHERE id = ? OR id = ?
+    `);
+
+    const insertStatsIfMissing = db.prepare(`
+      INSERT OR IGNORE INTO telecaller_stats (
+        id, todayGoalCalls, dialsMade, connected, interested, rejected, averageCallDurationSec, monthlySalesTarget, monthlySalesAchieved
+      ) VALUES (?, ?, 0, 0, 0, 0, 0, ?, 0)
+    `);
+
+    const runBatch = db.transaction((items: any[]) => {
+      let count = 0;
+      for (const item of items) {
+        const id = String(item.id || '').trim();
+        if (!id) continue;
+        const salesTarget = item.salesTarget !== undefined && item.salesTarget !== null ? Number(item.salesTarget) : null;
+        const goalCalls = item.goalCalls !== undefined && item.goalCalls !== null ? Number(item.goalCalls) : null;
+
+        updateMemberTarget.run(salesTarget, salesTarget, goalCalls, goalCalls, id, id);
+
+        const statId = `stat-${id}`;
+        insertStatsIfMissing.run(statId, goalCalls ?? 60, salesTarget ?? 200000);
+        updateStatsTarget.run(salesTarget, salesTarget, goalCalls, goalCalls, statId, id);
+        count++;
+      }
+      return count;
+    });
+
+    const updatedCount = runBatch(targets);
+
+    const allMembers = db.prepare(`
+      SELECT id, empCode, name, avatar, role, groupName as "group", phone, emergencyPhone, dob, employeeType, 
+             attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, 
+             salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, 
+             bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, 
+             aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup,
+             companyAddress, companyPhone, companyEmail, companyWebsite, signatoryName, signatoryRole 
+      FROM team_members
+    `).all();
+
+    return res.status(200).json({ success: true, updatedCount, members: allMembers });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 // PUT /api/team-members/:id
 router.put('/:id', (req: Request, res: Response) => {
   try {
@@ -503,6 +568,36 @@ router.put('/:id', (req: Request, res: Response) => {
             UPDATE users SET passwordHash = ?, name = ? WHERE empCode = ?
           `).run(newHash, merged.name, existing.empCode);
         }
+      } catch (_) {}
+    }
+
+    // Sync targets to telecaller_stats if salesTarget or goalCalls were updated
+    if (req.body.salesTarget !== undefined || req.body.goalCalls !== undefined) {
+      try {
+        const statId = `stat-${existing.id}`;
+        const newTarget = req.body.salesTarget !== undefined ? Number(req.body.salesTarget) : undefined;
+        const newGoal = req.body.goalCalls !== undefined ? Number(req.body.goalCalls) : undefined;
+        db.prepare(`
+          INSERT OR IGNORE INTO telecaller_stats (
+            id, todayGoalCalls, dialsMade, connected, interested, rejected, averageCallDurationSec, monthlySalesTarget, monthlySalesAchieved
+          ) VALUES (?, ?, 0, 0, 0, 0, 0, ?, 0)
+        `).run(statId, newGoal ?? 60, newTarget ?? 200000);
+
+        db.prepare(`
+          UPDATE telecaller_stats
+          SET monthlySalesTarget = CASE WHEN ? IS NOT NULL THEN ? ELSE monthlySalesTarget END,
+              todayGoalCalls = CASE WHEN ? IS NOT NULL THEN ? ELSE todayGoalCalls END,
+              updatedAt = CURRENT_TIMESTAMP
+          WHERE id = ? OR id = ? OR id = ?
+        `).run(
+          newTarget !== undefined ? newTarget : null,
+          newTarget !== undefined ? newTarget : null,
+          newGoal !== undefined ? newGoal : null,
+          newGoal !== undefined ? newGoal : null,
+          statId,
+          existing.id,
+          existing.empCode
+        );
       } catch (_) {}
     }
 

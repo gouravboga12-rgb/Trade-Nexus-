@@ -14,6 +14,7 @@ import {
   Filter
 } from 'lucide-react';
 import { AssignedLead } from '../types';
+import { getLeadDate, isDateInPeriodIST } from '../utils/dateUtils';
 
 export const ClientsPipelineView: React.FC = () => {
   const { 
@@ -53,35 +54,26 @@ export const ClientsPipelineView: React.FC = () => {
     return d.toISOString().split('T')[0];
   }, []);
 
-  // Filter won leads by selected calendar date/period
+  // Filter won leads by selected calendar date/period & search query
   const filteredWonLeads = useMemo(() => {
     return myWonLeads.filter((lead) => {
-      // Search filter by phone number
-      const q = search.toLowerCase();
-      if (q && !lead.phone.includes(q)) {
-        return false;
+      // Search filter by phone, name, company, city
+      const q = search.trim().toLowerCase();
+      if (q) {
+        const phoneMatch = lead.phone && lead.phone.includes(q);
+        const nameMatch = lead.name && lead.name.toLowerCase().includes(q);
+        const companyMatch = lead.company && lead.company.toLowerCase().includes(q);
+        const cityMatch = lead.city && lead.city.toLowerCase().includes(q);
+        if (!phoneMatch && !nameMatch && !companyMatch && !cityMatch) {
+          return false;
+        }
       }
 
-      // Date filtering: supports both ISO ("2026-09-27T...") and SQL ("2026-09-27 ...")
-      const rawDate = lead.updatedAt || (lead as any).createdAt;
-      const leadDateStr = rawDate ? rawDate.split('T')[0].split(' ')[0] : todayStr;
-
-      if (dateFilter === 'TODAY') {
-        return leadDateStr === todayStr;
-      }
-      if (dateFilter === 'YESTERDAY') {
-        return leadDateStr === yesterdayStr;
-      }
-      if (dateFilter === 'THIS_MONTH') {
-        const currentMonth = todayStr.slice(0, 7);
-        return leadDateStr.startsWith(currentMonth);
-      }
-      if (dateFilter === 'CUSTOM' && customDate) {
-        return leadDateStr === customDate;
-      }
-      return true; // 'ALL'
+      // Robust IST Date filtering
+      const leadDateStr = getLeadDate(lead);
+      return isDateInPeriodIST(leadDateStr, dateFilter, customDate, customDate);
     });
-  }, [myWonLeads, dateFilter, customDate, search, todayStr, yesterdayStr]);
+  }, [myWonLeads, dateFilter, customDate, search]);
 
   // Total Revenue of currently selected date filter
   const totalSelectedRevenue = useMemo(() => {

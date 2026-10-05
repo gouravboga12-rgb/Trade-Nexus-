@@ -70,7 +70,7 @@ import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { LeafletGeofenceMap } from '../components/common/LeafletGeofenceMap';
 import { ManageEmployeesTab } from './admin/ManageEmployeesTab';
 import { InvoicesLedger } from '../components/common/InvoicesLedger';
-import { getTodayDateIST } from '../utils/dateUtils';
+import { getTodayDateIST, getLeadDate, isDateInPeriodIST } from '../utils/dateUtils';
 
 type AdminTab = 'home' | 'people' | 'attendance' | 'leads' | 'revenue' | 'more' | 'approvals' | 'reports' | 'attendance_verification' | 'manage_employees' | 'invoices' | 'company_calendar';
 
@@ -169,6 +169,8 @@ export const AdminDashboardView: React.FC = () => {
   const [leadsDateFilter, setLeadsDateFilter] = useState<'ALL' | 'TODAY' | 'YESTERDAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'CUSTOM'>('ALL');
   const [leadsCustomStart, setLeadsCustomStart] = useState<string>(getTodayDateIST());
   const [leadsCustomEnd, setLeadsCustomEnd] = useState<string>(getTodayDateIST());
+  const [leadSearchQuery, setLeadSearchQuery] = useState('');
+  const [leadStatusFilter, setLeadStatusFilter] = useState<'ALL' | 'FRESH' | 'PIPELINE' | 'CONVERTED'>('ALL');
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [openEmployee, setOpenEmployee] = useState<TeamMember | null>(null);
   const [employeeToDelete, setEmployeeToDelete] = useState<TeamMember | null>(null);
@@ -2273,31 +2275,27 @@ export const AdminDashboardView: React.FC = () => {
         {/* ------------------------------------------------------- Leads */}
         {/* ------------------------------------------------------- Leads */}
         {tab === 'leads' && (() => {
-          const now = new Date();
-          const todayYMD = getTodayDateIST();
-          const yesterdayYMD = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-          const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
+          // Robust date-filtered leads matching Indian Standard Time
           const filteredLeadsByDate = assignedLeads.filter((l) => {
-            if (leadsDateFilter === 'ALL') return true;
-            const leadDate = l.assignedDate || (l.updatedAt || l.createdAt || '').slice(0, 10);
-            if (leadsDateFilter === 'TODAY') {
-              return leadDate === todayYMD || (l.updatedAt || '').startsWith(todayYMD);
-            }
-            if (leadsDateFilter === 'YESTERDAY') {
-              return leadDate === yesterdayYMD;
-            }
-            if (leadsDateFilter === 'THIS_WEEK') {
-              const d = new Date(leadDate || l.updatedAt || '');
-              return !isNaN(d.getTime()) && d >= sevenDaysAgo;
-            }
-            if (leadsDateFilter === 'THIS_MONTH') {
-              const d = new Date(leadDate || l.updatedAt || '');
-              return !isNaN(d.getTime()) && d >= startOfMonth;
-            }
-            if (leadsDateFilter === 'CUSTOM') {
-              return leadDate >= leadsCustomStart && leadDate <= leadsCustomEnd;
+            return isDateInPeriodIST(getLeadDate(l), leadsDateFilter, leadsCustomStart, leadsCustomEnd);
+          });
+
+          // Secondary filters: Search and Status
+          const q = leadSearchQuery.trim().toLowerCase();
+          const filteredLeads = filteredLeadsByDate.filter((l) => {
+            if (leadStatusFilter === 'FRESH' && l.callCount > 0) return false;
+            if (leadStatusFilter === 'PIPELINE' && (l.callCount === 0 || l.status === 'CONVERTED')) return false;
+            if (leadStatusFilter === 'CONVERTED' && l.status !== 'CONVERTED') return false;
+
+            if (q) {
+              const nameMatch = l.name && l.name.toLowerCase().includes(q);
+              const phoneMatch = l.phone && l.phone.includes(q);
+              const companyMatch = l.company && l.company.toLowerCase().includes(q);
+              const cityMatch = l.city && l.city.toLowerCase().includes(q);
+              const repMatch = l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase().includes(q);
+              if (!nameMatch && !phoneMatch && !companyMatch && !cityMatch && !repMatch) {
+                return false;
+              }
             }
             return true;
           });
@@ -2378,6 +2376,47 @@ export const AdminDashboardView: React.FC = () => {
                     />
                   </div>
                 )}
+
+                {/* Search & Status Filter Toolbar */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={leadSearchQuery}
+                      onChange={(e) => setLeadSearchQuery(e.target.value)}
+                      placeholder="Search leads by name, phone, company, city, rep..."
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-7 py-1.5 text-xs text-[#0A2540] placeholder:text-slate-400 focus:outline-none focus:border-[#00C9A7]"
+                    />
+                    {leadSearchQuery && (
+                      <button
+                        onClick={() => setLeadSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                    {(['ALL', 'FRESH', 'PIPELINE', 'CONVERTED'] as const).map((st) => (
+                      <button
+                        key={st}
+                        onClick={() => setLeadStatusFilter(st)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                          leadStatusFilter === st
+                            ? 'bg-[#0A2540] text-white shadow-2xs'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {st === 'ALL' ? `All (${filteredLeadsByDate.length})` :
+                         st === 'FRESH' ? `Fresh (${freshLeadsCount})` :
+                         st === 'PIPELINE' ? `Pipeline (${pipelineLeadsCount})` :
+                         `Won (${convertedLeadsCount})`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {/* 4-Stat Lead Inventory Matrix */}
@@ -2422,7 +2461,13 @@ export const AdminDashboardView: React.FC = () => {
               ) : (
                 <div className="space-y-2">
                   {telecallerMembers.map((m) => {
-                    const mine = filteredLeadsByDate.filter((l) => l.assignedToEmployeeId === m.id);
+                    const mine = filteredLeadsByDate.filter(
+                      (l) =>
+                        l.assignedToEmployeeId === m.id ||
+                        l.assignedToEmployeeId === m.empCode ||
+                        (l.assignedToEmployeeName &&
+                          l.assignedToEmployeeName.toLowerCase() === m.name.toLowerCase())
+                    );
                     const calledCount = mine.filter((l) => l.callCount > 0).length;
                     const convertedCount = mine.filter((l) => l.status === 'CONVERTED').length;
                     const calledPct = mine.length > 0 ? Math.round((calledCount / mine.length) * 100) : 0;
@@ -2462,6 +2507,68 @@ export const AdminDashboardView: React.FC = () => {
                   })}
                 </div>
               )}
+
+              {/* Detailed Lead Records Inspector */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <SectionTitle>Lead Records ({filteredLeads.length})</SectionTitle>
+                  <span className="text-[10px] font-mono font-bold text-slate-400">
+                    {filteredLeads.length} matching leads
+                  </span>
+                </div>
+
+                {!filteredLeads.length ? (
+                  <Empty text="No leads found matching current date, status, or search filters." />
+                ) : (
+                  <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-2xs divide-y divide-slate-100 max-h-96 overflow-y-auto">
+                    {filteredLeads.slice(0, 50).map((l) => (
+                      <div key={l.id} className="p-3 flex items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-[#0A2540] truncate">{l.name}</span>
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${
+                              l.status === 'CONVERTED' ? 'bg-emerald-100 text-emerald-800' :
+                              l.status === 'INTERESTED' ? 'bg-teal-100 text-teal-800' :
+                              l.status === 'CALLBACK' ? 'bg-amber-100 text-amber-800' :
+                              l.callCount === 0 ? 'bg-sky-100 text-sky-800' :
+                              'bg-slate-100 text-slate-700'
+                            }`}>
+                              {l.status}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 flex items-center gap-1.5 mt-0.5 truncate">
+                            <span className="font-mono">{l.phone}</span>
+                            <span>•</span>
+                            <span>{l.company || 'Enterprise'}</span>
+                            {l.city && (
+                              <>
+                                <span>•</span>
+                                <span>{l.city}</span>
+                              </>
+                            )}
+                            <span>•</span>
+                            <span className="font-mono text-slate-400">Date: {getLeadDate(l)}</span>
+                          </div>
+                        </div>
+
+                        <div className="text-right flex-shrink-0">
+                          <span className="text-[10px] font-bold text-slate-700 block truncate max-w-[130px]">
+                            {l.assignedToEmployeeName || 'Unassigned'}
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-mono">
+                            {l.callCount} calls {l.dealValue ? `· ₹${l.dealValue.toLocaleString('en-IN')}` : ''}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    {filteredLeads.length > 50 && (
+                      <div className="p-2.5 text-center text-[11px] font-mono font-bold text-slate-500 bg-slate-50">
+                        Showing first 50 of {filteredLeads.length} matching leads (use search or filters to narrow down)
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <SectionTitle>Move leads</SectionTitle>
               <div className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2">

@@ -306,6 +306,11 @@ export const api = {
     request<TeamMember>('/team-members', { method: 'POST', body: JSON.stringify(data) }),
   updateTeamMember: (id: string, data: Partial<TeamMember>) => 
     request<TeamMember>(`/team-members/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  batchUpdateTargets: (targets: Array<{ id: string; salesTarget?: number; goalCalls?: number }>) =>
+    request<{ success: boolean; updatedCount: number; members: TeamMember[] }>('/team-members/targets/batch', {
+      method: 'PUT',
+      body: JSON.stringify({ targets }),
+    }),
   deleteTeamMember: (id: string) =>
     request<{ success: boolean; deletedId: string; name?: string; empCode?: string }>(`/team-members/${id}`, { method: 'DELETE' }),
 

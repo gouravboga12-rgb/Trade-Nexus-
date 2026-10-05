@@ -124,7 +124,13 @@ export const DailyCallingView: React.FC = () => {
 
     const q = search.trim().toLowerCase();
     if (!q) return true;
-    return l.phone.includes(q);
+    return (
+      (l.phone && l.phone.includes(q)) ||
+      (l.name && l.name.toLowerCase().includes(q)) ||
+      (l.company && l.company.toLowerCase().includes(q)) ||
+      (l.city && l.city.toLowerCase().includes(q)) ||
+      (l.notes && l.notes.toLowerCase().includes(q))
+    );
   });
 
   // Helper to extract local YYYY-MM-DD date from a call log item

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { TeamMember, AssignedLead, UserRole } from '../types';
+import { getTodayDateIST } from '../utils/dateUtils';
 import { 
   ArrowLeft, 
   Clock, 
@@ -106,7 +107,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
     assignedToEmployeeId: member.id,
     assignedToEmployeeName: member.name,
     batchId: 'crm-pipeline',
-    assignedDate: 'Today',
+    assignedDate: getTodayDateIST(),
     status: (
       c.status === 'Converted' ? 'CONVERTED' :
       c.status === 'Due Today' ? 'CALLBACK' :
