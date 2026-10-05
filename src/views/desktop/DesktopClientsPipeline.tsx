@@ -155,7 +155,7 @@ export const DesktopClientsPipeline: React.FC = () => {
 
           <div className="flex items-baseline gap-3 relative z-10 pt-2">
             <span className="font-display font-black text-5xl text-[#0A2540] tracking-tight">
-              {inr(dateFilter === 'ALL' ? (totalSelectedRevenue || stats.monthlySalesAchieved) : totalSelectedRevenue)}
+              {inr(totalSelectedRevenue)}
             </span>
           </div>
         </div>

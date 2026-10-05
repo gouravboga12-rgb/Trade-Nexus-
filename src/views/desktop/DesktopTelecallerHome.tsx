@@ -94,8 +94,8 @@ export const DesktopTelecallerHome: React.FC = () => {
     const fromLeads = userLeads
       .filter((l) => l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0))
       .reduce((sum, l) => sum + (l.dealValue || 0), 0);
-    return Math.max(fromLeads, stats.monthlySalesAchieved || 0);
-  }, [userLeads, stats.monthlySalesAchieved]);
+    return fromLeads;
+  }, [userLeads]);
 
   const effectiveMonthlyTarget = useMemo(() => {
     return (stats.monthlySalesTarget && stats.monthlySalesTarget > 0) ? stats.monthlySalesTarget : 200000;
@@ -125,8 +125,8 @@ export const DesktopTelecallerHome: React.FC = () => {
   const totalDialsCount = useMemo(() => {
     const fromLeads = userLeads.reduce((sum, l) => sum + (l.callCount || (l.status !== 'PENDING' ? 1 : 0)), 0);
     const fromLogs = myCallLogs.length;
-    return Math.max(fromLeads, fromLogs, stats.dialsMade || 0);
-  }, [userLeads, myCallLogs, stats.dialsMade]);
+    return Math.max(fromLeads, fromLogs);
+  }, [userLeads, myCallLogs]);
 
   const effectiveConnected = useMemo(() => {
     const fromLogs = myCallLogs.filter(c => c.outcome === 'CONNECTED' || c.outcome === 'INTERESTED' || c.outcome === 'DEAL_CLOSED').length;
@@ -138,6 +138,12 @@ export const DesktopTelecallerHome: React.FC = () => {
     const fromLogs = myCallLogs.filter(c => c.outcome === 'INTERESTED').length;
     return Math.max(fromLeads, fromLogs, stats.interested || 0);
   }, [userLeads, myCallLogs, stats.interested]);
+
+  const effectiveRejected = useMemo(() => {
+    const fromLeads = userLeads.filter(l => l.status === 'NOT_INTERESTED').length;
+    const fromLogs = myCallLogs.filter(c => c.outcome === 'NOT_INTERESTED' || c.outcome === 'BUSY').length;
+    return Math.max(fromLeads, fromLogs, stats.rejected || 0);
+  }, [userLeads, myCallLogs, stats.rejected]);
 
   const goalPercentage = effectiveTodayGoal > 0 ? Math.min(100, Math.round((totalDialsCount / effectiveTodayGoal) * 100)) : 0;
   const tgtPercentage = Math.round((wonDealsRevenue / Math.max(1, effectiveMonthlyTarget)) * 100);
@@ -415,7 +421,7 @@ export const DesktopTelecallerHome: React.FC = () => {
                 <div>
                   <span className="text-xs font-bold text-slate-500 block">Dials Remaining:</span>
                   <span className="font-mono-nums font-black text-xl text-[#0A2540]">
-                    {stats.todayGoalCalls - stats.dialsMade} Calls
+                    {dialsRemaining} Calls
                   </span>
                   <span className="text-[11px] text-[#00A88B] font-bold block mt-0.5">Estimated {estRemaining}</span>
                 </div>
@@ -425,15 +431,15 @@ export const DesktopTelecallerHome: React.FC = () => {
               <div className="grid grid-cols-2 gap-2.5">
                 <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Connected</span>
-                  <span className="font-mono-nums font-black text-lg text-sky-600">{stats.connected}</span>
+                  <span className="font-mono-nums font-black text-lg text-sky-600">{effectiveConnected}</span>
                 </div>
                 <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Interested</span>
-                  <span className="font-mono-nums font-black text-lg text-emerald-600">{stats.interested}</span>
+                  <span className="font-mono-nums font-black text-lg text-emerald-600">{effectiveInterested}</span>
                 </div>
                 <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Rejected</span>
-                  <span className="font-mono-nums font-black text-lg text-rose-500">{stats.rejected}</span>
+                  <span className="font-mono-nums font-black text-lg text-rose-500">{effectiveRejected}</span>
                 </div>
                 <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Avg Duration</span>
@@ -447,7 +453,7 @@ export const DesktopTelecallerHome: React.FC = () => {
           <div className="pt-4 border-t border-slate-100 mt-2">
             <div className="flex justify-between items-center text-xs mb-1.5">
               <span className="font-bold text-slate-700">Monthly Sales Target Milestone (TGT)</span>
-              <span className="font-mono font-extrabold text-[#00A88B]">{inr(stats.monthlySalesAchieved)} / {inr(stats.monthlySalesTarget)} ({tgtPercentage}%)</span>
+              <span className="font-mono font-extrabold text-[#00A88B]">{inr(wonDealsRevenue)} / {inr(effectiveMonthlyTarget)} ({tgtPercentage}%)</span>
             </div>
             <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
               <div className="h-full bg-gradient-to-r from-[#00C9A7] to-[#00B4D8] rounded-full" style={{ width: `${tgtPercentage}%` }} />

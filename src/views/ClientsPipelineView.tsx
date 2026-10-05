@@ -105,7 +105,8 @@ export const ClientsPipelineView: React.FC = () => {
               Total Revenue
             </span>
             <span className="font-display font-black text-2xl text-[#0A2540] tracking-tight block leading-tight">
-              {inr(dateFilter === 'ALL' ? (totalSelectedRevenue || stats.monthlySalesAchieved) : totalSelectedRevenue)}
+              {inr(totalSelectedRevenue)}
+
             </span>
           </div>
         </div>

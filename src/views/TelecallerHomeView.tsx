@@ -99,11 +99,14 @@ export const TelecallerHomeView: React.FC = () => {
 
   // Real-time live dynamic revenue from won deals in SQLite
   const wonDealsRevenue = useMemo(() => {
+    // Only count revenue from this employee's own converted leads
+    // Do NOT fall back to stats.monthlySalesAchieved — that value was previously
+    // polluted by the global stats-default row and showed other employees' revenue.
     const fromLeads = userLeads
       .filter((l) => l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0))
       .reduce((sum, l) => sum + (l.dealValue || 0), 0);
-    return Math.max(fromLeads, stats.monthlySalesAchieved || 0);
-  }, [userLeads, stats.monthlySalesAchieved]);
+    return fromLeads;
+  }, [userLeads]);
 
   const effectiveMonthlyTarget = useMemo(() => {
     return (stats.monthlySalesTarget && stats.monthlySalesTarget > 0) ? stats.monthlySalesTarget : 200000;
@@ -118,8 +121,10 @@ export const TelecallerHomeView: React.FC = () => {
   const totalDialsCount = useMemo(() => {
     const fromLeads = userLeads.reduce((sum, l) => sum + (l.callCount || (l.status !== 'PENDING' ? 1 : 0)), 0);
     const fromLogs = myCallLogs.length;
-    return Math.max(fromLeads, fromLogs, stats.dialsMade || 0);
-  }, [userLeads, myCallLogs, stats.dialsMade]);
+    // Do NOT use stats.dialsMade as a floor — it came from the global stats-default row.
+    // Count dials based on actual lead activity and call logs for this employee.
+    return Math.max(fromLeads, fromLogs);
+  }, [userLeads, myCallLogs]);
 
   const effectiveConnected = useMemo(() => {
     const fromLogs = myCallLogs.filter(c => c.outcome === 'CONNECTED' || c.outcome === 'INTERESTED' || c.outcome === 'DEAL_CLOSED').length;

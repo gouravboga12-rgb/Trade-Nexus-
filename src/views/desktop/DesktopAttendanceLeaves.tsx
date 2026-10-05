@@ -54,9 +54,23 @@ export const DesktopAttendanceLeaves: React.FC = () => {
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
   const leadingBlanks = new Date(calYear, calMonth, 1).getDay();
 
+  const myAttendanceLogs = useMemo(() => {
+    const validIds = new Set([currentUser?.id, currentUser?.employeeId, profile.id].filter(Boolean));
+    const validCodes = new Set([currentUser?.empCode, profile.empCode].filter(Boolean));
+    const validName = (currentUser?.name || profile.name || '').trim().toLowerCase();
+
+    return attendanceLogs.filter(log => {
+      if (!log.employeeId && !log.employeeName) return false;
+      if (log.employeeId && validIds.has(log.employeeId)) return true;
+      if (log.employeeId && validCodes.has(log.employeeId)) return true;
+      if (log.employeeName && validName && log.employeeName.trim().toLowerCase() === validName) return true;
+      return false;
+    });
+  }, [attendanceLogs, currentUser, profile]);
+
   // Status map filtered to the visible month
   const statusByDay = new Map<number, string>(
-    attendanceLogs
+    myAttendanceLogs
       .filter(l => {
         const d = new Date(l.date + 'T00:00:00');
         return d.getFullYear() === calYear && d.getMonth() === calMonth;
@@ -66,7 +80,7 @@ export const DesktopAttendanceLeaves: React.FC = () => {
 
   const todayStr = getTodayDateIST();
 
-  const countOf = (status: string) => attendanceLogs.filter((l) => l.status === status).length;
+  const countOf = (status: string) => myAttendanceLogs.filter((l) => l.status === status).length;
   const presentDays = countOf('PRESENT') + countOf('HALF_DAY');
   const leaveDays = countOf('LEAVE');
   const absentDays = countOf('ABSENT');

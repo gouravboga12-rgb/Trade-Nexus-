@@ -44,15 +44,29 @@ router.get('/', (req: Request, res: Response) => {
   try {
     sweepUnclosedAttendance();
     const isAdmin = String(req.query.role || '').toLowerCase() === 'admin' || req.user?.role === 'admin';
-    const employeeId = String(req.query.employeeId || '').trim();
-    const records = employeeId
-      ? db
-          .prepare('SELECT * FROM attendance_records WHERE (employeeId = ? OR employeeId IS NULL) ORDER BY date DESC, checkIn DESC')
-          .all(employeeId)
-      : db
-          .prepare('SELECT * FROM attendance_records ORDER BY date DESC, checkIn DESC')
-          .all();
-    return res.status(200).json(records.map((r) => forViewer(r, isAdmin, employeeId)));
+    // Resolve the target employee: explicit query param takes precedence, then JWT payload
+    const requestedEmpId = String(req.query.employeeId || '').trim();
+    const jwtEmpId = req.user?.employeeId || req.user?.id || '';
+    // Admin with no filter → all records (excluding orphaned null-employee seed rows)
+    // Employee / role-scoped → strictly their own records only (no IS NULL fallback)
+    let records: any[];
+    if (isAdmin && !requestedEmpId) {
+      // Admin overview: return all real records (skip orphaned seed rows with no employee)
+      records = db
+        .prepare('SELECT * FROM attendance_records WHERE employeeId IS NOT NULL ORDER BY date DESC, checkIn DESC')
+        .all();
+    } else {
+      const targetId = requestedEmpId || jwtEmpId;
+      if (targetId) {
+        // Strict match — never include orphaned (null employeeId) seed records
+        records = db
+          .prepare('SELECT * FROM attendance_records WHERE employeeId = ? ORDER BY date DESC, checkIn DESC')
+          .all(targetId);
+      } else {
+        records = [];
+      }
+    }
+    return res.status(200).json(records.map((r) => forViewer(r, isAdmin, requestedEmpId || jwtEmpId)));
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }
