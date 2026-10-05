@@ -387,6 +387,8 @@ export const api = {
     }),
   updateAssignedLead: (id: string, data: Partial<AssignedLead>) => 
     request<AssignedLead>(`/assigned-leads/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteAssignedLead: (id: string) => 
+    request<{ success: boolean; id: string }>(`/assigned-leads/${id}`, { method: 'DELETE' }),
   reassignBatchAssignedLeads: (data: { leadIds: string[]; targetEmployeeId: string; targetEmployeeName: string }) => 
     request<{ success: boolean; count: number; targetEmployeeId: string; targetEmployeeName: string }>('/assigned-leads/reassign-batch', {
       method: 'POST',
@@ -456,6 +458,8 @@ export const api = {
     request<PaymentVerificationItem>('/payments', { method: 'POST', body: JSON.stringify(data) }),
   updatePayment: (id: string, data: Partial<PaymentVerificationItem>) => 
     request<PaymentVerificationItem>(`/payments/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deletePayment: (id: string) => 
+    request<{ success: boolean; id: string }>(`/payments/${id}`, { method: 'DELETE' }),
 
   // Invoices & Billing
   getInvoices: (params?: { startDate?: string; endDate?: string; clientEmail?: string }) => {

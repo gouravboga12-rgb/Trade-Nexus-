@@ -200,4 +200,56 @@ router.put('/:id', requireRole('admin', 'hr'), (req: Request, res: Response) => 
   }
 });
 
+// DELETE /api/payments/:id
+router.delete('/:id', requireRole('admin', 'hr'), (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const existing = db.prepare('SELECT * FROM payment_verifications WHERE id = ?').get(id) as any;
+    if (!existing) {
+      return res.status(404).json({ error: 'Payment verification not found' });
+    }
+
+    const deleteTransaction = db.transaction(() => {
+      // If payment was verified, rollback salesAchieved from employee and team group
+      if (existing.status === 'VERIFIED') {
+        const amount = Number(existing.dealAmount) || 0;
+        const callerName = existing.telecallerName || '';
+        const member = db.prepare('SELECT id, groupName FROM team_members WHERE LOWER(name) = LOWER(?) LIMIT 1').get(callerName) as any;
+        if (member) {
+          db.prepare('UPDATE team_members SET salesAchieved = MAX(0, salesAchieved - ?) WHERE id = ?').run(amount, member.id);
+          if (member.groupName) {
+            db.prepare('UPDATE team_groups SET achieved = MAX(0, achieved - ?) WHERE LOWER(name) = LOWER(?)').run(amount, member.groupName);
+          }
+        }
+      }
+
+      // If linked to an assigned_lead that was CONVERTED, reset status to INTERESTED and clear dealValue
+      try {
+        const leadId = id.startsWith('pay-') ? id.slice(4) : '';
+        const linkedLead = db.prepare(`
+          SELECT id FROM assigned_leads 
+          WHERE id = ? OR (
+            LOWER(TRIM(COALESCE(company, name, ''))) = LOWER(TRIM(?)) AND
+            dealValue = ? AND
+            status = 'CONVERTED'
+          )
+          LIMIT 1
+        `).get(leadId, (existing.companyName || existing.leadName || '').trim(), existing.dealAmount) as any;
+
+        if (linkedLead) {
+          db.prepare(`UPDATE assigned_leads SET status = 'INTERESTED', dealValue = 0, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`).run(linkedLead.id);
+        }
+      } catch (err) {}
+
+      db.prepare('DELETE FROM payment_verifications WHERE id = ?').run(id);
+    });
+
+    deleteTransaction();
+
+    return res.status(200).json({ success: true, id });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;

@@ -89,6 +89,8 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     setIsExcelUploadModalOpen,
     assignTeamLeaderToGroup,
     verifyPayment,
+    deletePaymentVerification,
+    deleteAssignedLead,
     reassignLeadsBetween,
     teamMeetings,
     joinMeeting,
@@ -1481,7 +1483,13 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                     !l.assignedToEmployeeId ||
                     l.assignedToEmployeeId === 'unassigned' ||
                     l.assignedToEmployeeId === '' ||
-                    (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === 'unassigned')
+                    (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === 'unassigned') ||
+                    !teamMembers.some(
+                      (m) =>
+                        m.id === l.assignedToEmployeeId ||
+                        m.empCode === l.assignedToEmployeeId ||
+                        (m.name && l.assignedToEmployeeName && m.name.toLowerCase() === l.assignedToEmployeeName.toLowerCase())
+                    )
                 ).length;
                 return unassignedCount > 0 ? (
                   <option value="UNASSIGNED">
@@ -1937,11 +1945,37 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                             >
                               Reject
                             </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`Delete payment verification of ${inr(p.dealAmount)} for "${p.companyName}"?`)) {
+                                  deletePaymentVerification(p.id);
+                                }
+                              }}
+                              className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
+                              title="Delete this payment record"
+                            >
+                              <Trash2 size={13} />
+                            </button>
                           </div>
                         ) : (
-                          <span className="text-[11px] font-mono text-slate-400 italic">
-                            Audited
-                          </span>
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-[11px] font-mono text-slate-400 italic">
+                              Audited
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`Delete deal payment of ${inr(p.dealAmount)} for "${p.companyName}"? This will roll back sales achievements and remove the payment verification across all panels.`)) {
+                                  deletePaymentVerification(p.id);
+                                }
+                              }}
+                              className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
+                              title="Delete this payment record & adjust sales totals"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>

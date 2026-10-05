@@ -121,7 +121,9 @@ export const AdminDashboardView: React.FC = () => {
     setIsExcelUploadModalOpen,
     assignTeamLeaderToGroup,
     verifyPayment,
+    deletePaymentVerification,
     reassignLeadsBetween,
+    deleteAssignedLead,
     updateTeamGroup,
     deleteTeamGroup,
     disputeAttendanceRecord,
@@ -200,6 +202,9 @@ export const AdminDashboardView: React.FC = () => {
   const [managingSquad, setManagingSquad] = useState<TeamGroup | null>(null);
   const [moveFrom, setMoveFrom] = useState('');
   const [moveTo, setMoveTo] = useState('');
+  const [moveCount, setMoveCount] = useState('');
+  const [poolAssignTarget, setPoolAssignTarget] = useState('');
+  const [poolAssignCount, setPoolAssignCount] = useState<number>(1);
 
   // Target control, Approvals subtab, Meeting scheduling, and Inspection voucher states
   const [isScheduleMeetingOpen, setIsScheduleMeetingOpen] = useState(false);
@@ -2470,7 +2475,7 @@ export const AdminDashboardView: React.FC = () => {
                     const freshUnassigned = unassignedLeads.filter((l) => l.callCount === 0).length;
 
                     return (
-                      <div className="bg-gradient-to-r from-amber-50/90 via-orange-50/30 to-white border border-amber-200/90 rounded-2xl p-3 space-y-2 shadow-2xs">
+                      <div className="bg-gradient-to-r from-amber-50/90 via-orange-50/30 to-white border border-amber-200/90 rounded-2xl p-3.5 space-y-3 shadow-2xs">
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
@@ -2480,7 +2485,7 @@ export const AdminDashboardView: React.FC = () => {
                               </span>
                             </div>
                             <span className="text-[10px] text-amber-800 block truncate mt-0.5">
-                              {freshUnassigned} fresh uncalled · {unassignedLeads.length} total unassigned leads
+                              {freshUnassigned} fresh uncalled · {unassignedLeads.length} total unassigned leads ready to allocate
                             </span>
                           </div>
                           <div className="text-right flex-shrink-0 flex items-center gap-2">
@@ -2493,10 +2498,81 @@ export const AdminDashboardView: React.FC = () => {
                             <button
                               onClick={handleAutoDistribute}
                               disabled={isDistributing}
-                              className="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 text-white font-black text-[10px] shadow-xs active:scale-95 transition-all cursor-pointer whitespace-nowrap ml-1"
-                              title="Evenly distribute fresh leads among all active telecallers"
+                              className="px-2.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 text-white font-black text-[10px] shadow-xs active:scale-95 transition-all cursor-pointer whitespace-nowrap"
+                              title="Evenly distribute unassigned leads across all active telecallers"
                             >
                               {isDistributing ? 'Distributing…' : 'Distribute Evenly'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Assign Specific Number of Leads to a Person */}
+                        <div className="bg-white/90 border border-amber-200 rounded-xl p-2.5 space-y-2">
+                          <span className="text-[10px] font-bold text-amber-950 uppercase tracking-wider block">
+                            Direct Assign by Count:
+                          </span>
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                            <select
+                              value={poolAssignTarget}
+                              onChange={(e) => setPoolAssignTarget(e.target.value)}
+                              className="flex-1 bg-amber-50/50 border border-amber-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                            >
+                              <option value="">Select telecaller to receive leads...</option>
+                              {telecallerMembers
+                                .filter((m) => m.active !== 0)
+                                .map((m) => (
+                                  <option key={m.id} value={m.id}>
+                                    {m.name}
+                                  </option>
+                                ))}
+                            </select>
+
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] font-bold text-slate-600">Count:</span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={unassignedLeads.length}
+                                value={poolAssignCount || 1}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value, 10);
+                                  setPoolAssignCount(isNaN(val) ? 1 : Math.max(1, Math.min(unassignedLeads.length, val)));
+                                }}
+                                className="w-14 bg-white border border-amber-200 rounded-lg px-2 py-1 text-xs font-mono font-bold text-center text-slate-800"
+                              />
+                              {[1, 3, 5].filter(c => c <= unassignedLeads.length).map(c => (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  onClick={() => setPoolAssignCount(c)}
+                                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${poolAssignCount === c ? 'bg-[#0A2540] text-white border-[#0A2540]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                                >
+                                  {c}
+                                </button>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={() => setPoolAssignCount(unassignedLeads.length)}
+                                className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${poolAssignCount === unassignedLeads.length ? 'bg-[#0A2540] text-white border-[#0A2540]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                              >
+                                All ({unassignedLeads.length})
+                              </button>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!poolAssignTarget) {
+                                  triggerToast('Please select a telecaller to receive leads');
+                                  return;
+                                }
+                                await reassignLeadsBetween('UNASSIGNED', poolAssignTarget, poolAssignCount);
+                                setPoolAssignTarget('');
+                              }}
+                              disabled={!poolAssignTarget}
+                              className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold text-xs shadow-xs active:scale-95 transition-all cursor-pointer whitespace-nowrap"
+                            >
+                              Assign {poolAssignCount} Leads
                             </button>
                           </div>
                         </div>
@@ -2594,13 +2670,28 @@ export const AdminDashboardView: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className="text-right flex-shrink-0">
-                          <span className="text-[10px] font-bold text-slate-700 block truncate max-w-[130px]">
-                            {l.assignedToEmployeeName || 'Unassigned'}
-                          </span>
-                          <span className="text-[9px] text-slate-400 font-mono">
-                            {l.callCount} calls {l.dealValue ? `· ₹${l.dealValue.toLocaleString('en-IN')}` : ''}
-                          </span>
+                        <div className="text-right flex-shrink-0 flex items-center gap-2">
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-700 block truncate max-w-[130px]">
+                              {l.assignedToEmployeeName || 'Unassigned'}
+                            </span>
+                            <span className="text-[9px] text-slate-400 font-mono">
+                              {l.callCount} calls {l.dealValue ? `· ₹${l.dealValue.toLocaleString('en-IN')}` : ''}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm(`Delete lead "${l.name || l.phone}"? This will permanently remove it from all panels and employee call lists.`)) {
+                                deleteAssignedLead(l.id);
+                              }
+                            }}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
+                            title="Delete this lead across all panels"
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -2680,16 +2771,54 @@ export const AdminDashboardView: React.FC = () => {
                       );
                     })}
                 </select>
+                <div className="flex items-center gap-1.5 pt-1">
+                  <span className="text-[11px] font-bold text-slate-600">Count:</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={moveCount}
+                    placeholder="All"
+                    onChange={(e) => setMoveCount(e.target.value)}
+                    className="w-16 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-mono font-bold text-slate-800 text-center focus:outline-none focus:border-[#00C9A7]"
+                  />
+                  {[1, 3, 5, 10].map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setMoveCount(String(c))}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                        moveCount === String(c)
+                          ? 'bg-[#0A2540] text-white border-[#0A2540]'
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setMoveCount('')}
+                    className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                      moveCount === ''
+                        ? 'bg-[#0A2540] text-white border-[#0A2540]'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    All
+                  </button>
+                </div>
                 <button
                   onClick={async () => {
-                    await reassignLeadsBetween(moveFrom, moveTo);
+                    const parsedLimit = moveCount.trim() ? parseInt(moveCount, 10) : undefined;
+                    await reassignLeadsBetween(moveFrom, moveTo, parsedLimit);
                     setMoveFrom('');
                     setMoveTo('');
+                    setMoveCount('');
                   }}
                   disabled={!moveFrom || !moveTo}
                   className="w-full bg-[#0A2540] disabled:bg-slate-200 disabled:text-slate-400 text-white font-black text-xs py-2.5 rounded-xl active:scale-95 transition-all cursor-pointer"
                 >
-                  Move leads
+                  Move {moveCount ? `${moveCount} ` : ''}leads
                 </button>
               </div>
 
@@ -3171,9 +3300,24 @@ export const AdminDashboardView: React.FC = () => {
                               Closed by <strong className="text-slate-700">{p.telecallerName || 'Employee'}</strong> · {p.paymentMode}
                             </span>
                           </div>
-                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 flex-shrink-0">
-                            PENDING AUDIT
-                          </span>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
+                              PENDING AUDIT
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm(`Delete payment verification of ${inr(p.dealAmount)} for "${p.companyName}"?`)) {
+                                  deletePaymentVerification(p.id);
+                                }
+                              }}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
+                              title="Delete this payment record"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
                         </div>
 
                         {/* Customer Banking / UPI Remittance Details */}
@@ -3327,13 +3471,28 @@ export const AdminDashboardView: React.FC = () => {
                             {p.telecallerName || 'Employee'} · UTR {p.utrNumber}
                           </span>
                         </div>
-                        <span
-                          className={`text-[9px] font-black px-2 py-0.5 rounded flex-shrink-0 ${
-                            p.status === 'VERIFIED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
-                          }`}
-                        >
-                          {p.status}
-                        </span>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span
+                            className={`text-[9px] font-black px-2 py-0.5 rounded ${
+                              p.status === 'VERIFIED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                            }`}
+                          >
+                            {p.status}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm(`Delete deal payment of ${inr(p.dealAmount)} for "${p.companyName}"? This will roll back sales achievements and remove the payment verification across all panels.`)) {
+                                deletePaymentVerification(p.id);
+                              }
+                            }}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
+                            title="Delete this payment record & adjust sales totals"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </div>
                     ))}
                 </div>

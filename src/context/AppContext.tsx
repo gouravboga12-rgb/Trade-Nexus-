@@ -65,6 +65,7 @@ import {
   INITIAL_INVOICES,
   INITIAL_COMPANY_HOLIDAYS,
 } from '../data/mockData';
+import { isTelecallerOrCallingEmployee } from '../utils/teamUtils';
 
 interface AppContextType {
   currentRole: UserRole;
@@ -138,6 +139,8 @@ interface AppContextType {
   approveLeaveRequest: (id: string) => void;
   rejectLeaveRequest: (id: string, reason: string) => void;
   reassignLead: (leadId: string, newAssigneeName: string) => void;
+  deleteAssignedLead: (leadId: string) => Promise<void>;
+  deletePaymentVerification: (paymentId: string) => Promise<void>;
   /** Move a telecaller's leads to someone else, optionally limited to a count. */
   reassignLeadsBetween: (fromEmployeeId: string, toEmployeeId: string, limit?: number) => Promise<void>;
   /** Auto distribute uncalled fresh leads evenly among active telecallers / sales staff */
@@ -2307,7 +2310,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           !l.assignedToEmployeeId ||
           l.assignedToEmployeeId === 'unassigned' ||
           l.assignedToEmployeeId === '' ||
-          (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === 'unassigned')
+          (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === 'unassigned') ||
+          !teamMembers.some((m) => m.id === l.assignedToEmployeeId || m.empCode === l.assignedToEmployeeId || (m.name && l.assignedToEmployeeName && m.name.toLowerCase() === l.assignedToEmployeeName.toLowerCase()))
         );
       }
       return (
@@ -2350,30 +2354,78 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const deleteAssignedLead = async (leadId: string) => {
+    setAssignedLeads((prev) => prev.filter((l) => l.id !== leadId));
+    setClients((prev) => prev.filter((c) => c.id !== leadId));
+    setPaymentVerifications((prev) => prev.filter((p) => p.id !== `pay-${leadId}` && p.utrNumber !== `LEAD-${leadId}`));
+
+    try {
+      await api.deleteAssignedLead(leadId);
+      triggerToast('✓ Lead deleted across all panels');
+      refreshResources(['assignedLeads', 'teamMembers', 'teamGroups', 'paymentVerifications', 'stats']);
+    } catch (err) {
+      console.warn('Delete assigned lead failed:', err);
+      triggerToast('✗ Failed to delete lead from server');
+      refreshResources(['assignedLeads']);
+    }
+  };
+
+  const deletePaymentVerification = async (paymentId: string) => {
+    setPaymentVerifications((prev) => prev.filter((p) => p.id !== paymentId));
+
+    try {
+      await api.deletePayment(paymentId);
+      triggerToast('✓ Deal payment removed & sales ledger updated');
+      refreshResources(['paymentVerifications', 'teamMembers', 'teamGroups', 'assignedLeads', 'stats']);
+    } catch (err) {
+      console.warn('Delete payment failed:', err);
+      triggerToast('✗ Failed to delete payment from server');
+      refreshResources(['paymentVerifications']);
+    }
+  };
+
   const autoDistributeFreshLeads = async () => {
-    const freshLeads = assignedLeads.filter((l) => l.callCount === 0);
-    const activeTelecallers = teamMembers.filter(
-      (m) =>
-        m.active !== 0 &&
-        m.empCode !== 'TNX-AD01' &&
-        !m.role?.toLowerCase().includes('admin')
+    // 1. Identify unassigned leads across the system
+    const unassignedLeads = assignedLeads.filter(
+      (l) =>
+        !l.assignedToEmployeeId ||
+        l.assignedToEmployeeId === 'unassigned' ||
+        l.assignedToEmployeeId === '' ||
+        (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === 'unassigned') ||
+        !teamMembers.some(
+          (m) =>
+            m.id === l.assignedToEmployeeId ||
+            m.empCode === l.assignedToEmployeeId ||
+            (m.name && l.assignedToEmployeeName && m.name.toLowerCase() === l.assignedToEmployeeName.toLowerCase())
+        )
     );
-    if (!freshLeads.length) {
-      triggerToast('✓ All fresh leads are already distributed and dialed!');
+
+    // If unassigned leads exist in the pool, prioritize distributing them!
+    // Otherwise distribute fresh uncalled leads (callCount === 0).
+    const leadsToDistribute = unassignedLeads.length > 0
+      ? unassignedLeads
+      : assignedLeads.filter((l) => l.callCount === 0);
+
+    const activeTelecallers = teamMembers.filter(
+      (m) => isTelecallerOrCallingEmployee(m)
+    );
+
+    if (!leadsToDistribute.length) {
+      triggerToast('✓ All leads are already distributed and assigned!');
       return;
     }
     if (!activeTelecallers.length) {
-      triggerToast('No active employees found to receive leads.');
+      triggerToast('No active telecallers found to receive leads.');
       return;
     }
 
     try {
-      const perCaller = Math.ceil(freshLeads.length / activeTelecallers.length);
+      const perCaller = Math.ceil(leadsToDistribute.length / activeTelecallers.length);
       let idx = 0;
-      const reassignments: { [empId: string]: { member: typeof activeTelecallers[0]; leads: typeof freshLeads } } = {};
+      const reassignments: { [empId: string]: { member: typeof activeTelecallers[0]; leads: typeof leadsToDistribute } } = {};
 
       for (const caller of activeTelecallers) {
-        const chunk = freshLeads.slice(idx, idx + perCaller);
+        const chunk = leadsToDistribute.slice(idx, idx + perCaller);
         idx += perCaller;
         if (chunk.length > 0) {
           reassignments[caller.id] = { member: caller, leads: chunk };
@@ -2382,7 +2434,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       for (const empId of Object.keys(reassignments)) {
         const { member, leads } = reassignments[empId];
-        const leadIdsToMove = leads.map(l => l.id);
+        const leadIdsToMove = leads.map((l) => l.id);
         try {
           await api.reassignBatchAssignedLeads({
             leadIds: leadIdsToMove,
@@ -2409,7 +2461,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         })
       );
 
-      triggerToast(`✓ Distributed ${freshLeads.length} fresh leads across ${activeTelecallers.length} employees`);
+      triggerToast(`✓ Distributed ${leadsToDistribute.length} leads across ${activeTelecallers.length} telecallers`);
+      refreshResources(['assignedLeads']);
     } catch (err) {
       console.warn(err);
       triggerToast('✓ Leads distributed successfully');
@@ -3402,6 +3455,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         approveLeaveRequest,
         rejectLeaveRequest,
         reassignLead,
+        deleteAssignedLead,
+        deletePaymentVerification,
         reassignLeadsBetween,
         autoDistributeFreshLeads,
         createTeamGroup,

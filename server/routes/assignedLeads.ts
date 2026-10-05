@@ -307,4 +307,64 @@ router.put('/:id', (req: Request, res: Response) => {
   }
 });
 
+// DELETE /api/assigned-leads/:id
+router.delete('/:id', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const lead = db.prepare('SELECT * FROM assigned_leads WHERE id = ?').get(id) as any;
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+
+    const deleteTransaction = db.transaction(() => {
+      // 1. If lead was converted, remove or roll back corresponding payment verification
+      try {
+        const linkedPayments = db.prepare(`
+          SELECT * FROM payment_verifications 
+          WHERE id = ? OR utrNumber = ? OR (
+            LOWER(TRIM(COALESCE(companyName, leadName, ''))) = LOWER(TRIM(?)) AND
+            dealAmount = ?
+          )
+        `).all(`pay-${id}`, `LEAD-${id}`, (lead.company || lead.name || '').trim(), lead.dealValue || 0) as any[];
+
+        for (const p of linkedPayments) {
+          if (p.status === 'VERIFIED') {
+            const caller = db.prepare('SELECT id, groupName FROM team_members WHERE LOWER(name) = LOWER(?) LIMIT 1').get(p.telecallerName || lead.assignedToEmployeeName) as any;
+            if (caller) {
+              db.prepare('UPDATE team_members SET salesAchieved = MAX(0, salesAchieved - ?) WHERE id = ?').run(p.dealAmount, caller.id);
+              if (caller.groupName) {
+                db.prepare('UPDATE team_groups SET achieved = MAX(0, achieved - ?) WHERE LOWER(name) = LOWER(?)').run(p.dealAmount, caller.groupName);
+              }
+            }
+          }
+          db.prepare('DELETE FROM payment_verifications WHERE id = ?').run(p.id);
+        }
+      } catch (e) {
+        console.warn('[assignedLeads.delete] Linked payment cleanup warning:', e);
+      }
+
+      // 2. Remove associated call logs
+      try {
+        db.prepare('DELETE FROM call_logs WHERE leadId = ? OR (clientPhone IS NOT NULL AND clientPhone != "" AND clientPhone = ?)').run(id, lead.phone || '');
+      } catch (err) {}
+
+      // 3. Delete from assigned_leads
+      db.prepare('DELETE FROM assigned_leads WHERE id = ?').run(id);
+
+      // 4. Update totalLeads on lead_batches if batchId exists
+      if (lead.batchId) {
+        try {
+          db.prepare('UPDATE lead_batches SET totalLeads = MAX(0, totalLeads - 1) WHERE id = ?').run(lead.batchId);
+        } catch (err) {}
+      }
+    });
+
+    deleteTransaction();
+
+    return res.status(200).json({ success: true, id });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;
