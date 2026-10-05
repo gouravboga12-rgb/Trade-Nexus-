@@ -338,6 +338,12 @@ export function initializeDatabaseSchema() {
       timestamp TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'PENDING_HR_AUDIT',
       receiptUrl TEXT,
+      customerName TEXT,
+      customerPhone TEXT,
+      customerBankName TEXT,
+      customerAccountNumber TEXT,
+      customerIfscCode TEXT,
+      customerUpiId TEXT,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -770,7 +776,9 @@ function runMigrations() {
     { table: 'assigned_leads', column: 'customerAccountNumber', definition: 'TEXT' },
     { table: 'assigned_leads', column: 'customerIfscCode', definition: 'TEXT' },
     { table: 'assigned_leads', column: 'customerUpiId',    definition: 'TEXT' },
+    { table: 'assigned_leads', column: 'customerPhone',    definition: 'TEXT' },
     { table: 'payment_verifications', column: 'customerName',     definition: 'TEXT' },
+    { table: 'payment_verifications', column: 'customerPhone',    definition: 'TEXT' },
     { table: 'payment_verifications', column: 'customerBankName', definition: 'TEXT' },
     { table: 'payment_verifications', column: 'customerAccountNumber', definition: 'TEXT' },
     { table: 'payment_verifications', column: 'customerIfscCode', definition: 'TEXT' },
@@ -865,6 +873,23 @@ function runMigrations() {
         ELSE '2026-09-26'
       END
       WHERE timestamp = 'Today' OR timestamp IS NULL OR timestamp = ''
+    `).run();
+  } catch (e) {
+    // Ignore if table not yet initialized
+  }
+
+  // Backfill customerPhone and banking info for payment_verifications from assigned_leads
+  try {
+    db.prepare(`
+      UPDATE payment_verifications
+      SET customerPhone = COALESCE(payment_verifications.customerPhone, (
+        SELECT phone FROM assigned_leads 
+        WHERE assigned_leads.id = SUBSTR(payment_verifications.id, 5)
+           OR LOWER(TRIM(assigned_leads.name)) = LOWER(TRIM(payment_verifications.leadName))
+        LIMIT 1
+      )),
+      customerName = COALESCE(payment_verifications.customerName, payment_verifications.leadName)
+      WHERE customerPhone IS NULL OR customerName IS NULL
     `).run();
   } catch (e) {
     // Ignore if table not yet initialized

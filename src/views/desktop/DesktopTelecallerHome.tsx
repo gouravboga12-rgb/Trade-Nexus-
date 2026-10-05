@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { RejectedLeaveBanner } from '../../components/common/RejectedLeaveBanner';
 import { getTodayDateIST } from '../../utils/dateUtils';
+import { sumVerifiedRevenue } from '../../utils/revenueUtils';
 
 export const DesktopTelecallerHome: React.FC = () => {
   const { 
@@ -44,7 +45,8 @@ export const DesktopTelecallerHome: React.FC = () => {
     openPunchOut, 
     triggerToast, 
     setActiveTab,
-    setClientPipelineTab 
+    setClientPipelineTab,
+    paymentVerifications,
   } = useApp();
 
   const { isLoading } = useScreenData('telecallerHome');
@@ -85,17 +87,15 @@ export const DesktopTelecallerHome: React.FC = () => {
     });
   }, [assignedLeads, currentUser, profile]);
 
-  const wonCount = userLeads.filter((l: AssignedLead) => l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0)).length;
+  const wonCount = userLeads.filter((l: AssignedLead) => l.status === 'CONVERTED').length;
   const followUpCount = userLeads.filter((l: AssignedLead) => l.status === 'CALLBACK').length;
   const toCallCount = userLeads.filter((l: AssignedLead) => l.status === 'PENDING').length;
 
-  // Real-time live dynamic revenue from won deals in SQLite
-  const wonDealsRevenue = useMemo(() => {
-    const fromLeads = userLeads
-      .filter((l) => l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0))
-      .reduce((sum, l) => sum + (l.dealValue || 0), 0);
-    return fromLeads;
-  }, [userLeads]);
+  // Revenue = this employee's VERIFIED payments only (same rule as Admin / HR / Team Leader)
+  const wonDealsRevenue = useMemo(
+    () => sumVerifiedRevenue(paymentVerifications, { employeeName: currentUser?.name || profile?.name }),
+    [paymentVerifications, currentUser, profile]
+  );
 
   const effectiveMonthlyTarget = useMemo(() => {
     return (stats.monthlySalesTarget && stats.monthlySalesTarget > 0) ? stats.monthlySalesTarget : 200000;

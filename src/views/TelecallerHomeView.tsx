@@ -22,6 +22,7 @@ import {
   ArrowUpRight
 } from 'lucide-react';
 import { RejectedLeaveBanner } from '../components/common/RejectedLeaveBanner';
+import { sumVerifiedRevenue } from '../utils/revenueUtils';
 
 export const TelecallerHomeView: React.FC = () => {
   const { 
@@ -42,7 +43,8 @@ export const TelecallerHomeView: React.FC = () => {
     openPunchOut,
     triggerToast,
     setActiveTab,
-    setClientPipelineTab
+    setClientPipelineTab,
+    paymentVerifications,
   } = useApp();
 
   const { isLoading } = useScreenData('telecallerHome');
@@ -93,20 +95,17 @@ export const TelecallerHomeView: React.FC = () => {
     });
   }, [callLogs, currentUser, empId, empCode, empName, profile]);
 
-  const wonCount = userLeads.filter((l: AssignedLead) => l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0)).length;
+  const wonCount = userLeads.filter((l: AssignedLead) => l.status === 'CONVERTED').length;
   const followUpCount = userLeads.filter((l: AssignedLead) => l.status === 'CALLBACK').length;
   const toCallCount = userLeads.filter((l: AssignedLead) => l.status === 'PENDING').length;
 
-  // Real-time live dynamic revenue from won deals in SQLite
-  const wonDealsRevenue = useMemo(() => {
-    // Only count revenue from this employee's own converted leads
-    // Do NOT fall back to stats.monthlySalesAchieved — that value was previously
-    // polluted by the global stats-default row and showed other employees' revenue.
-    const fromLeads = userLeads
-      .filter((l) => l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0))
-      .reduce((sum, l) => sum + (l.dealValue || 0), 0);
-    return fromLeads;
-  }, [userLeads]);
+  // Revenue = this employee's VERIFIED payments only — the exact same rule used by
+  // Admin, HR and Team Leader dashboards, so every role sees the same number.
+  // (Summing lead.dealValue over-counted duplicate / unverified conversions.)
+  const wonDealsRevenue = useMemo(
+    () => sumVerifiedRevenue(paymentVerifications, { employeeName: empName }),
+    [paymentVerifications, empName]
+  );
 
   const effectiveMonthlyTarget = useMemo(() => {
     return (stats.monthlySalesTarget && stats.monthlySalesTarget > 0) ? stats.monthlySalesTarget : 200000;

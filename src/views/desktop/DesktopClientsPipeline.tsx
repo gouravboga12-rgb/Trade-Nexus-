@@ -13,7 +13,9 @@ import {
   X,
   Layers
 } from 'lucide-react';
-import { getLeadDate, isDateInPeriodIST } from '../../utils/dateUtils';
+import { getTodayDateIST, isDateInPeriodIST } from '../../utils/dateUtils';
+import { getPaymentDateIST, isPaymentInPeriod, matchLeadsToPayments, paymentBelongsTo } from '../../utils/revenueUtils';
+import { AssignedLead } from '../../types';
 
 export const DesktopClientsPipeline: React.FC = () => {
   const { 
@@ -21,7 +23,8 @@ export const DesktopClientsPipeline: React.FC = () => {
     profile, 
     currentUser,
     stats,
-    triggerToast 
+    triggerToast,
+    paymentVerifications,
   } = useApp();
 
   useScreenData('clientsPipeline');
@@ -42,16 +45,34 @@ export const DesktopClientsPipeline: React.FC = () => {
       const matchesId = validIds.has(l.assignedToEmployeeId);
       const matchesName = validName && l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === validName;
       const isMine = Boolean(matchesId || matchesName);
-      return isMine && (l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0));
+      return isMine && l.status === 'CONVERTED';
     });
   }, [assignedLeads, profile, currentUser]);
 
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
-  const yesterdayStr = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().split('T')[0];
-  }, []);
+  const myName = (currentUser?.name || profile?.name || '').trim();
+  const myPayments = useMemo(
+    () => (paymentVerifications || []).filter((p) => paymentBelongsTo(p, myName)),
+    [paymentVerifications, myName]
+  );
+  const paymentByLead = useMemo(() => matchLeadsToPayments(myWonLeads, myPayments), [myWonLeads, myPayments]);
+
+  const dealDate = (lead: AssignedLead): string => {
+    const payDate = getPaymentDateIST(paymentByLead.get(lead.id));
+    if (payDate) return payDate;
+    if (lead.updatedAt) {
+      const d = new Date(lead.updatedAt);
+      if (!isNaN(d.getTime())) return getTodayDateIST(d);
+    }
+    return lead.assignedDate || '';
+  };
+
+  const statusLabel = (lead: AssignedLead) => {
+    const s = paymentByLead.get(lead.id)?.status;
+    if (s === 'VERIFIED') return 'Verified';
+    if (s === 'PENDING_HR_AUDIT') return 'Awaiting HR';
+    if (s === 'REJECTED') return 'Rejected';
+    return 'No Payment Record';
+  };
 
   // Filter won leads by date & search query
   const filteredWonLeads = useMemo(() => {
@@ -68,24 +89,24 @@ export const DesktopClientsPipeline: React.FC = () => {
       }
 
       // Robust IST Date filtering
-      const leadDateStr = getLeadDate(lead);
-      return isDateInPeriodIST(leadDateStr, dateFilter, customDate, customDate);
+      return isDateInPeriodIST(dealDate(lead), dateFilter, customDate, customDate);
     });
-  }, [myWonLeads, dateFilter, customDate, searchQuery]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myWonLeads, dateFilter, customDate, searchQuery, paymentByLead]);
 
-  // Calculate dynamic revenue for active filter
+  // Revenue = VERIFIED payments only (same rule as Admin / Team Leader / HR)
   const totalSelectedRevenue = useMemo(() => {
-    return filteredWonLeads.reduce((sum, lead) => {
-      return sum + (lead.dealValue || 0);
-    }, 0);
-  }, [filteredWonLeads]);
+    return myPayments
+      .filter((p) => p.status === 'VERIFIED' && isPaymentInPeriod(p, dateFilter, customDate, customDate))
+      .reduce((sum, p) => sum + (Number(p.dealAmount) || 0), 0);
+  }, [myPayments, dateFilter, customDate]);
 
   const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 
   const handleExportCsv = () => {
-    const header = 'Phone,Deal Value,Closed Date,Status,Dials,Notes';
+    const header = 'Phone,Deal Value,Closed Date,Payment Status,Dials,Notes';
     const rows = filteredWonLeads.map((l) =>
-      `"${l.phone}",${l.dealValue || 0},"${l.updatedAt ? l.updatedAt.split('T')[0] : 'Today'}","Won Deal",${l.callCount || 0},"${(l.notes || '').replace(/"/g, '""')}"`
+      `"${l.phone}",${paymentByLead.get(l.id)?.dealAmount ?? l.dealValue ?? 0},"${dealDate(l)}","${statusLabel(l)}",${l.callCount || 0},"${(l.notes || '').replace(/"/g, '""')}"`
     );
     const csv = `data:text/csv;charset=utf-8,${header}\n${rows.join('\n')}`;
     const link = document.createElement('a');
@@ -267,27 +288,40 @@ export const DesktopClientsPipeline: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
               {filteredWonLeads.length > 0 ? (
-                filteredWonLeads.map((lead) => (
+                filteredWonLeads.map((lead) => {
+                  const pStatus = paymentByLead.get(lead.id)?.status;
+                  const verified = pStatus === 'VERIFIED';
+                  return (
                   <tr key={lead.id} className="hover:bg-emerald-50/30 transition-colors">
                     <td className="py-4 px-6 font-mono font-black text-sm text-[#0A2540]">
                       {lead.phone}
                     </td>
                     <td className="py-4 px-6">
-                      <span className="inline-flex items-center gap-1 font-mono font-black text-sm text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
-                        <Award className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>+{inr(lead.dealValue || 0)}</span>
+                      <span className={`inline-flex items-center gap-1 font-mono font-black text-sm px-2.5 py-1 rounded-xl border ${
+                        verified ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-slate-500 bg-slate-50 border-slate-200 line-through decoration-slate-300'
+                      }`}>
+                        <Award className={`w-3.5 h-3.5 ${verified ? 'text-emerald-600' : 'text-slate-400'}`} />
+                        <span>+{inr(paymentByLead.get(lead.id)?.dealAmount ?? lead.dealValue ?? 0)}</span>
                       </span>
                     </td>
                     <td className="py-4 px-6 font-medium text-slate-600">
                       <span className="flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{lead.updatedAt ? lead.updatedAt.split('T')[0] : 'Today'}</span>
+                        <span>{dealDate(lead) || 'Today'}</span>
                       </span>
                     </td>
                     <td className="py-4 px-6">
-                      <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-md">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        Deal Closed
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-mono font-bold px-2 py-0.5 rounded-md ${
+                        verified
+                          ? 'text-emerald-800 bg-emerald-100/70'
+                          : pStatus === 'PENDING_HR_AUDIT'
+                          ? 'text-amber-800 bg-amber-100/70'
+                          : pStatus === 'REJECTED'
+                          ? 'text-rose-800 bg-rose-100/70'
+                          : 'text-slate-700 bg-slate-100'
+                      }`}>
+                        <CheckCircle2 className="w-3 h-3" />
+                        {statusLabel(lead)}
                       </span>
                     </td>
                     <td className="py-4 px-6 font-mono text-slate-500">
@@ -301,7 +335,8 @@ export const DesktopClientsPipeline: React.FC = () => {
                         : '—'}
                     </td>
                   </tr>
-                ))
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={6} className="py-12 text-center">

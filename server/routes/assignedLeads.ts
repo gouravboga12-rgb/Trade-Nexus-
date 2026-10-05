@@ -208,7 +208,7 @@ router.put('/:id', (req: Request, res: Response) => {
           assignedToEmployeeId = ?, assignedToEmployeeName = ?, batchId = ?, 
           assignedDate = ?, status = ?, notes = ?, callCount = ?, 
           lastCallTimestamp = ?, dealValue = ?, followUpDate = ?,
-          customerName = ?, customerBankName = ?, customerAccountNumber = ?, customerIfscCode = ?, customerUpiId = ?,
+          customerName = ?, customerPhone = ?, customerBankName = ?, customerAccountNumber = ?, customerIfscCode = ?, customerUpiId = ?,
           updatedAt = ?
       WHERE id = ?
     `).run(
@@ -216,7 +216,7 @@ router.put('/:id', (req: Request, res: Response) => {
       merged.assignedToEmployeeId, merged.assignedToEmployeeName, merged.batchId,
       merged.assignedDate, merged.status, merged.notes, merged.callCount,
       merged.lastCallTimestamp, merged.dealValue, merged.followUpDate,
-      merged.customerName || merged.name || null, merged.customerBankName || null,
+      merged.customerName || merged.name || null, merged.customerPhone || merged.phone || null, merged.customerBankName || null,
       merged.customerAccountNumber || null, merged.customerIfscCode || null, merged.customerUpiId || null,
       now, id
     );
@@ -227,6 +227,7 @@ router.put('/:id', (req: Request, res: Response) => {
         const payId = `pay-${id}`;
         const cleanCompany = (merged.company || merged.name || 'Direct Client').trim();
         const callerName = (merged.assignedToEmployeeName || 'Employee').trim();
+        const custPhone = (merged.customerPhone || merged.phone || '').trim();
         const existingPay = db.prepare(`
           SELECT id FROM payment_verifications 
           WHERE id = ? OR utrNumber = ? OR (
@@ -241,14 +242,14 @@ router.put('/:id', (req: Request, res: Response) => {
           db.prepare(`
             INSERT INTO payment_verifications (
               id, leadName, companyName, telecallerName, dealAmount, utrNumber, paymentMode, timestamp, status,
-              customerName, customerBankName, customerAccountNumber, customerIfscCode, customerUpiId
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              customerName, customerPhone, customerBankName, customerAccountNumber, customerIfscCode, customerUpiId
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).run(
             payId, merged.name, cleanCompany, callerName,
             merged.dealValue, `TXN-${id.slice(-6).toUpperCase()}`,
             merged.customerUpiId ? 'UPI Transfer' : 'Bank Wire / Transfer',
             getTodayDateIST(), 'PENDING_HR_AUDIT',
-            merged.customerName || merged.name, merged.customerBankName || null,
+            merged.customerName || merged.name, custPhone || null, merged.customerBankName || null,
             merged.customerAccountNumber || null, merged.customerIfscCode || null, merged.customerUpiId || null
           );
           console.log(`[assignedLeads] Auto-created payment verification for won deal ${id}`);
@@ -257,6 +258,7 @@ router.put('/:id', (req: Request, res: Response) => {
           db.prepare(`
             UPDATE payment_verifications
             SET customerName = COALESCE(?, customerName),
+                customerPhone = COALESCE(?, customerPhone),
                 customerBankName = COALESCE(?, customerBankName),
                 customerAccountNumber = COALESCE(?, customerAccountNumber),
                 customerIfscCode = COALESCE(?, customerIfscCode),
@@ -264,7 +266,7 @@ router.put('/:id', (req: Request, res: Response) => {
                 dealAmount = ?
             WHERE id = ?
           `).run(
-            merged.customerName || merged.name, merged.customerBankName || null,
+            merged.customerName || merged.name, custPhone || null, merged.customerBankName || null,
             merged.customerAccountNumber || null, merged.customerIfscCode || null, merged.customerUpiId || null,
             merged.dealValue, existingPay.id
           );

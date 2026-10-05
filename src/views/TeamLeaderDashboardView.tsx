@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useScreenData } from '../hooks/useScreenData';
-import { getTodayDateIST, getLeadDate, isDateInPeriodIST } from '../utils/dateUtils';
+import { getTodayDateIST, getLeadDate, isDateInPeriodIST, getDateRangeIST } from '../utils/dateUtils';
+import { getPaymentDateIST, isPaymentInPeriod, paymentBelongsTo } from '../utils/revenueUtils';
 import { 
   Users, 
   PhoneCall, 
@@ -106,7 +107,9 @@ export const TeamLeaderDashboardView: React.FC = () => {
   const [calendarMonthOffset, setCalendarMonthOffset] = useState(0);
   const [approvalsFilter, setApprovalsFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'ON_LEAVE'>('ALL');
-  const [reportsTimeframe, setReportsTimeframe] = useState<'today' | 'week' | 'month'>('today');
+  const [reportsTimeframe, setReportsTimeframe] = useState<'today' | 'week' | 'month' | 'custom'>('today');
+  const [reportsFrom, setReportsFrom] = useState<string>(() => getTodayDateIST());
+  const [reportsTo, setReportsTo] = useState<string>(() => getTodayDateIST());
   const [searchQuery, setSearchQuery] = useState('');
   
   // Selected member for 360 profile
@@ -228,27 +231,33 @@ export const TeamLeaderDashboardView: React.FC = () => {
     return `₹${amount.toLocaleString('en-IN')}`;
   };
 
-  // Performance Reports driven by timeframe selection ('today' | 'week' | 'month')
-  const { tfDials, tfSales, tfTarget, tfTargetPercent, tfConnectRate, membersByDials } = useMemo(() => {
-    const now = new Date();
-    const todayYMD = getTodayDateIST();
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  // Performance Reports driven by timeframe selection ('today' | 'week' | 'month' | 'custom')
+  const { tfDials, tfSales, tfTarget, tfTargetPercent, tfConnectRate, membersByDials, tfDailyBreakdown, tfRange } = useMemo(() => {
+    const mode = reportsTimeframe === 'today'
+      ? 'TODAY'
+      : reportsTimeframe === 'week'
+      ? 'THIS_WEEK'
+      : reportsTimeframe === 'month'
+      ? 'THIS_MONTH'
+      : 'CUSTOM';
+    // Keep custom range ordered even if the user picks "to" before "from"
+    const from = reportsFrom <= reportsTo ? reportsFrom : reportsTo;
+    const to = reportsFrom <= reportsTo ? reportsTo : reportsFrom;
+    const range = getDateRangeIST(mode as any, from, to);
 
     const isMatchTimeframe = (dateStr?: string) => {
       if (!dateStr) return false;
-      const mode = reportsTimeframe === 'today' ? 'TODAY' : reportsTimeframe === 'week' ? 'THIS_WEEK' : 'THIS_MONTH';
-      return isDateInPeriodIST(dateStr, mode);
+      return isDateInPeriodIST(dateStr, mode as any, from, to);
     };
 
     // Filter actual call logs matching timeframe
     const filteredCalls = (callLogs || []).filter(c => isMatchTimeframe(c.date || c.createdAt));
 
-    // Verified payments matching timeframe
-    const verifiedPayments = (paymentVerifications || []).filter(p => p.status === 'VERIFIED' && isMatchTimeframe(p.timestamp));
-    
-    // Converted assigned leads matching timeframe
-    const convertedLeads = (assignedLeads || []).filter(l => l.status === 'CONVERTED' && isMatchTimeframe(getLeadDate(l)));
+    // Verified payments matching timeframe — the single revenue source of truth
+    // (same as Admin/HR). Uses the real payment date, never a "Just now" label.
+    const verifiedPayments = (paymentVerifications || []).filter(
+      p => p.status === 'VERIFIED' && isPaymentInPeriod(p, mode as any, from, to)
+    );
 
     const ranking = [...teamMembers].map(m => {
       // Find calls logged for this employee in timeframe
@@ -261,30 +270,17 @@ export const TeamLeaderDashboardView: React.FC = () => {
         ? Math.max(empCalls, m.dialsToday || 0)
         : empCalls;
 
-      // Authentic sales for this caller in timeframe
-      const empPayments = verifiedPayments.filter(p => p.telecallerName && p.telecallerName.toLowerCase() === m.name.toLowerCase());
-      const pRevenue = empPayments.reduce((s, p) => s + (p.dealAmount || 0), 0);
-
-      const empWonLeads = convertedLeads.filter(l => 
-        l.assignedToEmployeeId === m.id ||
-        l.assignedToEmployeeId === m.empCode ||
-        (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === m.name.toLowerCase()) ||
-        l.assignedTo === m.name
-      );
-      const lRevenue = empWonLeads.reduce((s, l) => s + (l.dealValue || 0), 0);
-
-      let callerSales = Math.max(pRevenue, lRevenue);
-      // For full month view only, if no granular logs exist yet, member's monthly achieved sales is authentic
-      if (reportsTimeframe === 'month' && callerSales === 0 && (m.salesAchieved || 0) > 0) {
-        callerSales = m.salesAchieved;
-      }
+      // Authentic sales for this caller in timeframe = their verified payments only
+      const empPayments = verifiedPayments.filter(p => paymentBelongsTo(p, m.name));
+      const callerSales = empPayments.reduce((s, p) => s + (Number(p.dealAmount) || 0), 0);
 
       return {
         ...m,
         callerDials,
         callerSales,
+        callerDeals: empPayments.length,
       };
-    }).sort((a, b) => b.callerDials - a.callerDials || b.callerSales - a.callerSales);
+    }).sort((a, b) => b.callerSales - a.callerSales || b.callerDials - a.callerDials);
 
     // Total dials aggregated across members or calls
     const dials = ranking.reduce((sum, m) => sum + m.callerDials, 0);
@@ -292,12 +288,35 @@ export const TeamLeaderDashboardView: React.FC = () => {
     // Total sales aggregated across members
     const sales = ranking.reduce((sum, m) => sum + m.callerSales, 0);
 
-    // Target pacing: monthly total target, paced cleanly without inflating dials/sales
+    // Day-wise revenue breakdown for the selected range (only days with activity)
+    const memberNames = new Set(teamMembers.map(m => (m.name || '').trim().toLowerCase()));
+    const byDay = new Map<string, { revenue: number; deals: number }>();
+    verifiedPayments
+      .filter(p => memberNames.has((p.telecallerName || '').trim().toLowerCase()))
+      .forEach(p => {
+        const d = getPaymentDateIST(p);
+        if (!d) return;
+        const cur = byDay.get(d) || { revenue: 0, deals: 0 };
+        cur.revenue += Number(p.dealAmount) || 0;
+        cur.deals += 1;
+        byDay.set(d, cur);
+      });
+    const daily = [...byDay.entries()]
+      .map(([date, v]) => ({ date, ...v }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+
+    // Target pacing: monthly total target, paced by the number of days in the range
+    const dayCount = Math.max(
+      1,
+      Math.round((new Date(`${range.end}T00:00:00`).getTime() - new Date(`${range.start}T00:00:00`).getTime()) / 86400000) + 1
+    );
     const target = reportsTimeframe === 'today'
       ? Math.round(targetTotal / 22)
       : reportsTimeframe === 'week'
       ? Math.round(targetTotal / 4)
-      : targetTotal;
+      : reportsTimeframe === 'month'
+      ? targetTotal
+      : Math.round((targetTotal / 30) * dayCount);
 
     const targetPct = target > 0 ? Math.min(100, Math.round((sales / target) * 100)) : 0;
     
@@ -314,8 +333,20 @@ export const TeamLeaderDashboardView: React.FC = () => {
       tfTargetPercent: targetPct,
       tfConnectRate: connRate,
       membersByDials: ranking,
+      tfDailyBreakdown: daily,
+      tfRange: range,
     };
-  }, [reportsTimeframe, callLogs, paymentVerifications, assignedLeads, targetTotal, connectRate, teamMembers]);
+  }, [reportsTimeframe, reportsFrom, reportsTo, callLogs, paymentVerifications, targetTotal, connectRate, teamMembers]);
+
+  const reportsPeriodLabel = reportsTimeframe === 'today'
+    ? 'Today'
+    : reportsTimeframe === 'week'
+    ? 'Last 7 Days'
+    : reportsTimeframe === 'month'
+    ? 'This Month'
+    : tfRange.start === tfRange.end
+    ? tfRange.start
+    : `${tfRange.start} → ${tfRange.end}`;
 
   // Top active telecallers on floor right now from active SQLite team_members
   const activeFloorMembers = useMemo(() => {
@@ -439,13 +470,16 @@ export const TeamLeaderDashboardView: React.FC = () => {
 
   const exportTeamReportCSV = () => {
     const csvContent = "data:text/csv;charset=utf-8," 
-      + "Name,Role,Group,Attendance,Check-in,Dials,Connected,Interested,Sales Achieved,Target\n"
-      + teamMembers.map(e => `"${e.name}","${e.role}","${e.group}","${e.attendanceStatus}","${e.checkInTime || 'N/A'}",${e.dialsToday},${e.connected},${e.interested},${e.salesAchieved},${e.salesTarget}`).join("\n");
+      + `Period,${reportsPeriodLabel}\n`
+      + "Name,Role,Group,Attendance,Check-in,Dials (period),Verified Deals (period),Verified Revenue (period),Monthly Target\n"
+      + membersByDials.map((e: any) => `"${e.name}","${e.role}","${e.group}","${e.attendanceStatus}","${e.checkInTime || 'N/A'}",${e.callerDials},${e.callerDeals},${e.callerSales},${e.salesTarget}`).join("\n")
+      + "\n\nDate,Verified Revenue,Verified Deals\n"
+      + tfDailyBreakdown.map(d => `${d.date},${d.revenue},${d.deals}`).join("\n");
     
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Team_Performance_Report_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute("download", `Team_Performance_Report_${tfRange.start}_to_${tfRange.end}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1614,19 +1648,70 @@ export const TeamLeaderDashboardView: React.FC = () => {
             </div>
 
             {/* Timeframe Selector Pills */}
-            <div className="flex items-center justify-between bg-slate-100 p-1 rounded-xl border border-slate-200">
-              {(['today', 'week', 'month'] as const).map(tf => (
+            <div className="flex items-center justify-between bg-slate-100 p-1 rounded-xl border border-slate-200 gap-0.5">
+              {(['today', 'week', 'month', 'custom'] as const).map(tf => (
                 <button
                   key={tf}
+                  id={`tl-reports-tf-${tf}`}
                   onClick={() => setReportsTimeframe(tf)}
                   className={`flex-1 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${
                     reportsTimeframe === tf ? 'bg-white text-[#0A2540] shadow-xs' : 'text-slate-500'
                   }`}
                 >
-                  {tf === 'today' ? 'Today' : tf === 'week' ? 'This Week' : 'This Month'}
+                  {tf === 'today' ? 'Today' : tf === 'week' ? 'This Week' : tf === 'month' ? 'This Month' : 'Date'}
                 </button>
               ))}
             </div>
+
+            {/* Custom date-range picker */}
+            {reportsTimeframe === 'custom' && (
+              <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-2 animate-in fade-in duration-150">
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase space-y-1">
+                    <span className="block">From</span>
+                    <input
+                      id="tl-reports-from"
+                      type="date"
+                      value={reportsFrom}
+                      max={getTodayDateIST()}
+                      onChange={e => e.target.value && setReportsFrom(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-[#0A2540] focus:outline-none focus:border-[#00C9A7]"
+                    />
+                  </label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase space-y-1">
+                    <span className="block">To</span>
+                    <input
+                      id="tl-reports-to"
+                      type="date"
+                      value={reportsTo}
+                      max={getTodayDateIST()}
+                      onChange={e => e.target.value && setReportsTo(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-[#0A2540] focus:outline-none focus:border-[#00C9A7]"
+                    />
+                  </label>
+                </div>
+                <div className="flex gap-1.5">
+                  {[
+                    { label: 'Yesterday', days: 1, single: true },
+                    { label: 'Last 7', days: 6 },
+                    { label: 'Last 30', days: 29 },
+                  ].map(q => (
+                    <button
+                      key={q.label}
+                      onClick={() => {
+                        const now = new Date();
+                        const start = new Date(now.getTime() - q.days * 86400000);
+                        setReportsFrom(getTodayDateIST(start));
+                        setReportsTo(q.single ? getTodayDateIST(start) : getTodayDateIST(now));
+                      }}
+                      className="flex-1 py-1 rounded-lg text-[10px] font-bold bg-slate-50 border border-slate-200 text-slate-600 hover:border-[#00C9A7]"
+                    >
+                      {q.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Dynamic Summary Chips */}
             <div className="grid grid-cols-2 gap-2.5">
@@ -1636,20 +1721,58 @@ export const TeamLeaderDashboardView: React.FC = () => {
                 <span className="text-[10px] text-slate-400 block mt-0.5">{tfConnectRate}% Connect Rate</span>
               </div>
               <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
-                <span className="text-[10px] text-slate-500 block font-semibold uppercase">Revenue Closed</span>
+                <span className="text-[10px] text-slate-500 block font-semibold uppercase">Verified Revenue</span>
                 <span className="font-mono-nums font-black text-xl text-[#00A88B]">{formatInLakhs(tfSales)}</span>
-                <span className="text-[10px] text-amber-600 font-bold block mt-0.5">{tfTargetPercent}% Target Reached</span>
+                <span className="text-[10px] text-amber-600 font-bold block mt-0.5">{tfTargetPercent}% of {formatInLakhs(tfTarget)} target</span>
               </div>
+            </div>
+
+            {/* Day-wise revenue breakdown */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                Day-wise Revenue ({reportsPeriodLabel})
+              </span>
+              {tfDailyBreakdown.length === 0 ? (
+                <div className="bg-white p-3.5 rounded-2xl border border-dashed border-slate-200 text-center text-[11px] text-slate-400">
+                  No verified revenue in this period
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-xs divide-y divide-slate-100">
+                  {tfDailyBreakdown.map(d => {
+                    const max = Math.max(...tfDailyBreakdown.map(x => x.revenue), 1);
+                    return (
+                      <div key={d.date} className="px-3.5 py-2.5 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-bold text-[#0A2540]">
+                            {new Date(`${d.date}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' })}
+                          </span>
+                          <span className="font-mono-nums font-black text-[#00A88B]">
+                            {formatInLakhs(d.revenue)}
+                            <span className="text-slate-400 font-semibold ml-1.5">· {d.deals} deal{d.deals === 1 ? '' : 's'}</span>
+                          </span>
+                        </div>
+                        <div className="h-1.5 mt-1.5 rounded-full bg-slate-100 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#00C9A7] to-[#00B4D8] transition-all duration-500"
+                            style={{ width: `${Math.max(4, Math.round((d.revenue / max) * 100))}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Telecaller Performance List */}
             <div className="space-y-2">
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                Caller Ranking ({reportsTimeframe})
+                Caller Ranking ({reportsPeriodLabel})
               </span>
               {membersByDials.map((m, i) => {
-                const callerDials = (m as any).callerDials ?? m.dialsToday;
-                const callerSales = (m as any).callerSales ?? m.salesAchieved;
+                const callerDials = (m as any).callerDials ?? 0;
+                const callerSales = (m as any).callerSales ?? 0;
+                const callerDeals = (m as any).callerDeals ?? 0;
 
                 return (
                   <div 
@@ -1666,7 +1789,9 @@ export const TeamLeaderDashboardView: React.FC = () => {
                     </div>
                     <div className="text-right font-mono-nums">
                       <span className="text-[#0A2540] font-bold block">{callerDials} Calls</span>
-                      <span className="text-[#00A88B] text-[10px] font-bold">{formatInLakhs(callerSales)}</span>
+                      <span className="text-[#00A88B] text-[10px] font-bold">
+                        {formatInLakhs(callerSales)}{callerDeals > 0 ? ` · ${callerDeals} deal${callerDeals === 1 ? '' : 's'}` : ''}
+                      </span>
                     </div>
                   </div>
                 );

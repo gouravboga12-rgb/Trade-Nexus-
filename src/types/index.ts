@@ -383,6 +383,7 @@ export interface AssignedLead {
   followUpDate?: string;
   updatedAt?: string;
   customerName?: string;
+  customerPhone?: string;
   customerBankName?: string;
   customerAccountNumber?: string;
   customerIfscCode?: string;
@@ -486,9 +487,12 @@ export interface PaymentVerificationItem {
   utrNumber: string;
   paymentMode: string;
   timestamp: string;
+  /** SQLite insert time (UTC, "YYYY-MM-DD HH:MM:SS"); used when `timestamp` is not a real date */
+  createdAt?: string;
   status: 'PENDING_HR_AUDIT' | 'VERIFIED' | 'REJECTED';
   receiptUrl?: string;
   customerName?: string;
+  customerPhone?: string;
   customerBankName?: string;
   customerAccountNumber?: string;
   customerIfscCode?: string;

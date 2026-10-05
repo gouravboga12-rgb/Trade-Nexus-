@@ -14,14 +14,16 @@ import {
   Filter
 } from 'lucide-react';
 import { AssignedLead } from '../types';
-import { getLeadDate, isDateInPeriodIST } from '../utils/dateUtils';
+import { getTodayDateIST, isDateInPeriodIST } from '../utils/dateUtils';
+import { getPaymentDateIST, isPaymentInPeriod, matchLeadsToPayments, paymentBelongsTo } from '../utils/revenueUtils';
 
 export const ClientsPipelineView: React.FC = () => {
   const { 
     assignedLeads, 
     profile, 
     currentUser,
-    stats 
+    stats,
+    paymentVerifications,
   } = useApp();
 
   useScreenData('clientsPipeline');
@@ -42,17 +44,34 @@ export const ClientsPipelineView: React.FC = () => {
       const matchesId = validIds.has(l.assignedToEmployeeId);
       const matchesName = validName && l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === validName;
       const isMine = Boolean(matchesId || matchesName);
-      return isMine && (l.status === 'CONVERTED' || (l.dealValue && l.dealValue > 0));
+      // Only genuinely converted leads are deals. A dealValue on an INTERESTED/PENDING
+      // lead is just a quoted amount, not a closed deal.
+      return isMine && l.status === 'CONVERTED';
     });
   }, [assignedLeads, profile, currentUser]);
 
-  // Today's formatted YYYY-MM-DD string
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
-  const yesterdayStr = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().split('T')[0];
-  }, []);
+  const myName = (currentUser?.name || profile?.name || '').trim();
+
+  // This employee's payment rows (server already scopes them; name check is a safety net)
+  const myPayments = useMemo(
+    () => (paymentVerifications || []).filter((p) => paymentBelongsTo(p, myName)),
+    [paymentVerifications, myName]
+  );
+
+  // One-to-one lead ↔ payment link so a duplicate lead can never double-count a payment
+  const paymentByLead = useMemo(() => matchLeadsToPayments(myWonLeads, myPayments), [myWonLeads, myPayments]);
+
+  // Date a deal belongs to: its payment date when linked, otherwise the IST day it was closed
+  const dealDate = (lead: AssignedLead): string => {
+    const pay = paymentByLead.get(lead.id);
+    const payDate = getPaymentDateIST(pay);
+    if (payDate) return payDate;
+    if (lead.updatedAt) {
+      const d = new Date(lead.updatedAt);
+      if (!isNaN(d.getTime())) return getTodayDateIST(d);
+    }
+    return lead.assignedDate || '';
+  };
 
   // Filter won leads by selected calendar date/period & search query
   const filteredWonLeads = useMemo(() => {
@@ -70,17 +89,24 @@ export const ClientsPipelineView: React.FC = () => {
       }
 
       // Robust IST Date filtering
-      const leadDateStr = getLeadDate(lead);
-      return isDateInPeriodIST(leadDateStr, dateFilter, customDate, customDate);
+      return isDateInPeriodIST(dealDate(lead), dateFilter, customDate, customDate);
     });
-  }, [myWonLeads, dateFilter, customDate, search]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myWonLeads, dateFilter, customDate, search, paymentByLead]);
 
-  // Total Revenue of currently selected date filter
-  const totalSelectedRevenue = useMemo(() => {
-    return filteredWonLeads.reduce((sum, lead) => {
-      return sum + (lead.dealValue || 0);
-    }, 0);
-  }, [filteredWonLeads]);
+  // Verified payments in the selected period — identical rule to Admin / Team Leader / HR
+  const verifiedInPeriod = useMemo(
+    () => myPayments.filter((p) => p.status === 'VERIFIED' && isPaymentInPeriod(p, dateFilter, customDate, customDate)),
+    [myPayments, dateFilter, customDate]
+  );
+
+  // Total Revenue of currently selected date filter (verified only)
+  const totalSelectedRevenue = useMemo(
+    () => verifiedInPeriod.reduce((sum, p) => sum + (Number(p.dealAmount) || 0), 0),
+    [verifiedInPeriod]
+  );
+
+  const awaitingCount = filteredWonLeads.filter((l) => paymentByLead.get(l.id)?.status !== 'VERIFIED').length;
 
   const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
   return (
@@ -107,8 +133,13 @@ export const ClientsPipelineView: React.FC = () => {
             Deals Won
           </span>
           <span className="font-mono font-black text-lg text-emerald-700 block leading-tight">
-            {filteredWonLeads.length}
+            {verifiedInPeriod.length}
           </span>
+          {awaitingCount > 0 && (
+            <span className="text-[10px] font-semibold text-amber-600 block">
+              +{awaitingCount} not verified
+            </span>
+          )}
         </div>
       </div>
 
@@ -181,7 +212,19 @@ export const ClientsPipelineView: React.FC = () => {
       {/* 4. Won Deals List (Dedicated - Spacious, No Call Buttons) */}
       <div className="space-y-3">
         {filteredWonLeads.length > 0 ? (
-          filteredWonLeads.map((lead) => (
+          filteredWonLeads.map((lead) => {
+            const pay = paymentByLead.get(lead.id);
+            const status = pay?.status;
+            const chip =
+              status === 'VERIFIED'
+                ? { label: 'Deal Closed & Verified', cls: 'text-emerald-800 bg-emerald-100/80', icon: 'text-emerald-600' }
+                : status === 'PENDING_HR_AUDIT'
+                ? { label: 'Awaiting HR Verification', cls: 'text-amber-800 bg-amber-100/80', icon: 'text-amber-600' }
+                : status === 'REJECTED'
+                ? { label: 'Payment Rejected', cls: 'text-rose-800 bg-rose-100/80', icon: 'text-rose-600' }
+                : { label: 'No Payment Record — Not Counted', cls: 'text-slate-700 bg-slate-100', icon: 'text-slate-500' };
+            const amount = pay?.dealAmount ?? lead.dealValue ?? 0;
+            return (
             <div 
               key={lead.id} 
               className="nexus-card p-4 bg-white border border-slate-200/90 rounded-2xl shadow-xs hover:border-emerald-300 transition-all space-y-2.5"
@@ -194,22 +237,26 @@ export const ClientsPipelineView: React.FC = () => {
                   </span>
                   <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1 mt-0.5">
                     <Clock className="w-3 h-3 text-slate-400" />
-                    <span>Closed: {lead.updatedAt ? lead.updatedAt.split('T')[0] : 'Today'}</span>
+                    <span>Closed: {dealDate(lead) || 'Today'}</span>
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="inline-flex items-center gap-1 text-xs font-mono font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
-                    <Award className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>+{inr(lead.dealValue || 0)}</span>
+                  <span className={`inline-flex items-center gap-1 text-xs font-mono font-black px-2.5 py-1 rounded-xl border ${
+                    status === 'VERIFIED'
+                      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                      : 'text-slate-500 bg-slate-50 border-slate-200 line-through decoration-slate-300'
+                  }`}>
+                    <Award className={`w-3.5 h-3.5 ${status === 'VERIFIED' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                    <span>+{inr(amount)}</span>
                   </span>
                 </div>
               </div>
 
               {/* Status Chips */}
               <div className="flex items-center gap-2 pt-1">
-                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-extrabold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                  Deal Closed &amp; Verified
+                <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-extrabold px-2 py-0.5 rounded-md ${chip.cls}`}>
+                  <CheckCircle2 className={`w-3 h-3 ${chip.icon}`} />
+                  {chip.label}
                 </span>
                 <span className="text-[10px] font-mono text-slate-400">
                   Dials: {lead.callCount || 0}
@@ -225,7 +272,8 @@ export const ClientsPipelineView: React.FC = () => {
                 </p>
               )}
             </div>
-          ))
+            );
+          })
         ) : (
           <div className="nexus-card p-8 bg-white border border-slate-200 rounded-2xl text-center space-y-2">
             <Award className="w-8 h-8 text-emerald-400 mx-auto" />

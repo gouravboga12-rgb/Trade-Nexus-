@@ -40,7 +40,8 @@ import {
   Trash2,
   UserPlus
 } from 'lucide-react';
-import { getTodayDateIST, getLeadDate, isDateInPeriodIST } from '../../utils/dateUtils';
+import { getTodayDateIST, isDateInPeriodIST, getDateRangeIST } from '../../utils/dateUtils';
+import { getPaymentDateIST, isPaymentInPeriod, paymentBelongsTo } from '../../utils/revenueUtils';
 import { TeamMeeting, TeamMember } from '../../types';
 import { RejectedLeaveBanner } from '../../components/common/RejectedLeaveBanner';
 import { TelecallerDetailDrawer } from '../../components/modals/TelecallerDetailDrawer';
@@ -130,7 +131,9 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
   const [leaveSearch, setLeaveSearch] = useState('');
 
   // Performance Reports timeframe
-  const [reportsTimeframe, setReportsTimeframe] = useState<'today' | 'week' | 'month'>('month');
+  const [reportsTimeframe, setReportsTimeframe] = useState<'today' | 'week' | 'month' | 'custom'>('month');
+  const [reportsFrom, setReportsFrom] = useState<string>(() => getTodayDateIST());
+  const [reportsTo, setReportsTo] = useState<string>(() => getTodayDateIST());
 
   // Squad scoping: TL only sees leave requests of members in the team(s) they lead
   const tlNameLower = (currentUser?.name || profile?.name || '').trim().toLowerCase();
@@ -1128,22 +1131,26 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
         const isToday = reportsTimeframe === 'today';
         const isWeek = reportsTimeframe === 'week';
         const isMonth = reportsTimeframe === 'month';
+        const isCustom = reportsTimeframe === 'custom';
 
-        const tfLabel = isToday ? 'Today' : isWeek ? 'This Week' : 'This Month';
-        const now = new Date();
-        const todayYMD = getTodayDateIST();
-        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const mode = isToday ? 'TODAY' : isWeek ? 'THIS_WEEK' : isMonth ? 'THIS_MONTH' : 'CUSTOM';
+        const from = reportsFrom <= reportsTo ? reportsFrom : reportsTo;
+        const to = reportsFrom <= reportsTo ? reportsTo : reportsFrom;
+        const range = getDateRangeIST(mode as any, from, to);
+
+        const tfLabel = isToday ? 'Today' : isWeek ? 'This Week' : isMonth ? 'This Month'
+          : range.start === range.end ? range.start : `${range.start} → ${range.end}`;
 
         const isMatchTimeframe = (dateStr?: string) => {
           if (!dateStr) return false;
-          const mode = isToday ? 'TODAY' : isWeek ? 'THIS_WEEK' : 'THIS_MONTH';
-          return isDateInPeriodIST(dateStr, mode);
+          return isDateInPeriodIST(dateStr, mode as any, from, to);
         };
 
         const filteredCalls = (callLogs || []).filter(c => isMatchTimeframe(c.date || c.createdAt));
-        const verifiedPayments = (paymentVerifications || []).filter(p => p.status === 'VERIFIED' && isMatchTimeframe(p.timestamp));
-        const convertedLeads = (assignedLeads || []).filter(l => l.status === 'CONVERTED' && isMatchTimeframe(getLeadDate(l)));
+        // Verified payments matched by real date (createdAt fallback) — no "Just now" timestamps
+        const verifiedPayments = (paymentVerifications || []).filter(
+          p => p.status === 'VERIFIED' && isPaymentInPeriod(p, mode as any, from, to)
+        );
 
         const memberReportRows = teamMembers.map(member => {
           const empCalls = filteredCalls.filter(c =>
@@ -1152,27 +1159,21 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
 
           const memberDials = isToday ? Math.max(empCalls, member.dialsToday || 0) : empCalls;
 
-          const empPayments = verifiedPayments.filter(p => p.telecallerName && p.telecallerName.toLowerCase() === member.name.toLowerCase());
-          const pRevenue = empPayments.reduce((s, p) => s + (p.dealAmount || 0), 0);
+          // Revenue = verified payments only (no lead.dealValue double-counting)
+          const empPayments = verifiedPayments.filter(p => paymentBelongsTo(p, member.name));
+          const achieved = empPayments.reduce((s, p) => s + (Number(p.dealAmount) || 0), 0);
+          const empDeals = empPayments.length;
 
-          const empWonLeads = convertedLeads.filter(l =>
-            l.assignedToEmployeeId === member.id ||
-            l.assignedToEmployeeId === member.empCode ||
-            (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === member.name.toLowerCase()) ||
-            l.assignedTo === member.name
+          const dayCount = Math.max(1,
+            Math.round((new Date(`${range.end}T00:00:00`).getTime() - new Date(`${range.start}T00:00:00`).getTime()) / 86400000) + 1
           );
-          const lRevenue = empWonLeads.reduce((s, l) => s + (l.dealValue || 0), 0);
-
-          let achieved = Math.max(pRevenue, lRevenue);
-          if (isMonth && achieved === 0 && (member.salesAchieved || 0) > 0) {
-            achieved = member.salesAchieved;
-          }
-
           const target = isToday
             ? Math.round((member.salesTarget || 0) / 22)
             : isWeek
             ? Math.round((member.salesTarget || 0) / 4)
-            : (member.salesTarget || 0);
+            : isMonth
+            ? (member.salesTarget || 0)
+            : Math.round(((member.salesTarget || 0) / 30) * dayCount);
 
           const memberGoal = isToday
             ? member.goalCalls
@@ -1187,6 +1188,7 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
             memberDials,
             memberGoal,
             achieved,
+            empDeals,
             target,
             pacingPercent
           };
@@ -1195,10 +1197,33 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
         const tfDials = memberReportRows.reduce((sum, r) => sum + r.memberDials, 0);
         const tfConnected = filteredCalls.filter(c => c.outcome === 'CONNECTED' || c.outcome === 'INTERESTED').length;
         const tfSales = memberReportRows.reduce((sum, r) => sum + r.achieved, 0);
-        const tfTarget = isToday ? Math.round(targetTotal / 22) : isWeek ? Math.round(targetTotal / 4) : targetTotal;
+        const dayCountTotal = Math.max(1,
+          Math.round((new Date(`${range.end}T00:00:00`).getTime() - new Date(`${range.start}T00:00:00`).getTime()) / 86400000) + 1
+        );
+        const tfTarget = isToday ? Math.round(targetTotal / 22)
+          : isWeek ? Math.round(targetTotal / 4)
+          : isMonth ? targetTotal
+          : Math.round((targetTotal / 30) * dayCountTotal);
         const tfTargetPercentage = tfTarget > 0 ? Math.min(100, Math.round((tfSales / tfTarget) * 100)) : 0;
         const tfInterested = filteredCalls.filter(c => c.outcome === 'INTERESTED').length;
         const connectRate = tfDials > 0 ? Math.round((tfConnected / tfDials) * 100) : 0;
+
+        // Day-wise breakdown
+        const memberNames = new Set(teamMembers.map(m => (m.name || '').trim().toLowerCase()));
+        const byDay = new Map<string, { revenue: number; deals: number }>();
+        verifiedPayments
+          .filter(p => memberNames.has((p.telecallerName || '').trim().toLowerCase()))
+          .forEach(p => {
+            const d = getPaymentDateIST(p);
+            if (!d) return;
+            const cur = byDay.get(d) || { revenue: 0, deals: 0 };
+            cur.revenue += Number(p.dealAmount) || 0;
+            cur.deals += 1;
+            byDay.set(d, cur);
+          });
+        const dailyBreakdown = [...byDay.entries()]
+          .map(([date, v]) => ({ date, ...v }))
+          .sort((a, b) => b.date.localeCompare(a.date));
 
         return (
           <div className="space-y-6 animate-in fade-in duration-150">
@@ -1217,18 +1242,42 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
               <div className="flex items-center gap-3">
                 {/* Timeframe selector */}
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-                  {(['today', 'week', 'month'] as const).map((tf) => (
+                  {(['today', 'week', 'month', 'custom'] as const).map((tf) => (
                     <button
                       key={tf}
+                      id={`dtl-reports-tf-${tf}`}
                       onClick={() => setReportsTimeframe(tf)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${
                         reportsTimeframe === tf ? 'bg-white text-[#0A2540] shadow-xs' : 'text-slate-500 hover:text-slate-800'
                       }`}
                     >
-                      {tf === 'today' ? 'Today' : tf === 'week' ? 'This Week' : 'This Month'}
+                      {tf === 'today' ? 'Today' : tf === 'week' ? 'This Week' : tf === 'month' ? 'This Month' : 'Custom Date'}
                     </button>
                   ))}
                 </div>
+                {/* Custom date-range inputs */}
+                {isCustom && (
+                  <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 animate-in fade-in duration-150">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">From</span>
+                    <input
+                      id="dtl-reports-from"
+                      type="date"
+                      value={reportsFrom}
+                      max={getTodayDateIST()}
+                      onChange={e => e.target.value && setReportsFrom(e.target.value)}
+                      className="text-xs font-mono font-bold text-[#0A2540] bg-transparent focus:outline-none"
+                    />
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">To</span>
+                    <input
+                      id="dtl-reports-to"
+                      type="date"
+                      value={reportsTo}
+                      max={getTodayDateIST()}
+                      onChange={e => e.target.value && setReportsTo(e.target.value)}
+                      className="text-xs font-mono font-bold text-[#0A2540] bg-transparent focus:outline-none"
+                    />
+                  </div>
+                )}
 
                 <button
                   onClick={exportTeamReportCSV}
@@ -1280,18 +1329,18 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
                 </div>
               </div>
 
-              {/* Metric 3: Revenue Closed */}
+              {/* Metric 3: Verified Revenue */}
               <div className="nexus-card p-5 bg-white border border-slate-200 shadow-sm flex items-center justify-between">
                 <div>
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                    {isToday ? 'Revenue Closed Today' : isWeek ? 'Weekly Revenue Closed' : 'Monthly Revenue Closed'}
+                    {isToday ? 'Verified Revenue Today' : isWeek ? 'Weekly Verified Revenue' : isMonth ? 'Monthly Verified Revenue' : `Verified Revenue (${tfLabel})`}
                   </span>
                   <div className="flex items-baseline gap-2">
                     <span className="font-mono-nums font-black text-2xl text-[#0A2540]">{formatInLakhs(tfSales)}</span>
                     <span className="text-xs font-bold text-slate-400">/ {formatInLakhs(tfTarget)}</span>
                   </div>
                   <span className="text-xs text-amber-600 font-extrabold mt-1 block">
-                    {tfTargetPercentage}% Target Reached
+                    {tfTargetPercentage}% of Target
                   </span>
                 </div>
                 <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shadow-xs">
@@ -1319,15 +1368,44 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
               </div>
             </div>
 
-            {/* Table: Targets & Sales Progress - Dynamic to selected Timeframe */}
+            {/* Day-wise Revenue Breakdown */}
+            {dailyBreakdown.length > 0 && (
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-3">
+                <h3 className="font-display font-black text-base text-[#0A2540]">Day-wise Verified Revenue</h3>
+                <div className="space-y-1.5">
+                  {dailyBreakdown.map(d => {
+                    const maxRev = Math.max(...dailyBreakdown.map(x => x.revenue), 1);
+                    return (
+                      <div key={d.date} className="flex items-center gap-3 text-xs">
+                        <span className="font-mono font-bold text-slate-500 w-28 shrink-0">
+                          {new Date(`${d.date}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' })}
+                        </span>
+                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#00C9A7] to-[#00B4D8] transition-all duration-500"
+                            style={{ width: `${Math.max(4, Math.round((d.revenue / maxRev) * 100))}%` }}
+                          />
+                        </div>
+                        <span className="font-mono-nums font-black text-[#00A88B] w-20 text-right">
+                          {formatInLakhs(d.revenue)}
+                        </span>
+                        <span className="text-slate-400 w-16 text-right">{d.deals} deal{d.deals === 1 ? '' : 's'}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Table: Verified Revenue & Targets - Dynamic to selected Timeframe */}
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div>
                   <h3 className="font-display font-black text-base text-[#0A2540]">
-                    {tfLabel} Performance & Sales Breakdown
+                    {tfLabel} Performance &amp; Verified Revenue Breakdown
                   </h3>
                   <p className="text-xs text-slate-400">
-                    {isToday ? "Real-time calls dialed, connected, and sales closed today" : isWeek ? "Cumulative weekly call volume, conversions, and deals" : "Monthly sales targets and achievement pacing for your team"}
+                    Revenue figures show VERIFIED payments only — same source as Admin &amp; HR dashboards
                   </p>
                 </div>
               </div>
@@ -1338,14 +1416,14 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
                     <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                       <th className="pb-3 pl-2">Employee</th>
                       <th className="pb-3">Status</th>
-                      <th className="pb-3">{isToday ? 'Dials Today' : isWeek ? 'Dials This Week' : 'Monthly Dials'}</th>
-                      <th className="pb-3">{isToday ? 'Today Sales' : isWeek ? 'Weekly Sales' : 'Sales Achieved'}</th>
-                      <th className="pb-3">{isToday ? 'Daily Target' : isWeek ? 'Weekly Target' : 'Monthly Target'}</th>
+                      <th className="pb-3">{isToday ? 'Dials Today' : isWeek ? 'Dials This Week' : 'Dials'}</th>
+                      <th className="pb-3">{isToday ? 'Today Verified' : isWeek ? 'Weekly Verified' : 'Verified Revenue'}</th>
+                      <th className="pb-3">{isToday ? 'Daily Target' : isWeek ? 'Weekly Target' : 'Target'}</th>
                       <th className="pb-3 pr-2">Target Progress</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {memberReportRows.map(({ member, memberDials, memberGoal, achieved, target, pacingPercent }) => {
+                    {memberReportRows.map(({ member, memberDials, memberGoal, achieved, empDeals, target, pacingPercent }) => {
                       return (
                         <tr key={member.id} className="hover:bg-slate-50/70 transition-colors">
                           <td className="py-3.5 pl-2">
@@ -1369,7 +1447,10 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
                           <td className="py-3.5 font-mono text-slate-700 font-bold">
                             {memberDials} <span className="text-slate-400 font-normal">/ {memberGoal}</span>
                           </td>
-                          <td className="py-3.5 font-mono font-bold text-[#00A88B]">{formatInLakhs(achieved)}</td>
+                          <td className="py-3.5 font-mono font-bold text-[#00A88B]">
+                            {formatInLakhs(achieved)}
+                            {empDeals > 0 && <span className="text-slate-400 font-normal ml-1">·{empDeals}d</span>}
+                          </td>
                           <td className="py-3.5 font-mono text-slate-500">{formatInLakhs(target)}</td>
                           <td className="py-3.5 pr-2">
                             <div className="flex items-center gap-3">

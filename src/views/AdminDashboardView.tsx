@@ -23,6 +23,7 @@ import {
   TrendingUp,
   UserCheck,
   PhoneCall,
+  Phone,
   ArrowUpRight,
   FileText,
   Sparkles,
@@ -384,6 +385,25 @@ export const AdminDashboardView: React.FC = () => {
       return true;
     });
   }, [paymentVerifications]);
+
+  // Helper to extract customer details (phone, bank account, IFSC, UPI, name) with fallback to matching assigned lead
+  const getPaymentCustomerInfo = (p?: PaymentVerificationItem | null) => {
+    if (!p) return { customerName: '', customerPhone: '', customerBankName: '', customerAccountNumber: '', customerIfscCode: '', customerUpiId: '' };
+    const leadId = p.id && p.id.startsWith('pay-') ? p.id.slice(4) : '';
+    const matchedLead = assignedLeads.find(l => 
+      (leadId && l.id === leadId) || 
+      (p.customerPhone && l.phone && l.phone.trim() === p.customerPhone.trim()) ||
+      (p.leadName && l.name && l.name.trim().toLowerCase() === p.leadName.trim().toLowerCase())
+    );
+    return {
+      customerName: p.customerName || matchedLead?.customerName || p.leadName || matchedLead?.name || '',
+      customerPhone: p.customerPhone || matchedLead?.customerPhone || matchedLead?.phone || '',
+      customerBankName: p.customerBankName || matchedLead?.customerBankName || '',
+      customerAccountNumber: p.customerAccountNumber || matchedLead?.customerAccountNumber || '',
+      customerIfscCode: p.customerIfscCode || matchedLead?.customerIfscCode || '',
+      customerUpiId: p.customerUpiId || matchedLead?.customerUpiId || '',
+    };
+  };
 
   const verifiedPayments = useMemo(() => uniquePayments.filter(p => p.status === 'VERIFIED'), [uniquePayments]);
   const pendingPaymentsList = useMemo(() => uniquePayments.filter(p => p.status === 'PENDING_HR_AUDIT'), [uniquePayments]);
@@ -3319,27 +3339,42 @@ export const AdminDashboardView: React.FC = () => {
                         </div>
 
                         {/* Customer Banking / UPI Remittance Details */}
-                        {(p.customerName || p.customerAccountNumber || p.customerUpiId) && (
-                          <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-2.5 text-xs space-y-1">
-                            <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
-                              Customer Remittance Details
-                            </span>
-                            <div className="font-mono text-[11px] text-slate-800 space-y-0.5">
-                              {p.customerName && (
-                                <div>Customer: <strong className="text-slate-900">{p.customerName}</strong></div>
-                              )}
-                              {p.customerAccountNumber ? (
-                                <div className="text-slate-700">
-                                  Bank: <strong>{p.customerBankName || 'Bank'}</strong> · A/C: <strong className="text-[#0A2540]">{p.customerAccountNumber}</strong> · IFSC: <strong className="text-[#0A2540]">{p.customerIfscCode}</strong>
+                        {(() => {
+                          const info = getPaymentCustomerInfo(p);
+                          const hasDetails = Boolean(info.customerName || info.customerPhone || info.customerAccountNumber || info.customerUpiId);
+                          if (!hasDetails) return null;
+                          return (
+                            <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-2.5 text-xs space-y-1.5">
+                              <span className="text-[10px] font-black text-emerald-900 uppercase tracking-wider flex items-center gap-1">
+                                <Building2 className="w-3 h-3 text-emerald-700" />
+                                <span>Customer Remittance &amp; Account Details</span>
+                              </span>
+                              <div className="text-[11px] text-slate-800 space-y-1">
+                                <div className="flex flex-wrap items-center justify-between gap-1">
+                                  <span>Customer: <strong className="text-slate-900">{info.customerName || p.leadName}</strong></span>
+                                  {info.customerPhone && (
+                                    <a
+                                      href={`tel:${info.customerPhone}`}
+                                      className="inline-flex items-center gap-1 font-mono font-bold text-emerald-700 hover:text-emerald-900 hover:underline bg-emerald-100/70 px-2 py-0.5 rounded text-[11px]"
+                                    >
+                                      <Phone className="w-3 h-3" />
+                                      <span>{info.customerPhone}</span>
+                                    </a>
+                                  )}
                                 </div>
-                              ) : p.customerUpiId ? (
-                                <div className="text-slate-700">
-                                  UPI ID: <strong className="text-emerald-700">{p.customerUpiId}</strong>
-                                </div>
-                              ) : null}
+                                {info.customerAccountNumber ? (
+                                  <div className="text-slate-700 font-mono text-[10.5px]">
+                                    Bank: <strong>{info.customerBankName || 'Bank'}</strong> · A/C: <strong className="text-[#0A2540]">{info.customerAccountNumber}</strong> · IFSC: <strong className="text-[#0A2540]">{info.customerIfscCode || 'N/A'}</strong>
+                                  </div>
+                                ) : info.customerUpiId ? (
+                                  <div className="text-slate-700 font-mono text-[10.5px]">
+                                    UPI ID: <strong className="text-emerald-700">{info.customerUpiId}</strong>
+                                  </div>
+                                ) : null}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
 
                         {/* UTR & Proof trigger */}
                         <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
@@ -3456,43 +3491,86 @@ export const AdminDashboardView: React.FC = () => {
               paymentVerifications.filter((p) => p.status !== 'PENDING_HR_AUDIT').length === 0 ? (
                 <Empty text="No payment decisions recorded yet." />
               ) : (
-                <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100 overflow-hidden shadow-2xs">
+                <div className="space-y-2">
                   {paymentVerifications
                     .filter((p) => p.status !== 'PENDING_HR_AUDIT')
-                    .map((p) => (
-                      <div key={p.id} className="p-3 flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <span className="text-xs font-bold text-[#0A2540] block truncate">
-                            {inr(p.dealAmount)} · {p.companyName}
-                          </span>
-                          <span className="text-[10px] text-slate-500 block truncate">
-                            {p.telecallerName || 'Employee'} · UTR {p.utrNumber}
-                          </span>
+                    .map((p) => {
+                      const info = getPaymentCustomerInfo(p);
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => setInspectingPayment(p)}
+                          className="bg-white border border-slate-200 rounded-2xl p-3.5 space-y-2 shadow-2xs hover:border-[#00C9A7] transition-all cursor-pointer"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono-nums font-black text-base text-[#0A2540]">
+                                  {inr(p.dealAmount)}
+                                </span>
+                                <span className="text-xs font-bold text-slate-700">· {p.companyName}</span>
+                              </div>
+                              <span className="text-[11px] text-slate-500 block mt-0.5">
+                                Closed by <strong className="text-slate-700">{p.telecallerName || 'Employee'}</strong> · UTR {p.utrNumber}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span
+                                className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
+                                  p.status === 'VERIFIED'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                }`}
+                              >
+                                {p.status === 'VERIFIED' ? '✓ VERIFIED & CREDITED' : '✕ REJECTED'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (window.confirm(`Delete deal payment of ${inr(p.dealAmount)} for "${p.companyName}"? This will roll back sales achievements and remove the payment verification across all panels.`)) {
+                                    deletePaymentVerification(p.id);
+                                  }
+                                }}
+                                className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
+                                title="Delete this payment record & adjust sales totals"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Customer Account & Phone Details */}
+                          {(info.customerName || info.customerPhone || info.customerAccountNumber || info.customerUpiId) && (
+                            <div className="bg-slate-50 rounded-xl p-2.5 text-xs space-y-1 border border-slate-100 font-mono text-[11px]">
+                              <div className="flex flex-wrap items-center justify-between text-slate-700 gap-1">
+                                <span>Cust: <strong className="text-slate-900">{info.customerName || p.leadName}</strong></span>
+                                {info.customerPhone && (
+                                  <span className="text-emerald-700 font-bold">📞 {info.customerPhone}</span>
+                                )}
+                              </div>
+                              {info.customerAccountNumber ? (
+                                <div className="text-slate-600 text-[10.5px]">
+                                  {info.customerBankName || 'Bank'} A/C: <strong className="text-slate-900">{info.customerAccountNumber}</strong> · IFSC: <strong className="text-slate-900">{info.customerIfscCode || 'N/A'}</strong>
+                                </div>
+                              ) : info.customerUpiId ? (
+                                <div className="text-emerald-700 text-[10.5px]">
+                                  UPI ID: <strong>{info.customerUpiId}</strong>
+                                </div>
+                              ) : null}
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[10px] text-slate-400">
+                            <span>{p.timestamp}</span>
+                            <span className="text-[#00A88B] font-bold flex items-center gap-1">
+                              <FileText className="w-3 h-3" />
+                              <span>Inspect Full Voucher &amp; Account Details →</span>
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span
-                            className={`text-[9px] font-black px-2 py-0.5 rounded ${
-                              p.status === 'VERIFIED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
-                            }`}
-                          >
-                            {p.status}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (window.confirm(`Delete deal payment of ${inr(p.dealAmount)} for "${p.companyName}"? This will roll back sales achievements and remove the payment verification across all panels.`)) {
-                                deletePaymentVerification(p.id);
-                              }
-                            }}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
-                            title="Delete this payment record & adjust sales totals"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                 </div>
               )
             ) : (
@@ -3707,42 +3785,61 @@ export const AdminDashboardView: React.FC = () => {
                   <Empty text="No deals logged yet." />
                 ) : (
                   <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-                    {revenueFilteredPayments.map((p) => (
-                      <div key={p.id} className="p-3 bg-slate-50/70 rounded-xl border border-slate-200/80 space-y-2">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <strong className="text-xs font-bold text-[#0A2540] block">{p.companyName}</strong>
-                            <span className="text-[11px] text-slate-500">Contact: {p.leadName} • Closed by: {p.telecallerName}</span>
+                    {revenueFilteredPayments.map((p) => {
+                      const info = getPaymentCustomerInfo(p);
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => setInspectingPayment(p)}
+                          className="p-3 bg-slate-50/70 rounded-xl border border-slate-200/80 space-y-2 hover:border-[#00C9A7] transition-all cursor-pointer"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <strong className="text-xs font-bold text-[#0A2540] block">{p.companyName}</strong>
+                              <span className="text-[11px] text-slate-500">Contact: {p.leadName} • Closed by: {p.telecallerName}</span>
+                            </div>
+                            <span className="font-mono font-black text-xs text-[#00A88B]">
+                              {inr(p.dealAmount)}
+                            </span>
                           </div>
-                          <span className="font-mono font-black text-xs text-[#00A88B]">
-                            {inr(p.dealAmount)}
-                          </span>
-                        </div>
 
-                        {/* Customer Banking / UPI Info */}
-                        {(p.customerName || p.customerAccountNumber || p.customerUpiId) && (
-                          <div className="bg-white/80 p-2 rounded-lg border border-slate-200/60 text-[11px] font-mono text-slate-700">
-                            {p.customerName && <div className="font-bold text-slate-900">Cust: {p.customerName}</div>}
-                            {p.customerAccountNumber ? (
-                              <div>{p.customerBankName || 'Bank'} A/C: {p.customerAccountNumber} · IFSC: {p.customerIfscCode}</div>
-                            ) : p.customerUpiId ? (
-                              <div className="text-emerald-700 font-semibold">UPI: {p.customerUpiId}</div>
-                            ) : null}
+                          {/* Customer Banking / UPI Info */}
+                          {(info.customerName || info.customerPhone || info.customerAccountNumber || info.customerUpiId) && (
+                            <div className="bg-white/90 p-2.5 rounded-lg border border-slate-200/70 text-[11px] font-mono text-slate-700 space-y-0.5">
+                              <div className="flex flex-wrap items-center justify-between text-slate-800 gap-1">
+                                <div>Cust: <strong className="text-slate-900">{info.customerName || p.leadName}</strong></div>
+                                {info.customerPhone && (
+                                  <span className="text-emerald-700 font-bold">📞 {info.customerPhone}</span>
+                                )}
+                              </div>
+                              {info.customerAccountNumber ? (
+                                <div className="text-slate-600 text-[10.5px]">
+                                  {info.customerBankName || 'Bank'} A/C: <strong className="text-slate-900">{info.customerAccountNumber}</strong> · IFSC: <strong className="text-slate-900">{info.customerIfscCode || 'N/A'}</strong>
+                                </div>
+                              ) : info.customerUpiId ? (
+                                <div className="text-emerald-700 text-[10.5px]">
+                                  UPI: <strong className="text-emerald-800">{info.customerUpiId}</strong>
+                                </div>
+                              ) : null}
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono pt-1 border-t border-slate-200/60">
+                            <span>UTR: {p.utrNumber}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[#00A88B] font-bold text-[10px]">Inspect Voucher →</span>
+                              <span className={`px-2 py-0.5 rounded-full font-bold text-[9px] ${
+                                p.status === 'VERIFIED' ? 'bg-emerald-100 text-emerald-800' :
+                                p.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' :
+                                'bg-amber-100 text-amber-800'
+                              }`}>
+                                {p.status}
+                              </span>
+                            </div>
                           </div>
-                        )}
-
-                        <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono pt-1 border-t border-slate-200/60">
-                          <span>UTR: {p.utrNumber}</span>
-                          <span className={`px-2 py-0.5 rounded-full font-bold text-[9px] ${
-                            p.status === 'VERIFIED' ? 'bg-emerald-100 text-emerald-800' :
-                            p.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' :
-                            'bg-amber-100 text-amber-800'
-                          }`}>
-                            {p.status}
-                          </span>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -4387,7 +4484,11 @@ export const AdminDashboardView: React.FC = () => {
             <div className="bg-gradient-to-br from-slate-50 to-slate-100/70 rounded-2xl p-4 border border-slate-200/80 space-y-3 relative overflow-hidden">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Amount Paid</span>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
+                <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                  inspectingPayment.status === 'VERIFIED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                  inspectingPayment.status === 'REJECTED' ? 'bg-rose-100 text-rose-800 border border-rose-200' :
+                  'bg-amber-100 text-amber-800 border border-amber-200'
+                }`}>
                   {inspectingPayment.status}
                 </span>
               </div>
@@ -4395,6 +4496,58 @@ export const AdminDashboardView: React.FC = () => {
               <div className="font-mono-nums font-black text-2xl text-[#0A2540]">
                 {inr(inspectingPayment.dealAmount)}
               </div>
+
+              {/* Customer Account & Phone Details Card */}
+              {(() => {
+                const info = getPaymentCustomerInfo(inspectingPayment);
+                return (
+                  <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1.5 shadow-2xs">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 flex items-center gap-1">
+                      <Building2 className="w-3 h-3 text-emerald-600" />
+                      <span>Customer &amp; Remittance Details</span>
+                    </span>
+                    <div className="text-xs space-y-1 text-slate-700">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400">Customer Name:</span>
+                        <strong className="text-slate-900">{info.customerName || inspectingPayment.leadName || 'Direct Client'}</strong>
+                      </div>
+                      {info.customerPhone && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Customer Phone:</span>
+                          <a
+                            href={`tel:${info.customerPhone}`}
+                            className="font-mono font-bold text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1"
+                          >
+                            <Phone className="w-3 h-3" />
+                            <span>{info.customerPhone}</span>
+                          </a>
+                        </div>
+                      )}
+                      {info.customerAccountNumber ? (
+                        <>
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-400">Bank Name:</span>
+                            <span className="font-bold text-slate-800">{info.customerBankName || 'Bank'}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-400">Account Number:</span>
+                            <span className="font-mono font-black text-[#0A2540]">{info.customerAccountNumber}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-400">IFSC Code:</span>
+                            <span className="font-mono font-bold text-slate-800">{info.customerIfscCode || 'N/A'}</span>
+                          </div>
+                        </>
+                      ) : info.customerUpiId ? (
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Customer UPI ID:</span>
+                          <span className="font-mono font-bold text-emerald-700">{info.customerUpiId}</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="space-y-2 text-xs pt-1 border-t border-slate-200/60">
                 <div className="flex justify-between">
@@ -4428,18 +4581,18 @@ export const AdminDashboardView: React.FC = () => {
             </div>
 
             {/* Action Buttons inside modal */}
-            {inspectingPayment.status === 'PENDING_HR_AUDIT' && (
+            {inspectingPayment.status === 'PENDING_HR_AUDIT' ? (
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <button
                   onClick={() => {
                     verifyPayment(inspectingPayment.id, 'VERIFIED');
-                    triggerToast(`✓ Deal payment of ${inr(inspectingPayment.dealAmount)} approved`);
+                    triggerToast(`✓ Deal payment of ${inr(inspectingPayment.dealAmount)} approved & credited to revenue`);
                     setInspectingPayment(null);
                   }}
-                  className="py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-xs cursor-pointer"
+                  className="py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-xs cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Approve & Credit</span>
+                  <span>Approve &amp; Credit</span>
                 </button>
                 <button
                   onClick={() => {
@@ -4447,10 +4600,19 @@ export const AdminDashboardView: React.FC = () => {
                     triggerToast(`✗ Payment rejected`);
                     setInspectingPayment(null);
                   }}
-                  className="py-2.5 rounded-xl bg-white border border-rose-200 text-rose-600 font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                  className="py-2.5 rounded-xl bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
                 >
                   <XCircle className="w-4 h-4" />
                   <span>Reject</span>
+                </button>
+              </div>
+            ) : (
+              <div className="pt-1">
+                <button
+                  onClick={() => setInspectingPayment(null)}
+                  className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all cursor-pointer"
+                >
+                  Close Voucher
                 </button>
               </div>
             )}

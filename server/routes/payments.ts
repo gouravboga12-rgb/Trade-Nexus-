@@ -84,12 +84,13 @@ router.post('/', (req: Request, res: Response) => {
   try {
     const { 
       id, leadName, companyName, telecallerName, dealAmount, utrNumber, paymentMode, timestamp, status, receiptUrl,
-      customerName, customerBankName, customerAccountNumber, customerIfscCode, customerUpiId
+      customerName, customerPhone, customerBankName, customerAccountNumber, customerIfscCode, customerUpiId
     } = req.body;
     const payId = id || `pay-${Date.now()}`;
     const callerName = telecallerName || req.user?.name || 'Employee';
     const cleanCompany = (companyName || leadName || 'Company').trim();
     const amount = dealAmount ? Number(dealAmount) : 0;
+    const custPhone = (customerPhone || '').trim();
 
     // Check if an existing pending payment matches to prevent duplicates
     const existing = db.prepare(`
@@ -106,6 +107,7 @@ router.post('/', (req: Request, res: Response) => {
       db.prepare(`
         UPDATE payment_verifications
         SET customerName = COALESCE(?, customerName),
+            customerPhone = COALESCE(?, customerPhone),
             customerBankName = COALESCE(?, customerBankName),
             customerAccountNumber = COALESCE(?, customerAccountNumber),
             customerIfscCode = COALESCE(?, customerIfscCode),
@@ -115,7 +117,7 @@ router.post('/', (req: Request, res: Response) => {
             dealAmount = ?
         WHERE id = ?
       `).run(
-        customerName || leadName || null, customerBankName || null,
+        customerName || leadName || null, custPhone || null, customerBankName || null,
         customerAccountNumber || null, customerIfscCode || null, customerUpiId || null,
         utrNumber || null, paymentMode || null,
         amount, existing.id
@@ -127,15 +129,15 @@ router.post('/', (req: Request, res: Response) => {
     db.prepare(`
       INSERT INTO payment_verifications (
         id, leadName, companyName, telecallerName, dealAmount, utrNumber, paymentMode, timestamp, status, receiptUrl,
-        customerName, customerBankName, customerAccountNumber, customerIfscCode, customerUpiId
+        customerName, customerPhone, customerBankName, customerAccountNumber, customerIfscCode, customerUpiId
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       payId, leadName || customerName || 'Client', cleanCompany, callerName,
       amount, utrNumber || `TXN${Math.floor(1000000000 + Math.random() * 9000000000)}`,
       paymentMode || (customerUpiId ? 'UPI Transfer' : 'Online Bank Transfer'), timestamp || 'Just now',
       status || 'PENDING_HR_AUDIT', receiptUrl || null,
-      customerName || leadName || null, customerBankName || null, customerAccountNumber || null,
+      customerName || leadName || null, custPhone || null, customerBankName || null, customerAccountNumber || null,
       customerIfscCode || null, customerUpiId || null
     );
 
@@ -163,12 +165,17 @@ router.put('/:id', requireRole('admin', 'hr'), (req: Request, res: Response) => 
       db.prepare(`
         UPDATE payment_verifications 
         SET leadName = ?, companyName = ?, telecallerName = ?, dealAmount = ?, 
-            utrNumber = ?, paymentMode = ?, timestamp = ?, status = ?, receiptUrl = ?
+            utrNumber = ?, paymentMode = ?, timestamp = ?, status = ?, receiptUrl = ?,
+            customerName = ?, customerPhone = ?, customerBankName = ?,
+            customerAccountNumber = ?, customerIfscCode = ?, customerUpiId = ?
         WHERE id = ?
       `).run(
         merged.leadName, merged.companyName, merged.telecallerName, merged.dealAmount,
         merged.utrNumber, merged.paymentMode, merged.timestamp, merged.status,
-        merged.receiptUrl, id
+        merged.receiptUrl,
+        merged.customerName || null, merged.customerPhone || null, merged.customerBankName || null,
+        merged.customerAccountNumber || null, merged.customerIfscCode || null, merged.customerUpiId || null,
+        id
       );
 
       // Attribution Sync: propagate verified payment to employee and squad

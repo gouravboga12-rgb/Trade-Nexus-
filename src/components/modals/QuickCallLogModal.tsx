@@ -26,6 +26,7 @@ export const QuickCallLogModal: React.FC = () => {
 
   // Customer Banking & UPI details on Won Deal
   const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [payMethod, setPayMethod] = useState<'BANK' | 'UPI'>('BANK');
   const [customerBankName, setCustomerBankName] = useState('');
   const [customerAccountNumber, setCustomerAccountNumber] = useState('');
@@ -42,6 +43,7 @@ export const QuickCallLogModal: React.FC = () => {
     setDurationMin('2');
     setOutcome('INTERESTED');
     setCustomerName('');
+    setCustomerPhone('');
     setPayMethod('BANK');
     setCustomerBankName('');
     setCustomerAccountNumber('');
@@ -56,6 +58,7 @@ export const QuickCallLogModal: React.FC = () => {
       setPhone(activeCallingLead.phone);
       setNotes(activeCallingLead.notes || '');
       setCustomerName(activeCallingLead.customerName || activeCallingLead.name || '');
+      setCustomerPhone(activeCallingLead.customerPhone || activeCallingLead.phone || '');
       setCustomerBankName(activeCallingLead.customerBankName || '');
       setCustomerAccountNumber(activeCallingLead.customerAccountNumber || '');
       setCustomerIfscCode(activeCallingLead.customerIfscCode || '');
@@ -124,6 +127,7 @@ export const QuickCallLogModal: React.FC = () => {
         mappedStatus === 'CALLBACK' ? followUpDate || 'Tomorrow, 11:00 AM' : undefined,
         mappedStatus === 'CONVERTED' ? {
           customerName: customerName.trim() || activeCallingLead.name,
+          customerPhone: customerPhone.trim() || activeCallingLead.phone,
           customerBankName: payMethod === 'BANK' ? customerBankName.trim() : undefined,
           customerAccountNumber: payMethod === 'BANK' ? customerAccountNumber.trim() : undefined,
           customerIfscCode: payMethod === 'BANK' ? customerIfscCode.trim().toUpperCase() : undefined,
@@ -346,6 +350,20 @@ export const QuickCallLogModal: React.FC = () => {
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="e.g. Rajesh Kumar"
                     className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-600 shadow-2xs"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-black text-emerald-950 mb-1">
+                    Customer Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    placeholder="e.g. +91 98765 43210"
+                    className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-emerald-600 shadow-2xs"
                     required
                   />
                 </div>

@@ -102,6 +102,7 @@ interface AppContextType {
     followUpDate?: string,
     customerDetails?: {
       customerName?: string;
+      customerPhone?: string;
       customerBankName?: string;
       customerAccountNumber?: string;
       customerIfscCode?: string;
@@ -1214,6 +1215,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     followUpDate?: string,
     customerDetails?: {
       customerName?: string;
+      customerPhone?: string;
       customerBankName?: string;
       customerAccountNumber?: string;
       customerIfscCode?: string;
@@ -1238,6 +1240,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       dealValue: dealAmountNum,
       followUpDate: followUpDate || existingLead.followUpDate,
       customerName: customerDetails?.customerName || existingLead.customerName || existingLead.name,
+      customerPhone: customerDetails?.customerPhone || existingLead.customerPhone || existingLead.phone,
       customerBankName: customerDetails?.customerBankName || existingLead.customerBankName,
       customerAccountNumber: customerDetails?.customerAccountNumber || existingLead.customerAccountNumber,
       customerIfscCode: customerDetails?.customerIfscCode || existingLead.customerIfscCode,
@@ -1322,6 +1325,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         timestamp: 'Just now',
         status: 'PENDING_HR_AUDIT',
         customerName: targetLead.customerName || targetLead.name,
+        customerPhone: targetLead.customerPhone || targetLead.phone,
         customerBankName: targetLead.customerBankName,
         customerAccountNumber: targetLead.customerAccountNumber,
         customerIfscCode: targetLead.customerIfscCode,
