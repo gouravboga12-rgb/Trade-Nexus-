@@ -2438,11 +2438,71 @@ export const AdminDashboardView: React.FC = () => {
               </div>
 
               {/* Employee Holding Breakdown */}
-              <SectionTitle>Employee Lead Allocations</SectionTitle>
+              <div className="flex items-center justify-between">
+                <SectionTitle>Employee Lead Allocations</SectionTitle>
+                <button
+                  onClick={handleAutoDistribute}
+                  disabled={isDistributing}
+                  className="text-[10px] font-bold text-[#00A88B] bg-teal-50 hover:bg-teal-100 border border-teal-200/80 px-2.5 py-1 rounded-xl transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                  title="Evenly distribute fresh uncalled leads across all active telecallers"
+                >
+                  <Sparkles className="w-3 h-3 text-[#00A88B]" />
+                  <span>{isDistributing ? 'Distributing…' : '⚡ Distribute Leads Evenly'}</span>
+                </button>
+              </div>
               {!telecallerMembers.length ? (
                 <Empty text="No telecaller employees found." />
               ) : (
                 <div className="space-y-2">
+                  {/* Unassigned Leads Pool Card */}
+                  {(() => {
+                    const unassignedLeads = filteredLeadsByDate.filter((l) => {
+                      return !telecallerMembers.some(
+                        (m) =>
+                          l.assignedToEmployeeId === m.id ||
+                          l.assignedToEmployeeId === m.empCode ||
+                          (l.assignedToEmployeeName &&
+                            l.assignedToEmployeeName.toLowerCase() === m.name.toLowerCase())
+                      );
+                    });
+
+                    if (!unassignedLeads.length) return null;
+                    const freshUnassigned = unassignedLeads.filter((l) => l.callCount === 0).length;
+
+                    return (
+                      <div className="bg-gradient-to-r from-amber-50/90 via-orange-50/30 to-white border border-amber-200/90 rounded-2xl p-3 space-y-2 shadow-2xs">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-amber-950 block truncate">⚡ Unassigned Leads Pool</span>
+                              <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-amber-200/90 text-amber-900 font-mono">
+                                Awaiting Allocation
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-amber-800 block truncate mt-0.5">
+                              {freshUnassigned} fresh uncalled · {unassignedLeads.length} total unassigned leads
+                            </span>
+                          </div>
+                          <div className="text-right flex-shrink-0 flex items-center gap-2">
+                            <div>
+                              <span className="font-mono-nums font-black text-lg text-amber-900 block leading-tight">
+                                {unassignedLeads.length}
+                              </span>
+                              <span className="text-[9px] font-mono text-amber-700">unassigned</span>
+                            </div>
+                            <button
+                              onClick={handleAutoDistribute}
+                              disabled={isDistributing}
+                              className="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 text-white font-black text-[10px] shadow-xs active:scale-95 transition-all cursor-pointer whitespace-nowrap ml-1"
+                              title="Evenly distribute fresh leads among all active telecallers"
+                            >
+                              {isDistributing ? 'Distributing…' : 'Distribute Evenly'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   {telecallerMembers.map((m) => {
                     const mine = filteredLeadsByDate.filter(
                       (l) =>
