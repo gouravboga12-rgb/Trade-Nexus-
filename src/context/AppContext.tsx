@@ -65,7 +65,7 @@ import {
   INITIAL_INVOICES,
   INITIAL_COMPANY_HOLIDAYS,
 } from '../data/mockData';
-import { isTelecallerOrCallingEmployee } from '../utils/teamUtils';
+import { isTelecallerOrCallingEmployee, isLeadUnassigned } from '../utils/teamUtils';
 
 interface AppContextType {
   currentRole: UserRole;
@@ -141,8 +141,8 @@ interface AppContextType {
   reassignLead: (leadId: string, newAssigneeName: string) => void;
   deleteAssignedLead: (leadId: string) => Promise<void>;
   deletePaymentVerification: (paymentId: string) => Promise<void>;
-  /** Move a telecaller's leads to someone else, optionally limited to a count. */
-  reassignLeadsBetween: (fromEmployeeId: string, toEmployeeId: string, limit?: number) => Promise<void>;
+  /** Move a telecaller's leads to someone else, optionally limited to a count, or specific lead IDs. */
+  reassignLeadsBetween: (fromEmployeeId: string, toEmployeeId: string, limit?: number, explicitLeadIds?: string[]) => Promise<void>;
   /** Auto distribute uncalled fresh leads evenly among active telecallers / sales staff */
   autoDistributeFreshLeads: () => Promise<void>;
   createTeamGroup: (data: { name: string; description: string; leaderName: string; monthlyTarget: number; color: string }, memberIds?: string[]) => void;
@@ -2298,27 +2298,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       };
     });
 
-  const reassignLeadsBetween = async (fromEmployeeId: string, toEmployeeId: string, limit?: number) => {
+  const reassignLeadsBetween = async (
+    fromEmployeeId: string,
+    toEmployeeId: string,
+    limit?: number,
+    explicitLeadIds?: string[]
+  ) => {
     const isUnassigned = fromEmployeeId === 'UNASSIGNED';
     const fromMember = isUnassigned ? null : teamMembers.find((m) => m.id === fromEmployeeId);
     const target = teamMembers.find((m) => m.id === toEmployeeId);
     if (!target) return;
 
-    let moving = assignedLeads.filter((l) => {
-      if (isUnassigned) {
-        return (
-          !l.assignedToEmployeeId ||
-          l.assignedToEmployeeId === 'unassigned' ||
-          l.assignedToEmployeeId === '' ||
-          (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === 'unassigned') ||
-          !teamMembers.some((m) => m.id === l.assignedToEmployeeId || m.empCode === l.assignedToEmployeeId || (m.name && l.assignedToEmployeeName && m.name.toLowerCase() === l.assignedToEmployeeName.toLowerCase()))
-        );
-      }
-      return (
+    let moving: AssignedLead[] = [];
+    if (explicitLeadIds && explicitLeadIds.length > 0) {
+      const explicitSet = new Set(explicitLeadIds);
+      moving = assignedLeads.filter((l) => explicitSet.has(l.id));
+    } else if (isUnassigned) {
+      moving = assignedLeads.filter((l) => isLeadUnassigned(l, teamMembers));
+    } else {
+      moving = assignedLeads.filter((l) =>
         l.assignedToEmployeeId === fromEmployeeId ||
         (fromMember && l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === fromMember.name.toLowerCase())
       );
-    });
+    }
+
     if (!moving.length) {
       triggerToast(isUnassigned ? 'No unassigned leads found to move.' : 'That telecaller has no leads to move.');
       return;
@@ -2339,7 +2342,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       })
     );
 
-    triggerToast(`✓ ${moving.length} lead${moving.length === 1 ? '' : 's'} moved to ${target.name}`);
+    triggerToast(`✓ ${moving.length} lead${moving.length === 1 ? '' : 's'} assigned to ${target.name}`);
 
     try {
       await api.reassignBatchAssignedLeads({
@@ -2385,20 +2388,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const autoDistributeFreshLeads = async () => {
-    // 1. Identify unassigned leads across the system
-    const unassignedLeads = assignedLeads.filter(
-      (l) =>
-        !l.assignedToEmployeeId ||
-        l.assignedToEmployeeId === 'unassigned' ||
-        l.assignedToEmployeeId === '' ||
-        (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === 'unassigned') ||
-        !teamMembers.some(
-          (m) =>
-            m.id === l.assignedToEmployeeId ||
-            m.empCode === l.assignedToEmployeeId ||
-            (m.name && l.assignedToEmployeeName && m.name.toLowerCase() === l.assignedToEmployeeName.toLowerCase())
-        )
-    );
+    // 1. Identify unassigned leads across the system using unified predicate
+    const unassignedLeads = assignedLeads.filter((l) => isLeadUnassigned(l, teamMembers));
 
     // If unassigned leads exist in the pool, prioritize distributing them!
     // Otherwise distribute fresh uncalled leads (callCount === 0).

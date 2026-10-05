@@ -81,6 +81,8 @@ import {
   exportLeadAllocationCsv,
 } from '../utils/csvExportUtils';
 
+import { isLeadUnassigned } from '../utils/teamUtils';
+
 type AdminTab = 'home' | 'people' | 'attendance' | 'leads' | 'revenue' | 'more' | 'approvals' | 'reports' | 'attendance_verification' | 'manage_employees' | 'invoices' | 'company_calendar';
 
 const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
@@ -2461,15 +2463,7 @@ export const AdminDashboardView: React.FC = () => {
                 <div className="space-y-2">
                   {/* Unassigned Leads Pool Card */}
                   {(() => {
-                    const unassignedLeads = filteredLeadsByDate.filter((l) => {
-                      return !telecallerMembers.some(
-                        (m) =>
-                          l.assignedToEmployeeId === m.id ||
-                          l.assignedToEmployeeId === m.empCode ||
-                          (l.assignedToEmployeeName &&
-                            l.assignedToEmployeeName.toLowerCase() === m.name.toLowerCase())
-                      );
-                    });
+                    const unassignedLeads = filteredLeadsByDate.filter((l) => isLeadUnassigned(l, teamMembers));
 
                     if (!unassignedLeads.length) return null;
                     const freshUnassigned = unassignedLeads.filter((l) => l.callCount === 0).length;
@@ -2566,7 +2560,8 @@ export const AdminDashboardView: React.FC = () => {
                                   triggerToast('Please select a telecaller to receive leads');
                                   return;
                                 }
-                                await reassignLeadsBetween('UNASSIGNED', poolAssignTarget, poolAssignCount);
+                                const selectedLeadIds = unassignedLeads.slice(0, poolAssignCount).map((l) => l.id);
+                                await reassignLeadsBetween('UNASSIGNED', poolAssignTarget, poolAssignCount, selectedLeadIds);
                                 setPoolAssignTarget('');
                               }}
                               disabled={!poolAssignTarget}
@@ -2713,13 +2708,7 @@ export const AdminDashboardView: React.FC = () => {
                 >
                   <option value="">From — choose employee or pool</option>
                   {(() => {
-                    const unassignedCount = assignedLeads.filter(
-                      (l) =>
-                        !l.assignedToEmployeeId ||
-                        l.assignedToEmployeeId === 'unassigned' ||
-                        l.assignedToEmployeeId === '' ||
-                        (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === 'unassigned')
-                    ).length;
+                    const unassignedCount = assignedLeads.filter((l) => isLeadUnassigned(l, teamMembers)).length;
                     return unassignedCount > 0 ? (
                       <option value="UNASSIGNED">
                         ⚡ Unassigned Leads Pool ({unassignedCount} leads available)

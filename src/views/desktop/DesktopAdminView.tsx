@@ -49,7 +49,7 @@ import { Employee360ProfileView } from '../Employee360ProfileView';
 import { AdminCalendarConfig } from '../../components/common/AdminCalendarConfig';
 import { AdminScheduleMeetingModal } from '../../components/modals/AdminScheduleMeetingModal';
 import { getTodayDateIST, getLeadDate, isDateInPeriodIST } from '../../utils/dateUtils';
-import { isTelecallerOrCallingEmployee } from '../../utils/teamUtils';
+import { isTelecallerOrCallingEmployee, isLeadUnassigned } from '../../utils/teamUtils';
 import {
   downloadCsvBlob,
   exportEmployeesRosterCsv,
@@ -1478,19 +1478,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
             >
               <option value="">— Choose employee or pool —</option>
               {(() => {
-                const unassignedCount = assignedLeads.filter(
-                  (l) =>
-                    !l.assignedToEmployeeId ||
-                    l.assignedToEmployeeId === 'unassigned' ||
-                    l.assignedToEmployeeId === '' ||
-                    (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === 'unassigned') ||
-                    !teamMembers.some(
-                      (m) =>
-                        m.id === l.assignedToEmployeeId ||
-                        m.empCode === l.assignedToEmployeeId ||
-                        (m.name && l.assignedToEmployeeName && m.name.toLowerCase() === l.assignedToEmployeeName.toLowerCase())
-                    )
-                ).length;
+                const unassignedCount = assignedLeads.filter((l) => isLeadUnassigned(l, teamMembers)).length;
                 return unassignedCount > 0 ? (
                   <option value="UNASSIGNED">
                     ⚡ Unassigned Leads Pool ({unassignedCount} leads available)
