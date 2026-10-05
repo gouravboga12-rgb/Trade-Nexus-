@@ -187,9 +187,12 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
 
       // Calculate revenue from verified/recorded payments on this date
       const paymentRevenue = dayPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
-      // Also calculate from any converted leads/calls on this date
-      const convertedCallsRevenue = dayCalls
+      
+      // Calculate revenue from converted calls on this date that are NOT already accounted for in dayPayments (prevents double counting)
+      const paidLeadNames = new Set(dayPayments.map((p: any) => (p.leadName || p.customerName || '').toLowerCase().trim()));
+      const uncountedConvertedCallsRevenue = dayCalls
         .filter((c: any) => ['CONVERTED', 'WON', 'DEAL_CLOSED'].includes((c.outcome || '').toUpperCase()))
+        .filter((c: any) => !paidLeadNames.has((c.clientName || '').toLowerCase().trim()))
         .reduce((sum: number, c: any) => {
           const matchingLead = memberLeads.find(l => 
             (l.phone && c.phoneNumber && l.phone.replace(/\s+/g, '') === c.phoneNumber.replace(/\s+/g, '')) ||
@@ -198,7 +201,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
           return sum + (matchingLead?.dealValue || 0);
         }, 0);
 
-      let dayRevenue = paymentRevenue + convertedCallsRevenue;
+      let dayRevenue = paymentRevenue + uncountedConvertedCallsRevenue;
 
       if (i === 0) {
         // Today - Real Values & Live Leads
@@ -1157,11 +1160,18 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
                                                 <span className="text-slate-400">
                                                   ⏱️ {Math.floor((call.durationSec || 0) / 60)}m {(call.durationSec || 0) % 60}s
                                                 </span>
-                                                {isWon && matchingLead?.dealValue ? (
-                                                  <span className="text-[#00A88B] font-bold font-sans">
-                                                    {formatInLakhs(matchingLead.dealValue)}
-                                                  </span>
-                                                ) : null}
+                                                {(() => {
+                                                  const matchingPayment = memberPayments.find(p => 
+                                                    (p.leadName && call.clientName && p.leadName.toLowerCase() === call.clientName.toLowerCase()) ||
+                                                    (p.customerName && call.clientName && p.customerName.toLowerCase() === call.clientName.toLowerCase())
+                                                  );
+                                                  const effectiveCallAmount = matchingLead?.dealValue || matchingPayment?.dealAmount || 0;
+                                                  return isWon && effectiveCallAmount > 0 ? (
+                                                    <span className="text-[#00A88B] font-bold font-sans">
+                                                      {formatInLakhs(effectiveCallAmount)}
+                                                    </span>
+                                                  ) : null;
+                                                })()}
                                               </div>
                                             </div>
                                           );
@@ -1203,17 +1213,25 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
                                                 Phone: {maskPhone(lead.phone)}
                                               </span>
 
-                                              {/* WON DEAL AMOUNT PRIVACY: Hidden from Team Leader to protect high-ticket deal pricing */}
+                                              {/* WON DEAL VERIFIED + DEAL AMOUNT VISIBLE */}
                                               {lead.status === 'CONVERTED' ? (
-                                                viewerRole === 'admin' && lead.dealValue ? (
-                                                  <span className="text-[#00A88B] font-bold">
-                                                    {formatInLakhs(lead.dealValue)}
-                                                  </span>
-                                                ) : (
+                                                <div className="flex items-center gap-2">
                                                   <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">
                                                     ✓ Won Deal Verified
                                                   </span>
-                                                )
+                                                  {(() => {
+                                                    const leadPayment = memberPayments.find(p => 
+                                                      (p.leadName && lead.name && p.leadName.toLowerCase() === lead.name.toLowerCase()) ||
+                                                      (p.customerName && lead.name && p.customerName.toLowerCase() === lead.name.toLowerCase())
+                                                    );
+                                                    const effectiveAmount = lead.dealValue || leadPayment?.dealAmount || 0;
+                                                    return effectiveAmount > 0 ? (
+                                                      <span className="text-[#00A88B] font-bold font-sans">
+                                                        {formatInLakhs(effectiveAmount)}
+                                                      </span>
+                                                    ) : null;
+                                                  })()}
+                                                </div>
                                               ) : null}
 
                                               {/* Reassign action: Strictly Admin Only */}
