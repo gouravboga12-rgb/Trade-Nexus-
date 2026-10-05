@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { TeamMember, AssignedLead, CallLogItem } from '../../types';
 import { getTodayDateIST } from '../../utils/dateUtils';
+import { isTelecallerOrCallingEmployee } from '../../utils/teamUtils';
 import { 
   X, 
   Clock, 
@@ -399,7 +400,7 @@ export const TelecallerDetailDrawer: React.FC<TelecallerDetailDrawerProps> = ({
                               className="text-[11px] p-1 rounded-lg border border-slate-300 bg-white font-bold"
                             >
                               <option value="">Select Employee</option>
-                              {teamMembers.filter(m => m.id !== member.id).map(m => (
+                              {teamMembers.filter(m => m.id !== member.id && isTelecallerOrCallingEmployee(m)).map(m => (
                                 <option key={m.id} value={m.name}>{m.name}</option>
                               ))}
                             </select>

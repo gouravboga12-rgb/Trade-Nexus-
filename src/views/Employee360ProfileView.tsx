@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { TeamMember, AssignedLead, UserRole } from '../types';
 import { getTodayDateIST } from '../utils/dateUtils';
+import { isTelecallerOrCallingEmployee } from '../utils/teamUtils';
 import { 
   ArrowLeft, 
   Clock, 
@@ -1245,7 +1246,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
                                                       className="text-[11px] p-1 rounded-lg border border-slate-300 bg-white font-bold"
                                                     >
                                                       <option value="">Transfer to</option>
-                                                      {teamMembers.filter(m => m.id !== member.id).map(m => (
+                                                      {teamMembers.filter(m => m.id !== member.id && isTelecallerOrCallingEmployee(m)).map(m => (
                                                         <option key={m.id} value={m.name}>{m.name}</option>
                                                       ))}
                                                     </select>

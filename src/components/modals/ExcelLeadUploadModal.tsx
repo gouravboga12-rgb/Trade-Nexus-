@@ -9,6 +9,7 @@ import {
   CheckCircle2, 
   AlertCircle
 } from 'lucide-react';
+import { isTelecallerOrCallingEmployee } from '../../utils/teamUtils';
 
 export const ExcelLeadUploadModal: React.FC = () => {
   const { 
@@ -19,7 +20,7 @@ export const ExcelLeadUploadModal: React.FC = () => {
     triggerToast
   } = useApp();
 
-  const telecallers = teamMembers.filter((m) => m.active !== 0);
+  const telecallers = teamMembers.filter(isTelecallerOrCallingEmployee);
 
   // Selected once the roster loads; the list arrives after first render.
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
@@ -168,11 +169,15 @@ export const ExcelLeadUploadModal: React.FC = () => {
               onChange={(e) => setSelectedEmployeeId(e.target.value)}
               className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
             >
-              {telecallers.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name} ({m.empCode}) — {m.role} ({m.group || 'Team'})
-                </option>
-              ))}
+              {telecallers.length === 0 ? (
+                <option value="">No active calling executives found</option>
+              ) : (
+                telecallers.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.empCode}) — {m.role} ({m.group || 'Team'})
+                  </option>
+                ))
+              )}
             </select>
             <p className="text-[11px] text-slate-500">
               Only <strong className="text-slate-800">{targetEmp?.name || 'the selected employee'}</strong> will see this allocated batch in their calling queue.

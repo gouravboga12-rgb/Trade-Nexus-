@@ -49,6 +49,7 @@ import { Employee360ProfileView } from '../Employee360ProfileView';
 import { AdminCalendarConfig } from '../../components/common/AdminCalendarConfig';
 import { AdminScheduleMeetingModal } from '../../components/modals/AdminScheduleMeetingModal';
 import { getTodayDateIST, getLeadDate, isDateInPeriodIST } from '../../utils/dateUtils';
+import { isTelecallerOrCallingEmployee } from '../../utils/teamUtils';
 
 interface DesktopAdminViewProps {
   currentTab?: string;
@@ -227,20 +228,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
   );
 
   // Strictly filter for Telecaller employees (excludes Admin, HR, Team Leaders, Accounts, Coaches)
-  const isTelecallerMember = (m: TeamMember) => {
-    if (!m) return false;
-    const p = (m.portal || '').toLowerCase();
-    const r = (m.role || '').toLowerCase();
-    const n = (m.name || '').toLowerCase();
-    if (p === 'admin' || p === 'hr' || p === 'team_leader') return false;
-    if (m.empCode === 'TNX-AD01') return false;
-    if (r.includes('admin') || r.includes('hr') || r.includes('leader') || r.includes('coach') || 
-        r.includes('account') || r.includes('manager') || r.includes('finance') || r.includes('operations')) {
-      return false;
-    }
-    if (n.includes('hr') || n.includes('admin')) return false;
-    return true;
-  };
+  const isTelecallerMember = isTelecallerOrCallingEmployee;
 
   const telecallerMembers = teamMembers.filter(isTelecallerMember);
   const telecallerCount = telecallerMembers.length;
