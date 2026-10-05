@@ -50,6 +50,15 @@ import { AdminCalendarConfig } from '../../components/common/AdminCalendarConfig
 import { AdminScheduleMeetingModal } from '../../components/modals/AdminScheduleMeetingModal';
 import { getTodayDateIST, getLeadDate, isDateInPeriodIST } from '../../utils/dateUtils';
 import { isTelecallerOrCallingEmployee } from '../../utils/teamUtils';
+import {
+  downloadCsvBlob,
+  exportEmployeesRosterCsv,
+  exportAttendanceRegisterCsv,
+  exportCallsAndConversionsCsv,
+  exportSalesVsTargetCsv,
+  exportPaymentVerificationsCsv,
+  exportLeadAllocationCsv,
+} from '../../utils/csvExportUtils';
 
 interface DesktopAdminViewProps {
   currentTab?: string;
@@ -59,13 +68,7 @@ interface DesktopAdminViewProps {
 const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 
 const downloadCsv = (filename: string, header: string, rows: string[]) => {
-  const csv = `data:text/csv;charset=utf-8,${header}\n${rows.join('\n')}`;
-  const link = document.createElement('a');
-  link.setAttribute('href', encodeURI(csv));
-  link.setAttribute('download', `${filename}_${new Date().toISOString().slice(0, 10)}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  downloadCsvBlob(filename, header, rows);
 };
 
 export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
@@ -670,16 +673,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     <div className="space-y-6 max-w-7xl mx-auto">
       <PageHead title="People" blurb="Everyone who works here, and the teams they belong to.">
         <button
-          onClick={() =>
-            downloadCsv(
-              'Employees',
-              'Name,Code,Role,Team,Status,Check-in,Calls today,Sales',
-              teamMembers.map(
-                (e) =>
-                  `"${e.name}","${e.empCode}","${e.role}","${e.group}","${e.attendanceStatus}","${e.checkInTime || ''}",${e.dialsToday},${e.salesAchieved}`
-              )
-            )
-          }
+          onClick={() => exportEmployeesRosterCsv(teamMembers)}
           className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-xs"
         >
           <Download className="w-4 h-4 text-slate-500" />
@@ -1658,16 +1652,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
           blurb="Executive financial console tracking employee revenue, closed deals, and master transaction audits."
         >
           <button
-            onClick={() =>
-              downloadCsv(
-                'Master_Revenue_Ledger',
-                'Client,Company,Closed By,Deal Amount,Payment Mode,UTR Number,Status,Timestamp',
-                paymentVerifications.map(
-                  (p) =>
-                    `"${p.leadName}","${p.companyName}","${p.telecallerName}",${p.dealAmount},"${p.paymentMode}","${p.utrNumber}","${p.status}","${p.timestamp}"`
-                )
-              )
-            }
+            onClick={() => exportPaymentVerificationsCsv(uniquePayments || paymentVerifications)}
             className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-xs"
           >
             <Download className="w-4 h-4 text-slate-500" />
@@ -2206,89 +2191,40 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
   const renderReports = () => {
     const reports = [
       {
-        label: 'Employees',
-        blurb: 'Everyone, with role, team and today’s figures.',
+        label: 'Employees Roster',
+        blurb: 'Staff list, role, team and sales stats.',
         icon: Users,
-        run: () =>
-          downloadCsv(
-            'Employees',
-            'Name,Code,Role,Team,Status,Check-in,Calls today,Sales,Target',
-            teamMembers.map(
-              (e) =>
-                `"${e.name}","${e.empCode}","${e.role}","${e.group}","${e.attendanceStatus}","${e.checkInTime || ''}",${e.dialsToday},${e.salesAchieved},${e.salesTarget}`
-            )
-          ),
+        run: () => exportEmployeesRosterCsv(teamMembers),
       },
       {
-        label: 'Attendance',
-        blurb: 'Who was in today, when and how they checked in.',
+        label: 'Attendance Register',
+        blurb: 'Daily punch times and check-in methods.',
         icon: CalendarCheck,
-        run: () =>
-          downloadCsv(
-            'Attendance',
-            'Name,Team,Status,Check-in,Method',
-            teamMembers.map(
-              (m) =>
-                `"${m.name}","${m.group}","${m.attendanceStatus}","${m.checkInTime || ''}","${m.checkInMethod || ''}"`
-            )
-          ),
+        run: () => exportAttendanceRegisterCsv(teamMembers, attendanceLogs),
       },
       {
-        label: 'Calls & conversion',
-        blurb: 'Dials, connections and interest per employee.',
+        label: 'Calls & Conversions',
+        blurb: 'Dials, connected calls and interested leads.',
         icon: PhoneCall,
-        run: () =>
-          downloadCsv(
-            'Calls',
-            'Name,Team,Dials,Connected,Interested,Conversion %',
-            teamMembers.map(
-              (m) => `"${m.name}","${m.group}",${m.dialsToday},${m.connected},${m.interested},${m.conversionRate}`
-            )
-          ),
+        run: () => exportCallsAndConversionsCsv(teamMembers),
       },
       {
-        label: 'Sales & targets',
-        blurb: 'Achieved against target, per person.',
+        label: 'Sales vs Target',
+        blurb: 'Monthly revenue performance per caller.',
         icon: TrendingUp,
-        run: () =>
-          downloadCsv(
-            'Sales',
-            'Name,Team,Achieved,Target,Percent',
-            teamMembers.map(
-              (m) =>
-                `"${m.name}","${m.group}",${m.salesAchieved},${m.salesTarget},${Math.round(
-                  (m.salesAchieved / Math.max(1, m.salesTarget)) * 100
-                )}`
-            )
-          ),
+        run: () => exportSalesVsTargetCsv(teamMembers),
       },
       {
-        label: 'Payments',
-        blurb: 'Every payment and where it stands.',
+        label: 'Payment Verifications',
+        blurb: 'Full audit history of payment receipts.',
         icon: Wallet,
-        run: () =>
-          downloadCsv(
-            'Payments',
-            'Company,Lead,Employee,Amount,Mode,UTR,Status',
-            paymentVerifications.map(
-              (p) =>
-                `"${p.companyName}","${p.leadName}","${p.telecallerName}",${p.dealAmount},"${p.paymentMode}","${p.utrNumber}","${p.status}"`
-            )
-          ),
+        run: () => exportPaymentVerificationsCsv(uniquePayments || paymentVerifications),
       },
       {
-        label: 'Lead allocation',
-        blurb: 'Which employee holds which leads.',
+        label: 'Lead Allocation Pipeline',
+        blurb: 'Active leads held by each employee.',
         icon: FileSpreadsheet,
-        run: () =>
-          downloadCsv(
-            'Lead_Allocation',
-            'Lead,Company,Phone,Assigned to,Status,Calls made',
-            assignedLeads.map(
-              (l) =>
-                `"${l.name}","${l.company}","${l.phone}","${l.assignedToEmployeeName}","${l.status}",${l.callCount}`
-            )
-          ),
+        run: () => exportLeadAllocationCsv(assignedLeads),
       },
     ];
 

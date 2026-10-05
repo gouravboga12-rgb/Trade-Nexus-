@@ -71,6 +71,15 @@ import { LeafletGeofenceMap } from '../components/common/LeafletGeofenceMap';
 import { ManageEmployeesTab } from './admin/ManageEmployeesTab';
 import { InvoicesLedger } from '../components/common/InvoicesLedger';
 import { getTodayDateIST, getLeadDate, isDateInPeriodIST } from '../utils/dateUtils';
+import {
+  downloadCsvBlob,
+  exportEmployeesRosterCsv,
+  exportAttendanceRegisterCsv,
+  exportCallsAndConversionsCsv,
+  exportSalesVsTargetCsv,
+  exportPaymentVerificationsCsv,
+  exportLeadAllocationCsv,
+} from '../utils/csvExportUtils';
 
 type AdminTab = 'home' | 'people' | 'attendance' | 'leads' | 'revenue' | 'more' | 'approvals' | 'reports' | 'attendance_verification' | 'manage_employees' | 'invoices' | 'company_calendar';
 
@@ -86,13 +95,7 @@ const formatInLakhs = (amount: number) => {
 };
 
 const downloadCsv = (filename: string, header: string, rows: string[]) => {
-  const csv = `data:text/csv;charset=utf-8,${header}\n${rows.join('\n')}`;
-  const link = document.createElement('a');
-  link.setAttribute('href', encodeURI(csv));
-  link.setAttribute('download', `${filename}_${new Date().toISOString().slice(0, 10)}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  downloadCsvBlob(filename, header, rows);
 };
 
 export const AdminDashboardView: React.FC = () => {
@@ -1066,14 +1069,7 @@ export const AdminDashboardView: React.FC = () => {
               <div className="grid grid-cols-2 gap-2.5">
                 <button
                   onClick={() => {
-                    downloadCsv(
-                      'Employees',
-                      'Name,Code,Role,Team,Status,Calls today,Sales',
-                      teamMembers.map(
-                        (e) =>
-                          `"${e.name}","${e.empCode}","${e.role}","${e.group}","${e.attendanceStatus}",${e.dialsToday},${e.salesAchieved}`
-                      )
-                    );
+                    exportEmployeesRosterCsv(teamMembers);
                     triggerToast('✓ Employee roster CSV exported');
                   }}
                   className="bg-white border border-slate-200/90 hover:border-[#00C9A7] rounded-2xl p-3 text-left shadow-2xs active:scale-95 transition-all group cursor-pointer"
@@ -1092,15 +1088,8 @@ export const AdminDashboardView: React.FC = () => {
 
                 <button
                   onClick={() => {
-                    downloadCsv(
-                      'Attendance',
-                      'Name,Team,Status,Check-in,Method',
-                      teamMembers.map(
-                        (m) =>
-                          `"${m.name}","${m.group}","${m.attendanceStatus}","${m.checkInTime || ''}","${m.checkInMethod || ''}"`
-                      )
-                    );
-                    triggerToast('✓ Attendance ledger CSV exported');
+                    exportAttendanceRegisterCsv(teamMembers, attendanceLogs);
+                    triggerToast('✓ Attendance register CSV exported');
                   }}
                   className="bg-white border border-slate-200/90 hover:border-sky-400 rounded-2xl p-3 text-left shadow-2xs active:scale-95 transition-all group cursor-pointer"
                 >
@@ -1907,14 +1896,8 @@ export const AdminDashboardView: React.FC = () => {
                 </button>
                 <button
                   onClick={() => {
-                    downloadCsv(
-                      'Attendance',
-                      'Name,Team,Status,Check-in,Method',
-                      teamMembers.map(
-                        (m) => `"${m.name}","${m.group}","${m.attendanceStatus}","${m.checkInTime || ''}","${m.checkInMethod || ''}"`
-                      )
-                    );
-                    triggerToast('✓ Attendance ledger CSV exported');
+                    exportAttendanceRegisterCsv(teamMembers, attendanceLogs);
+                    triggerToast('✓ Attendance register CSV exported');
                   }}
                   className="flex items-center gap-1.5 text-xs font-bold text-[#00A88B] bg-[#E6FAF6] px-2.5 py-1.5 rounded-xl border border-[#00C9A7]/40 hover:bg-[#00C9A7] hover:text-[#0A2540] transition-colors cursor-pointer shadow-2xs"
                 >
@@ -4013,79 +3996,37 @@ export const AdminDashboardView: React.FC = () => {
                   label: 'Employees Roster',
                   blurb: 'Staff list, role, team and sales stats.',
                   icon: Users,
-                  run: () =>
-                    downloadCsv(
-                      'Employees',
-                      'Name,Code,Role,Team,Status,Calls today,Sales',
-                      teamMembers.map(
-                        (e) => `"${e.name}","${e.empCode}","${e.role}","${e.group}","${e.attendanceStatus}",${e.dialsToday},${e.salesAchieved}`
-                      )
-                    ),
+                  run: () => exportEmployeesRosterCsv(teamMembers),
                 },
                 {
                   label: 'Attendance Register',
                   blurb: 'Daily punch times and check-in methods.',
                   icon: CalendarCheck,
-                  run: () =>
-                    downloadCsv(
-                      'Attendance',
-                      'Name,Team,Status,Check-in,Method',
-                      teamMembers.map(
-                        (m) => `"${m.name}","${m.group}","${m.attendanceStatus}","${m.checkInTime || ''}","${m.checkInMethod || ''}"`
-                      )
-                    ),
+                  run: () => exportAttendanceRegisterCsv(teamMembers, attendanceLogs),
                 },
                 {
                   label: 'Calls & Conversions',
                   blurb: 'Dials, connected calls and interested leads.',
                   icon: TrendingUp,
-                  run: () =>
-                    downloadCsv(
-                      'Calls',
-                      'Name,Team,Dials,Connected,Interested,Conversion %',
-                      teamMembers.map(
-                        (m) => `"${m.name}","${m.group}",${m.dialsToday},${m.connected},${m.interested},${m.conversionRate}`
-                      )
-                    ),
+                  run: () => exportCallsAndConversionsCsv(teamMembers),
                 },
                 {
                   label: 'Sales vs Target',
                   blurb: 'Monthly revenue performance per caller.',
                   icon: Wallet,
-                  run: () =>
-                    downloadCsv(
-                      'Sales',
-                      'Name,Team,Achieved,Target,Percent',
-                      teamMembers.map(
-                        (m) => `"${m.name}","${m.group}",${m.salesAchieved},${m.salesTarget},${Math.round((m.salesAchieved / Math.max(1, m.salesTarget)) * 100)}`
-                      )
-                    ),
+                  run: () => exportSalesVsTargetCsv(teamMembers),
                 },
                 {
                   label: 'Payment Verifications',
                   blurb: 'Full audit history of payment receipts.',
                   icon: CheckCircle2,
-                  run: () =>
-                    downloadCsv(
-                      'Payments',
-                      'Company,Lead,Employee,Amount,Mode,UTR,Status',
-                      paymentVerifications.map(
-                        (p) => `"${p.companyName}","${p.leadName}","${p.telecallerName}",${p.dealAmount},"${p.paymentMode}","${p.utrNumber}","${p.status}"`
-                      )
-                    ),
+                  run: () => exportPaymentVerificationsCsv(uniquePayments || paymentVerifications),
                 },
                 {
                   label: 'Lead Allocation Pipeline',
                   blurb: 'Active leads held by each employee.',
                   icon: FileSpreadsheet,
-                  run: () =>
-                    downloadCsv(
-                      'Lead_Allocation',
-                      'Lead,Company,Phone,Assigned to,Status,Calls',
-                      assignedLeads.map(
-                        (l) => `"${l.name}","${l.company}","${l.phone}","${l.assignedToEmployeeName}","${l.status}",${l.callCount}`
-                      )
-                    ),
+                  run: () => exportLeadAllocationCsv(assignedLeads),
                 },
               ].map((r, i) => {
                 const Icon = r.icon;
