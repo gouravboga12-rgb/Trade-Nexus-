@@ -413,6 +413,18 @@ export const TeamLeaderDashboardView: React.FC = () => {
     triggerToast('✓ Exported Team Performance Report (CSV)');
   };
 
+  // Show both LIVE and upcoming scheduled meetings so leaders & reps can see the time and join (deduplicated)
+  const activeMeetings = useMemo(() => {
+    const raw = teamMeetings.filter(m => m.status === 'LIVE' || m.status === 'UPCOMING');
+    const seen = new Set<string>();
+    return raw.filter(m => {
+      const key = m.id || `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [teamMeetings]);
+
   // If 360 profile is open, render native full-screen mobile view
   if (selectedMemberFor360) {
     return (
@@ -425,18 +437,6 @@ export const TeamLeaderDashboardView: React.FC = () => {
       </div>
     );
   }
-
-  // Show both LIVE and upcoming scheduled meetings so leaders & reps can see the time and join (deduplicated)
-  const activeMeetings = useMemo(() => {
-    const raw = teamMeetings.filter(m => m.status === 'LIVE' || m.status === 'UPCOMING');
-    const seen = new Set<string>();
-    return raw.filter(m => {
-      const key = m.id || `${(m.title || '').trim().toLowerCase()}_${(m.dateTime || '').trim().toLowerCase()}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, [teamMeetings]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex flex-col justify-between w-full max-w-5xl mx-auto font-sans pb-28 lg:pb-32 selection:bg-[#00C9A7]/20">
