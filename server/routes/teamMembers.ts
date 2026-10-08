@@ -24,23 +24,6 @@ function ensureAllStaffInTeamMembers() {
         )
       `).run();
     }
-    const hr = db.prepare("SELECT id FROM team_members WHERE id = 'emp-hr-1' OR empCode = 'TNX-HR01'").get();
-    if (!hr) {
-      db.prepare(`
-        INSERT INTO team_members (
-          id, empCode, name, avatar, role, groupName, phone, emergencyPhone, dob, 
-          employeeType, attendanceStatus, dialsToday, goalCalls, connected, interested, 
-          salesAchieved, salesTarget, conversionRate, portal, email, password, active, 
-          salary, joiningDate, address, bloodGroup
-        ) VALUES (
-          'emp-hr-1', 'TNX-HR01', 'HR Manager', 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
-          'HR Head', 'Human Resources', '+91 98765 43211', '+91 98765 43211',
-          '1990-08-20', 'Full - Time', 'PRESENT', 0, 0, 0, 0, 0, 0, 0,
-          'hr', 'hr@tradenexus.com', 'hr123', 1, 85000, '2023-06-15',
-          'Trade Nexus Corporate HQ, Financial District', 'B+ ve'
-        )
-      `).run();
-    }
   } catch (e) {
     // ignore
   }
