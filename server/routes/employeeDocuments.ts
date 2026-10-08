@@ -114,6 +114,14 @@ router.post('/send-onboarding-email', async (req: Request, res: Response) => {
           signatoryName: offerLetter?.signatoryName,
           signatoryRole: offerLetter?.signatoryRole,
           issuedDate: offerLetter?.issuedDate,
+          employeeType: offerLetter?.employeeType || employee.employeeType,
+          salaryType: offerLetter?.salaryType,
+          location: offerLetter?.location,
+          companyName: offerLetter?.companyName,
+          companyAddress: offerLetter?.companyAddress,
+          companyPhone: offerLetter?.companyPhone,
+          companyEmail: offerLetter?.companyEmail,
+          companyWebsite: offerLetter?.companyWebsite,
         };
         const pdfBuf = await generateOfferLetterPdf(offerPayload);
         const base64Data = `data:application/pdf;base64,${pdfBuf.toString('base64')}`;

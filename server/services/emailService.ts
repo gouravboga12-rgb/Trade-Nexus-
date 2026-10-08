@@ -316,6 +316,9 @@ export async function sendEmployeeOnboardingEmail(
       candidatePhone: employee.phone,
       candidateAddress: employee.address || offerLetter?.candidateAddress,
       roleTitle,
+      department: offerLetter?.department || employee.department || employee.group,
+      employeeType: offerLetter?.employeeType || employee.employeeType || 'Full Time',
+      salaryType: offerLetter?.salaryType || employee.salaryType || 'Monthly Salary',
       annualCtc: offerLetter?.annualCtc,
       monthlyGross: offerLetter?.monthlyGross,
       joiningDate: offerLetter?.joiningDate || employee.joiningDate,
@@ -323,6 +326,13 @@ export async function sendEmployeeOnboardingEmail(
       acceptanceDeadline: offerLetter?.acceptanceDeadline,
       signatoryName: offerLetter?.signatoryName,
       signatoryRole: offerLetter?.signatoryRole,
+      issuedDate: offerLetter?.issuedDate,
+      location: offerLetter?.location,
+      companyName: offerLetter?.companyName,
+      companyAddress: offerLetter?.companyAddress,
+      companyPhone: offerLetter?.companyPhone,
+      companyEmail: offerLetter?.companyEmail,
+      companyWebsite: offerLetter?.companyWebsite,
     });
     attachments.push({
       filename: `Trade_Nexus_Offer_Letter_${(employee.name || 'Candidate').replace(/\s+/g, '_')}.pdf`,
@@ -434,12 +444,17 @@ export async function sendEmployeeOnboardingEmail(
 
   try {
     const transporter = getTransporter();
+    const replyTo = process.env.SMTP_REPLY_TO || 'info@tradenexustradesmart.co.in';
     const mailOptions: any = {
       from: fromAddress,
       to: toEmail,
-      subject: `[${companyName}] Welcome & Onboarding Documentation for ${employee.name} (${empCode})`,
-      text: `Welcome to ${companyName}, ${employee.name}!\n\nYour Employee Code is ${empCode}. Login at our staff portal using your email (${toEmail}) and default password (${defaultPassword}).\n\nYour Official Offer Letter and Employee ID Card PDFs are attached to this email.`,
+      replyTo,
+      subject: `Official Employment Offer Letter & Onboarding Package - ${employee.name} (${empCode})`,
+      text: `Welcome to ${companyName}, ${employee.name}!\n\nYour Employee Code is ${empCode}.\nYou can access the staff portal at https://tradenexustradesmart.co.in using your email (${toEmail}) and temporary access key (${defaultPassword}).\n\nYour Official Job Offer Letter and Digital Employee ID Card PDFs are attached to this email.\n\nWarm regards,\nTrade Nexus Human Resources`,
       html: htmlContent,
+      headers: {
+        'X-Entity-Ref-ID': `tnx-onboard-${empCode}-${Date.now()}`,
+      },
     };
 
     if (attachments.length > 0) {

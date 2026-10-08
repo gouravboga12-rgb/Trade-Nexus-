@@ -138,6 +138,12 @@ export async function generateOfferLetterPdf(data: {
   signatoryRole?: string;
   employeeType?: string;
   salaryType?: string;
+  location?: string;
+  companyName?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  companyWebsite?: string;
 }): Promise<Buffer> {
   const doc = new PDFDocument({
     size: 'A4',
