@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as XLSX from 'xlsx';
 import { useApp } from '../../context/AppContext';
 import { useListDefault } from '../../hooks/useListDefault';
 import { 
@@ -10,6 +11,13 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { isTelecallerOrCallingEmployee } from '../../utils/teamUtils';
+
+// Helper to check if a string contains a valid phone number (at least 7 digits, max 16)
+const isLikelyPhone = (val: string): boolean => {
+  if (!val) return false;
+  const digits = val.replace(/[^0-9]/g, '');
+  return digits.length >= 7 && digits.length <= 16;
+};
 
 export const ExcelLeadUploadModal: React.FC = () => {
   const { 
@@ -36,40 +44,98 @@ export const ExcelLeadUploadModal: React.FC = () => {
 
   if (!isExcelUploadModalOpen) return null;
 
-  // Rows are name, phone, company, city, email — separated by comma, tab or pipe.
+  // Supports both:
+  // 1. Phone number only (1 column) -> auto-generates "Lead (+91 98765 43210)"
+  // 2. Name + Phone + Company + City + Email (multi-column)
   const parseRows = (text: string): { validRows: Array<{ name: string; phone: string; company: string; city: string; email: string }>; skipped: number } => {
     const lines = text.trim().split(/\r?\n/).filter((l) => l.trim());
     if (!lines.length) return { validRows: [], skipped: 0 };
 
     // Drop a header row if the first cell is clearly a column name
     const firstCell = lines[0].split(/[,\t|]/)[0].trim().toLowerCase().replace(/["']/g, '');
-    const rows = ['name', 'lead name', 'contact', 'contact name'].includes(firstCell)
-      ? lines.slice(1)
-      : lines;
+    const headerKeywords = [
+      'name', 'lead name', 'contact', 'contact name', 'customer', 'customer name',
+      'phone', 'phone number', 'phonenumber', 'mobile', 'mobile number', 'number', 'mob', 'telephone'
+    ];
+    const isHeader = headerKeywords.some((h) => firstCell === h || firstCell.startsWith(h));
+    const rows = isHeader ? lines.slice(1) : lines;
 
     const validRows: Array<{ name: string; phone: string; company: string; city: string; email: string }> = [];
     let skipped = 0;
 
-    for (const line of rows) {
+    for (let i = 0; i < rows.length; i++) {
+      const line = rows[i];
       const cleaned = line.replace(/^"|"$/g, '');
       const parts = cleaned.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)|\t|\|/).map((p) => p.trim().replace(/^"|"$/g, ''));
-      const [name, phone, company, city, email] = parts;
+      const nonEmpties = parts.filter(Boolean);
 
-      const trimmedName = (name || '').trim();
-      const trimmedPhone = (phone || '').trim();
+      if (!nonEmpties.length) continue;
 
-      // Safely reject incomplete rows: a lead must have a valid customer name and phone
-      if (!trimmedName || !trimmedPhone) {
+      let name = '';
+      let phone = '';
+      let company = '';
+      let city = '';
+      let email = '';
+
+      // Case A: Single Column — Phone Number Only
+      if (nonEmpties.length === 1) {
+        const val = nonEmpties[0];
+        if (isLikelyPhone(val)) {
+          phone = val;
+          name = `Lead ${val}`;
+          company = 'Private Client';
+          city = 'Pan-India';
+        } else {
+          skipped++;
+          continue;
+        }
+      } else {
+        // Case B: Multi-Column
+        const col0 = parts[0] || '';
+        const col1 = parts[1] || '';
+
+        if (isLikelyPhone(col1)) {
+          // Standard: Col 0 is Name, Col 1 is Phone
+          name = col0 || `Lead ${col1}`;
+          phone = col1;
+          company = parts[2] || 'Private Client';
+          city = parts[3] || 'Pan-India';
+          email = parts[4] || '';
+        } else if (isLikelyPhone(col0)) {
+          // Inverted: Col 0 is Phone, Col 1 is Name
+          phone = col0;
+          name = col1 || `Lead ${col0}`;
+          company = parts[2] || 'Private Client';
+          city = parts[3] || 'Pan-India';
+          email = parts[4] || '';
+        } else {
+          // Search any column for phone digits
+          const phoneIdx = parts.findIndex((p) => isLikelyPhone(p));
+          if (phoneIdx !== -1) {
+            phone = parts[phoneIdx];
+            name = parts[0] || `Lead ${phone}`;
+            company = parts[1] === phone ? (parts[2] || 'Private Client') : (parts[1] || 'Private Client');
+            city = parts[3] || 'Pan-India';
+            email = parts[4] || '';
+          } else {
+            skipped++;
+            continue;
+          }
+        }
+      }
+
+      const trimmedPhone = phone.trim();
+      if (!trimmedPhone) {
         skipped++;
         continue;
       }
 
       validRows.push({
-        name: trimmedName,
+        name: name.trim() || `Lead ${trimmedPhone}`,
         phone: trimmedPhone,
-        company: (company || '').trim(),
-        city: (city || '').trim(),
-        email: (email || '').trim(),
+        company: company.trim() || 'Private Client',
+        city: city.trim() || 'Pan-India',
+        email: email.trim() || '',
       });
     }
 
@@ -83,20 +149,48 @@ export const ExcelLeadUploadModal: React.FC = () => {
     setFileName(file.name);
     setParseError(null);
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const { validRows, skipped } = parseRows(String(reader.result ?? ''));
-      setParsedLeads(validRows);
-      setSkippedCount(skipped);
-      if (!validRows.length) {
-        setParseError(`No valid leads found. Expected format: Name, Phone, Company, City, Email.${skipped > 0 ? ` (${skipped} incomplete rows skipped)` : ''}`);
-      } else {
-        const skipInfo = skipped > 0 ? ` (${skipped} incomplete rows skipped)` : '';
-        triggerToast(`✓ Loaded ${validRows.length} leads${skipInfo} from ${file.name}`);
-      }
-    };
-    reader.onerror = () => setParseError('Could not read that file.');
-    reader.readAsText(file);
+    const isBinaryExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+
+    if (isBinaryExcel) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const buffer = event.target?.result as ArrayBuffer;
+          const workbook = XLSX.read(buffer, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const sheet = workbook.Sheets[sheetName];
+          const csvText = XLSX.utils.sheet_to_csv(sheet);
+          const { validRows, skipped } = parseRows(csvText);
+          setParsedLeads(validRows);
+          setSkippedCount(skipped);
+          if (!validRows.length) {
+            setParseError(`No valid leads found in Excel file.${skipped > 0 ? ` (${skipped} invalid rows skipped)` : ''}`);
+          } else {
+            const skipInfo = skipped > 0 ? ` (${skipped} invalid rows skipped)` : '';
+            triggerToast(`✓ Loaded ${validRows.length} leads${skipInfo} from ${file.name}`);
+          }
+        } catch (err: any) {
+          setParseError(`Could not read Excel file: ${err?.message || 'Invalid format'}`);
+        }
+      };
+      reader.onerror = () => setParseError('Could not read that file.');
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const { validRows, skipped } = parseRows(String(reader.result ?? ''));
+        setParsedLeads(validRows);
+        setSkippedCount(skipped);
+        if (!validRows.length) {
+          setParseError(`No valid leads found. Supported: Phone numbers only, or Name & Phone.${skipped > 0 ? ` (${skipped} invalid rows skipped)` : ''}`);
+        } else {
+          const skipInfo = skipped > 0 ? ` (${skipped} invalid rows skipped)` : '';
+          triggerToast(`✓ Loaded ${validRows.length} leads${skipInfo} from ${file.name}`);
+        }
+      };
+      reader.onerror = () => setParseError('Could not read that file.');
+      reader.readAsText(file);
+    }
   };
 
   const handleParseCustomText = () => {
@@ -104,14 +198,14 @@ export const ExcelLeadUploadModal: React.FC = () => {
     const { validRows, skipped } = parseRows(pastedData);
     setSkippedCount(skipped);
     if (!validRows.length) {
-      setParseError(`No valid leads found. Expected format: Name, Phone, Company, City, Email.${skipped > 0 ? ` (${skipped} incomplete rows skipped)` : ''}`);
+      setParseError(`No valid leads found. Supported: Phone numbers only, or Name & Phone.${skipped > 0 ? ` (${skipped} invalid rows skipped)` : ''}`);
       return;
     }
     setParsedLeads(validRows);
     setFileName(`Pasted_${validRows.length}_Leads.csv`);
     setPastedData('');
     setParseError(null);
-    const skipInfo = skipped > 0 ? ` (${skipped} incomplete rows skipped)` : '';
+    const skipInfo = skipped > 0 ? ` (${skipped} invalid rows skipped)` : '';
     triggerToast(`✓ Parsed ${validRows.length} pasted leads${skipInfo}!`);
   };
 
@@ -188,28 +282,28 @@ export const ExcelLeadUploadModal: React.FC = () => {
           <div className="space-y-2">
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
               <UploadCloud className="w-3.5 h-3.5 text-teal-600" />
-              2. Upload .CSV File or Paste Leads
+              2. Upload Excel (.xlsx) / CSV File or Paste Numbers
             </label>
 
             {/* Drop Zone */}
             <label className="border-2 border-dashed border-slate-300 hover:border-teal-500 bg-slate-50/70 hover:bg-teal-50/30 rounded-2xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-colors group">
               <input 
                 type="file" 
-                accept=".csv,.txt" 
+                accept=".xlsx,.xls,.csv,.txt" 
                 className="hidden" 
                 onChange={handleFileUpload} 
               />
               <FileSpreadsheet className="w-8 h-8 text-slate-400 group-hover:text-[#00C9A7] transition-colors mb-1.5" />
               <p className="text-xs font-bold text-slate-700 group-hover:text-teal-700">
-                Click to browse or drop .csv file
+                Click to browse or drop .xlsx or .csv file
               </p>
-              <p className="text-[10px] text-slate-400 mt-0.5">Supports standard lead columns: Name, Phone, Company, City, Email</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Supports: Phone numbers only, or Name &amp; Phone, Company, City, Email</p>
             </label>
 
             {/* Quick Paste Area */}
             <div className="pt-1">
               <textarea
-                placeholder="Or paste rows: Name, Phone, Company, City, Email..."
+                placeholder="Or paste rows: Phone numbers only (one per line) or Name, Phone..."
                 rows={2}
                 value={pastedData}
                 onChange={(e) => setPastedData(e.target.value)}
@@ -239,7 +333,7 @@ export const ExcelLeadUploadModal: React.FC = () => {
           {skippedCount > 0 && (
             <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 flex items-start gap-2 text-xs animate-in fade-in">
               <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <span>Skipped <strong>{skippedCount}</strong> invalid/incomplete row{skippedCount === 1 ? '' : 's'} (missing customer Name or Phone Number). Valid rows preserved below.</span>
+              <span>Skipped <strong>{skippedCount}</strong> row{skippedCount === 1 ? '' : 's'} without valid phone numbers. Valid rows preserved below.</span>
             </div>
           )}
 
