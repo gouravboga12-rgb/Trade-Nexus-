@@ -1016,28 +1016,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch {}
   }, [clientPipelineTab]);
 
-  // Live real-time background sync for all 4 panels (Admin, TL, HR, Employee)
-  // Keeps attendance, stats, leads, team roster, calls, payments, leaves, and meetings perfectly synchronized
+  // Load initial resources once upon authentication (no interval polling)
   useEffect(() => {
     if (authStep !== 'AUTHENTICATED') return;
-    const syncAllPanels = () => {
-      loadResources([
-        'stats',
-        'assignedLeads',
-        'attendanceLogs',
-        'teamMembers',
-        'callLogs',
-        'paymentVerifications',
-        'leaveRequests',
-        'teamMeetings',
-        'offerLetters',
-        'experienceCerts',
-      ], { force: true });
-    };
-    // Initial fetch immediately, then poll every 8 seconds
-    syncAllPanels();
-    const interval = setInterval(syncAllPanels, 8000);
-    return () => clearInterval(interval);
+    loadResources([
+      'stats',
+      'assignedLeads',
+      'attendanceLogs',
+      'teamMembers',
+      'callLogs',
+      'paymentVerifications',
+      'leaveRequests',
+      'teamMeetings',
+      'offerLetters',
+      'experienceCerts',
+    ]);
   }, [authStep, loadResources]);
 
   // Manual one-tap refresh triggered from headers across all 4 panels
