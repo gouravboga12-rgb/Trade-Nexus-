@@ -52,6 +52,8 @@ import {
   ToggleRight,
   RefreshCw,
   Undo2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { ExcelLeadUploadModal } from '../components/modals/ExcelLeadUploadModal';
 import { AddEmployeeModal } from '../components/modals/AddEmployeeModal';
@@ -72,7 +74,7 @@ import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { LeafletGeofenceMap } from '../components/common/LeafletGeofenceMap';
 import { ManageEmployeesTab } from './admin/ManageEmployeesTab';
 import { InvoicesLedger } from '../components/common/InvoicesLedger';
-import { getTodayDateIST, getLeadDate, isDateInPeriodIST } from '../utils/dateUtils';
+import { getTodayDateIST, getLeadDate, isDateInPeriodIST, formatLeadAssignmentDateTime } from '../utils/dateUtils';
 import {
   downloadCsvBlob,
   exportEmployeesRosterCsv,
@@ -184,6 +186,10 @@ export const AdminDashboardView: React.FC = () => {
   const [leadSearchQuery, setLeadSearchQuery] = useState('');
   const [leadStatusFilter, setLeadStatusFilter] = useState<'ALL' | 'FRESH' | 'PIPELINE' | 'CONVERTED'>('ALL');
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+  const [expandedEmployeeId, setExpandedEmployeeId] = useState<string | null>(null);
+  const [selectedMemberLeadIds, setSelectedMemberLeadIds] = useState<string[]>([]);
+  const [memberLeadsSearchQuery, setMemberLeadsSearchQuery] = useState('');
+  const [memberLeadsStatusFilter, setMemberLeadsStatusFilter] = useState<string>('ALL');
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [openEmployee, setOpenEmployee] = useState<TeamMember | null>(null);
   const [employeeToDelete, setEmployeeToDelete] = useState<TeamMember | null>(null);
@@ -2607,9 +2613,38 @@ export const AdminDashboardView: React.FC = () => {
                     const convertedCount = mine.filter((l) => l.status === 'CONVERTED').length;
                     const freshCount = mine.filter((l) => (l.callCount || 0) === 0 && l.status !== 'CONVERTED').length;
                     const calledPct = mine.length > 0 ? Math.round((calledCount / mine.length) * 100) : 0;
+                    const isExpanded = expandedEmployeeId === m.id;
+
+                    const filteredMemberLeads = isExpanded
+                      ? mine.filter((l) => {
+                          const q = memberLeadsSearchQuery.trim().toLowerCase();
+                          const matchesQ =
+                            !q ||
+                            (l.name && l.name.toLowerCase().includes(q)) ||
+                            (l.phone && l.phone.includes(q)) ||
+                            (l.company && l.company.toLowerCase().includes(q)) ||
+                            (l.city && l.city.toLowerCase().includes(q));
+
+                          const matchesStatus =
+                            memberLeadsStatusFilter === 'ALL'
+                              ? true
+                              : memberLeadsStatusFilter === 'FRESH'
+                              ? (l.callCount || 0) === 0 && l.status !== 'CONVERTED'
+                              : memberLeadsStatusFilter === 'CALLED'
+                              ? (l.callCount || 0) > 0 && l.status !== 'CONVERTED'
+                              : l.status === memberLeadsStatusFilter;
+
+                          return matchesQ && matchesStatus;
+                        })
+                      : [];
 
                     return (
-                      <div key={m.id} className="bg-white border border-slate-200 rounded-2xl p-3.5 space-y-2.5 shadow-2xs">
+                      <div
+                        key={m.id}
+                        className={`bg-white border rounded-2xl p-3.5 space-y-2.5 shadow-2xs transition-all ${
+                          isExpanded ? 'border-[#00C9A7] ring-1 ring-[#00C9A7]/30' : 'border-slate-200'
+                        }`}
+                      >
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
@@ -2648,8 +2683,27 @@ export const AdminDashboardView: React.FC = () => {
                         </div>
 
                         {/* Per-Employee Quick Lead Actions */}
-                        {mine.length > 0 && (
-                          <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setExpandedEmployeeId(isExpanded ? null : m.id);
+                              setSelectedMemberLeadIds([]);
+                              setMemberLeadsSearchQuery('');
+                              setMemberLeadsStatusFilter('ALL');
+                            }}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95 ${
+                              isExpanded
+                                ? 'bg-[#0A2540] text-white shadow-xs'
+                                : 'bg-teal-50 hover:bg-teal-100 text-[#00897B] border border-teal-200'
+                            }`}
+                            title="View, remove, or reassign individual leads"
+                          >
+                            <span>{isExpanded ? 'Hide Leads' : `View Leads (${mine.length})`}</span>
+                            {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                          </button>
+
+                          <div className="flex items-center gap-1.5">
                             {freshCount > 0 && (
                               <button
                                 type="button"
@@ -2657,22 +2711,214 @@ export const AdminDashboardView: React.FC = () => {
                                 className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-200 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
                                 title="Return uncalled leads from this employee back into the Unassigned Pool"
                               >
-                                <span>⚡ Reclaim {freshCount} Uncalled</span>
+                                <Undo2 size={11} />
+                                <span>⚡ Reclaim {freshCount}</span>
                               </button>
                             )}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (window.confirm(`Permanently delete all fresh uncalled leads from ${m.name}? Converted and in-progress leads will be preserved.`)) {
-                                  bulkDeleteAssignedLeads({ employeeId: m.id, onlyFresh: true });
-                                }
-                              }}
-                              className="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-[10px] border border-rose-200 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
-                              title="Delete fresh uncalled leads from this employee"
-                            >
-                              <Trash2 size={11} />
-                              <span>Clear Fresh Leads</span>
-                            </button>
+                            {mine.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm(`Permanently delete all fresh uncalled leads from ${m.name}? Converted and in-progress leads will be preserved.`)) {
+                                    bulkDeleteAssignedLeads({ employeeId: m.id, onlyFresh: true });
+                                  }
+                                }}
+                                className="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-[10px] border border-rose-200 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                                title="Delete fresh uncalled leads from this employee"
+                              >
+                                <Trash2 size={11} />
+                                <span>Clear Fresh</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* ACCORDION: Granular Leads held by this specific employee */}
+                        {isExpanded && (
+                          <div className="pt-3 border-t border-slate-200/80 space-y-3 animate-in fade-in duration-200">
+                            {/* Controls & Bulk Actions */}
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-[11px] font-bold text-slate-700">
+                                Assigned Leads ({filteredMemberLeads.length} of {mine.length})
+                              </span>
+
+                              {selectedMemberLeadIds.length > 0 && (
+                                <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
+                                  <span className="text-[10px] font-bold text-amber-900">
+                                    {selectedMemberLeadIds.length} sel:
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (window.confirm(`Return ${selectedMemberLeadIds.length} lead(s) back to the Unassigned Pool?`)) {
+                                        await reclaimAssignedLeads({ leadIds: selectedMemberLeadIds, onlyFresh: false });
+                                        setSelectedMemberLeadIds([]);
+                                      }
+                                    }}
+                                    className="px-2 py-0.5 rounded bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold text-[9px] active:scale-95 transition-all flex items-center gap-0.5 cursor-pointer"
+                                  >
+                                    <Undo2 size={9} />
+                                    <span>Pool</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (window.confirm(`Permanently remove ${selectedMemberLeadIds.length} lead(s) from ${m.name}?`)) {
+                                        await bulkDeleteAssignedLeads({ leadIds: selectedMemberLeadIds, onlyFresh: false });
+                                        setSelectedMemberLeadIds([]);
+                                      }
+                                    }}
+                                    className="px-2 py-0.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-[9px] active:scale-95 transition-all flex items-center gap-0.5 cursor-pointer"
+                                  >
+                                    <Trash2 size={9} />
+                                    <span>Remove</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Search and status filter */}
+                            <input
+                              type="text"
+                              value={memberLeadsSearchQuery}
+                              onChange={(e) => setMemberLeadsSearchQuery(e.target.value)}
+                              placeholder={`Search ${m.name}'s leads...`}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                            />
+
+                            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1">
+                              {[
+                                { id: 'ALL', label: 'All', count: mine.length },
+                                { id: 'FRESH', label: 'Fresh', count: freshCount },
+                                { id: 'CALLED', label: 'Dialed', count: calledCount },
+                                { id: 'CONVERTED', label: 'Won', count: convertedCount },
+                              ].map((tab) => (
+                                <button
+                                  key={tab.id}
+                                  type="button"
+                                  onClick={() => setMemberLeadsStatusFilter(tab.id)}
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap active:scale-95 transition-all cursor-pointer ${
+                                    memberLeadsStatusFilter === tab.id
+                                      ? 'bg-[#0A2540] text-white shadow-xs'
+                                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                  }`}
+                                >
+                                  {tab.label} ({tab.count})
+                                </button>
+                              ))}
+                            </div>
+
+                            {/* Leads List */}
+                            {filteredMemberLeads.length === 0 ? (
+                              <div className="py-4 text-center text-[11px] text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                No leads match this filter.
+                              </div>
+                            ) : (
+                              <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+                                {filteredMemberLeads.slice(0, 50).map((lead) => {
+                                  const { dateStr, timeStr } = formatLeadAssignmentDateTime(lead);
+                                  const isSelected = selectedMemberLeadIds.includes(lead.id);
+                                  const isWon = lead.status === 'CONVERTED';
+
+                                  return (
+                                    <div
+                                      key={lead.id}
+                                      className={`p-2.5 rounded-xl border transition-all flex items-start gap-2.5 ${
+                                        isSelected
+                                          ? 'bg-amber-50/60 border-amber-300'
+                                          : 'bg-slate-50/60 border-slate-200/90 hover:bg-slate-50'
+                                      }`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setSelectedMemberLeadIds((prev) => [...prev, lead.id]);
+                                          } else {
+                                            setSelectedMemberLeadIds((prev) => prev.filter((id) => id !== lead.id));
+                                          }
+                                        }}
+                                        className="mt-1 rounded text-teal-600 focus:ring-teal-500 cursor-pointer"
+                                      />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between gap-1.5">
+                                          <span className="text-xs font-bold text-[#0A2540] truncate">
+                                            {lead.name}
+                                          </span>
+                                          <span
+                                            className={`text-[9px] font-black px-1.5 py-0.2 rounded font-mono ${
+                                              isWon
+                                                ? 'bg-emerald-100 text-emerald-800'
+                                                : lead.status === 'INTERESTED'
+                                                ? 'bg-blue-100 text-blue-800'
+                                                : (lead.callCount || 0) === 0
+                                                ? 'bg-purple-100 text-purple-800'
+                                                : 'bg-slate-200 text-slate-700'
+                                            }`}
+                                          >
+                                            {isWon ? 'Won Deal' : (lead.callCount || 0) === 0 ? 'Fresh' : lead.status || 'Pending'}
+                                          </span>
+                                        </div>
+
+                                        <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                                          {lead.phone || 'No phone'}
+                                          {(lead.company || lead.city) && ` · ${[lead.company, lead.city].filter(Boolean).join(', ')}`}
+                                        </div>
+
+                                        <div className="flex items-center gap-1.5 text-slate-600 text-[10px] font-mono mt-1">
+                                          <span className="font-semibold text-slate-700">{dateStr}</span>
+                                          {timeStr && (
+                                            <span className="bg-slate-200/80 text-slate-700 px-1 py-0.2 rounded text-[9px]">
+                                              🕒 {timeStr}
+                                            </span>
+                                          )}
+                                          {(lead.callCount || 0) > 0 && (
+                                            <span className="text-slate-400">({lead.callCount} calls)</span>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Direct individual action buttons */}
+                                      <div className="flex flex-col gap-1 items-end flex-shrink-0">
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            if (window.confirm(`Return lead "${lead.name}" back to the Unassigned Pool?`)) {
+                                              await reclaimAssignedLeads({ leadIds: [lead.id], onlyFresh: false });
+                                            }
+                                          }}
+                                          className="px-2 py-0.5 text-[9px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded active:scale-95 transition-all flex items-center gap-0.5 cursor-pointer"
+                                          title="Return to Unassigned Pool"
+                                        >
+                                          <Undo2 size={9} />
+                                          <span>Pool</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            if (window.confirm(`Permanently remove lead "${lead.name}"?`)) {
+                                              await deleteAssignedLead(lead.id);
+                                            }
+                                          }}
+                                          className="px-2 py-0.5 text-[9px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded active:scale-95 transition-all flex items-center gap-0.5 cursor-pointer"
+                                          title="Permanently remove lead"
+                                        >
+                                          <Trash2 size={9} />
+                                          <span>Remove</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+
+                                {filteredMemberLeads.length > 50 && (
+                                  <p className="text-[10px] text-slate-400 text-center pt-1">
+                                    Showing top 50 of {filteredMemberLeads.length} leads.
+                                  </p>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

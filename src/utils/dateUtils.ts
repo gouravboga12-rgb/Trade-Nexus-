@@ -134,4 +134,51 @@ export function isDateInPeriodIST(
   return cleanDate >= start && cleanDate <= end;
 }
 
+/** Formats assignment date and exact time into a clear readable string (e.g. "19 Oct 2026 • 01:30 PM") */
+export function formatLeadAssignmentDateTime(lead?: { assignedDate?: string; createdAt?: string } | null): { dateStr: string; timeStr: string; fullStr: string } {
+  if (!lead) return { dateStr: '—', timeStr: '—', fullStr: '—' };
+  
+  const raw = lead.createdAt || lead.assignedDate;
+  if (!raw) return { dateStr: '—', timeStr: '—', fullStr: '—' };
+
+  let d: Date;
+  if (raw.includes('T')) {
+    d = new Date(raw);
+  } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(raw)) {
+    d = new Date(raw.replace(' ', 'T') + 'Z');
+  } else if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    d = new Date(raw + 'T00:00:00');
+  } else {
+    d = new Date(raw);
+  }
+
+  if (isNaN(d.getTime())) {
+    return { dateStr: raw, timeStr: '', fullStr: raw };
+  }
+
+  try {
+    const dateFormatted = d.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'Asia/Kolkata',
+    });
+    const hasTime = raw.includes(':') || raw.includes('T');
+    const timeFormatted = hasTime ? d.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'Asia/Kolkata',
+    }) : '';
+
+    return {
+      dateStr: dateFormatted,
+      timeStr: timeFormatted,
+      fullStr: timeFormatted ? `${dateFormatted} • ${timeFormatted}` : dateFormatted,
+    };
+  } catch {
+    return { dateStr: raw.slice(0, 10), timeStr: '', fullStr: raw.slice(0, 10) };
+  }
+}
+
 
