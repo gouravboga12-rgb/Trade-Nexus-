@@ -144,7 +144,7 @@ interface AppContextType {
   deletePaymentVerification: (paymentId: string) => Promise<void>;
   deleteLeadBatch: (batchId: string, mode?: 'delete_leads' | 'unassign_leads') => Promise<void>;
   reclaimAssignedLeads: (params: { employeeId?: string; batchId?: string; leadIds?: string[]; onlyFresh?: boolean }) => Promise<void>;
-  bulkDeleteAssignedLeads: (params: { leadIds?: string[]; employeeId?: string; onlyFresh?: boolean }) => Promise<void>;
+  bulkDeleteAssignedLeads: (params: { leadIds?: string[]; employeeId?: string; batchId?: string; onlyFresh?: boolean }) => Promise<void>;
   /** Move a telecaller's leads to someone else, optionally limited to a count, or specific lead IDs. */
   reassignLeadsBetween: (fromEmployeeId: string, toEmployeeId: string, limit?: number, explicitLeadIds?: string[]) => Promise<void>;
   /** Auto distribute uncalled fresh leads evenly among active telecallers / sales staff */
@@ -2507,16 +2507,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const bulkDeleteAssignedLeads = async (params: { leadIds?: string[]; employeeId?: string; onlyFresh?: boolean }) => {
+  const bulkDeleteAssignedLeads = async (params: { leadIds?: string[]; employeeId?: string; batchId?: string; onlyFresh?: boolean }) => {
     try {
       const res = await api.bulkDeleteAssignedLeads(params);
       const count = res?.deletedCount || 0;
       if (params.leadIds && params.leadIds.length > 0) {
         const idSet = new Set(params.leadIds);
         setAssignedLeads((prev) => prev.filter((l) => !idSet.has(l.id)));
+      } else if (params.employeeId && params.batchId) {
+        setAssignedLeads((prev) =>
+          prev.filter(
+            (l) =>
+              !(
+                l.batchId === params.batchId &&
+                (l.assignedToEmployeeId === params.employeeId || l.assignedToEmployeeName === params.employeeId) &&
+                (!params.onlyFresh || ((l.callCount || 0) === 0 && l.status === 'PENDING'))
+              )
+          )
+        );
       }
       triggerToast(`✓ Deleted ${count} lead(s) permanently`);
-      refreshResources(['assignedLeads', 'callLogs', 'teamMembers']);
+      refreshResources(['assignedLeads', 'leadBatches', 'callLogs', 'teamMembers']);
     } catch (err: any) {
       console.warn('Failed to bulk delete leads:', err);
       triggerToast(`✗ ${err.message || 'Failed to delete leads'}`);

@@ -210,6 +210,9 @@ router.post('/reclaim', (req: Request, res: Response) => {
         const placeholders = leadIds.map(() => '?').join(',');
         query += ` AND id IN (${placeholders})`;
         params.push(...leadIds);
+      } else if (employeeId && batchId) {
+        query += ` AND (assignedToEmployeeId = ? OR assignedToEmployeeName = ?) AND batchId = ?`;
+        params.push(employeeId, employeeId, batchId);
       } else if (employeeId) {
         query += ` AND (assignedToEmployeeId = ? OR assignedToEmployeeName = ?)`;
         params.push(employeeId, employeeId);
@@ -239,7 +242,7 @@ router.post('/reclaim', (req: Request, res: Response) => {
 // POST /api/assigned-leads/bulk-delete (Bulk permanent delete for leads)
 router.post('/bulk-delete', (req: Request, res: Response) => {
   try {
-    const { leadIds, employeeId, onlyFresh } = req.body;
+    const { leadIds, employeeId, batchId, onlyFresh } = req.body;
     const freshOnly = onlyFresh !== false;
 
     const deleteTx = db.transaction(() => {
@@ -247,10 +250,20 @@ router.post('/bulk-delete', (req: Request, res: Response) => {
 
       if (Array.isArray(leadIds) && leadIds.length > 0) {
         targets = leadIds;
+      } else if (employeeId && batchId) {
+        let q = `SELECT id FROM assigned_leads WHERE (assignedToEmployeeId = ? OR assignedToEmployeeName = ?) AND batchId = ?`;
+        if (freshOnly) q += ` AND callCount = 0 AND status = 'PENDING'`;
+        const rows = db.prepare(q).all(employeeId, employeeId, batchId) as any[];
+        targets = rows.map((r) => r.id);
       } else if (employeeId) {
         let q = `SELECT id FROM assigned_leads WHERE (assignedToEmployeeId = ? OR assignedToEmployeeName = ?)`;
         if (freshOnly) q += ` AND callCount = 0 AND status = 'PENDING'`;
         const rows = db.prepare(q).all(employeeId, employeeId) as any[];
+        targets = rows.map((r) => r.id);
+      } else if (batchId) {
+        let q = `SELECT id FROM assigned_leads WHERE batchId = ?`;
+        if (freshOnly) q += ` AND callCount = 0 AND status = 'PENDING'`;
+        const rows = db.prepare(q).all(batchId) as any[];
         targets = rows.map((r) => r.id);
       }
 

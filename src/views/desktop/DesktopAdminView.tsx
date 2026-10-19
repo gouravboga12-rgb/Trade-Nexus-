@@ -162,6 +162,15 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
   const [leadsSearchQuery, setLeadsSearchQuery] = useState('');
   const [leadsStatusFilter, setLeadsStatusFilter] = useState<string>('ALL');
   const [expandedEmployeeId, setExpandedEmployeeId] = useState<string | null>(null);
+  const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
+  const [reassigningBatch, setReassigningBatch] = useState<{
+    batchId: string;
+    fileName: string;
+    leads: any[];
+    fromMemberId: string;
+    fromMemberName: string;
+  } | null>(null);
+  const [targetReassignMemberId, setTargetReassignMemberId] = useState<string>('');
   const [selectedMemberLeadIds, setSelectedMemberLeadIds] = useState<string[]>([]);
   const [memberLeadsSearchQuery, setMemberLeadsSearchQuery] = useState('');
   const [memberLeadsStatusFilter, setMemberLeadsStatusFilter] = useState<string>('ALL');
@@ -1567,18 +1576,17 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                             type="button"
                             onClick={() => {
                               setExpandedEmployeeId(isExpanded ? null : member.id);
-                              setSelectedMemberLeadIds([]);
-                              setMemberLeadsSearchQuery('');
-                              setMemberLeadsStatusFilter('ALL');
+                              setExpandedBatchId(null);
                             }}
                             className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all active:scale-95 cursor-pointer ${
                               isExpanded
                                 ? 'bg-[#0A2540] text-white shadow-xs'
                                 : 'bg-teal-50 hover:bg-teal-100 text-[#00897B] border border-teal-200'
                             }`}
-                            title="Click to view, remove, or reassign individual leads"
+                            title="Click to view assigned Excel files and batches"
                           >
-                            <span>{isExpanded ? 'Hide Leads' : `Leads (${total})`}</span>
+                            <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
+                            <span>{isExpanded ? 'Hide Files' : `Files & Batches`}</span>
                             {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                           </button>
 
@@ -1616,264 +1624,285 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                       </td>
                     </tr>
 
-                    {/* EXPANDED DROPDOWN: Granular Leads held by this specific employee */}
-                    {isExpanded && (
-                      <tr className="bg-slate-50/95 border-y-2 border-teal-500/30">
-                        <td colSpan={8} className="p-4 sm:p-5">
-                          <div className="space-y-3.5 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-                            {/* Dropdown Header & Controls */}
-                            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
-                              <div className="flex items-center gap-2">
-                                <span className="w-2.5 h-2.5 rounded-full bg-[#00C9A7]" />
-                                <h4 className="font-display font-black text-sm text-[#0A2540]">
-                                  Leads assigned to {member.name}
-                                </h4>
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-mono">
-                                  {filteredMemberLeads.length} of {total} shown
+                    {/* EXPANDED DROPDOWN: Excel Files & Batches held by this specific employee */}
+                    {isExpanded && (() => {
+                      // Group this employee's leads by batchId
+                      const map = new Map<string, typeof memberLeads>();
+                      for (const lead of memberLeads) {
+                        const bId = lead.batchId || 'batch-default';
+                        if (!map.has(bId)) {
+                          map.set(bId, []);
+                        }
+                        map.get(bId)!.push(lead);
+                      }
+
+                      const employeeBatchGroups = Array.from(map.entries()).map(([batchId, bLeads]) => {
+                        const matchedBatch = leadBatches.find((b) => b.id === batchId);
+                        let fileName = matchedBatch?.fileName;
+                        if (!fileName) {
+                          const sample = bLeads.find((l) => l.notes && l.notes.includes('Imported via '));
+                          if (sample) {
+                            fileName = sample.notes.replace('Imported via ', '').trim();
+                          } else if (batchId === 'crm-pipeline' || batchId === 'batch-default') {
+                            fileName = 'Direct CRM Assignment';
+                          } else {
+                            fileName = `Lead Batch (${batchId.slice(0, 10)})`;
+                          }
+                        }
+
+                        let dateStr = '';
+                        let timeStr = '';
+                        if (matchedBatch && matchedBatch.createdAt) {
+                          const dt = formatLeadAssignmentDateTime({ createdAt: matchedBatch.createdAt } as any);
+                          dateStr = dt.dateStr;
+                          timeStr = dt.timeStr;
+                        } else if (bLeads[0]) {
+                          const dt = formatLeadAssignmentDateTime(bLeads[0]);
+                          dateStr = dt.dateStr;
+                          timeStr = dt.timeStr;
+                        }
+                        const uploadedAt = timeStr ? `${dateStr} • ${timeStr}` : dateStr || 'Recently assigned';
+
+                        return {
+                          batchId,
+                          fileName,
+                          uploadedAt,
+                          leads: bLeads,
+                          totalCount: bLeads.length,
+                          freshCount: bLeads.filter((l) => (l.callCount || 0) === 0 && l.status !== 'CONVERTED').length,
+                          calledCount: bLeads.filter((l) => (l.callCount || 0) > 0 && l.status !== 'CONVERTED').length,
+                          convertedCount: bLeads.filter((l) => l.status === 'CONVERTED').length,
+                        };
+                      });
+
+                      return (
+                        <tr className="bg-slate-50/95 border-y-2 border-teal-500/30">
+                          <td colSpan={8} className="p-4 sm:p-5">
+                            <div className="space-y-4 bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm">
+                              {/* Dropdown Header */}
+                              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center">
+                                    <FileSpreadsheet className="w-4 h-4 text-[#00A88B]" />
+                                  </div>
+                                  <div>
+                                    <h4 className="font-display font-black text-sm text-[#0A2540]">
+                                      Excel Files &amp; Lead Batches assigned to {member.name}
+                                    </h4>
+                                    <p className="text-[11px] text-slate-400">
+                                      Delete, return to pool, or reassign entire Excel files given to this employee
+                                    </p>
+                                  </div>
+                                </div>
+                                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-mono">
+                                  {employeeBatchGroups.length} File{employeeBatchGroups.length === 1 ? '' : 's'} · {total} Total Leads Held
                                 </span>
                               </div>
 
-                              {/* Bulk action toolbar for this employee's leads */}
-                              {selectedMemberLeadIds.length > 0 && (
-                                <div className="flex items-center gap-2 bg-amber-50/80 border border-amber-200/90 px-3 py-1.5 rounded-xl animate-in fade-in">
-                                  <span className="text-xs font-bold text-amber-950">
-                                    {selectedMemberLeadIds.length} selected:
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      if (window.confirm(`Return ${selectedMemberLeadIds.length} selected lead(s) back into the Unassigned Pool?`)) {
-                                        await reclaimAssignedLeads({ leadIds: selectedMemberLeadIds, onlyFresh: false });
-                                        setSelectedMemberLeadIds([]);
-                                      }
-                                    }}
-                                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-amber-900 bg-amber-200 hover:bg-amber-300 rounded-lg active:scale-95 transition-all cursor-pointer"
-                                    title="Return selected leads to Unassigned Pool"
-                                  >
-                                    <Undo2 className="w-3 h-3" />
-                                    <span>Return to Pool</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      if (window.confirm(`Permanently remove ${selectedMemberLeadIds.length} selected lead(s) from ${member.name}?`)) {
-                                        await bulkDeleteAssignedLeads({ leadIds: selectedMemberLeadIds, onlyFresh: false });
-                                        setSelectedMemberLeadIds([]);
-                                      }
-                                    }}
-                                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-rose-700 bg-rose-100 hover:bg-rose-200 border border-rose-200 rounded-lg active:scale-95 transition-all cursor-pointer"
-                                    title="Permanently remove selected leads"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                    <span>Remove Selected</span>
-                                  </button>
+                              {/* List of Excel Files / Batches */}
+                              {employeeBatchGroups.length === 0 ? (
+                                <div className="py-8 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                  No Excel files or leads currently assigned to {member.name}.
+                                </div>
+                              ) : (
+                                <div className="space-y-3">
+                                  {employeeBatchGroups.map((batch) => {
+                                    const isBatchLeadsExpanded = expandedBatchId === batch.batchId;
+
+                                    return (
+                                      <div
+                                        key={batch.batchId}
+                                        className="border border-slate-200 rounded-xl bg-slate-50/40 hover:bg-slate-50/90 transition-all p-3.5 space-y-3"
+                                      >
+                                        {/* File Card Top Row: Name, Timestamp, Stats, Actions */}
+                                        <div className="flex flex-wrap items-center justify-between gap-3">
+                                          <div className="flex items-center gap-3 min-w-0">
+                                            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200 shadow-2xs">
+                                              <FileSpreadsheet className="w-5 h-5" />
+                                            </div>
+                                            <div className="min-w-0">
+                                              <div className="flex items-center gap-2">
+                                                <span className="font-bold text-sm text-[#0A2540] truncate max-w-sm">
+                                                  {batch.fileName}
+                                                </span>
+                                                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                                  Excel Batch
+                                                </span>
+                                              </div>
+                                              <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono mt-0.5">
+                                                <span>🕒 Assigned: {batch.uploadedAt}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          {/* Counters Badges */}
+                                          <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                                            <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-bold">
+                                              {batch.totalCount} leads
+                                            </span>
+                                            <span className="bg-amber-50 text-amber-800 px-2 py-0.5 rounded-md font-bold border border-amber-200">
+                                              {batch.freshCount} fresh
+                                            </span>
+                                            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-bold border border-blue-200">
+                                              {batch.calledCount} called
+                                            </span>
+                                            {batch.convertedCount > 0 && (
+                                              <span className="bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-md font-bold border border-emerald-200">
+                                                {batch.convertedCount} won
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          {/* Batch Actions Group */}
+                                          <div className="flex items-center gap-1.5">
+                                            {/* Reassign File */}
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setReassigningBatch({
+                                                  batchId: batch.batchId,
+                                                  fileName: batch.fileName,
+                                                  leads: batch.leads,
+                                                  fromMemberId: member.id,
+                                                  fromMemberName: member.name,
+                                                });
+                                                setTargetReassignMemberId('');
+                                              }}
+                                              className="px-2.5 py-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+                                              title="Reassign this entire Excel file to another employee"
+                                            >
+                                              <RefreshCw className="w-3 h-3" />
+                                              <span>Reassign</span>
+                                            </button>
+
+                                            {/* Return to Pool */}
+                                            <button
+                                              type="button"
+                                              onClick={async () => {
+                                                if (
+                                                  window.confirm(
+                                                    `Return all ${batch.totalCount} lead(s) from Excel file "${batch.fileName}" assigned to ${member.name} back to the Unassigned Pool?`
+                                                  )
+                                                ) {
+                                                  await reclaimAssignedLeads({
+                                                    leadIds: batch.leads.map((l) => l.id),
+                                                    employeeId: member.id,
+                                                    batchId: batch.batchId,
+                                                    onlyFresh: false,
+                                                  });
+                                                }
+                                              }}
+                                              className="px-2.5 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+                                              title="Return leads in this file back to Unassigned Pool"
+                                            >
+                                              <Undo2 className="w-3 h-3" />
+                                              <span>Return to Pool</span>
+                                            </button>
+
+                                            {/* Remove File */}
+                                            <button
+                                              type="button"
+                                              onClick={async () => {
+                                                if (
+                                                  window.confirm(
+                                                    `Permanently delete Excel file "${batch.fileName}" and all ${batch.totalCount} leads assigned to ${member.name}? (Won deals will be preserved)`
+                                                  )
+                                                ) {
+                                                  await bulkDeleteAssignedLeads({
+                                                    leadIds: batch.leads.map((l) => l.id),
+                                                    employeeId: member.id,
+                                                    batchId: batch.batchId,
+                                                    onlyFresh: false,
+                                                  });
+                                                }
+                                              }}
+                                              className="px-2.5 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+                                              title="Permanently remove this Excel file from employee"
+                                            >
+                                              <Trash2 className="w-3 h-3" />
+                                              <span>Remove File</span>
+                                            </button>
+
+                                            {/* View Individual Leads */}
+                                            <button
+                                              type="button"
+                                              onClick={() => setExpandedBatchId(isBatchLeadsExpanded ? null : batch.batchId)}
+                                              className="px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+                                              title="Toggle lead details for this file"
+                                            >
+                                              <span>{isBatchLeadsExpanded ? 'Hide' : 'View'} Leads ({batch.totalCount})</span>
+                                              {isBatchLeadsExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                            </button>
+                                          </div>
+                                        </div>
+
+                                        {/* Sub-accordion: Granular Leads inside this specific Excel file */}
+                                        {isBatchLeadsExpanded && (
+                                          <div className="pt-2 border-t border-slate-200 animate-in fade-in">
+                                            <div className="overflow-x-auto border border-slate-200 rounded-xl max-h-60 overflow-y-auto bg-white">
+                                              <table className="w-full text-left text-xs min-w-[42rem]">
+                                                <thead className="sticky top-0 bg-slate-50 z-10 border-b border-slate-200 text-slate-500 font-bold text-[10px] uppercase">
+                                                  <tr>
+                                                    <th className="py-2 px-3">Lead Contact</th>
+                                                    <th className="py-2 px-3">Phone</th>
+                                                    <th className="py-2 px-3">Assigned Timestamp</th>
+                                                    <th className="py-2 px-3">Status</th>
+                                                    <th className="py-2 px-3 text-right">Direct Action</th>
+                                                  </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                  {batch.leads.map((lead) => {
+                                                    const { dateStr, timeStr } = formatLeadAssignmentDateTime(lead);
+                                                    return (
+                                                      <tr key={lead.id} className="hover:bg-slate-50">
+                                                        <td className="py-2 px-3 font-bold text-[#0A2540]">
+                                                          {lead.name}
+                                                          {(lead.company || lead.city) && (
+                                                            <span className="text-[10px] text-slate-400 block font-normal">
+                                                              {[lead.company, lead.city].filter(Boolean).join(' • ')}
+                                                            </span>
+                                                          )}
+                                                        </td>
+                                                        <td className="py-2 px-3 font-mono text-slate-700">{lead.phone || '—'}</td>
+                                                        <td className="py-2 px-3 font-mono text-[10px] text-slate-500">
+                                                          {dateStr} {timeStr ? `• ${timeStr}` : ''}
+                                                        </td>
+                                                        <td className="py-2 px-3">
+                                                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                                                            {lead.status === 'CONVERTED' ? 'Won Deal' : (lead.callCount || 0) === 0 ? 'Fresh' : lead.status}
+                                                          </span>
+                                                        </td>
+                                                        <td className="py-2 px-3 text-right">
+                                                          <button
+                                                            type="button"
+                                                            onClick={async () => {
+                                                              if (window.confirm(`Permanently remove lead "${lead.name}"?`)) {
+                                                                await deleteAssignedLead(lead.id);
+                                                              }
+                                                            }}
+                                                            className="text-rose-600 hover:text-rose-800 text-[10px] font-bold cursor-pointer"
+                                                          >
+                                                            Remove
+                                                          </button>
+                                                        </td>
+                                                      </tr>
+                                                    );
+                                                  })}
+                                                </tbody>
+                                              </table>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
-
-                            {/* Dropdown Filters: Search + Status */}
-                            <div className="flex flex-wrap items-center gap-2.5">
-                              <div className="flex-1 min-w-[12rem]">
-                                <input
-                                  type="text"
-                                  value={memberLeadsSearchQuery}
-                                  onChange={(e) => setMemberLeadsSearchQuery(e.target.value)}
-                                  placeholder={`Search ${member.name}'s leads by name, phone, company, or city...`}
-                                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
-                                />
-                              </div>
-
-                              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-                                {[
-                                  { id: 'ALL', label: 'All', count: memberLeads.length },
-                                  { id: 'FRESH', label: 'Fresh', count: fresh },
-                                  { id: 'CALLED', label: 'Dialed', count: called },
-                                  { id: 'INTERESTED', label: 'Interested', count: interested },
-                                  { id: 'CONVERTED', label: 'Won Deals', count: converted },
-                                  { id: 'CALLBACK', label: 'Callback', count: memberLeads.filter((l) => l.status === 'CALLBACK').length },
-                                  { id: 'BUSY', label: 'Busy', count: memberLeads.filter((l) => l.status === 'BUSY').length },
-                                  { id: 'NOT_INTERESTED', label: 'Not Interested', count: memberLeads.filter((l) => l.status === 'NOT_INTERESTED').length },
-                                ].map((tab) => (
-                                  <button
-                                    key={tab.id}
-                                    type="button"
-                                    onClick={() => setMemberLeadsStatusFilter(tab.id)}
-                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap active:scale-95 cursor-pointer flex items-center gap-1 ${
-                                      memberLeadsStatusFilter === tab.id
-                                        ? 'bg-[#0A2540] text-white shadow-xs'
-                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                    }`}
-                                  >
-                                    <span>{tab.label}</span>
-                                    <span className={`px-1 rounded text-[9px] font-mono ${memberLeadsStatusFilter === tab.id ? 'bg-[#00C9A7] text-[#0A2540] font-black' : 'text-slate-400'}`}>
-                                      {tab.count}
-                                    </span>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-
-                            {/* Granular Leads Table */}
-                            {!memberLeads.length ? (
-                              <div className="py-6 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                                No leads currently assigned to {member.name}.
-                              </div>
-                            ) : !filteredMemberLeads.length ? (
-                              <div className="py-6 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                                No leads match your filter criteria.
-                              </div>
-                            ) : (
-                              <div className="overflow-x-auto border border-slate-200 rounded-xl max-h-80 overflow-y-auto">
-                                <table className="w-full text-left text-xs min-w-[48rem]">
-                                  <thead className="sticky top-0 bg-slate-100 z-10 border-b border-slate-200 text-slate-500 font-bold text-[10px] uppercase tracking-wider">
-                                    <tr>
-                                      <th className="py-2.5 px-3.5 w-10">
-                                        <input
-                                          type="checkbox"
-                                          checked={
-                                            filteredMemberLeads.length > 0 &&
-                                            selectedMemberLeadIds.length === filteredMemberLeads.slice(0, 50).length
-                                          }
-                                          onChange={(e) => {
-                                            if (e.target.checked) {
-                                              setSelectedMemberLeadIds(filteredMemberLeads.slice(0, 50).map((l) => l.id));
-                                            } else {
-                                              setSelectedMemberLeadIds([]);
-                                            }
-                                          }}
-                                          className="rounded text-teal-600 focus:ring-teal-500 cursor-pointer"
-                                        />
-                                      </th>
-                                      <th className="py-2.5 px-3">Lead Contact</th>
-                                      <th className="py-2.5 px-3">Phone</th>
-                                      <th className="py-2.5 px-3">Assigned Date &amp; Time</th>
-                                      <th className="py-2.5 px-3">Status</th>
-                                      <th className="py-2.5 px-3 text-right">Direct Actions</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-slate-100 bg-white">
-                                    {filteredMemberLeads.slice(0, 50).map((lead) => {
-                                      const isSelected = selectedMemberLeadIds.includes(lead.id);
-                                      const { dateStr, timeStr } = formatLeadAssignmentDateTime(lead);
-                                      const isWon = lead.status === 'CONVERTED';
-
-                                      return (
-                                        <tr
-                                          key={lead.id}
-                                          className={`hover:bg-slate-50/80 transition-colors ${
-                                            isSelected ? 'bg-teal-50/30' : ''
-                                          }`}
-                                        >
-                                          <td className="py-2.5 px-3.5">
-                                            <input
-                                              type="checkbox"
-                                              checked={isSelected}
-                                              onChange={(e) => {
-                                                if (e.target.checked) {
-                                                  setSelectedMemberLeadIds((prev) => [...prev, lead.id]);
-                                                } else {
-                                                  setSelectedMemberLeadIds((prev) => prev.filter((id) => id !== lead.id));
-                                                }
-                                              }}
-                                              className="rounded text-teal-600 focus:ring-teal-500 cursor-pointer"
-                                            />
-                                          </td>
-                                          <td className="py-2.5 px-3 font-bold text-[#0A2540]">
-                                            <div className="truncate max-w-[14rem]">
-                                              <span>{lead.name}</span>
-                                              {(lead.company || lead.city) && (
-                                                <span className="text-[10px] text-slate-400 block font-normal truncate">
-                                                  {[lead.company, lead.city].filter(Boolean).join(' • ')}
-                                                </span>
-                                              )}
-                                            </div>
-                                          </td>
-                                          <td className="py-2.5 px-3 font-mono text-slate-700">
-                                            {lead.phone || '—'}
-                                          </td>
-                                          <td className="py-2.5 px-3">
-                                            <div className="flex items-center gap-1.5 text-slate-600 text-[11px] font-mono">
-                                              <span className="font-semibold text-slate-800">{dateStr}</span>
-                                              {timeStr ? (
-                                                <span className="bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded text-[10px] border border-slate-200">
-                                                  🕒 {timeStr}
-                                                </span>
-                                              ) : null}
-                                            </div>
-                                          </td>
-                                          <td className="py-2.5 px-3">
-                                            <span
-                                              className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
-                                                isWon
-                                                  ? 'bg-emerald-50 text-emerald-700'
-                                                  : lead.status === 'INTERESTED'
-                                                  ? 'bg-blue-50 text-blue-700'
-                                                  : lead.status === 'CALLBACK'
-                                                  ? 'bg-amber-50 text-amber-700'
-                                                  : (lead.callCount || 0) === 0
-                                                  ? 'bg-purple-50 text-purple-700'
-                                                  : 'bg-slate-100 text-slate-600'
-                                              }`}
-                                            >
-                                              {isWon
-                                                ? 'Won Deal'
-                                                : (lead.callCount || 0) === 0
-                                                ? 'Fresh'
-                                                : lead.status || 'Pending'}
-                                            </span>
-                                            {(lead.callCount || 0) > 0 && (
-                                              <span className="text-[10px] text-slate-400 font-mono ml-1.5">
-                                                ({lead.callCount} calls)
-                                              </span>
-                                            )}
-                                          </td>
-                                          <td className="py-2.5 px-3 text-right">
-                                            <div className="flex items-center justify-end gap-1.5">
-                                              <button
-                                                type="button"
-                                                onClick={async () => {
-                                                  if (window.confirm(`Return lead "${lead.name}" back to the Unassigned Pool?`)) {
-                                                    await reclaimAssignedLeads({ leadIds: [lead.id], onlyFresh: false });
-                                                  }
-                                                }}
-                                                className="px-2 py-1 text-[10px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg active:scale-95 transition-all cursor-pointer flex items-center gap-1"
-                                                title="Return this lead back to Unassigned Pool"
-                                              >
-                                                <Undo2 className="w-3 h-3" />
-                                                <span>Pool</span>
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={async () => {
-                                                  if (window.confirm(`Permanently remove lead "${lead.name}"?`)) {
-                                                    await deleteAssignedLead(lead.id);
-                                                  }
-                                                }}
-                                                className="px-2 py-1 text-[10px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg active:scale-95 transition-all cursor-pointer flex items-center gap-1"
-                                                title="Permanently remove this lead"
-                                              >
-                                                <Trash2 className="w-3 h-3" />
-                                                <span>Remove</span>
-                                              </button>
-                                            </div>
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
-
-                            {filteredMemberLeads.length > 50 && (
-                              <p className="text-[10px] text-slate-400 text-center">
-                                Showing top 50 of {filteredMemberLeads.length} leads. Use the search box to find specific records.
-                              </p>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
+                          </td>
+                        </tr>
+                      );
+                    })()}
                   </React.Fragment>
                 );
               })}
@@ -3369,6 +3398,88 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Reassign Entire Excel File / Batch to another Telecaller */}
+      {reassigningBatch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center border border-teal-200">
+                  <RefreshCw className="w-4 h-4 text-[#00A88B]" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-[#0A2540]">Reassign Excel File</h3>
+                  <p className="text-[11px] text-slate-400 truncate max-w-xs">{reassigningBatch.fileName}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReassigningBatch(null)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs space-y-1">
+              <p className="text-slate-600">
+                You are transferring <span className="font-bold text-teal-800">{reassigningBatch.leads.length} leads</span> from{' '}
+                <span className="font-bold text-[#0A2540]">{reassigningBatch.fromMemberName}</span>.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700">Select Target Telecaller / Representative:</label>
+              <select
+                value={targetReassignMemberId}
+                onChange={(e) => setTargetReassignMemberId(e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
+              >
+                <option value="">— Choose target team member —</option>
+                {teamMembers
+                  .filter(isTelecallerOrCallingEmployee)
+                  .filter((tm) => tm.id !== reassigningBatch.fromMemberId)
+                  .map((tm) => (
+                    <option key={tm.id} value={tm.id}>
+                      {tm.name} ({tm.empCode}) {tm.portal === 'team_leader' ? '— Team Leader' : '— Telecaller'}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setReassigningBatch(null)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!targetReassignMemberId}
+                onClick={async () => {
+                  if (!targetReassignMemberId) return;
+                  const target = teamMembers.find((m) => m.id === targetReassignMemberId);
+                  if (!target) return;
+                  await reassignLeadsBetween(
+                    reassigningBatch.fromMemberId,
+                    target.id,
+                    undefined,
+                    reassigningBatch.leads.map((l) => l.id)
+                  );
+                  setReassigningBatch(null);
+                  setTargetReassignMemberId('');
+                }}
+                className="px-4 py-1.5 rounded-lg bg-[#00A88B] hover:bg-[#00897B] text-white text-xs font-bold disabled:opacity-50 cursor-pointer active:scale-95 transition-all"
+              >
+                Confirm Reassign
+              </button>
+            </div>
           </div>
         </div>
       )}

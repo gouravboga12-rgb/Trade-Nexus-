@@ -399,7 +399,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  bulkDeleteAssignedLeads: (data: { leadIds?: string[]; employeeId?: string; onlyFresh?: boolean }) =>
+  bulkDeleteAssignedLeads: (data: { leadIds?: string[]; employeeId?: string; batchId?: string; onlyFresh?: boolean }) =>
     request<{ success: boolean; deletedCount: number }>('/assigned-leads/bulk-delete', {
       method: 'POST',
       body: JSON.stringify(data),

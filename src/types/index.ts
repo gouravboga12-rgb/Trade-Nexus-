@@ -397,6 +397,7 @@ export interface LeadBatch {
   totalLeads: number;
   assignedToEmployeeName: string;
   assignedToEmployeeId: string;
+  createdAt?: string;
 }
 
 export interface FaceBiometricProfile {
