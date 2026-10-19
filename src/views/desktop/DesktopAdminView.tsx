@@ -45,6 +45,7 @@ import {
 import { OfficeSettings, TeamMember, UserRole, PaymentVerificationItem } from '../../types';
 import { api } from '../../services/api';
 import { InvoicesLedger } from '../../components/common/InvoicesLedger';
+import { RecentLeadUploadsLedger } from '../../components/common/RecentLeadUploadsLedger';
 import { ExcelLeadUploadModal } from '../../components/modals/ExcelLeadUploadModal';
 import { AddEmployeeModal } from '../../components/modals/AddEmployeeModal';
 import { EmployeeRecordModal, PORTAL_LABEL } from '../../components/modals/EmployeeRecordModal';
@@ -2001,61 +2002,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
         </div>
       </div>
 
-      <div className="nexus-card bg-white border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FileSpreadsheet className="w-4 h-4 text-slate-500" />
-            <h3 className="font-display font-black text-base text-[#0A2540]">Recent uploads</h3>
-          </div>
-          <span className="text-[11px] text-slate-400 font-semibold">
-            Rollback batch to pool or delete batch
-          </span>
-        </div>
-        {!leadBatches.length ? (
-          <Empty text="No lead files uploaded yet." />
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {leadBatches.map((b) => (
-              <div key={b.id} className="px-5 py-3 flex items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors">
-                <div className="min-w-0">
-                  <span className="text-xs font-bold text-[#0A2540] block truncate">{b.fileName}</span>
-                  <span className="text-[11px] text-slate-500">
-                    {b.totalLeads} leads → {b.assignedToEmployeeName} · {b.uploadedAt}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (window.confirm(`Return uncalled leads from batch "${b.fileName}" back to the Unassigned Pool? (Won deals remain preserved)`)) {
-                        await deleteLeadBatch(b.id, 'unassign_leads');
-                      }
-                    }}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl active:scale-95 transition-all"
-                    title="Reclaim uncontacted leads back into Unassigned Pool"
-                  >
-                    <Undo2 className="w-3.5 h-3.5" />
-                    <span>Return to Pool</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (window.confirm(`Permanently delete batch "${b.fileName}" and remove all its uncontacted leads? (Won deals remain preserved)`)) {
-                        await deleteLeadBatch(b.id, 'delete_leads');
-                      }
-                    }}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl active:scale-95 transition-all"
-                    title="Permanently delete batch and uncontacted leads"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete Batch</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <RecentLeadUploadsLedger />
 
       {/* Lead Records Inspector & Bulk Actions */}
       {(() => {

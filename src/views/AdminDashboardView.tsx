@@ -74,6 +74,7 @@ import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { LeafletGeofenceMap } from '../components/common/LeafletGeofenceMap';
 import { ManageEmployeesTab } from './admin/ManageEmployeesTab';
 import { InvoicesLedger } from '../components/common/InvoicesLedger';
+import { RecentLeadUploadsLedger } from '../components/common/RecentLeadUploadsLedger';
 import { getTodayDateIST, getLeadDate, isDateInPeriodIST, formatLeadAssignmentDateTime } from '../utils/dateUtils';
 import {
   downloadCsvBlob,
@@ -3239,51 +3240,7 @@ export const AdminDashboardView: React.FC = () => {
                 </button>
               </div>
 
-              <SectionTitle>Recent uploads</SectionTitle>
-              {!leadBatches.length ? (
-                <Empty text="No lead files uploaded yet." />
-              ) : (
-                <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100 overflow-hidden">
-                  {leadBatches.map((b) => (
-                    <div key={b.id} className="p-3 flex items-center justify-between gap-2 hover:bg-slate-50/80 transition-colors">
-                      <div className="min-w-0 flex-1">
-                        <span className="text-xs font-bold text-[#0A2540] block truncate">{b.fileName}</span>
-                        <span className="text-[10px] text-slate-500">
-                          {b.totalLeads} leads → {b.assignedToEmployeeName} · {b.uploadedAt}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            if (window.confirm(`Return uncalled leads from batch "${b.fileName}" back to the Unassigned Pool? (Won deals remain preserved)`)) {
-                              await deleteLeadBatch(b.id, 'unassign_leads');
-                            }
-                          }}
-                          className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 rounded-lg active:scale-95 transition-all"
-                          title="Reclaim uncontacted leads back into Unassigned Pool"
-                        >
-                          <Undo2 className="w-3 h-3" />
-                          <span>Pool</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            if (window.confirm(`Delete batch "${b.fileName}" and remove all its uncontacted leads? (Won deals remain preserved)`)) {
-                              await deleteLeadBatch(b.id, 'delete_leads');
-                            }
-                          }}
-                          className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 rounded-lg active:scale-95 transition-all"
-                          title="Permanently delete batch and uncontacted leads"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                          <span>Delete</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <RecentLeadUploadsLedger compact />
             </div>
           );
         })()}
