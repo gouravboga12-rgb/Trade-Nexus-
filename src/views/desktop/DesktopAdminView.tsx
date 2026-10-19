@@ -38,6 +38,7 @@ import {
   Phone,
   FileText,
   X,
+  Undo2,
 } from 'lucide-react';
 import { OfficeSettings, TeamMember, UserRole, PaymentVerificationItem } from '../../types';
 import { api } from '../../services/api';
@@ -94,6 +95,9 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     verifyPayment,
     deletePaymentVerification,
     deleteAssignedLead,
+    deleteLeadBatch,
+    reclaimAssignedLeads,
+    bulkDeleteAssignedLeads,
     reassignLeadsBetween,
     teamMeetings,
     joinMeeting,
@@ -152,6 +156,9 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
   const [leadsDateFilter, setLeadsDateFilter] = useState<'ALL' | 'TODAY' | 'YESTERDAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'CUSTOM'>('ALL');
   const [leadsCustomStart, setLeadsCustomStart] = useState<string>(() => getTodayDateIST());
   const [leadsCustomEnd, setLeadsCustomEnd] = useState<string>(() => getTodayDateIST());
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+  const [leadsSearchQuery, setLeadsSearchQuery] = useState('');
+  const [leadsStatusFilter, setLeadsStatusFilter] = useState<string>('ALL');
 
   useEffect(() => {
     api.getOffice().then(setOffice).catch(() => setOffice(null));
@@ -317,6 +324,7 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     return {
       member: m,
       total: mine.length,
+      fresh: mine.filter((l) => (l.callCount || 0) === 0 && l.status !== 'CONVERTED').length,
       called: mine.filter((l) => (l.callCount || 0) > 0).length,
       interested: mine.filter((l) => l.status === 'INTERESTED').length,
       converted: mine.filter((l) => l.status === 'CONVERTED').length,
@@ -1453,35 +1461,92 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
 
 
         <div className="nexus-card bg-white border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
-            <Users className="w-4 h-4 text-[#00A88B]" />
-            <h3 className="font-display font-black text-base text-[#0A2540]">Who is holding what</h3>
+          <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-[#00A88B]" />
+              <h3 className="font-display font-black text-base text-[#0A2540]">Who is holding what</h3>
+            </div>
+            <span className="text-[11px] text-slate-400 font-semibold">
+              Reclaim uncalled leads to pool or clear fresh allocation
+            </span>
           </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs min-w-[40rem]">
+          <table className="w-full text-left text-xs min-w-[50rem]">
             <thead>
               <tr className="border-b border-slate-200 text-slate-400 uppercase tracking-wider font-bold text-[10px] bg-slate-50/70">
                 <th className="py-3 px-5">Employee</th>
-                <th className="py-3 px-5">Leads held</th>
-                <th className="py-3 px-5">Called</th>
-                <th className="py-3 px-5">Interested</th>
-                <th className="py-3 px-5">Converted</th>
+                <th className="py-3 px-4">Role</th>
+                <th className="py-3 px-4">Leads held</th>
+                <th className="py-3 px-4">Fresh / Uncalled</th>
+                <th className="py-3 px-4">Called</th>
+                <th className="py-3 px-4">Interested</th>
+                <th className="py-3 px-4">Converted</th>
+                <th className="py-3 px-5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {leadsPerEmployee.map(({ member, total, called, interested, converted }) => (
+              {leadsPerEmployee.map(({ member, total, fresh, called, interested, converted }) => (
                 <tr key={member.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-3.5 px-5 font-bold text-[#0A2540]">{member.name}</td>
-                  <td className="py-3.5 px-5 font-mono-nums font-bold">{total}</td>
-                  <td className="py-3.5 px-5 font-mono-nums text-slate-600">{called}</td>
-                  <td className="py-3.5 px-5 font-mono-nums text-amber-700">{interested}</td>
-                  <td className="py-3.5 px-5 font-mono-nums text-emerald-700">{converted}</td>
+                  <td className="py-3.5 px-5 font-bold text-[#0A2540]">
+                    <div className="flex items-center gap-1.5">
+                      <span>{member.name}</span>
+                      {member.portal === 'team_leader' && (
+                        <span className="text-[10px] bg-purple-100 text-purple-700 font-extrabold px-1.5 py-0.5 rounded">
+                          TL
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="py-3.5 px-4 text-slate-500 font-medium capitalize">
+                    {member.portal === 'team_leader' ? 'Team Leader' : 'Telecaller'}
+                  </td>
+                  <td className="py-3.5 px-4 font-mono-nums font-bold">{total}</td>
+                  <td className="py-3.5 px-4 font-mono-nums font-bold text-amber-700">
+                    {fresh > 0 ? fresh : <span className="text-slate-400 font-normal">0</span>}
+                  </td>
+                  <td className="py-3.5 px-4 font-mono-nums text-slate-600">{called}</td>
+                  <td className="py-3.5 px-4 font-mono-nums text-blue-700">{interested}</td>
+                  <td className="py-3.5 px-4 font-mono-nums text-emerald-700">{converted}</td>
+                  <td className="py-3.5 px-5 text-right">
+                    {fresh > 0 ? (
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (window.confirm(`Reclaim ${fresh} uncalled lead(s) from ${member.name} back into the Unassigned Pool?`)) {
+                              await reclaimAssignedLeads({ employeeId: member.id, onlyFresh: true });
+                            }
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 rounded-lg active:scale-95 transition-all"
+                          title="Move uncalled leads to unassigned pool"
+                        >
+                          <Undo2 className="w-3 h-3" />
+                          <span>Reclaim</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (window.confirm(`Permanently delete ${fresh} uncalled lead(s) held by ${member.name}? (Won deals remain preserved)`)) {
+                              await bulkDeleteAssignedLeads({ employeeId: member.id, onlyFresh: true });
+                            }
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 rounded-lg active:scale-95 transition-all"
+                          title="Permanently remove fresh leads"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Clear</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-slate-400 font-medium">All Dialed</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        {!telecallerMembers.length && <Empty text="No telecaller employees yet." />}
+        {!telecallerMembers.length && <Empty text="No telecaller or team leader calling reps yet." />}
       </div>
 
       <div className="nexus-card bg-white border border-slate-200 shadow-sm p-5 space-y-3">
@@ -1574,28 +1639,273 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
       </div>
 
       <div className="nexus-card bg-white border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
-          <FileSpreadsheet className="w-4 h-4 text-slate-500" />
-          <h3 className="font-display font-black text-base text-[#0A2540]">Recent uploads</h3>
+        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileSpreadsheet className="w-4 h-4 text-slate-500" />
+            <h3 className="font-display font-black text-base text-[#0A2540]">Recent uploads</h3>
+          </div>
+          <span className="text-[11px] text-slate-400 font-semibold">
+            Rollback batch to pool or delete batch
+          </span>
         </div>
         {!leadBatches.length ? (
           <Empty text="No lead files uploaded yet." />
         ) : (
           <div className="divide-y divide-slate-100">
             {leadBatches.map((b) => (
-              <div key={b.id} className="px-5 py-3 flex items-center justify-between gap-3">
+              <div key={b.id} className="px-5 py-3 flex items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors">
                 <div className="min-w-0">
                   <span className="text-xs font-bold text-[#0A2540] block truncate">{b.fileName}</span>
                   <span className="text-[11px] text-slate-500">
-                    {b.totalLeads} leads → {b.assignedToEmployeeName}
+                    {b.totalLeads} leads → {b.assignedToEmployeeName} · {b.uploadedAt}
                   </span>
                 </div>
-                <span className="text-[11px] font-mono text-slate-400 flex-shrink-0">{b.uploadedAt}</span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (window.confirm(`Return uncalled leads from batch "${b.fileName}" back to the Unassigned Pool? (Won deals remain preserved)`)) {
+                        await deleteLeadBatch(b.id, 'unassign_leads');
+                      }
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl active:scale-95 transition-all"
+                    title="Reclaim uncontacted leads back into Unassigned Pool"
+                  >
+                    <Undo2 className="w-3.5 h-3.5" />
+                    <span>Return to Pool</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (window.confirm(`Permanently delete batch "${b.fileName}" and remove all its uncontacted leads? (Won deals remain preserved)`)) {
+                        await deleteLeadBatch(b.id, 'delete_leads');
+                      }
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl active:scale-95 transition-all"
+                    title="Permanently delete batch and uncontacted leads"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Batch</span>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Lead Records Inspector & Bulk Actions */}
+      {(() => {
+        const filteredLeads = filteredAssignedLeadsByDate.filter((l) => {
+          const q = leadsSearchQuery.trim().toLowerCase();
+          const matchesQuery = !q ||
+            (l.name && l.name.toLowerCase().includes(q)) ||
+            (l.phone && l.phone.includes(q)) ||
+            (l.company && l.company.toLowerCase().includes(q)) ||
+            (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase().includes(q));
+
+          const matchesStatus =
+            leadsStatusFilter === 'ALL'
+              ? true
+              : leadsStatusFilter === 'FRESH'
+              ? (l.callCount || 0) === 0 && l.status !== 'CONVERTED'
+              : leadsStatusFilter === 'CALLED'
+              ? (l.callCount || 0) > 0 && l.status !== 'CONVERTED'
+              : l.status === leadsStatusFilter;
+
+          return matchesQuery && matchesStatus;
+        });
+
+        return (
+          <div className="nexus-card bg-white border border-slate-200 shadow-sm overflow-hidden space-y-3 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#00A88B]" />
+                <h3 className="font-display font-black text-base text-[#0A2540]">
+                  Lead Records ({filteredLeads.length})
+                </h3>
+              </div>
+
+              {selectedLeadIds.length > 0 && (
+                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl animate-in fade-in">
+                  <span className="text-xs font-bold text-slate-700">
+                    {selectedLeadIds.length} leads selected:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (window.confirm(`Reclaim ${selectedLeadIds.length} selected lead(s) back into the Unassigned Pool?`)) {
+                        await reclaimAssignedLeads({ leadIds: selectedLeadIds, onlyFresh: false });
+                        setSelectedLeadIds([]);
+                      }
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 rounded-lg active:scale-95 transition-all"
+                  >
+                    <Undo2 className="w-3 h-3" />
+                    <span>Reclaim to Pool</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (window.confirm(`Permanently delete ${selectedLeadIds.length} selected lead(s)?`)) {
+                        await bulkDeleteAssignedLeads({ leadIds: selectedLeadIds, onlyFresh: false });
+                        setSelectedLeadIds([]);
+                      }
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-rose-700 bg-rose-100 hover:bg-rose-200 rounded-lg active:scale-95 transition-all"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>Delete Selected</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Filter controls */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex-1 min-w-[14rem]">
+                <input
+                  type="text"
+                  value={leadsSearchQuery}
+                  onChange={(e) => setLeadsSearchQuery(e.target.value)}
+                  placeholder="Search lead by name, phone, company, or rep..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                />
+              </div>
+              <div className="w-48">
+                <select
+                  value={leadsStatusFilter}
+                  onChange={(e) => setLeadsStatusFilter(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="FRESH">Fresh / Uncalled</option>
+                  <option value="CALLED">Dialed (In Pipeline)</option>
+                  <option value="INTERESTED">Interested</option>
+                  <option value="CONVERTED">Won Deals (Converted)</option>
+                  <option value="CALLBACK">Callback</option>
+                  <option value="BUSY">Busy</option>
+                  <option value="NOT_INTERESTED">Not Interested</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Lead Table */}
+            <div className="overflow-x-auto border border-slate-200 rounded-xl max-h-96 overflow-y-auto">
+              <table className="w-full text-left text-xs min-w-[50rem]">
+                <thead className="sticky top-0 bg-slate-50 z-10 border-b border-slate-200">
+                  <tr className="text-slate-400 uppercase tracking-wider font-bold text-[10px]">
+                    <th className="py-2.5 px-4 w-10">
+                      <input
+                        type="checkbox"
+                        checked={filteredLeads.length > 0 && selectedLeadIds.length === filteredLeads.slice(0, 50).length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedLeadIds(filteredLeads.slice(0, 50).map((l) => l.id));
+                          } else {
+                            setSelectedLeadIds([]);
+                          }
+                        }}
+                        className="rounded text-teal-600 focus:ring-teal-500"
+                      />
+                    </th>
+                    <th className="py-2.5 px-4">Contact</th>
+                    <th className="py-2.5 px-4">Phone</th>
+                    <th className="py-2.5 px-4">Holding Rep</th>
+                    <th className="py-2.5 px-4">Calls</th>
+                    <th className="py-2.5 px-4">Status</th>
+                    <th className="py-2.5 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {!filteredLeads.length ? (
+                    <tr>
+                      <td colSpan={7} className="py-6 text-center text-slate-400">
+                        No leads match the selected filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredLeads.slice(0, 50).map((l) => {
+                      const isSelected = selectedLeadIds.includes(l.id);
+                      return (
+                        <tr key={l.id} className={`hover:bg-slate-50/80 transition-colors ${isSelected ? 'bg-teal-50/30' : ''}`}>
+                          <td className="py-2.5 px-4">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedLeadIds((prev) => [...prev, l.id]);
+                                } else {
+                                  setSelectedLeadIds((prev) => prev.filter((id) => id !== l.id));
+                                }
+                              }}
+                              className="rounded text-teal-600 focus:ring-teal-500"
+                            />
+                          </td>
+                          <td className="py-2.5 px-4 font-bold text-[#0A2540]">
+                            {l.name}
+                            {l.company && <span className="text-[10px] text-slate-400 block font-normal">{l.company}</span>}
+                          </td>
+                          <td className="py-2.5 px-4 font-mono text-slate-600">{l.phone || '—'}</td>
+                          <td className="py-2.5 px-4 text-slate-700 font-medium">
+                            {isLeadUnassigned(l, teamMembers) ? (
+                              <span className="text-amber-600 font-bold">Unassigned Pool</span>
+                            ) : (
+                              l.assignedToEmployeeName || '—'
+                            )}
+                          </td>
+                          <td className="py-2.5 px-4 font-mono-nums">{l.callCount || 0}</td>
+                          <td className="py-2.5 px-4">
+                            <span
+                              className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                                l.status === 'CONVERTED'
+                                  ? 'bg-emerald-50 text-emerald-700'
+                                  : l.status === 'INTERESTED'
+                                  ? 'bg-blue-50 text-blue-700'
+                                  : l.status === 'CALLBACK'
+                                  ? 'bg-amber-50 text-amber-700'
+                                  : l.callCount === 0
+                                  ? 'bg-purple-50 text-purple-700'
+                                  : 'bg-slate-100 text-slate-600'
+                              }`}
+                            >
+                              {l.status === 'CONVERTED'
+                                ? 'Won Deal'
+                                : l.callCount === 0
+                                ? 'Fresh'
+                                : l.status || 'Pending'}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-4 text-right">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (window.confirm(`Delete lead "${l.name}"?`)) {
+                                  await deleteAssignedLead(l.id);
+                                }
+                              }}
+                              className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
+                              title="Delete lead"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {filteredLeads.length > 50 && (
+              <p className="text-[11px] text-slate-400 text-center">
+                Showing top 50 of {filteredLeads.length} leads. Narrow your search to find specific contacts.
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       <p className="text-[11px] text-slate-500 bg-slate-100 border border-slate-200 rounded-xl px-4 py-3">
         <strong className="text-slate-700">File format:</strong> save your sheet as CSV from Excel
@@ -2514,12 +2824,13 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
             <div className="bg-rose-50/70 border border-rose-200/80 rounded-2xl p-3.5 space-y-1.5 text-xs text-rose-800">
               <p className="font-bold flex items-center gap-1.5">
                 <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
-                Permanent action — cannot be undone
+                Zero Data Loss Guarantee
               </p>
               <ul className="list-disc list-inside text-[11px] text-rose-700 space-y-0.5 ml-1">
                 <li>User credentials and login access will be removed</li>
-                <li>Biometric profile and attendance logs will be purged</li>
-                <li>Assigned leads will be unassigned for reassignment</li>
+                <li>Biometric profile and login access will be purged</li>
+                <li>Fresh uncalled leads will return to the Unassigned Pool</li>
+                <li>Won deals, payments &amp; customer call logs remain permanently preserved</li>
               </ul>
             </div>
 

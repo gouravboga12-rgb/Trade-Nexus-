@@ -99,54 +99,64 @@ export const QuickCallLogModal: React.FC = () => {
     resetForm();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
     const numericDeal = dealAmount.trim() ? Number(dealAmount) : undefined;
+    setIsSubmitting(true);
 
-    if (activeCallingLead) {
-      // Map CallOutcome to AssignedLead status
-      const mappedStatus: AssignedLead['status'] =
-        outcome === 'DEAL_CLOSED'
-          ? 'CONVERTED'
-          : outcome === 'INTERESTED'
-          ? 'INTERESTED'
-          : outcome === 'CALLBACK'
-          ? 'CALLBACK'
-          : outcome === 'BUSY'
-          ? 'BUSY'
-          : outcome === 'NOT_INTERESTED'
-          ? 'NOT_INTERESTED'
-          : 'INTERESTED';
+    try {
+      if (activeCallingLead) {
+        // Map CallOutcome to AssignedLead status
+        const mappedStatus: AssignedLead['status'] =
+          outcome === 'DEAL_CLOSED'
+            ? 'CONVERTED'
+            : outcome === 'INTERESTED'
+            ? 'INTERESTED'
+            : outcome === 'CALLBACK'
+            ? 'CALLBACK'
+            : outcome === 'BUSY'
+            ? 'BUSY'
+            : outcome === 'NOT_INTERESTED'
+            ? 'NOT_INTERESTED'
+            : 'INTERESTED';
 
-      updateAssignedLeadStatus(
-        activeCallingLead.id,
-        mappedStatus,
-        notes,
-        mappedStatus === 'CONVERTED' ? numericDeal || 0 : undefined,
-        mappedStatus === 'CALLBACK' ? followUpDate || 'Tomorrow, 11:00 AM' : undefined,
-        mappedStatus === 'CONVERTED' ? {
-          customerName: customerName.trim() || activeCallingLead.name,
-          customerPhone: customerPhone.trim() || activeCallingLead.phone,
-          customerBankName: payMethod === 'BANK' ? customerBankName.trim() : undefined,
-          customerAccountNumber: payMethod === 'BANK' ? customerAccountNumber.trim() : undefined,
-          customerIfscCode: payMethod === 'BANK' ? customerIfscCode.trim().toUpperCase() : undefined,
-          customerUpiId: payMethod === 'UPI' ? customerUpiId.trim() : undefined,
-        } : undefined
-      );
-    } else {
-      logNewCall({
-        clientName: clientName.trim() || 'Direct Caller',
-        companyName: companyName.trim() || 'Direct Client',
-        phoneNumber: phone.trim() || 'Not Provided',
-        outcome,
-        durationSec: outcome === 'BUSY' ? 0 : parseInt(durationMin || '2', 10) * 60,
-        notes,
-        followUpDate: outcome === 'CALLBACK' || outcome === 'INTERESTED' ? followUpDate || undefined : undefined,
-      });
+        await updateAssignedLeadStatus(
+          activeCallingLead.id,
+          mappedStatus,
+          notes,
+          mappedStatus === 'CONVERTED' ? numericDeal || 0 : undefined,
+          mappedStatus === 'CALLBACK' ? followUpDate || 'Tomorrow, 11:00 AM' : undefined,
+          mappedStatus === 'CONVERTED' ? {
+            customerName: customerName.trim() || activeCallingLead.name,
+            customerPhone: customerPhone.trim() || activeCallingLead.phone,
+            customerBankName: payMethod === 'BANK' ? customerBankName.trim() : undefined,
+            customerAccountNumber: payMethod === 'BANK' ? customerAccountNumber.trim() : undefined,
+            customerIfscCode: payMethod === 'BANK' ? customerIfscCode.trim().toUpperCase() : undefined,
+            customerUpiId: payMethod === 'UPI' ? customerUpiId.trim() : undefined,
+          } : undefined
+        );
+      } else {
+        await logNewCall({
+          clientName: clientName.trim() || 'Direct Caller',
+          companyName: companyName.trim() || 'Direct Client',
+          phoneNumber: phone.trim() || 'Not Provided',
+          outcome,
+          durationSec: outcome === 'BUSY' ? 0 : parseInt(durationMin || '2', 10) * 60,
+          notes,
+          followUpDate: outcome === 'CALLBACK' || outcome === 'INTERESTED' ? followUpDate || undefined : undefined,
+        });
+      }
+
+      handleClose();
+    } catch (err) {
+      console.error('Call submission failed:', err);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    handleClose();
   };
 
   const outcomeOptions: {
@@ -517,10 +527,20 @@ export const QuickCallLogModal: React.FC = () => {
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full py-3.5 rounded-2xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-display font-extrabold text-sm shadow-md shadow-[#00C9A7]/25 active:scale-95 transition-all flex items-center justify-center gap-2"
+              disabled={isSubmitting}
+              className="w-full py-3.5 rounded-2xl bg-[#00C9A7] hover:bg-[#00B4D8] disabled:bg-slate-300 disabled:text-slate-500 text-[#0A2540] font-display font-extrabold text-sm shadow-md shadow-[#00C9A7]/25 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
-              <span>Save Call</span>
+              {isSubmitting ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-[#0A2540] border-t-transparent rounded-full animate-spin" />
+                  <span>Saving Call &amp; Won Details…</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                  <span>Save Call</span>
+                </>
+              )}
             </button>
           </div>
         </form>

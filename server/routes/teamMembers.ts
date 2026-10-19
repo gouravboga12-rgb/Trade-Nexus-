@@ -666,32 +666,31 @@ router.delete('/:id', (req: Request, res: Response) => {
         db.prepare('DELETE FROM employee_documents WHERE employeeId = ?').run(empId);
       } catch (_) {}
 
-      // 6. Delete call logs belonging to this employee
-      try {
-        db.prepare(`DELETE FROM call_logs WHERE employeeId = ? OR employeeId = ?`).run(empId, empCode);
-      } catch (_) {}
+      // 6. PRESERVE call logs: Client interaction history must NEVER be lost
+      // (Call logs are retained with historical attribution to the closing rep)
 
-      // 7. Delete attendance records for this employee
+      // 7. Delete daily attendance records for this employee (optional cleanup)
       try {
         db.prepare(`DELETE FROM attendance_records WHERE employeeId = ? OR employeeId = ? OR LOWER(employeeName) = LOWER(?)`).run(empId, empCode, name);
       } catch (_) {}
 
-      // 8. Delete payment verifications (won deal submissions) by this employee
-      try {
-        db.prepare(`DELETE FROM payment_verifications WHERE LOWER(telecallerName) = LOWER(?)`).run(name);
-      } catch (_) {}
+      // 8. PRESERVE payment verifications: Company revenue, audited won deals & financials must NEVER be deleted!
+      // (Payment records remain in the sales ledger permanently attributed to this rep)
 
       // 9. Delete leave requests submitted by this employee
       try {
         db.prepare(`DELETE FROM leave_requests WHERE LOWER(employeeName) = LOWER(?) OR employeeCode = ?`).run(name, empCode);
       } catch (_) {}
 
-      // 10. Delete or unassign assigned leads so leads are not orphaned
+      // 10. Safely handle assigned leads:
+      // - Converted / Won leads remain permanently intact with client data preserved
+      // - Fresh / uncalled / pending leads are reclaimed into the Unassigned Pool for reallocation
       try {
         db.prepare(`
           UPDATE assigned_leads 
-          SET assignedToEmployeeId = '', assignedToEmployeeName = 'Unassigned' 
-          WHERE assignedToEmployeeId = ? OR assignedToEmployeeId = ? OR LOWER(assignedToEmployeeName) = LOWER(?)
+          SET assignedToEmployeeId = '', assignedToEmployeeName = 'Unassigned', updatedAt = CURRENT_TIMESTAMP
+          WHERE (assignedToEmployeeId = ? OR assignedToEmployeeId = ? OR LOWER(assignedToEmployeeName) = LOWER(?))
+            AND (status = 'PENDING' OR callCount = 0)
         `).run(empId, empCode, name);
       } catch (_) {}
 

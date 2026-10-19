@@ -25,7 +25,12 @@ import {
   X,
   AlertTriangle,
   Camera,
-  LogOut
+  LogOut,
+  Phone,
+  Award,
+  Sparkles,
+  Filter,
+  ArrowUpRight,
 } from 'lucide-react';
 import { TeamMeeting, TeamMember } from '../types';
 import { RejectedLeaveBanner } from '../components/common/RejectedLeaveBanner';
@@ -57,6 +62,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
     weeklyOffDays,
     callLogs,
     paymentVerifications,
+    openCallModalForLead,
   } = useApp();
 
   useScreenData('teamLeaderDashboard');
@@ -89,7 +95,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
   );
   const punchInTimeDisplay = isAttendanceDisputed ? '' : (profile?.checkInTime || todayAttendance?.checkIn || '');
 
-  const [activeTab, setActiveTabState] = useState<'home' | 'team' | 'leaves' | 'reports' | 'meetings'>(() => {
+  const [activeTab, setActiveTabState] = useState<'home' | 'team' | 'calling' | 'leaves' | 'reports' | 'meetings'>(() => {
     try {
       return (localStorage.getItem('tnx_tlTab') as any) || 'home';
     } catch {
@@ -97,12 +103,14 @@ export const TeamLeaderDashboardView: React.FC = () => {
     }
   });
 
-  const setActiveTab = (newTab: 'home' | 'team' | 'leaves' | 'reports' | 'meetings') => {
+  const setActiveTab = (newTab: 'home' | 'team' | 'calling' | 'leaves' | 'reports' | 'meetings') => {
     setActiveTabState(newTab);
     try {
       localStorage.setItem('tnx_tlTab', newTab);
     } catch {}
   };
+  const [callingSearchQuery, setCallingSearchQuery] = useState('');
+  const [callingStatusFilter, setCallingStatusFilter] = useState<string>('ALL');
   const [leaveSubTab, setLeaveSubTab] = useState<'approvals' | 'calendar'>('approvals');
   const [calendarMonthOffset, setCalendarMonthOffset] = useState(0);
   const [approvalsFilter, setApprovalsFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
@@ -147,6 +155,56 @@ export const TeamLeaderDashboardView: React.FC = () => {
     if (fromLeads > 0) return fromLeads;
     return teamMembers.filter(m => m.salesAchieved > 0).length;
   }, [assignedLeads, teamMembers]);
+
+  // TL's own allocated leads & personal closer metrics
+  const myAssignedLeads = useMemo(() => {
+    const validIds = new Set(
+      [currentUser?.id, currentUser?.employeeId, currentUser?.empCode, profile?.id, profile?.empCode]
+        .filter(Boolean)
+    );
+    const validName = (currentUser?.name || profile?.name || '').trim().toLowerCase();
+
+    return (assignedLeads || []).filter((l) => {
+      const matchesId = validIds.has(l.assignedToEmployeeId);
+      const matchesName = Boolean(validName && l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === validName);
+      return matchesId || matchesName;
+    });
+  }, [assignedLeads, currentUser, profile]);
+
+  const myFreshLeadsCount = useMemo(() => {
+    return myAssignedLeads.filter((l) => (l.callCount || 0) === 0 && l.status !== 'CONVERTED').length;
+  }, [myAssignedLeads]);
+
+  const myDialsToday = useMemo(() => {
+    const validIds = new Set(
+      [currentUser?.id, currentUser?.employeeId, currentUser?.empCode, profile?.id, profile?.empCode]
+        .filter(Boolean)
+    );
+    const validName = (currentUser?.name || profile?.name || '').trim().toLowerCase();
+    return (callLogs || []).filter((c) => {
+      const isToday = c.date === todayStr || (c.timestamp && c.timestamp.startsWith(todayStr)) || (c.createdAt && c.createdAt.startsWith(todayStr));
+      const isMine = validIds.has(c.employeeId) || (validName && c.employeeName && c.employeeName.toLowerCase() === validName);
+      return isToday && isMine;
+    }).length;
+  }, [callLogs, todayStr, currentUser, profile]);
+
+  const myPayments = useMemo(() => {
+    return (paymentVerifications || []).filter((p) =>
+      paymentBelongsTo(p, currentUser?.name || profile?.name)
+    );
+  }, [paymentVerifications, currentUser, profile]);
+
+  const myWonDealsCount = useMemo(() => {
+    const wonFromLeads = myAssignedLeads.filter((l) => l.status === 'CONVERTED').length;
+    const wonFromPayments = myPayments.filter((p) => p.status === 'VERIFIED').length;
+    return Math.max(wonFromLeads, wonFromPayments);
+  }, [myAssignedLeads, myPayments]);
+
+  const myVerifiedRevenue = useMemo(() => {
+    return myPayments
+      .filter((p) => p.status === 'VERIFIED')
+      .reduce((sum, p) => sum + (p.dealAmount || 0), 0);
+  }, [myPayments]);
 
   // Squad identification: Determine the team(s) led by this Team Leader
   const leaderNameLower = (currentUser?.name || profile?.name || '').trim().toLowerCase();
@@ -856,6 +914,60 @@ export const TeamLeaderDashboardView: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Team Leader Personal Closer Metrics Card */}
+              <div className="bg-gradient-to-br from-[#0A2540] to-[#0F3258] text-white border border-slate-800 shadow-md rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-[#00C9A7]/20 border border-[#00C9A7]/40 flex items-center justify-center text-[#00C9A7]">
+                      <Award className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-display font-black text-xs text-white uppercase tracking-wider">
+                        My Personal Closer Stats
+                      </h4>
+                      <span className="text-[10px] text-slate-300">
+                        Leads dialed &amp; deals closed personally by you
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('calling')}
+                    className="flex items-center gap-1 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-[11px] px-3 py-1.5 rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
+                  >
+                    <PhoneCall className="w-3 h-3 stroke-[2.5]" />
+                    <span>Open Desk ({myAssignedLeads.length})</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 pt-1 border-t border-white/10 text-center">
+                  <div className="bg-white/5 rounded-xl p-2.5">
+                    <span className="text-[10px] text-slate-300 uppercase font-bold tracking-wider block">
+                      My Dials Today
+                    </span>
+                    <span className="font-display font-black text-lg text-[#00C9A7] block mt-0.5">
+                      {myDialsToday}
+                    </span>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-2.5">
+                    <span className="text-[10px] text-slate-300 uppercase font-bold tracking-wider block">
+                      My Won Deals
+                    </span>
+                    <span className="font-display font-black text-lg text-purple-300 block mt-0.5">
+                      {myWonDealsCount}
+                    </span>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-2.5">
+                    <span className="text-[10px] text-slate-300 uppercase font-bold tracking-wider block">
+                      My Revenue
+                    </span>
+                    <span className="font-display font-black text-lg text-emerald-300 block mt-0.5">
+                      {formatInLakhs(myVerifiedRevenue)}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Team Performance Section (Radial Target Gauge) */}
@@ -1316,6 +1428,214 @@ export const TeamLeaderDashboardView: React.FC = () => {
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* --- TAB: CALLING (Team Leader Calling Desk & Lead Closer) --- */}
+        {activeTab === 'calling' && (
+          <div className="space-y-3.5 animate-in fade-in duration-150">
+            {/* Header with Closer Badge */}
+            <div className="bg-gradient-to-r from-[#0A2540] to-[#0F3258] text-white p-4 rounded-2xl shadow-sm flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-display font-black text-xl text-white">My Calling Desk</h2>
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-[#00C9A7] text-[#0A2540] px-2 py-0.5 rounded-full">
+                    Executive Closer
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  Dial assigned leads, log outcomes, close won deals, and track your personal revenue.
+                </p>
+              </div>
+              <div className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-[#00C9A7]">
+                <PhoneCall className="w-5 h-5 stroke-[2.5]" />
+              </div>
+            </div>
+
+            {/* 4 Closer KPI Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-2xs">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Assigned</span>
+                <span className="font-display font-black text-xl text-[#0A2540] block mt-0.5">{myAssignedLeads.length}</span>
+              </div>
+              <div className="bg-white border border-amber-200/80 rounded-2xl p-3 shadow-2xs">
+                <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">Fresh / Uncalled</span>
+                <span className="font-display font-black text-xl text-amber-600 block mt-0.5">{myFreshLeadsCount}</span>
+              </div>
+              <div className="bg-white border border-blue-200/80 rounded-2xl p-3 shadow-2xs">
+                <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider block">Interested / Callback</span>
+                <span className="font-display font-black text-xl text-blue-600 block mt-0.5">
+                  {myAssignedLeads.filter(l => l.status === 'INTERESTED' || l.status === 'CALLBACK').length}
+                </span>
+              </div>
+              <div className="bg-white border border-emerald-200/80 rounded-2xl p-3 shadow-2xs">
+                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Won Deals</span>
+                <span className="font-display font-black text-xl text-emerald-600 block mt-0.5">{myWonDealsCount}</span>
+              </div>
+            </div>
+
+            {/* Search & Filter Bar */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2.5 shadow-2xs">
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={callingSearchQuery}
+                  onChange={(e) => setCallingSearchQuery(e.target.value)}
+                  placeholder="Search lead by name, phone, company, or city..."
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#00C9A7]"
+                />
+              </div>
+
+              {/* Status Filter Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+                {[
+                  { id: 'ALL', label: 'All', count: myAssignedLeads.length },
+                  { id: 'FRESH', label: 'Fresh', count: myFreshLeadsCount },
+                  { id: 'INTERESTED', label: 'Interested', count: myAssignedLeads.filter(l => l.status === 'INTERESTED').length },
+                  { id: 'CALLBACK', label: 'Callback', count: myAssignedLeads.filter(l => l.status === 'CALLBACK').length },
+                  { id: 'CONVERTED', label: 'Won Deals', count: myAssignedLeads.filter(l => l.status === 'CONVERTED').length },
+                  { id: 'BUSY', label: 'Busy', count: myAssignedLeads.filter(l => l.status === 'BUSY').length },
+                  { id: 'NOT_INTERESTED', label: 'Not Interested', count: myAssignedLeads.filter(l => l.status === 'NOT_INTERESTED').length },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setCallingStatusFilter(f.id)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap active:scale-95 cursor-pointer flex items-center gap-1.5 ${
+                      callingStatusFilter === f.id
+                        ? 'bg-[#0A2540] text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span>{f.label}</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                      callingStatusFilter === f.id ? 'bg-[#00C9A7] text-[#0A2540]' : 'bg-white text-slate-600'
+                    }`}>
+                      {f.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Leads List */}
+            {(() => {
+              const filteredLeads = myAssignedLeads.filter((l) => {
+                const q = callingSearchQuery.trim().toLowerCase();
+                const matchesQ = !q ||
+                  (l.name && l.name.toLowerCase().includes(q)) ||
+                  (l.phone && l.phone.includes(q)) ||
+                  (l.company && l.company.toLowerCase().includes(q)) ||
+                  (l.city && l.city.toLowerCase().includes(q));
+
+                const matchesStatus =
+                  callingStatusFilter === 'ALL'
+                    ? true
+                    : callingStatusFilter === 'FRESH'
+                    ? (l.callCount || 0) === 0 && l.status !== 'CONVERTED'
+                    : l.status === callingStatusFilter;
+
+                return matchesQ && matchesStatus;
+              });
+
+              if (!myAssignedLeads.length) {
+                return (
+                  <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center space-y-3 shadow-2xs">
+                    <div className="w-12 h-12 rounded-2xl bg-teal-50 text-[#00A88B] flex items-center justify-center mx-auto">
+                      <PhoneCall className="w-6 h-6 stroke-[2]" />
+                    </div>
+                    <h3 className="font-display font-black text-base text-[#0A2540]">No Leads Assigned Yet</h3>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                      Admin has not allocated calling leads to your account yet. Once Admin assigns a list to you from the Lead Allocation tab, they will appear here ready to dial.
+                    </p>
+                  </div>
+                );
+              }
+
+              if (!filteredLeads.length) {
+                return (
+                  <div className="bg-white border border-slate-200 rounded-2xl p-6 text-center text-slate-400 text-xs">
+                    No leads matching "{callingSearchQuery}" in {callingStatusFilter} filter.
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-2.5">
+                  {filteredLeads.map((lead) => {
+                    const isWon = lead.status === 'CONVERTED';
+                    const isFresh = (lead.callCount || 0) === 0 && !isWon;
+                    return (
+                      <div
+                        key={lead.id}
+                        className={`bg-white border rounded-2xl p-3.5 shadow-2xs transition-all hover:border-[#00C9A7] ${
+                          isWon
+                            ? 'border-emerald-300 bg-emerald-50/20'
+                            : lead.status === 'INTERESTED'
+                            ? 'border-blue-300 bg-blue-50/20'
+                            : lead.status === 'CALLBACK'
+                            ? 'border-amber-300 bg-amber-50/20'
+                            : 'border-slate-200/90'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-display font-bold text-sm text-[#0A2540] truncate">
+                                {lead.name}
+                              </h4>
+                              {lead.company && (
+                                <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                  {lead.company}
+                                </span>
+                              )}
+                              <span
+                                className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                  isWon
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : lead.status === 'INTERESTED'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : lead.status === 'CALLBACK'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : isFresh
+                                    ? 'bg-purple-100 text-purple-800'
+                                    : 'bg-slate-100 text-slate-600'
+                                }`}
+                              >
+                                {isWon ? 'Won Deal' : isFresh ? 'Fresh' : lead.status || 'Pending'}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-3 text-xs text-slate-500 font-mono mt-1 flex-wrap">
+                              <span className="font-bold text-slate-700">{lead.phone || '—'}</span>
+                              {lead.city && <span>📍 {lead.city}</span>}
+                              <span>📞 {lead.callCount || 0} Dials</span>
+                              {lead.lastCallTimestamp && <span>🕒 {lead.lastCallTimestamp}</span>}
+                            </div>
+
+                            {lead.notes && (
+                              <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-xl mt-2 border border-slate-100">
+                                💬 "{lead.notes}"
+                              </p>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => openCallModalForLead(lead)}
+                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs shadow-xs active:scale-95 transition-all flex-shrink-0 cursor-pointer"
+                          >
+                            <Phone className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>Call Lead</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -1907,6 +2227,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
         {[
           { id: 'home', label: 'Home', icon: Home },
           { id: 'team', label: 'Team', icon: Users },
+          { id: 'calling', label: 'Calling', icon: PhoneCall, badge: myFreshLeadsCount },
           { id: 'leaves', label: 'Leaves', icon: Calendar, badge: pendingLeaves.length },
           { id: 'reports', label: 'Reports', icon: TrendingUp },
           { id: 'meetings', label: 'Meetings', icon: Video },

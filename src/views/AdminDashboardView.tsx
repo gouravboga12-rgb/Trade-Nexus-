@@ -51,6 +51,7 @@ import {
   ToggleLeft,
   ToggleRight,
   RefreshCw,
+  Undo2,
 } from 'lucide-react';
 import { ExcelLeadUploadModal } from '../components/modals/ExcelLeadUploadModal';
 import { AddEmployeeModal } from '../components/modals/AddEmployeeModal';
@@ -82,7 +83,7 @@ import {
   exportLeadAllocationCsv,
 } from '../utils/csvExportUtils';
 
-import { isLeadUnassigned } from '../utils/teamUtils';
+import { isLeadUnassigned, isTelecallerOrCallingEmployee } from '../utils/teamUtils';
 
 type AdminTab = 'home' | 'people' | 'attendance' | 'leads' | 'revenue' | 'more' | 'approvals' | 'reports' | 'attendance_verification' | 'manage_employees' | 'invoices' | 'company_calendar';
 
@@ -127,6 +128,9 @@ export const AdminDashboardView: React.FC = () => {
     deletePaymentVerification,
     reassignLeadsBetween,
     deleteAssignedLead,
+    deleteLeadBatch,
+    reclaimAssignedLeads,
+    bulkDeleteAssignedLeads,
     updateTeamGroup,
     deleteTeamGroup,
     disputeAttendanceRecord,
@@ -179,6 +183,7 @@ export const AdminDashboardView: React.FC = () => {
   const [leadsCustomEnd, setLeadsCustomEnd] = useState<string>(getTodayDateIST());
   const [leadSearchQuery, setLeadSearchQuery] = useState('');
   const [leadStatusFilter, setLeadStatusFilter] = useState<'ALL' | 'FRESH' | 'PIPELINE' | 'CONVERTED'>('ALL');
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [openEmployee, setOpenEmployee] = useState<TeamMember | null>(null);
   const [employeeToDelete, setEmployeeToDelete] = useState<TeamMember | null>(null);
@@ -442,21 +447,8 @@ export const AdminDashboardView: React.FC = () => {
     (m) => m.portal !== 'admin' && m.empCode !== 'TNX-AD01' && !(m.role || '').toLowerCase().includes('admin')
   );
 
-  // Strictly filter for Telecaller employees (excludes Admin, HR, Team Leaders, Accounts, Coaches)
-  const isTelecallerMember = (m: TeamMember) => {
-    if (!m) return false;
-    const p = (m.portal || '').toLowerCase();
-    const r = (m.role || '').toLowerCase();
-    const n = (m.name || '').toLowerCase();
-    if (p === 'admin' || p === 'hr' || p === 'team_leader') return false;
-    if (m.empCode === 'TNX-AD01') return false;
-    if (r.includes('admin') || r.includes('hr') || r.includes('leader') || r.includes('coach') || 
-        r.includes('account') || r.includes('manager') || r.includes('finance') || r.includes('operations')) {
-      return false;
-    }
-    if (n.includes('hr') || n.includes('admin')) return false;
-    return true;
-  };
+  // Eligible calling representatives (Telecallers and Team Leaders)
+  const isTelecallerMember = isTelecallerOrCallingEmployee;
 
   const telecallerMembers = teamMembers.filter(isTelecallerMember);
 
@@ -2611,17 +2603,26 @@ export const AdminDashboardView: React.FC = () => {
                         (l.assignedToEmployeeName &&
                           l.assignedToEmployeeName.toLowerCase() === m.name.toLowerCase())
                     );
-                    const calledCount = mine.filter((l) => l.callCount > 0).length;
+                    const calledCount = mine.filter((l) => (l.callCount || 0) > 0).length;
                     const convertedCount = mine.filter((l) => l.status === 'CONVERTED').length;
+                    const freshCount = mine.filter((l) => (l.callCount || 0) === 0 && l.status !== 'CONVERTED').length;
                     const calledPct = mine.length > 0 ? Math.round((calledCount / mine.length) * 100) : 0;
 
                     return (
-                      <div key={m.id} className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2 shadow-2xs">
+                      <div key={m.id} className="bg-white border border-slate-200 rounded-2xl p-3.5 space-y-2.5 shadow-2xs">
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0">
-                            <span className="text-xs font-bold text-[#0A2540] block truncate">{m.name}</span>
-                            <span className="text-[10px] text-slate-500 block truncate">
-                              {calledCount} called · {convertedCount} converted · {mine.length - calledCount} fresh
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-[#0A2540] block truncate">{m.name}</span>
+                              {m.portal === 'team_leader' && (
+                                <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-teal-100 text-teal-800 font-mono">
+                                  Team Leader
+                                </span>
+                              )}
+                              <span className="text-[10px] text-slate-400 font-mono">({m.empCode})</span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 block truncate mt-0.5">
+                              {calledCount} called · {convertedCount} converted · {freshCount} fresh
                             </span>
                           </div>
                           <div className="text-right flex-shrink-0">
@@ -2642,83 +2643,180 @@ export const AdminDashboardView: React.FC = () => {
                           </div>
                           <div className="flex justify-between text-[9px] font-mono text-slate-400">
                             <span>{calledPct}% dialed</span>
-                            <span>{mine.length - calledCount} uncalled</span>
+                            <span>{freshCount} uncalled</span>
                           </div>
                         </div>
+
+                        {/* Per-Employee Quick Lead Actions */}
+                        {mine.length > 0 && (
+                          <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
+                            {freshCount > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => reclaimAssignedLeads({ employeeId: m.id, onlyFresh: true })}
+                                className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-200 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                                title="Return uncalled leads from this employee back into the Unassigned Pool"
+                              >
+                                <span>⚡ Reclaim {freshCount} Uncalled</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`Permanently delete all fresh uncalled leads from ${m.name}? Converted and in-progress leads will be preserved.`)) {
+                                  bulkDeleteAssignedLeads({ employeeId: m.id, onlyFresh: true });
+                                }
+                              }}
+                              className="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-[10px] border border-rose-200 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                              title="Delete fresh uncalled leads from this employee"
+                            >
+                              <Trash2 size={11} />
+                              <span>Clear Fresh Leads</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
               )}
 
-              {/* Detailed Lead Records Inspector */}
+              {/* Detailed Lead Records Inspector with Bulk Selection */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <SectionTitle>Lead Records ({filteredLeads.length})</SectionTitle>
-                  <span className="text-[10px] font-mono font-bold text-slate-400">
-                    {filteredLeads.length} matching leads
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {selectedLeadIds.length > 0 && (
+                      <div className="flex items-center gap-1.5 animate-in fade-in">
+                        <span className="text-[10px] font-mono font-bold text-slate-600">
+                          {selectedLeadIds.length} selected:
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            reclaimAssignedLeads({ leadIds: selectedLeadIds, onlyFresh: false });
+                            setSelectedLeadIds([]);
+                          }}
+                          className="px-2 py-0.5 rounded-md bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-bold text-[10px] cursor-pointer"
+                        >
+                          Reclaim to Pool
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`Permanently delete ${selectedLeadIds.length} selected lead(s)?`)) {
+                              bulkDeleteAssignedLeads({ leadIds: selectedLeadIds, onlyFresh: false });
+                              setSelectedLeadIds([]);
+                            }
+                          }}
+                          className="px-2 py-0.5 rounded-md bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 font-bold text-[10px] cursor-pointer"
+                        >
+                          Delete Selected
+                        </button>
+                      </div>
+                    )}
+                    <span className="text-[10px] font-mono font-bold text-slate-400">
+                      {filteredLeads.length} matching leads
+                    </span>
+                  </div>
                 </div>
 
                 {!filteredLeads.length ? (
                   <Empty text="No leads found matching current date, status, or search filters." />
                 ) : (
                   <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-2xs divide-y divide-slate-100 max-h-96 overflow-y-auto">
-                    {filteredLeads.slice(0, 50).map((l) => (
-                      <div key={l.id} className="p-3 flex items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-[#0A2540] truncate">{l.name}</span>
-                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${
-                              l.status === 'CONVERTED' ? 'bg-emerald-100 text-emerald-800' :
-                              l.status === 'INTERESTED' ? 'bg-teal-100 text-teal-800' :
-                              l.status === 'CALLBACK' ? 'bg-amber-100 text-amber-800' :
-                              l.callCount === 0 ? 'bg-sky-100 text-sky-800' :
-                              'bg-slate-100 text-slate-700'
-                            }`}>
-                              {l.status}
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-slate-500 flex items-center gap-1.5 mt-0.5 truncate">
-                            <span className="font-mono">{l.phone}</span>
-                            <span>•</span>
-                            <span>{l.company || 'Enterprise'}</span>
-                            {l.city && (
-                              <>
-                                <span>•</span>
-                                <span>{l.city}</span>
-                              </>
-                            )}
-                            <span>•</span>
-                            <span className="font-mono text-slate-400">Date: {getLeadDate(l)}</span>
-                          </div>
-                        </div>
+                    {/* Header with Select All */}
+                    <div className="p-2.5 bg-slate-50 flex items-center justify-between border-b border-slate-100 text-[10px] font-bold text-slate-500">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={filteredLeads.length > 0 && selectedLeadIds.length === filteredLeads.slice(0, 50).length}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedLeadIds(filteredLeads.slice(0, 50).map((l) => l.id));
+                            } else {
+                              setSelectedLeadIds([]);
+                            }
+                          }}
+                          className="rounded text-teal-600 focus:ring-teal-500"
+                        />
+                        <span>Select All Shown (Max 50)</span>
+                      </label>
+                      <span>Actions</span>
+                    </div>
 
-                        <div className="text-right flex-shrink-0 flex items-center gap-2">
-                          <div>
-                            <span className="text-[10px] font-bold text-slate-700 block truncate max-w-[130px]">
-                              {l.assignedToEmployeeName || 'Unassigned'}
-                            </span>
-                            <span className="text-[9px] text-slate-400 font-mono">
-                              {l.callCount} calls {l.dealValue ? `· ₹${l.dealValue.toLocaleString('en-IN')}` : ''}
-                            </span>
+                    {filteredLeads.slice(0, 50).map((l) => {
+                      const isSelected = selectedLeadIds.includes(l.id);
+                      return (
+                        <div key={l.id} className={`p-3 flex items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors ${isSelected ? 'bg-teal-50/40' : ''}`}>
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedLeadIds((prev) => [...prev, l.id]);
+                                } else {
+                                  setSelectedLeadIds((prev) => prev.filter((id) => id !== l.id));
+                                }
+                              }}
+                              className="rounded text-teal-600 focus:ring-teal-500"
+                            />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-[#0A2540] truncate">{l.name}</span>
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${
+                                  l.status === 'CONVERTED' ? 'bg-emerald-100 text-emerald-800' :
+                                  l.status === 'INTERESTED' ? 'bg-teal-100 text-teal-800' :
+                                  l.status === 'CALLBACK' ? 'bg-amber-100 text-amber-800' :
+                                  l.callCount === 0 ? 'bg-sky-100 text-sky-800' :
+                                  'bg-slate-100 text-slate-700'
+                                }`}>
+                                  {l.status}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-slate-500 flex items-center gap-1.5 mt-0.5 truncate">
+                                <span className="font-mono">{l.phone}</span>
+                                <span>•</span>
+                                <span>{l.company || 'Enterprise'}</span>
+                                {l.city && (
+                                  <>
+                                    <span>•</span>
+                                    <span>{l.city}</span>
+                                  </>
+                                )}
+                                <span>•</span>
+                                <span className="font-mono text-slate-400">Date: {getLeadDate(l)}</span>
+                              </div>
+                            </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (window.confirm(`Delete lead "${l.name || l.phone}"? This will permanently remove it from all panels and employee call lists.`)) {
-                                deleteAssignedLead(l.id);
-                              }
-                            }}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
-                            title="Delete this lead across all panels"
-                          >
-                            <Trash2 size={13} />
-                          </button>
+
+                          <div className="text-right flex-shrink-0 flex items-center gap-2">
+                            <div>
+                              <span className="text-[10px] font-bold text-slate-700 block truncate max-w-[130px]">
+                                {l.assignedToEmployeeName || 'Unassigned'}
+                              </span>
+                              <span className="text-[9px] text-slate-400 font-mono">
+                                {l.callCount} calls {l.dealValue ? `· ₹${l.dealValue.toLocaleString('en-IN')}` : ''}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm(`Delete lead "${l.name || l.phone}"? This will permanently remove it from all panels and employee call lists.`)) {
+                                  deleteAssignedLead(l.id);
+                                }
+                              }}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
+                              title="Delete this lead across all panels"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {filteredLeads.length > 50 && (
                       <div className="p-2.5 text-center text-[11px] font-mono font-bold text-slate-500 bg-slate-50">
                         Showing first 50 of {filteredLeads.length} matching leads (use search or filters to narrow down)
@@ -2846,11 +2944,41 @@ export const AdminDashboardView: React.FC = () => {
               ) : (
                 <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100 overflow-hidden">
                   {leadBatches.map((b) => (
-                    <div key={b.id} className="p-3">
-                      <span className="text-xs font-bold text-[#0A2540] block truncate">{b.fileName}</span>
-                      <span className="text-[10px] text-slate-500">
-                        {b.totalLeads} leads → {b.assignedToEmployeeName} · {b.uploadedAt}
-                      </span>
+                    <div key={b.id} className="p-3 flex items-center justify-between gap-2 hover:bg-slate-50/80 transition-colors">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-xs font-bold text-[#0A2540] block truncate">{b.fileName}</span>
+                        <span className="text-[10px] text-slate-500">
+                          {b.totalLeads} leads → {b.assignedToEmployeeName} · {b.uploadedAt}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (window.confirm(`Return uncalled leads from batch "${b.fileName}" back to the Unassigned Pool? (Won deals remain preserved)`)) {
+                              await deleteLeadBatch(b.id, 'unassign_leads');
+                            }
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 rounded-lg active:scale-95 transition-all"
+                          title="Reclaim uncontacted leads back into Unassigned Pool"
+                        >
+                          <Undo2 className="w-3 h-3" />
+                          <span>Pool</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (window.confirm(`Delete batch "${b.fileName}" and remove all its uncontacted leads? (Won deals remain preserved)`)) {
+                              await deleteLeadBatch(b.id, 'delete_leads');
+                            }
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 rounded-lg active:scale-95 transition-all"
+                          title="Permanently delete batch and uncontacted leads"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Delete</span>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -4683,12 +4811,12 @@ export const AdminDashboardView: React.FC = () => {
             <div className="bg-rose-50/70 border border-rose-200/80 rounded-2xl p-3 space-y-1 text-xs text-rose-800">
               <p className="font-bold flex items-center gap-1.5 text-[11px]">
                 <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-rose-600" />
-                Permanent removal
+                Zero Data Loss Guarantee
               </p>
               <ul className="list-disc list-inside text-[10px] text-rose-700 space-y-0.5 ml-1">
-                <li>Credentials & login access will be purged</li>
-                <li>Biometrics & attendance records removed</li>
-                <li>Leads unassigned for redistributing</li>
+                <li>Credentials &amp; biometric access will be purged</li>
+                <li>Won deals, payments &amp; customer call logs permanently preserved</li>
+                <li>Fresh uncalled leads returned to Unassigned Pool</li>
               </ul>
             </div>
 

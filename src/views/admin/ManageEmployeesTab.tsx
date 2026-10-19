@@ -1112,8 +1112,19 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
             <div className="text-center space-y-1">
               <h3 className="font-display font-black text-base text-[#0A2540]">Delete Employee?</h3>
               <p className="text-xs text-slate-500">
-                This will permanently delete this employee account, credentials, and records. This action cannot be undone.
+                Are you sure you want to remove this employee account?
               </p>
+            </div>
+            <div className="bg-rose-50/70 border border-rose-200/80 rounded-2xl p-3 text-xs text-rose-800 space-y-1 text-left">
+              <p className="font-bold flex items-center gap-1.5 text-[11px]">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-rose-600" />
+                Zero Data Loss Guarantee
+              </p>
+              <ul className="list-disc list-inside text-[10px] text-rose-700 space-y-0.5 ml-1">
+                <li>User credentials and biometric access removed</li>
+                <li>Won deals, payments & call logs remain permanently preserved</li>
+                <li>Fresh uncalled leads returned to Unassigned Pool</li>
+              </ul>
             </div>
             <div className="flex gap-2 pt-2">
               <button

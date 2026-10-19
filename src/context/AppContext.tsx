@@ -142,6 +142,9 @@ interface AppContextType {
   reassignLead: (leadId: string, newAssigneeName: string) => void;
   deleteAssignedLead: (leadId: string) => Promise<void>;
   deletePaymentVerification: (paymentId: string) => Promise<void>;
+  deleteLeadBatch: (batchId: string, mode?: 'delete_leads' | 'unassign_leads') => Promise<void>;
+  reclaimAssignedLeads: (params: { employeeId?: string; batchId?: string; leadIds?: string[]; onlyFresh?: boolean }) => Promise<void>;
+  bulkDeleteAssignedLeads: (params: { leadIds?: string[]; employeeId?: string; onlyFresh?: boolean }) => Promise<void>;
   /** Move a telecaller's leads to someone else, optionally limited to a count, or specific lead IDs. */
   reassignLeadsBetween: (fromEmployeeId: string, toEmployeeId: string, limit?: number, explicitLeadIds?: string[]) => Promise<void>;
   /** Auto distribute uncalled fresh leads evenly among active telecallers / sales staff */
@@ -1336,23 +1339,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         );
         return [newPayment, ...withoutDup];
       });
-      api.createPayment(newPayment).catch(console.warn);
+      // Note: api.updateAssignedLead on server automatically creates the verified payment entry in SQLite
     }
 
-    // Persist to AWS EC2 SQLite API
+    // Persist to AWS EC2 SQLite API atomically
     try {
-      await Promise.allSettled([
+      const [updatedLead] = await Promise.all([
         api.updateAssignedLead(leadId, targetLead),
         api.createCallLog(newCallItem),
         api.updateStats(updatedStats),
       ]);
-      // Force global refresh so Admin, TL, and HR panels reflect this won deal immediately
-      refreshResources(['assignedLeads', 'callLogs', 'paymentVerifications', 'teamMembers', 'stats']);
-    } catch (err) {
-      console.warn('API sync error:', err);
-    }
 
-    triggerToast(`✓ Status updated: ${status.replace('_', ' ')} for ${targetLead.name || 'Lead'}`);
+      if (updatedLead) {
+        setAssignedLeads(prev => prev.map(l => l.id === leadId ? updatedLead : l));
+      }
+
+      // Refresh verification and stats queues
+      refreshResources(['assignedLeads', 'callLogs', 'paymentVerifications', 'teamMembers', 'stats']);
+      triggerToast(`✓ Status updated: ${status.replace('_', ' ')} for ${targetLead.name || 'Lead'}`);
+    } catch (err: any) {
+      console.warn('API sync error in updateAssignedLeadStatus:', err);
+      triggerToast(`✗ Failed to save lead status: ${err?.message || 'Server error'}`);
+      throw err;
+    }
   };
 
   // Face Biometric Registration
@@ -1640,12 +1649,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     try {
       await api.deleteTeamMember(id);
-      triggerToast(`\u2713 ${member.name} (${member.empCode}) permanently deleted`);
+      // Safely reclaim uncalled leads held by this employee into the Unassigned Pool
+      setAssignedLeads((prev) =>
+        prev.map((l) =>
+          (l.assignedToEmployeeId === id || l.assignedToEmployeeId === member.empCode || (l.assignedToEmployeeName && l.assignedToEmployeeName.toLowerCase() === member.name.toLowerCase())) &&
+          (l.status === 'PENDING' || l.callCount === 0)
+            ? { ...l, assignedToEmployeeId: '', assignedToEmployeeName: 'Unassigned' }
+            : l
+        )
+      );
+      triggerToast(`✓ ${member.name} (${member.empCode}) permanently deleted (won deals & history preserved)`);
+      refreshResources(['teamMembers', 'teamGroups', 'assignedLeads']);
     } catch (err: any) {
       console.warn('Employee delete failed:', err);
       // Rollback
       setTeamMembers((prev) => [...prev, member]);
-      triggerToast(`\u2717 ${err.message || 'Could not delete employee'}`);
+      triggerToast(`✗ ${err.message || 'Could not delete employee'}`);
       throw err;
     }
   };
@@ -2454,6 +2473,53 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch (err) {
       console.warn(err);
       triggerToast('✓ Leads distributed successfully');
+    }
+  };
+
+  const deleteLeadBatch = async (batchId: string, mode: 'delete_leads' | 'unassign_leads' = 'delete_leads') => {
+    try {
+      await api.deleteLeadBatch(batchId, mode);
+      setLeadBatches((prev) => prev.filter((b) => b.id !== batchId));
+      if (mode === 'delete_leads') {
+        setAssignedLeads((prev) => prev.filter((l) => l.batchId !== batchId));
+      } else {
+        setAssignedLeads((prev) =>
+          prev.map((l) => (l.batchId === batchId ? { ...l, assignedToEmployeeId: '', assignedToEmployeeName: 'Unassigned' } : l))
+        );
+      }
+      triggerToast(mode === 'delete_leads' ? '✓ Batch and leads deleted' : '✓ Batch removed; leads returned to unassigned pool');
+      refreshResources(['leadBatches', 'assignedLeads', 'teamMembers']);
+    } catch (err: any) {
+      console.warn('Failed to delete lead batch:', err);
+      triggerToast(`✗ ${err.message || 'Failed to delete lead batch'}`);
+    }
+  };
+
+  const reclaimAssignedLeads = async (params: { employeeId?: string; batchId?: string; leadIds?: string[]; onlyFresh?: boolean }) => {
+    try {
+      const res = await api.reclaimAssignedLeads(params);
+      const count = res?.reclaimedCount || 0;
+      triggerToast(`✓ Reclaimed ${count} lead(s) back to Unassigned Pool`);
+      refreshResources(['assignedLeads', 'teamMembers']);
+    } catch (err: any) {
+      console.warn('Failed to reclaim leads:', err);
+      triggerToast(`✗ ${err.message || 'Failed to reclaim leads'}`);
+    }
+  };
+
+  const bulkDeleteAssignedLeads = async (params: { leadIds?: string[]; employeeId?: string; onlyFresh?: boolean }) => {
+    try {
+      const res = await api.bulkDeleteAssignedLeads(params);
+      const count = res?.deletedCount || 0;
+      if (params.leadIds && params.leadIds.length > 0) {
+        const idSet = new Set(params.leadIds);
+        setAssignedLeads((prev) => prev.filter((l) => !idSet.has(l.id)));
+      }
+      triggerToast(`✓ Deleted ${count} lead(s) permanently`);
+      refreshResources(['assignedLeads', 'callLogs', 'teamMembers']);
+    } catch (err: any) {
+      console.warn('Failed to bulk delete leads:', err);
+      triggerToast(`✗ ${err.message || 'Failed to delete leads'}`);
     }
   };
 
@@ -3445,6 +3511,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         reassignLead,
         deleteAssignedLead,
         deletePaymentVerification,
+        deleteLeadBatch,
+        reclaimAssignedLeads,
+        bulkDeleteAssignedLeads,
         reassignLeadsBetween,
         autoDistributeFreshLeads,
         createTeamGroup,

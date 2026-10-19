@@ -1760,7 +1760,7 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
                 Delete {member.name}?
               </h3>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Permanently delete <strong className="text-slate-800">{member.name}</strong> (<span className="font-mono text-slate-600">{member.empCode}</span>)? This will erase their user credentials, attendance history, biometrics, and documents.
+                Permanently delete <strong className="text-slate-800">{member.name}</strong> (<span className="font-mono text-slate-600">{member.empCode}</span>)? Credentials and biometrics will be removed. All won deals, payments, and customer call logs remain permanently preserved in company records.
               </p>
             </div>
 

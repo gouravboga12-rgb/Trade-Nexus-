@@ -42,16 +42,10 @@ export const isTelecallerOrCallingEmployee = (m: TeamMember): boolean => {
     return false;
   }
 
-  // 3. Exclude Team Leader & Sales Coaches
-  if (
-    portal === 'team_leader' || 
-    role.includes('team leader') || 
-    role.includes('team lead') || 
-    role.includes('sales coach') || 
-    role.includes('coach') || 
-    role.includes('supervisor')
-  ) {
-    return false;
+  // 3. Team Leaders & Sales Coaches ARE eligible to receive, work, and close leads
+  // (Both Telecallers and Team Leaders can receive leads and dial)
+  if (portal === 'team_leader' || role.includes('team leader') || role.includes('team lead') || role.includes('sales coach')) {
+    return true;
   }
 
   // 4. Exclude other non-calling backoffice/finance roles if present

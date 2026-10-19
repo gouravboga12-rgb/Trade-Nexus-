@@ -394,11 +394,25 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  reclaimAssignedLeads: (data: { employeeId?: string; batchId?: string; leadIds?: string[]; onlyFresh?: boolean }) =>
+    request<{ success: boolean; reclaimedCount: number }>('/assigned-leads/reclaim', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  bulkDeleteAssignedLeads: (data: { leadIds?: string[]; employeeId?: string; onlyFresh?: boolean }) =>
+    request<{ success: boolean; deletedCount: number }>('/assigned-leads/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 
   // Lead Batches
   getLeadBatches: () => request<LeadBatch[]>('/lead-batches'),
   createLeadBatch: (data: Omit<LeadBatch, 'id'> & { id?: string }) => 
     request<LeadBatch>('/lead-batches', { method: 'POST', body: JSON.stringify(data) }),
+  deleteLeadBatch: (id: string, mode?: 'delete_leads' | 'unassign_leads') =>
+    request<{ success: boolean; deletedBatchId: string; mode?: string }>(`/lead-batches/${id}${mode ? `?mode=${mode}` : ''}`, {
+      method: 'DELETE',
+    }),
 
   // Biometrics
   getBiometrics: () => request<FaceBiometricProfile[]>('/biometrics'),

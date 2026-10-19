@@ -28,6 +28,15 @@ export function useCheckInCapture() {
   const startCamera = useCallback(async () => {
     setCameraError(null);
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraError(
+          typeof window !== 'undefined' && window.isSecureContext === false
+            ? 'Camera requires a secure HTTPS connection. Please access Trade Nexus via HTTPS.'
+            : 'Camera access is not supported on this browser or device.'
+        );
+        setIsCameraOn(false);
+        return false;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
         audio: false,

@@ -191,6 +191,95 @@ router.post('/reassign-batch', (req: Request, res: Response) => {
   }
 });
 
+// POST /api/assigned-leads/reclaim (Undo assignment & return leads to unassigned pool)
+router.post('/reclaim', (req: Request, res: Response) => {
+  try {
+    const { employeeId, batchId, leadIds, onlyFresh } = req.body;
+    const freshOnly = onlyFresh !== false; // Default: true (reclaim fresh uncalled leads)
+    const now = new Date().toISOString();
+
+    const reclaimTx = db.transaction(() => {
+      let query = `
+        UPDATE assigned_leads 
+        SET assignedToEmployeeId = '', assignedToEmployeeName = 'Unassigned', updatedAt = ?
+        WHERE 1=1
+      `;
+      const params: any[] = [now];
+
+      if (Array.isArray(leadIds) && leadIds.length > 0) {
+        const placeholders = leadIds.map(() => '?').join(',');
+        query += ` AND id IN (${placeholders})`;
+        params.push(...leadIds);
+      } else if (employeeId) {
+        query += ` AND (assignedToEmployeeId = ? OR assignedToEmployeeName = ?)`;
+        params.push(employeeId, employeeId);
+      } else if (batchId) {
+        query += ` AND batchId = ?`;
+        params.push(batchId);
+      } else {
+        throw new Error('employeeId, batchId, or leadIds required for reclaim');
+      }
+
+      if (freshOnly) {
+        query += ` AND callCount = 0 AND status = 'PENDING'`;
+      }
+
+      const stmt = db.prepare(query);
+      const info = stmt.run(...params);
+      return info.changes;
+    });
+
+    const count = reclaimTx();
+    return res.status(200).json({ success: true, reclaimedCount: count });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// POST /api/assigned-leads/bulk-delete (Bulk permanent delete for leads)
+router.post('/bulk-delete', (req: Request, res: Response) => {
+  try {
+    const { leadIds, employeeId, onlyFresh } = req.body;
+    const freshOnly = onlyFresh !== false;
+
+    const deleteTx = db.transaction(() => {
+      let targets: string[] = [];
+
+      if (Array.isArray(leadIds) && leadIds.length > 0) {
+        targets = leadIds;
+      } else if (employeeId) {
+        let q = `SELECT id FROM assigned_leads WHERE (assignedToEmployeeId = ? OR assignedToEmployeeName = ?)`;
+        if (freshOnly) q += ` AND callCount = 0 AND status = 'PENDING'`;
+        const rows = db.prepare(q).all(employeeId, employeeId) as any[];
+        targets = rows.map((r) => r.id);
+      }
+
+      if (!targets.length) {
+        return 0;
+      }
+
+      let deletedCount = 0;
+      const deleteSingleLead = db.prepare('DELETE FROM assigned_leads WHERE id = ?');
+      const deleteCallLogs = db.prepare('DELETE FROM call_logs WHERE leadId = ?');
+      const deletePayments = db.prepare('DELETE FROM payment_verifications WHERE id = ? OR utrNumber = ?');
+
+      for (const id of targets) {
+        deleteCallLogs.run(id);
+        deletePayments.run(`pay-${id}`, `LEAD-${id}`);
+        const res = deleteSingleLead.run(id);
+        if (res.changes > 0) deletedCount++;
+      }
+
+      return deletedCount;
+    });
+
+    const count = deleteTx();
+    return res.status(200).json({ success: true, deletedCount });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 // PUT /api/assigned-leads/:id
 router.put('/:id', (req: Request, res: Response) => {
   try {
