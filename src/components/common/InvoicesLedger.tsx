@@ -15,7 +15,8 @@ import {
   Building2, 
   Mail, 
   RefreshCw,
-  FileText
+  FileText,
+  Trash2
 } from 'lucide-react';
 import { InvoiceData } from '../../types';
 import { api } from '../../services/api';
@@ -36,6 +37,7 @@ export const InvoicesLedger: React.FC<InvoicesLedgerProps> = ({
     setIsInvoiceModalOpen,
     resendInvoiceEmail,
     updateInvoiceStatus,
+    deleteInvoice,
     triggerToast,
   } = useApp();
 
@@ -379,6 +381,20 @@ export const InvoicesLedger: React.FC<InvoicesLedgerProps> = ({
                     <Send className="w-3.5 h-3.5" />
                   )}
                   <span>{sendingInvoiceId === inv.id ? 'Sending Email...' : 'Resend Email'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (window.confirm(`Permanently delete invoice #${inv.invoiceNumber} for ${inv.clientName}? This will clear it from the database.`)) {
+                      await deleteInvoice(inv.id);
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                  title="Permanently delete invoice"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete</span>
                 </button>
               </div>
             </div>

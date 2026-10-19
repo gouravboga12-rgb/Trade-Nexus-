@@ -304,6 +304,7 @@ interface AppContextType {
   resendInvoiceEmail: (id: string) => Promise<boolean>;
   updateInvoiceStatus: (id: string, status: 'PAID' | 'PENDING' | 'SENT' | 'OVERDUE') => Promise<boolean>;
   updateInvoice: (invoice: InvoiceData) => Promise<boolean>;
+  deleteInvoice: (id: string) => Promise<boolean>;
   sendPayslipEmailToEmployee: (payslipId: string, email?: string) => Promise<boolean>;
   sendRelievingLetterEmailToEmployee: (employee: Partial<TeamMember>, letter: Partial<RelievingLetterData>) => Promise<boolean>;
   sendExperienceCertEmailToEmployee: (employee: Partial<TeamMember>, cert: Partial<ExperienceCertData>) => Promise<boolean>;
@@ -2081,6 +2082,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const deleteInvoice = async (id: string): Promise<boolean> => {
+    const target = invoices.find(inv => inv.id === id);
+    setInvoices(prev => prev.filter(inv => inv.id !== id));
+    if (selectedInvoice?.id === id) {
+      setSelectedInvoice(null);
+      setIsInvoiceModalOpen(false);
+    }
+    try {
+      await api.deleteInvoice(id);
+      triggerToast(`✓ Invoice #${target?.invoiceNumber || id} deleted`);
+      refreshResources(['invoices']);
+      return true;
+    } catch (err: any) {
+      console.warn('Delete invoice error:', err);
+      if (target) {
+        setInvoices(prev => [target, ...prev]);
+      }
+      triggerToast(`✗ Failed to delete invoice: ${err?.message || 'Server error'}`);
+      return false;
+    }
+  };
+
   const sendPayslipEmailToEmployee = async (payslipId: string, email?: string): Promise<boolean> => {
     try {
       const res = await api.sendPayslipEmail(payslipId, email);
@@ -3648,6 +3671,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         resendInvoiceEmail,
         updateInvoiceStatus,
         updateInvoice,
+        deleteInvoice,
         sendPayslipEmailToEmployee,
         sendRelievingLetterEmailToEmployee,
         sendExperienceCertEmailToEmployee,
