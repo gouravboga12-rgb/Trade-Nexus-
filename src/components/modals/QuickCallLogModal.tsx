@@ -32,6 +32,7 @@ export const QuickCallLogModal: React.FC = () => {
   const [customerAccountNumber, setCustomerAccountNumber] = useState('');
   const [customerIfscCode, setCustomerIfscCode] = useState('');
   const [customerUpiId, setCustomerUpiId] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resetForm = () => {
     setClientName('');
@@ -49,6 +50,7 @@ export const QuickCallLogModal: React.FC = () => {
     setCustomerAccountNumber('');
     setCustomerIfscCode('');
     setCustomerUpiId('');
+    setIsSubmitting(false);
   };
 
   useEffect(() => {
@@ -98,8 +100,6 @@ export const QuickCallLogModal: React.FC = () => {
     setActiveCallingLead(null);
     resetForm();
   };
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

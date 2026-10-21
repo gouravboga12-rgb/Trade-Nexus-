@@ -32,7 +32,12 @@ interface Employee360ProfileViewProps {
   viewerRole?: UserRole;
 }
 
-export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
+export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = (props) => {
+  if (!props.member) return null;
+  return <Employee360ProfileContent {...props} member={props.member} />;
+};
+
+const Employee360ProfileContent: React.FC<Omit<Employee360ProfileViewProps, 'member'> & { member: TeamMember }> = ({
   member,
   onBack,
   viewerRole = 'team_leader'
@@ -65,8 +70,6 @@ export const Employee360ProfileView: React.FC<Employee360ProfileViewProps> = ({
   const [callingDateFilter, setCallingDateFilter] = useState<'ALL' | 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'CUSTOM'>('ALL');
   const [customFromDate, setCustomFromDate] = useState<string>('');
   const [customToDate, setCustomToDate] = useState<string>('');
-
-  if (!member) return null;
 
   // Mask client phone numbers for high security (Admin view sees full unmasked phone numbers)
   const maskPhone = (phone?: string) => {
