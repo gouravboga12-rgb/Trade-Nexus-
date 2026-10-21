@@ -154,8 +154,8 @@ const Employee360ProfileContent: React.FC<Omit<Employee360ProfileViewProps, 'mem
   const callingLedger10Days = useMemo(() => {
     const records = [];
     const today = new Date();
-    // Support up to 30 days of historical depth
-    const maxDays = callingDateFilter === 'MONTH' || callingDateFilter === 'ALL' ? 30 : 10;
+    // Always generate 30 days so every filter (Today/Yesterday/Last7/Last30/All/Custom) has data
+    const maxDays = 30;
 
     for (let i = 0; i < maxDays; i++) {
       const d = new Date(today);
@@ -209,27 +209,20 @@ const Employee360ProfileContent: React.FC<Omit<Employee360ProfileViewProps, 'mem
       let dayRevenue = paymentRevenue + uncountedConvertedCallsRevenue;
 
       if (i === 0) {
-        // Today - Real Values & Live Leads
-        const calledCount = Math.max(
-          dayCalls.length,
-          (member.dialsToday || 0),
-          memberLeads.filter(l => l.status !== 'PENDING').length
-        );
-        const interestedCount = dayCalls.length > 0
-          ? dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'INTERESTED').length
-          : memberLeads.filter(l => l.status === 'INTERESTED').length;
-        const callbackCount = dayCalls.length > 0
-          ? dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'CALLBACK').length
-          : memberLeads.filter(l => l.status === 'CALLBACK').length;
-        const notIntCount = dayCalls.length > 0
-          ? dayCalls.filter((c: any) => ['NOT_INTERESTED', 'LOST', 'REJECTED', 'BUSY'].includes((c.outcome || '').toUpperCase())).length
-          : memberLeads.filter(l => ['NOT_INTERESTED', 'LOST', 'REJECTED', 'BUSY'].includes((l.status as string) || '')).length;
-        const convertedCount = Math.max(
-          dayCalls.filter((c: any) => ['CONVERTED', 'WON', 'DEAL_CLOSED'].includes((c.outcome || '').toUpperCase())).length,
-          memberLeads.filter(l => l.status === 'CONVERTED').length
-        );
+        // TODAY: use actual call logs + member.dialsToday only — NOT all-time lead statuses
+        // Using all-time lead statuses here is what causes Yesterday/Last7/etc. to show wrong totals.
+        const calledCount    = Math.max(dayCalls.length, member.dialsToday || 0);
+        const interestedCount = dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'INTERESTED').length;
+        const callbackCount   = dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'CALLBACK').length;
+        const notIntCount     = dayCalls.filter((c: any) =>
+          ['NOT_INTERESTED', 'LOST', 'REJECTED', 'BUSY'].includes((c.outcome || '').toUpperCase())
+        ).length;
+        const convertedCount  = dayCalls.filter((c: any) =>
+          ['CONVERTED', 'WON', 'DEAL_CLOSED'].includes((c.outcome || '').toUpperCase())
+        ).length;
 
-        if (dayRevenue === 0) {
+        // Revenue: only fall back to member.salesAchieved when today has actual won deals
+        if (dayRevenue === 0 && convertedCount > 0) {
           const leadsRev = memberLeads.filter(l => l.status === 'CONVERTED').reduce((sum, l) => sum + (l.dealValue || 0), 0);
           dayRevenue = leadsRev > 0 ? leadsRev : (member.salesAchieved || 0);
         }
@@ -239,7 +232,7 @@ const Employee360ProfileContent: React.FC<Omit<Employee360ProfileViewProps, 'mem
         records.push({
           index: i,
           dateLabel: `Today (${dateStr})`,
-          assigned: Math.max(memberLeads.length, calledCount),
+          assigned: memberLeads.length,
           called: calledCount,
           target: member.goalCalls || 60,
           interested: interestedCount,
@@ -293,7 +286,7 @@ const Employee360ProfileContent: React.FC<Omit<Employee360ProfileViewProps, 'mem
       }
     }
     return records;
-  }, [member, memberLeads, memberCallLogs, memberPayments, callingDateFilter]);
+  }, [member, memberLeads, memberCallLogs, memberPayments]);
 
   // Helper to parse time string like "09:15 AM" or "11:42 AM" into minutes from midnight
   const parseTimeToMinutes = (timeStr: string): number | null => {
