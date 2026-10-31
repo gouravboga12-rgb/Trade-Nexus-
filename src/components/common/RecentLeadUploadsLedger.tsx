@@ -75,6 +75,85 @@ function extractBatchDate(batch: LeadBatch): string {
   return getTodayDateIST();
 }
 
+/**
+ * Returns formatted Date and Time in Indian Standard Time (IST) for side-by-side display.
+ */
+function getBatchDateTimeDisplay(batch: LeadBatch): { dateStr: string; timeStr: string } {
+  let dateObj: Date | null = null;
+
+  // 1. Try batch.createdAt (SQLite CURRENT_TIMESTAMP: "YYYY-MM-DD HH:MM:SS" or ISO)
+  if (batch.createdAt) {
+    const raw = batch.createdAt.trim();
+    if (raw.includes('T')) {
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) dateObj = d;
+    } else if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+      const d = new Date(raw.replace(' ', 'T') + 'Z');
+      if (!isNaN(d.getTime())) dateObj = d;
+    } else {
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) dateObj = d;
+    }
+  }
+
+  // 2. Try timestamp embedded in batch.id (e.g. "batch-1790518088139")
+  if (!dateObj && batch.id) {
+    const match = batch.id.match(/\b(\d{10,13})\b/);
+    if (match) {
+      const num = Number(match[1]);
+      const epoch = num < 10000000000 ? num * 1000 : num;
+      const d = new Date(epoch);
+      if (!isNaN(d.getTime())) dateObj = d;
+    }
+  }
+
+  // 3. Try parsing batch.uploadedAt if it's an ISO or parseable string
+  if (!dateObj && batch.uploadedAt) {
+    const raw = batch.uploadedAt.trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw) || raw.includes('GMT') || raw.includes('UTC')) {
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) dateObj = d;
+    }
+  }
+
+  if (dateObj) {
+    try {
+      const dateStr = dateObj.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'Asia/Kolkata',
+      });
+      const timeStr = dateObj.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'Asia/Kolkata',
+      });
+      return { dateStr, timeStr };
+    } catch {
+      // fallback to manual formatting
+    }
+  }
+
+  // Fallback: If uploadedAt has time e.g. "09:15 AM"
+  const uploaded = batch.uploadedAt || '';
+  const timeMatch = uploaded.match(/(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?)/i);
+  const timeStr = timeMatch ? timeMatch[1].toUpperCase() : '';
+
+  const batchDate = extractBatchDate(batch); // YYYY-MM-DD
+  const dateParts = batchDate.split('-');
+  if (dateParts.length === 3) {
+    const d = new Date(Number(dateParts[0]), Number(dateParts[1]) - 1, Number(dateParts[2]));
+    const dateStr = !isNaN(d.getTime())
+      ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+      : batchDate;
+    return { dateStr, timeStr: timeStr || '—' };
+  }
+
+  return { dateStr: batchDate || '—', timeStr: timeStr || '—' };
+}
+
 export const RecentLeadUploadsLedger: React.FC<RecentLeadUploadsLedgerProps> = ({ compact = false }) => {
   const { leadBatches, deleteLeadBatch } = useApp();
 
@@ -287,67 +366,87 @@ export const RecentLeadUploadsLedger: React.FC<RecentLeadUploadsLedgerProps> = (
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
-          {visibleBatches.map((b) => (
-            <div
-              key={b.id}
-              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors ${
-                compact ? 'p-3' : 'px-5 py-3'
-              }`}
-            >
-              {/* Batch Info */}
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-[#0A2540] truncate max-w-md block" title={b.fileName}>
-                    {b.fileName}
-                  </span>
-                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200/80">
-                    {b.totalLeads} leads
-                  </span>
+          {visibleBatches.map((b) => {
+            const batchDateTime = getBatchDateTimeDisplay(b);
+            return (
+              <div
+                key={b.id}
+                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors ${
+                  compact ? 'p-3' : 'px-5 py-3'
+                }`}
+              >
+                {/* Batch Info */}
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-[#0A2540] truncate max-w-md block" title={b.fileName}>
+                      {b.fileName}
+                    </span>
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200/80">
+                      {b.totalLeads} leads
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-slate-500">
+                    <span className="flex items-center gap-1 text-slate-600 font-medium">
+                      <Users className="w-3 h-3 text-slate-400" />
+                      <span>{b.assignedToEmployeeName}</span>
+                    </span>
+                    <span className="text-slate-300">•</span>
+                    <span className="flex items-center gap-1 text-slate-500 font-medium">
+                      <Clock className="w-3 h-3 text-slate-400" />
+                      <span>{b.uploadedAt}</span>
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-slate-500">
-                  <span className="flex items-center gap-1 text-slate-600 font-medium">
-                    <Users className="w-3 h-3 text-slate-400" />
-                    <span>{b.assignedToEmployeeName}</span>
-                  </span>
-                  <span className="text-slate-300">•</span>
-                  <span className="flex items-center gap-1 text-slate-500 font-medium">
-                    <Clock className="w-3 h-3 text-slate-400" />
-                    <span>{b.uploadedAt}</span>
-                  </span>
-                </div>
-              </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (window.confirm(`Return uncalled leads from batch "${b.fileName}" back to the Unassigned Pool? (Won deals remain preserved)`)) {
-                      await deleteLeadBatch(b.id, 'unassign_leads');
-                    }
-                  }}
-                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl active:scale-95 transition-all"
-                  title="Reclaim uncontacted leads back into Unassigned Pool"
-                >
-                  <Undo2 className="w-3.5 h-3.5" />
-                  <span>Return to Pool</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (window.confirm(`Permanently delete batch "${b.fileName}" and remove all its uncontacted leads? (Won deals remain preserved)`)) {
-                      await deleteLeadBatch(b.id, 'delete_leads');
-                    }
-                  }}
-                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl active:scale-95 transition-all"
-                  title="Permanently delete batch and uncontacted leads"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete Batch</span>
-                </button>
+                {/* Side-mentioned Exact Date & Time */}
+                <div className="flex items-center gap-2 sm:gap-2.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 text-slate-700 flex-shrink-0 self-start sm:self-center transition-colors shadow-2xs">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                    <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    <span>{batchDateTime.dateStr}</span>
+                  </div>
+                  {batchDateTime.timeStr && batchDateTime.timeStr !== '—' && (
+                    <>
+                      <span className="text-slate-300 text-xs">•</span>
+                      <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 font-mono">
+                        <Clock className="w-3 h-3 text-emerald-600 shrink-0" />
+                        <span>{batchDateTime.timeStr}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (window.confirm(`Return uncalled leads from batch "${b.fileName}" back to the Unassigned Pool? (Won deals remain preserved)`)) {
+                        await deleteLeadBatch(b.id, 'unassign_leads');
+                      }
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl active:scale-95 transition-all"
+                    title="Reclaim uncontacted leads back into Unassigned Pool"
+                  >
+                    <Undo2 className="w-3.5 h-3.5" />
+                    <span>Return to Pool</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (window.confirm(`Permanently delete batch "${b.fileName}" and remove all its uncontacted leads? (Won deals remain preserved)`)) {
+                        await deleteLeadBatch(b.id, 'delete_leads');
+                      }
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl active:scale-95 transition-all"
+                    title="Permanently delete batch and uncontacted leads"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Batch</span>
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

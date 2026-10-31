@@ -2727,9 +2727,9 @@ export const AdminDashboardView: React.FC = () => {
                             {mine.length > 0 && (
                               <button
                                 type="button"
-                                onClick={() => {
+                                onClick={async () => {
                                   if (window.confirm(`Permanently delete all fresh uncalled leads from ${m.name}? Converted and in-progress leads will be preserved.`)) {
-                                    bulkDeleteAssignedLeads({ employeeId: m.id, onlyFresh: true });
+                                    await bulkDeleteAssignedLeads({ employeeId: m.id, onlyFresh: true });
                                   }
                                 }}
                                 className="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-[10px] border border-rose-200 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
@@ -2918,12 +2918,7 @@ export const AdminDashboardView: React.FC = () => {
                                                     `Permanently delete Excel file "${batch.fileName}" and its ${batch.totalCount} leads assigned to ${m.name}?`
                                                   )
                                                 ) {
-                                                  await bulkDeleteAssignedLeads({
-                                                    leadIds: batch.leads.map((l) => l.id),
-                                                    employeeId: m.id,
-                                                    batchId: batch.batchId,
-                                                    onlyFresh: false,
-                                                  });
+                                                  await deleteLeadBatch(batch.batchId, 'delete_leads');
                                                 }
                                               }}
                                               className="px-2 py-1 text-[10px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg active:scale-95 transition-all flex items-center gap-0.5 cursor-pointer"
@@ -3005,10 +3000,11 @@ export const AdminDashboardView: React.FC = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={async () => {
                             if (window.confirm(`Permanently delete ${selectedLeadIds.length} selected lead(s)?`)) {
-                              bulkDeleteAssignedLeads({ leadIds: selectedLeadIds, onlyFresh: false });
+                              const targets = [...selectedLeadIds];
                               setSelectedLeadIds([]);
+                              await bulkDeleteAssignedLeads({ leadIds: targets, onlyFresh: false });
                             }
                           }}
                           className="px-2 py-0.5 rounded-md bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 font-bold text-[10px] cursor-pointer"
@@ -3104,10 +3100,10 @@ export const AdminDashboardView: React.FC = () => {
                             </div>
                             <button
                               type="button"
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.stopPropagation();
                                 if (window.confirm(`Delete lead "${l.name || l.phone}"? This will permanently remove it from all panels and employee call lists.`)) {
-                                  deleteAssignedLead(l.id);
+                                  await deleteAssignedLead(l.id);
                                 }
                               }}
                               className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
@@ -3451,7 +3447,22 @@ export const AdminDashboardView: React.FC = () => {
                     <span className="text-xs text-slate-500">Upload Excel/CSV client contacts</span>
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-indigo-600 transition-colors" />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const el = document.getElementById('control-hub-recent-uploads');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-xl border border-indigo-200 transition-colors"
+                    title="Jump to Recent Uploads ledger below"
+                  >
+                    <span>Uploads</span>
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                  <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-indigo-600 transition-colors" />
+                </div>
               </div>
 
               {/* Create Team Squad */}
@@ -3575,6 +3586,11 @@ export const AdminDashboardView: React.FC = () => {
                   />
                 </div>
               )}
+            </div>
+
+            {/* Recent Uploads Section in Control Hub (More page) for Fast Navigation */}
+            <div id="control-hub-recent-uploads" className="pt-2">
+              <RecentLeadUploadsLedger compact={false} />
             </div>
 
             {/* ---- Logout Button ---- */}

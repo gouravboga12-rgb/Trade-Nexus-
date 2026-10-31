@@ -244,50 +244,85 @@ router.post('/bulk-delete', (req: Request, res: Response) => {
   try {
     const { leadIds, employeeId, batchId, onlyFresh } = req.body;
     const freshOnly = onlyFresh !== false;
+    const freshCondition = `((callCount IS NULL OR callCount = 0) AND (status IS NULL OR status = '' OR status = 'PENDING' OR status = 'Pending' OR status = 'NEW' OR status = 'New'))`;
 
     const deleteTx = db.transaction(() => {
       let targets: string[] = [];
 
+      let validEmpIds: string[] = [];
+      let validEmpNames: string[] = [];
+      if (employeeId) {
+        const emp = db.prepare('SELECT id, empCode, name FROM team_members WHERE id = ? OR empCode = ? OR LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1').get(employeeId, employeeId, employeeId) as any;
+        validEmpIds = Array.from(new Set([employeeId, emp?.id, emp?.empCode].filter(Boolean)));
+        validEmpNames = Array.from(new Set([employeeId, emp?.name].filter(Boolean)));
+      }
+
       if (Array.isArray(leadIds) && leadIds.length > 0) {
         targets = leadIds;
       } else if (employeeId && batchId) {
-        let q = `SELECT id FROM assigned_leads WHERE (assignedToEmployeeId = ? OR assignedToEmployeeName = ?) AND batchId = ?`;
-        if (freshOnly) q += ` AND callCount = 0 AND status = 'PENDING'`;
-        const rows = db.prepare(q).all(employeeId, employeeId, batchId) as any[];
+        const idPlaceholders = validEmpIds.map(() => '?').join(',');
+        const nameConditions = validEmpNames.map(() => 'LOWER(TRIM(assignedToEmployeeName)) = LOWER(TRIM(?))').join(' OR ');
+        let q = `SELECT id FROM assigned_leads WHERE (assignedToEmployeeId IN (${idPlaceholders}) ${nameConditions ? `OR ${nameConditions}` : ''}) AND batchId = ?`;
+        if (freshOnly) q += ` AND ${freshCondition}`;
+        const rows = db.prepare(q).all(...validEmpIds, ...validEmpNames, batchId) as any[];
         targets = rows.map((r) => r.id);
       } else if (employeeId) {
-        let q = `SELECT id FROM assigned_leads WHERE (assignedToEmployeeId = ? OR assignedToEmployeeName = ?)`;
-        if (freshOnly) q += ` AND callCount = 0 AND status = 'PENDING'`;
-        const rows = db.prepare(q).all(employeeId, employeeId) as any[];
+        const idPlaceholders = validEmpIds.map(() => '?').join(',');
+        const nameConditions = validEmpNames.map(() => 'LOWER(TRIM(assignedToEmployeeName)) = LOWER(TRIM(?))').join(' OR ');
+        let q = `SELECT id FROM assigned_leads WHERE (assignedToEmployeeId IN (${idPlaceholders}) ${nameConditions ? `OR ${nameConditions}` : ''})`;
+        if (freshOnly) q += ` AND ${freshCondition}`;
+        const rows = db.prepare(q).all(...validEmpIds, ...validEmpNames) as any[];
         targets = rows.map((r) => r.id);
       } else if (batchId) {
         let q = `SELECT id FROM assigned_leads WHERE batchId = ?`;
-        if (freshOnly) q += ` AND callCount = 0 AND status = 'PENDING'`;
+        if (freshOnly) q += ` AND ${freshCondition}`;
         const rows = db.prepare(q).all(batchId) as any[];
         targets = rows.map((r) => r.id);
       }
 
       if (!targets.length) {
+        // If batchId was provided and no leads remain, clean up the empty batch record
+        if (batchId) {
+          try {
+            db.prepare('DELETE FROM lead_batches WHERE id = ?').run(batchId);
+          } catch (_) {}
+        }
         return 0;
       }
 
       let deletedCount = 0;
       const deleteSingleLead = db.prepare('DELETE FROM assigned_leads WHERE id = ?');
+      const deleteClientLead = db.prepare('DELETE FROM client_leads WHERE id = ?');
       const deleteCallLogs = db.prepare('DELETE FROM call_logs WHERE leadId = ?');
       const deletePayments = db.prepare('DELETE FROM payment_verifications WHERE id = ? OR utrNumber = ?');
 
       for (const id of targets) {
         deleteCallLogs.run(id);
         deletePayments.run(`pay-${id}`, `LEAD-${id}`);
+        deleteClientLead.run(id);
         const res = deleteSingleLead.run(id);
         if (res.changes > 0) deletedCount++;
+      }
+
+      // If batchId was provided, update or delete the batch in lead_batches
+      if (batchId) {
+        try {
+          const remaining = db.prepare('SELECT COUNT(*) as cnt FROM assigned_leads WHERE batchId = ?').get(batchId) as any;
+          if (!remaining || remaining.cnt === 0 || !freshOnly) {
+            db.prepare('DELETE FROM lead_batches WHERE id = ?').run(batchId);
+          } else {
+            db.prepare('UPDATE lead_batches SET totalLeads = ? WHERE id = ?').run(remaining.cnt, batchId);
+          }
+        } catch (bErr) {
+          console.warn('[bulk-delete] lead_batches cleanup warning:', bErr);
+        }
       }
 
       return deletedCount;
     });
 
     const count = deleteTx();
-    return res.status(200).json({ success: true, deletedCount });
+    return res.status(200).json({ success: true, deletedCount: count });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }
@@ -415,25 +450,44 @@ router.put('/:id', (req: Request, res: Response) => {
 router.delete('/:id', (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const lead = db.prepare('SELECT * FROM assigned_leads WHERE id = ?').get(id) as any;
-    if (!lead) {
-      return res.status(404).json({ error: 'Lead not found' });
+    let lead = db.prepare('SELECT * FROM assigned_leads WHERE id = ?').get(id) as any;
+    let clientLead = db.prepare('SELECT * FROM client_leads WHERE id = ?').get(id) as any;
+
+    if (!lead && !clientLead) {
+      lead = db.prepare('SELECT * FROM assigned_leads WHERE phone = ? LIMIT 1').get(id) as any;
+      clientLead = db.prepare('SELECT * FROM client_leads WHERE phone = ? LIMIT 1').get(id) as any;
     }
+
+    if (!lead && !clientLead) {
+      return res.status(404).json({ error: 'Lead not found in records' });
+    }
+
+    const effectiveLead = lead || clientLead;
+    const leadPhone = effectiveLead.phone || '';
+    const leadCompany = (effectiveLead.company || '').trim();
+    const leadName = (effectiveLead.name || '').trim();
+    const leadDealVal = effectiveLead.dealValue || 0;
+    const batchId = effectiveLead.batchId;
 
     const deleteTransaction = db.transaction(() => {
       // 1. If lead was converted, remove or roll back corresponding payment verification
       try {
-        const linkedPayments = db.prepare(`
-          SELECT * FROM payment_verifications 
-          WHERE id = ? OR utrNumber = ? OR (
+        const queryParams: any[] = [`pay-${id}`, `LEAD-${id}`];
+        let queryCondition = `id = ? OR utrNumber = ?`;
+
+        if (leadCompany || leadName) {
+          queryCondition += ` OR (
             LOWER(TRIM(COALESCE(companyName, leadName, ''))) = LOWER(TRIM(?)) AND
             dealAmount = ?
-          )
-        `).all(`pay-${id}`, `LEAD-${id}`, (lead.company || lead.name || '').trim(), lead.dealValue || 0) as any[];
+          )`;
+          queryParams.push(leadCompany || leadName, leadDealVal);
+        }
+
+        const linkedPayments = db.prepare(`SELECT * FROM payment_verifications WHERE ${queryCondition}`).all(...queryParams) as any[];
 
         for (const p of linkedPayments) {
           if (p.status === 'VERIFIED') {
-            const caller = db.prepare('SELECT id, groupName FROM team_members WHERE LOWER(name) = LOWER(?) LIMIT 1').get(p.telecallerName || lead.assignedToEmployeeName) as any;
+            const caller = db.prepare('SELECT id, groupName FROM team_members WHERE LOWER(name) = LOWER(?) LIMIT 1').get(p.telecallerName || effectiveLead.assignedToEmployeeName) as any;
             if (caller) {
               db.prepare('UPDATE team_members SET salesAchieved = MAX(0, salesAchieved - ?) WHERE id = ?').run(p.dealAmount, caller.id);
               if (caller.groupName) {
@@ -449,16 +503,22 @@ router.delete('/:id', (req: Request, res: Response) => {
 
       // 2. Remove associated call logs
       try {
-        db.prepare('DELETE FROM call_logs WHERE leadId = ? OR (clientPhone IS NOT NULL AND clientPhone != "" AND clientPhone = ?)').run(id, lead.phone || '');
+        db.prepare('DELETE FROM call_logs WHERE leadId = ? OR (clientPhone IS NOT NULL AND clientPhone != "" AND clientPhone = ?)').run(id, leadPhone);
       } catch (err) {}
 
-      // 3. Delete from assigned_leads
+      // 3. Delete from assigned_leads and client_leads
       db.prepare('DELETE FROM assigned_leads WHERE id = ?').run(id);
+      db.prepare('DELETE FROM client_leads WHERE id = ?').run(id);
 
       // 4. Update totalLeads on lead_batches if batchId exists
-      if (lead.batchId) {
+      if (batchId) {
         try {
-          db.prepare('UPDATE lead_batches SET totalLeads = MAX(0, totalLeads - 1) WHERE id = ?').run(lead.batchId);
+          const remaining = db.prepare('SELECT COUNT(*) as cnt FROM assigned_leads WHERE batchId = ?').get(batchId) as any;
+          if (!remaining || remaining.cnt === 0) {
+            db.prepare('DELETE FROM lead_batches WHERE id = ?').run(batchId);
+          } else {
+            db.prepare('UPDATE lead_batches SET totalLeads = ? WHERE id = ?').run(remaining.cnt, batchId);
+          }
         } catch (err) {}
       }
     });

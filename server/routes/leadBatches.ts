@@ -41,7 +41,9 @@ router.delete('/:id', (req: Request, res: Response) => {
     const mode = (String(req.query.mode || req.body?.mode || 'delete_leads')).toLowerCase();
 
     const batch = db.prepare('SELECT * FROM lead_batches WHERE id = ?').get(id) as any;
-    if (!batch) {
+    const batchLeads = db.prepare('SELECT id, phone, status FROM assigned_leads WHERE batchId = ?').all(id) as any[];
+
+    if (!batch && batchLeads.length === 0) {
       return res.status(404).json({ error: 'Lead batch not found' });
     }
 
@@ -55,18 +57,21 @@ router.delete('/:id', (req: Request, res: Response) => {
         `).run(id);
       } else {
         // Permanent delete: fetch lead ids in this batch
-        const batchLeads = db.prepare('SELECT id, phone, status FROM assigned_leads WHERE batchId = ?').all(id) as any[];
         for (const lead of batchLeads) {
           // Cleanup pending payment verifications if unconverted
           if (lead.status !== 'CONVERTED') {
             try {
               db.prepare('DELETE FROM payment_verifications WHERE id = ? OR utrNumber = ?').run(`pay-${lead.id}`, `LEAD-${lead.id}`);
-            } catch (_) {}
+            } catch (_) { }
           }
           // Remove call logs
           try {
-            db.prepare('DELETE FROM call_logs WHERE leadId = ?').run(lead.id);
-          } catch (_) {}
+            db.prepare('DELETE FROM call_logs WHERE leadId = ? OR clientPhone = ?').run(lead.id, lead.phone || '');
+          } catch (_) { }
+          // Delete from client_leads
+          try {
+            db.prepare('DELETE FROM client_leads WHERE id = ?').run(lead.id);
+          } catch (_) { }
         }
         // Delete the leads
         db.prepare('DELETE FROM assigned_leads WHERE batchId = ?').run(id);

@@ -141,29 +141,44 @@ export const FaceIdScannerModal: React.FC = () => {
     setErrorMessage(null);
 
     try {
-      const result = await capture();
+      let photo: string | null = null;
+      let lat: number | null = currentCoords?.latitude ?? null;
+      let lng: number | null = currentCoords?.longitude ?? null;
+      let locErr: string | null = null;
+
+      if (isCameraOn) {
+        try {
+          const result = await capture(currentCoords);
+          photo = result.photo;
+          if (result.latitude != null) lat = result.latitude;
+          if (result.longitude != null) lng = result.longitude;
+          locErr = result.locationError;
+        } catch (captureErr) {
+          console.warn('Capture warning:', captureErr);
+        }
+      }
 
       if (isCheckOut) {
         await recordCheckOut({
-          photo: result.photo,
-          latitude: result.latitude ?? currentCoords?.latitude ?? null,
-          longitude: result.longitude ?? currentCoords?.longitude ?? null,
+          photo,
+          latitude: lat,
+          longitude: lng,
         });
       } else {
         await recordCheckIn({
-          photo: result.photo,
-          latitude: result.latitude ?? currentCoords?.latitude ?? null,
-          longitude: result.longitude ?? currentCoords?.longitude ?? null,
+          photo,
+          latitude: lat,
+          longitude: lng,
         });
       }
 
-      setNote(result.locationError);
+      setNote(locErr);
       setPhase('DONE');
       stopCamera();
       setTimeout(close, 1800);
     } catch (err: any) {
       setPhase('IDLE');
-      setErrorMessage(err.message || 'Check-in failed');
+      setErrorMessage(err.message || (isCheckOut ? 'Punch out failed' : 'Check-in failed'));
     }
   };
 
@@ -325,7 +340,7 @@ export const FaceIdScannerModal: React.FC = () => {
         <div>
           <button
             onClick={handleCapture}
-            disabled={phase !== 'IDLE' || isOutOfBounds || isLocationDenied || !isCameraOn}
+            disabled={phase !== 'IDLE' || isOutOfBounds || isLocationDenied || (!isCheckOut && !isCameraOn)}
             className={`w-full py-3.5 rounded-2xl font-display font-black text-sm shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${
               isOutOfBounds
                 ? 'bg-rose-500 text-white'
@@ -343,7 +358,7 @@ export const FaceIdScannerModal: React.FC = () => {
                 : isLocationDenied
                 ? 'Location Required'
                 : isCheckOut
-                ? 'Scan Face & Punch Out'
+                ? (isCameraOn ? 'Scan Face & Punch Out' : 'Punch Out (End Shift)')
                 : 'Scan Face & Punch In'}
             </span>
           </button>

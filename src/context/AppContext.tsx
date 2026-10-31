@@ -2397,17 +2397,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const deleteAssignedLead = async (leadId: string) => {
+    const targetLead = assignedLeads.find((l) => l.id === leadId) || clients.find((c) => c.id === leadId);
+    const leadLabel = targetLead?.name || targetLead?.phone || `ID ${leadId}`;
+
     setAssignedLeads((prev) => prev.filter((l) => l.id !== leadId));
     setClients((prev) => prev.filter((c) => c.id !== leadId));
     setPaymentVerifications((prev) => prev.filter((p) => p.id !== `pay-${leadId}` && p.utrNumber !== `LEAD-${leadId}`));
 
     try {
       await api.deleteAssignedLead(leadId);
-      triggerToast('✓ Lead deleted across all panels');
+      triggerToast(`✓ Deleted lead "${leadLabel}" across all panels`);
+      window.alert(`✅ Lead Deletion Confirmed!\n\nLead "${leadLabel}" has been permanently removed across all panels and database records.`);
       refreshResources(['assignedLeads', 'teamMembers', 'teamGroups', 'paymentVerifications', 'stats']);
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Delete assigned lead failed:', err);
       triggerToast('✗ Failed to delete lead from server');
+      window.alert(`❌ Lead Deletion Failed!\n\nCould not delete lead "${leadLabel}": ${err?.message || 'Server error'}`);
       refreshResources(['assignedLeads']);
     }
   };
@@ -2501,6 +2506,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const deleteLeadBatch = async (batchId: string, mode: 'delete_leads' | 'unassign_leads' = 'delete_leads') => {
     try {
+      const matchedBatch = leadBatches.find((b) => b.id === batchId);
+      const batchName = matchedBatch?.fileName || batchId;
+
       await api.deleteLeadBatch(batchId, mode);
       setLeadBatches((prev) => prev.filter((b) => b.id !== batchId));
       if (mode === 'delete_leads') {
@@ -2510,11 +2518,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           prev.map((l) => (l.batchId === batchId ? { ...l, assignedToEmployeeId: '', assignedToEmployeeName: 'Unassigned' } : l))
         );
       }
-      triggerToast(mode === 'delete_leads' ? '✓ Batch and leads deleted' : '✓ Batch removed; leads returned to unassigned pool');
+      const msg = mode === 'delete_leads'
+        ? `Batch "${batchName}" and all associated leads permanently deleted.`
+        : `Batch "${batchName}" removed; leads returned to unassigned pool.`;
+      triggerToast(`✓ ${msg}`);
+      window.alert(`✅ Lead Batch Action Confirmed!\n\n${msg}`);
       refreshResources(['leadBatches', 'assignedLeads', 'teamMembers']);
     } catch (err: any) {
       console.warn('Failed to delete lead batch:', err);
       triggerToast(`✗ ${err.message || 'Failed to delete lead batch'}`);
+      window.alert(`❌ Failed to delete lead file/batch: ${err?.message || 'Server error'}`);
     }
   };
 
@@ -2533,7 +2546,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const bulkDeleteAssignedLeads = async (params: { leadIds?: string[]; employeeId?: string; batchId?: string; onlyFresh?: boolean }) => {
     try {
       const res = await api.bulkDeleteAssignedLeads(params);
-      const count = res?.deletedCount || 0;
+      const count = res?.deletedCount ?? 0;
+
+      const isFresh = (l: AssignedLead) =>
+        (l.callCount || 0) === 0 &&
+        (!l.status || l.status === 'PENDING' || (l.status as string) === 'Pending' || (l.status as string) === 'NEW' || (l.status as string) === 'New');
+
       if (params.leadIds && params.leadIds.length > 0) {
         const idSet = new Set(params.leadIds);
         setAssignedLeads((prev) => prev.filter((l) => !idSet.has(l.id)));
@@ -2544,16 +2562,43 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               !(
                 l.batchId === params.batchId &&
                 (l.assignedToEmployeeId === params.employeeId || l.assignedToEmployeeName === params.employeeId) &&
-                (!params.onlyFresh || ((l.callCount || 0) === 0 && l.status === 'PENDING'))
+                (!params.onlyFresh || isFresh(l))
+              )
+          )
+        );
+      } else if (params.employeeId) {
+        setAssignedLeads((prev) =>
+          prev.filter(
+            (l) =>
+              !(
+                (l.assignedToEmployeeId === params.employeeId || l.assignedToEmployeeName === params.employeeId) &&
+                (!params.onlyFresh || isFresh(l))
+              )
+          )
+        );
+      } else if (params.batchId) {
+        setAssignedLeads((prev) =>
+          prev.filter(
+            (l) =>
+              !(
+                l.batchId === params.batchId &&
+                (!params.onlyFresh || isFresh(l))
               )
           )
         );
       }
+
+      if (params.batchId && !params.onlyFresh) {
+        setLeadBatches((prev) => prev.filter((b) => b.id !== params.batchId));
+      }
+
       triggerToast(`✓ Deleted ${count} lead(s) permanently`);
+      window.alert(`✅ Leads Deletion Confirmed!\n\nSuccessfully deleted ${count} lead(s) permanently from the database and all employee call lists.`);
       refreshResources(['assignedLeads', 'leadBatches', 'callLogs', 'teamMembers']);
     } catch (err: any) {
       console.warn('Failed to bulk delete leads:', err);
       triggerToast(`✗ ${err.message || 'Failed to delete leads'}`);
+      window.alert(`❌ Leads Deletion Failed!\n\nCould not delete leads: ${err?.message || 'Server error'}`);
     }
   };
 
@@ -3305,6 +3350,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const timeStr = getCurrentTimeIST();
     const today = getTodayDateIST();
     const empId = currentUser?.employeeId || currentUser?.id || profile.id || 'emp-self';
+    const empCode = currentUser?.empCode || profile.empCode || '';
+    const empName = currentUser?.name || profile.name || 'Employee';
     const recordId = `att-${today}-${empId}`;
 
     const updatedProfile: EmployeeProfile = { 
@@ -3340,7 +3387,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           checkOut: timeStr,
           checkOutPhoto: data.photo,
           employeeId: empId,
-          employeeName: profile.name,
+          employeeName: empName,
           locationStatus: 'AT_OFFICE',
           checkOutLocationStatus: 'AT_OFFICE',
           workHours: 'In Progress',
@@ -3358,12 +3405,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         latitude: data.latitude,
         longitude: data.longitude,
         employeeId: empId,
-        employeeName: profile.name,
+        empCode: empCode,
+        employeeName: empName,
         date: today,
       } as any);
-      await api.updateProfile(updatedProfile);
-    } catch (err) {
+      await api.updateProfile(updatedProfile).catch(() => {});
+      refreshResources(['attendanceLogs', 'teamMembers']).catch(() => {});
+      window.alert(`✅ Punch Out Confirmed!\n\nEmployee: ${empName}\nTime: ${timeStr}\nDate: ${today}\n\nYour shift has been completed and logged successfully.`);
+    } catch (err: any) {
       console.warn('Check-out save failed:', err);
+      triggerToast(`✗ Check-out failed: ${err.message || 'Server error'}`);
+      window.alert(`❌ Punch Out Failed!\n\nCould not save check-out to server: ${err.message || 'Unknown error'}`);
+      throw err;
     }
   };
 

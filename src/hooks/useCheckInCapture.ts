@@ -92,14 +92,30 @@ export function useCheckInCapture() {
             resolve({ latitude: null, longitude: null, error: 'This device cannot report a location.' });
             return;
           }
+          let resolved = false;
+          // Safety timeout so slow GPS never hangs punch operations
+          const timer = setTimeout(() => {
+            if (!resolved) {
+              resolved = true;
+              resolve({ latitude: null, longitude: null, error: 'Location lookup timed out.' });
+            }
+          }, 3000);
+
           navigator.geolocation.getCurrentPosition(
-            (pos) =>
+            (pos) => {
+              if (resolved) return;
+              resolved = true;
+              clearTimeout(timer);
               resolve({
                 latitude: pos.coords.latitude,
                 longitude: pos.coords.longitude,
                 error: null,
-              }),
-            (err) =>
+              });
+            },
+            (err) => {
+              if (resolved) return;
+              resolved = true;
+              clearTimeout(timer);
               resolve({
                 latitude: null,
                 longitude: null,
@@ -107,8 +123,9 @@ export function useCheckInCapture() {
                   err.code === err.PERMISSION_DENIED
                     ? 'Location permission was declined.'
                     : 'Could not read your location.',
-              }),
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+              });
+            },
+            { enableHighAccuracy: false, timeout: 2500, maximumAge: 60000 }
           );
         }
       ),
@@ -116,9 +133,11 @@ export function useCheckInCapture() {
   );
 
   /** Photo and location together — what a check-in submits. */
-  const capture = useCallback(async (): Promise<CaptureResult> => {
+  const capture = useCallback(async (existingCoords?: { latitude: number; longitude: number } | null): Promise<CaptureResult> => {
     const photo = takePhoto();
-    const loc = await getLocation();
+    let loc = existingCoords
+      ? { latitude: existingCoords.latitude, longitude: existingCoords.longitude, error: null }
+      : await getLocation();
     return {
       photo,
       latitude: loc.latitude,
