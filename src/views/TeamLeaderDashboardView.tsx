@@ -138,24 +138,77 @@ export const TeamLeaderDashboardView: React.FC = () => {
   const [rejectingLeaveId, setRejectingLeaveId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
-  // Dynamic Live Computations from Active Team State
-  const totalTeamStrength = teamMembers.length;
-  const presentCount = teamMembers.filter(m => m.attendanceStatus === 'PRESENT').length;
-  const lateCount = teamMembers.filter(m => m.attendanceStatus === 'LATE').length;
-  const onLeaveCount = teamMembers.filter(m => m.attendanceStatus === 'ON_LEAVE').length;
-  const totalActivities = teamMembers.reduce((sum, m) => sum + (m.dialsToday || 0), 0);
-  const totalGoalCalls = teamMembers.reduce((sum, m) => sum + (m.goalCalls || 0), 0);
-  const totalConnectedCalls = teamMembers.reduce((sum, m) => sum + (m.connected || 0), 0);
+  // Squad identification: Determine the team(s) led by this Team Leader
+  const leaderNameLower = (currentUser?.name || profile?.name || '').trim().toLowerCase();
+  const leaderEmpCode = (currentUser?.empCode || profile?.empCode || '').trim();
+  const leaderId = currentUser?.employeeId || currentUser?.id || profile?.id;
+
+  const mySquadGroups = useMemo(() => {
+    const groups = new Set<string>();
+    (teamGroups || []).forEach(g => {
+      if (g.leaderName && g.leaderName.trim().toLowerCase() === leaderNameLower) {
+        groups.add(g.name.toLowerCase());
+      }
+    });
+    if (profile?.teamName) groups.add(profile.teamName.toLowerCase());
+    if ((profile as any)?.team) groups.add(String((profile as any).team).toLowerCase());
+    if ((currentUser as any)?.group) groups.add(String((currentUser as any).group).toLowerCase());
+    if ((currentUser as any)?.groupName) groups.add(String((currentUser as any).groupName).toLowerCase());
+    return groups;
+  }, [teamGroups, leaderNameLower, profile, currentUser]);
+
+  const isSquadMember = (memOrEmpCode?: string, memName?: string, memTeam?: string) => {
+    if (memTeam && mySquadGroups.has(memTeam.toLowerCase())) return true;
+    if (memOrEmpCode) {
+      const found = teamMembers.find(m => m.id === memOrEmpCode || m.empCode === memOrEmpCode);
+      if (found?.group && mySquadGroups.has(found.group.toLowerCase())) return true;
+    }
+    if (memName) {
+      const found = teamMembers.find(m => m.name.toLowerCase() === memName.toLowerCase());
+      if (found?.group && mySquadGroups.has(found.group.toLowerCase())) return true;
+    }
+    // If no groups found, allow if not the leader themselves
+    if (mySquadGroups.size === 0) return true;
+    return false;
+  };
+
+  const mySquadMembers = useMemo(() => {
+    if (mySquadGroups.size === 0) return teamMembers;
+    return teamMembers.filter(m => isSquadMember(m.id || m.empCode, m.name, m.group));
+  }, [teamMembers, mySquadGroups]);
+
+  // Dynamic Live Computations from Active Squad State
+  const totalTeamStrength = mySquadMembers.length;
+  const presentCount = mySquadMembers.filter(m => m.attendanceStatus === 'PRESENT').length;
+  const lateCount = mySquadMembers.filter(m => m.attendanceStatus === 'LATE').length;
+  const onLeaveCount = mySquadMembers.filter(m => m.attendanceStatus === 'ON_LEAVE').length;
+  const totalActivities = mySquadMembers.reduce((sum, m) => sum + (m.dialsToday || 0), 0);
+  const totalGoalCalls = mySquadMembers.reduce((sum, m) => sum + (m.goalCalls || 0), 0);
+  const totalConnectedCalls = mySquadMembers.reduce((sum, m) => sum + (m.connected || 0), 0);
   const connectRate = totalActivities > 0 ? Math.round((totalConnectedCalls / totalActivities) * 100) : 0;
-  const totalSales = teamMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0);
-  const targetTotal = teamMembers.reduce((sum, m) => sum + (m.salesTarget || 0), 0);
+  const totalSales = mySquadMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0);
+  const targetTotal = mySquadMembers.reduce((sum, m) => sum + (m.salesTarget || 0), 0);
   const targetPercentage = targetTotal > 0 ? Math.min(100, Math.round((totalSales / targetTotal) * 100)) : 0;
 
+  const todayYMD = getTodayDateIST();
+  const squadMemberNames = useMemo(() => new Set(mySquadMembers.map(m => (m.name || '').trim().toLowerCase())), [mySquadMembers]);
+  
+  const squadTodayVerifiedPayments = useMemo(() => {
+    return (paymentVerifications || []).filter(p => {
+      const matchDate = (p.timestamp || '').slice(0, 10) === todayYMD;
+      const isVerified = p.status === 'VERIFIED';
+      const isSquad = squadMemberNames.has((p.telecallerName || '').trim().toLowerCase());
+      return matchDate && isVerified && isSquad;
+    });
+  }, [paymentVerifications, todayYMD, squadMemberNames]);
+
+  const squadTodayRevenue = useMemo(() => {
+    return squadTodayVerifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0);
+  }, [squadTodayVerifiedPayments]);
+
   const totalWonToday = useMemo(() => {
-    const fromLeads = (assignedLeads || []).filter(l => l.status === 'CONVERTED').length;
-    if (fromLeads > 0) return fromLeads;
-    return teamMembers.filter(m => m.salesAchieved > 0).length;
-  }, [assignedLeads, teamMembers]);
+    return squadTodayVerifiedPayments.length;
+  }, [squadTodayVerifiedPayments]);
 
   // TL's own allocated leads & personal closer metrics
   const myAssignedLeads = useMemo(() => {
@@ -206,40 +259,6 @@ export const TeamLeaderDashboardView: React.FC = () => {
       .filter((p) => p.status === 'VERIFIED')
       .reduce((sum, p) => sum + (p.dealAmount || 0), 0);
   }, [myPayments]);
-
-  // Squad identification: Determine the team(s) led by this Team Leader
-  const leaderNameLower = (currentUser?.name || profile?.name || '').trim().toLowerCase();
-  const leaderEmpCode = (currentUser?.empCode || profile?.empCode || '').trim();
-  const leaderId = currentUser?.employeeId || currentUser?.id || profile?.id;
-
-  const mySquadGroups = useMemo(() => {
-    const groups = new Set<string>();
-    (teamGroups || []).forEach(g => {
-      if (g.leaderName && g.leaderName.trim().toLowerCase() === leaderNameLower) {
-        groups.add(g.name.toLowerCase());
-      }
-    });
-    if (profile?.teamName) groups.add(profile.teamName.toLowerCase());
-    if ((profile as any)?.team) groups.add(String((profile as any).team).toLowerCase());
-    if ((currentUser as any)?.group) groups.add(String((currentUser as any).group).toLowerCase());
-    if ((currentUser as any)?.groupName) groups.add(String((currentUser as any).groupName).toLowerCase());
-    return groups;
-  }, [teamGroups, leaderNameLower, profile, currentUser]);
-
-  const isSquadMember = (memOrEmpCode?: string, memName?: string, memTeam?: string) => {
-    if (memTeam && mySquadGroups.has(memTeam.toLowerCase())) return true;
-    if (memOrEmpCode) {
-      const found = teamMembers.find(m => m.id === memOrEmpCode || m.empCode === memOrEmpCode);
-      if (found?.group && mySquadGroups.has(found.group.toLowerCase())) return true;
-    }
-    if (memName) {
-      const found = teamMembers.find(m => m.name.toLowerCase() === memName.toLowerCase());
-      if (found?.group && mySquadGroups.has(found.group.toLowerCase())) return true;
-    }
-    // If no groups found, allow if not the leader themselves
-    if (mySquadGroups.size === 0) return true;
-    return false;
-  };
 
   // Leaves visible to this TL: leaves belonging strictly to their squad members (excluding the TL themselves)
   const squadLeaveRequests = useMemo(() => {
@@ -519,7 +538,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
     triggerToast('✓ Meeting link copied to clipboard');
   };
 
-  const filteredMembers = teamMembers.filter(m => {
+  const filteredMembers = mySquadMembers.filter(m => {
     const matchesAttendance = attendanceFilter === 'ALL' || m.attendanceStatus === attendanceFilter;
     const matchesSearch = !searchQuery.trim() || 
       m.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -900,20 +919,20 @@ export const TeamLeaderDashboardView: React.FC = () => {
                       {totalWonToday}
                     </strong>
                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mt-1">
-                      Won
+                      Won Deals
                     </span>
                   </div>
 
-                  {/* 3. Revenue */}
+                  {/* 3. Today's Revenue */}
                   <div 
                     onClick={() => setActiveTab('reports')} 
                     className="px-1 cursor-pointer active:scale-95 transition-transform"
                   >
                     <strong className="text-base sm:text-lg font-display font-black text-[#00A88B] block leading-tight">
-                      {formatInLakhs(totalSales)}
+                      {formatInLakhs(squadTodayRevenue)}
                     </strong>
                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mt-1">
-                      Revenue
+                      Today's Sales
                     </span>
                   </div>
                 </div>

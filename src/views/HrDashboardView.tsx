@@ -282,9 +282,34 @@ export const HrDashboardView: React.FC = () => {
 
   const totalActivities = teamMembers.reduce((sum, m) => sum + (m.dialsToday || 0), 0);
   const totalGoalCalls = teamMembers.reduce((sum, m) => sum + (m.goalCalls || 0), 0);
-  const totalWonToday = useMemo(() => {
-    return teamMembers.filter(m => m.salesAchieved > 0).length;
-  }, [teamMembers]);
+  
+  // Authentic verified payments matching Admin Dashboard
+  const todayYMD = getTodayDateIST();
+  const uniquePayments = useMemo(() => {
+    const seen = new Set<string>();
+    return (paymentVerifications || []).filter((p) => {
+      const key = `${(p.companyName || p.leadName || '').trim().toLowerCase()}_${(p.telecallerName || '').trim().toLowerCase()}_${p.dealAmount}_${p.status}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [paymentVerifications]);
+
+  const verifiedPayments = useMemo(() => uniquePayments.filter(p => p.status === 'VERIFIED'), [uniquePayments]);
+
+  const todayVerifiedSales = useMemo(() =>
+    verifiedPayments
+      .filter(p => (p.timestamp || '').slice(0, 10) === todayYMD)
+      .reduce((sum: number, p) => sum + (p.dealAmount || 0), 0),
+    [verifiedPayments, todayYMD]
+  );
+
+  const todayWonDealsCount = useMemo(() =>
+    verifiedPayments.filter(p => (p.timestamp || '').slice(0, 10) === todayYMD).length,
+    [verifiedPayments, todayYMD]
+  );
+
+  const totalWonToday = todayWonDealsCount;
 
   const formatInLakhs = (amount: number) => {
     if (amount >= 100000) {
@@ -762,17 +787,17 @@ export const HrDashboardView: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Today's Revenue - Replaces Pending Approvals */}
+                {/* Today's Revenue - Verified Payments matching Admin Source of Truth */}
                 <div 
-                  onClick={() => setActiveHrNav('employees')}
+                  onClick={() => setActiveHrNav('reports')}
                   className="bg-white border border-slate-200 hover:border-emerald-400 rounded-2xl p-3 shadow-xs text-center space-y-1 cursor-pointer transition-all active:scale-95 group"
                 >
                   <span className="text-[10px] font-bold text-slate-500 block">Today's Revenue</span>
                   <span className="font-display font-black text-xl text-emerald-600 block group-hover:scale-105 transition-transform">
-                    {formatInLakhs(totalSalesAchieved)}
+                    ₹{todayVerifiedSales.toLocaleString('en-IN')}
                   </span>
                   <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded-md inline-block">
-                    {totalWonToday} Won Deals
+                    {todayWonDealsCount} Won Deals
                   </span>
                 </div>
               </div>

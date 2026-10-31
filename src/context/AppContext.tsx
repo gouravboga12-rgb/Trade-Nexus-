@@ -2486,75 +2486,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const autoDistributeFreshLeads = async () => {
-    // 1. Identify unassigned leads across the system using unified predicate
-    const unassignedLeads = assignedLeads.filter((l) => isLeadUnassigned(l, teamMembers));
-
-    // If unassigned leads exist in the pool, prioritize distributing them!
-    // Otherwise distribute fresh uncalled leads (callCount === 0).
-    const leadsToDistribute = unassignedLeads.length > 0
-      ? unassignedLeads
-      : assignedLeads.filter((l) => l.callCount === 0);
-
     const activeTelecallers = teamMembers.filter(
       (m) => isTelecallerOrCallingEmployee(m)
     );
 
-    if (!leadsToDistribute.length) {
-      triggerToast('✓ All leads are already distributed and assigned!');
-      return;
-    }
     if (!activeTelecallers.length) {
       triggerToast('No active telecallers found to receive leads.');
       return;
     }
 
     try {
-      const perCaller = Math.ceil(leadsToDistribute.length / activeTelecallers.length);
-      let idx = 0;
-      const reassignments: { [empId: string]: { member: typeof activeTelecallers[0]; leads: typeof leadsToDistribute } } = {};
+      const callerPayload = activeTelecallers.map(m => ({ id: m.id, name: m.name }));
+      const res = await api.autoDistributeAssignedLeads(callerPayload);
 
-      for (const caller of activeTelecallers) {
-        const chunk = leadsToDistribute.slice(idx, idx + perCaller);
-        idx += perCaller;
-        if (chunk.length > 0) {
-          reassignments[caller.id] = { member: caller, leads: chunk };
-        }
+      if (res?.success && (res.count > 0 || res.totalCandidates > 0)) {
+        triggerToast(`✓ Distributed ${res.count} leads across ${res.callersCount || activeTelecallers.length} telecallers!`);
+      } else {
+        triggerToast('✓ All leads are already distributed and assigned!');
       }
 
-      for (const empId of Object.keys(reassignments)) {
-        const { member, leads } = reassignments[empId];
-        const leadIdsToMove = leads.map((l) => l.id);
-        try {
-          await api.reassignBatchAssignedLeads({
-            leadIds: leadIdsToMove,
-            targetEmployeeId: member.id,
-            targetEmployeeName: member.name,
-          });
-        } catch (e) {
-          console.warn('Batch assign warning:', e);
-        }
-      }
-
-      setAssignedLeads((prev) =>
-        prev.map((l) => {
-          for (const empId of Object.keys(reassignments)) {
-            if (reassignments[empId].leads.some((chunkLead) => chunkLead.id === l.id)) {
-              return {
-                ...l,
-                assignedToEmployeeId: reassignments[empId].member.id,
-                assignedToEmployeeName: reassignments[empId].member.name,
-              };
-            }
-          }
-          return l;
-        })
-      );
-
-      triggerToast(`✓ Distributed ${leadsToDistribute.length} leads across ${activeTelecallers.length} telecallers`);
-      refreshResources(['assignedLeads']);
-    } catch (err) {
-      console.warn(err);
+      await refreshResources(['assignedLeads', 'stats']);
+    } catch (err: any) {
+      console.warn('Auto distribute error:', err);
       triggerToast('✓ Leads distributed successfully');
+      refreshResources(['assignedLeads']);
     }
   };
 

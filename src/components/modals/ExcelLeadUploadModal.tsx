@@ -12,11 +12,48 @@ import {
 } from 'lucide-react';
 import { isTelecallerOrCallingEmployee } from '../../utils/teamUtils';
 
-// Helper to check if a string contains a valid phone number (at least 7 digits, max 16)
-const isLikelyPhone = (val: string): boolean => {
-  if (!val) return false;
-  const digits = val.replace(/[^0-9]/g, '');
-  return digits.length >= 7 && digits.length <= 16;
+// Clean and format a phone number. Handles scientific notation, leading zeros, +91, floats (.0)
+const cleanPhoneNumber = (val: any): string => {
+  if (val === null || val === undefined) return '';
+  let str = String(val).trim();
+  
+  // Handle scientific notation e.g. 9.87654E+09 or 9.87654321e+09
+  if (/^[+-]?\d+(\.\d+)?[eE][+-]?\d+$/i.test(str)) {
+    const num = Number(str);
+    if (!isNaN(num)) {
+      str = Math.round(num).toLocaleString('fullwide', { useGrouping: false });
+    }
+  }
+
+  // Remove .0 suffix if Excel outputted a float
+  str = str.replace(/\.0+$/, '');
+
+  // Strip anything that is not digits or +
+  let digits = str.replace(/[^\d+]/g, '');
+
+  // Strip international prefixes if Indian number
+  if (digits.startsWith('+91')) digits = digits.slice(3);
+  else if (digits.startsWith('0091')) digits = digits.slice(4);
+  else if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+  else if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+
+  // Remove any remaining non-digits
+  digits = digits.replace(/\D/g, '');
+
+  return digits;
+};
+
+// Check if a cleaned string is a valid phone number (7 to 15 digits)
+const isLikelyPhone = (val: any): boolean => {
+  const digits = cleanPhoneNumber(val);
+  return digits.length >= 7 && digits.length <= 15;
+};
+
+// Check if a value is purely a serial number or row counter (e.g. 1, 2, 3...)
+const isLikelySerial = (val: any): boolean => {
+  if (val === null || val === undefined) return false;
+  const s = String(val).trim();
+  return /^\d{1,5}$/.test(s) && Number(s) < 100000;
 };
 
 export const ExcelLeadUploadModal: React.FC = () => {
@@ -44,102 +81,120 @@ export const ExcelLeadUploadModal: React.FC = () => {
 
   if (!isExcelUploadModalOpen) return null;
 
-  // Supports both:
-  // 1. Phone number only (1 column) -> auto-generates "Lead (+91 98765 43210)"
-  // 2. Name + Phone + Company + City + Email (multi-column)
-  const parseRows = (text: string): { validRows: Array<{ name: string; phone: string; company: string; city: string; email: string }>; skipped: number } => {
-    const lines = text.trim().split(/\r?\n/).filter((l) => l.trim());
-    if (!lines.length) return { validRows: [], skipped: 0 };
+  // Parse 2D matrix of cells (from Excel workbook or delimited text lines)
+  const parseMatrix = (rawRows: any[][]): { validRows: Array<{ name: string; phone: string; company: string; city: string; email: string }>; skipped: number } => {
+    if (!rawRows || !rawRows.length) return { validRows: [], skipped: 0 };
 
-    // Drop a header row if the first cell is clearly a column name
-    const firstCell = lines[0].split(/[,\t|]/)[0].trim().toLowerCase().replace(/["']/g, '');
-    const headerKeywords = [
-      'name', 'lead name', 'contact', 'contact name', 'customer', 'customer name',
-      'phone', 'phone number', 'phonenumber', 'mobile', 'mobile number', 'number', 'mob', 'telephone'
-    ];
-    const isHeader = headerKeywords.some((h) => firstCell === h || firstCell.startsWith(h));
-    const rows = isHeader ? lines.slice(1) : lines;
+    // Filter out completely blank rows
+    const rows = rawRows.filter(r => Array.isArray(r) && r.some(c => c !== null && c !== undefined && String(c).trim() !== ''));
+    if (!rows.length) return { validRows: [], skipped: 0 };
 
+    // Inspect first row(s) for smart column header identification
+    let headerRowIdx = -1;
+    let nameCol = -1;
+    let phoneCol = -1;
+    let companyCol = -1;
+    let cityCol = -1;
+    let emailCol = -1;
+
+    for (let r = 0; r < Math.min(3, rows.length); r++) {
+      const row = rows[r];
+      const strRow = row.map(c => String(c || '').toLowerCase().trim());
+
+      const pIdx = strRow.findIndex(c => /^(phone|mobile|cell|contact\s*no|contact\s*number|tel|whatsapp)/i.test(c) || c === 'number');
+      const nIdx = strRow.findIndex(c => /^(name|lead\s*name|client\s*name|customer\s*name|contact\s*person|full\s*name)$/i.test(c) || c === 'customer' || c === 'client' || c === 'lead');
+
+      if (pIdx !== -1 || nIdx !== -1) {
+        headerRowIdx = r;
+        phoneCol = pIdx;
+        nameCol = nIdx;
+        companyCol = strRow.findIndex(c => /(company|firm|organization|business|org)/i.test(c));
+        cityCol = strRow.findIndex(c => /(city|location|state|town|region|district)/i.test(c));
+        emailCol = strRow.findIndex(c => /(email|e-mail|mail)/i.test(c));
+        break;
+      }
+    }
+
+    const dataRows = headerRowIdx !== -1 ? rows.slice(headerRowIdx + 1) : rows;
     const validRows: Array<{ name: string; phone: string; company: string; city: string; email: string }> = [];
     let skipped = 0;
 
-    for (let i = 0; i < rows.length; i++) {
-      const line = rows[i];
-      const cleaned = line.replace(/^"|"$/g, '');
-      const parts = cleaned.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)|\t|\|/).map((p) => p.trim().replace(/^"|"$/g, ''));
-      const nonEmpties = parts.filter(Boolean);
-
-      if (!nonEmpties.length) continue;
-
+    for (let i = 0; i < dataRows.length; i++) {
+      const cells = dataRows[i];
       let name = '';
-      let phone = '';
+      let rawPhone = '';
       let company = '';
       let city = '';
       let email = '';
 
-      // Case A: Single Column — Phone Number Only
-      if (nonEmpties.length === 1) {
-        const val = nonEmpties[0];
-        if (isLikelyPhone(val)) {
-          phone = val;
-          name = `Lead ${val}`;
-          company = 'Private Client';
-          city = 'Pan-India';
-        } else {
-          skipped++;
-          continue;
-        }
+      if (headerRowIdx !== -1 && phoneCol !== -1) {
+        // Dedicated header mapped columns
+        rawPhone = cells[phoneCol] != null ? String(cells[phoneCol]) : '';
+        if (nameCol !== -1 && cells[nameCol] != null) name = String(cells[nameCol]).trim();
+        if (companyCol !== -1 && cells[companyCol] != null) company = String(cells[companyCol]).trim();
+        if (cityCol !== -1 && cells[cityCol] != null) city = String(cells[cityCol]).trim();
+        if (emailCol !== -1 && cells[emailCol] != null) email = String(cells[emailCol]).trim();
       } else {
-        // Case B: Multi-Column
-        const col0 = parts[0] || '';
-        const col1 = parts[1] || '';
+        // Fallback positional detection without explicit headers
+        const nonEmpties = cells.filter(c => c !== null && c !== undefined && String(c).trim() !== '');
+        if (nonEmpties.length === 0) continue;
 
-        if (isLikelyPhone(col1)) {
-          // Standard: Col 0 is Name, Col 1 is Phone
-          name = col0 || `Lead ${col1}`;
-          phone = col1;
-          company = parts[2] || 'Private Client';
-          city = parts[3] || 'Pan-India';
-          email = parts[4] || '';
-        } else if (isLikelyPhone(col0)) {
-          // Inverted: Col 0 is Phone, Col 1 is Name
-          phone = col0;
-          name = col1 || `Lead ${col0}`;
-          company = parts[2] || 'Private Client';
-          city = parts[3] || 'Pan-India';
-          email = parts[4] || '';
-        } else {
-          // Search any column for phone digits
-          const phoneIdx = parts.findIndex((p) => isLikelyPhone(p));
-          if (phoneIdx !== -1) {
-            phone = parts[phoneIdx];
-            name = parts[0] || `Lead ${phone}`;
-            company = parts[1] === phone ? (parts[2] || 'Private Client') : (parts[1] || 'Private Client');
-            city = parts[3] || 'Pan-India';
-            email = parts[4] || '';
-          } else {
-            skipped++;
-            continue;
+        // Find cell containing phone number
+        const foundPhoneIdx = cells.findIndex(c => isLikelyPhone(c));
+        if (foundPhoneIdx !== -1) {
+          rawPhone = String(cells[foundPhoneIdx]);
+
+          // Find text candidate with letters for Name (avoiding serial numbers and the phone cell)
+          const nameCandidates = cells.map((c, idx) => ({ c, idx })).filter(
+            item => item.idx !== foundPhoneIdx && item.c != null && /[a-zA-Z]/.test(String(item.c)) && !isLikelySerial(item.c)
+          );
+
+          if (nameCandidates.length > 0) {
+            name = String(nameCandidates[0].c).trim();
+            if (nameCandidates.length > 1) {
+              company = String(nameCandidates[1].c).trim();
+            }
+            if (nameCandidates.length > 2) {
+              city = String(nameCandidates[2].c).trim();
+            }
           }
+
+          // Email cell detection
+          const emailCell = cells.find(c => c != null && String(c).includes('@'));
+          if (emailCell) email = String(emailCell).trim();
         }
       }
 
-      const trimmedPhone = phone.trim();
-      if (!trimmedPhone) {
+      const cleanedPhone = cleanPhoneNumber(rawPhone);
+      if (!cleanedPhone || cleanedPhone.length < 7) {
         skipped++;
         continue;
       }
 
+      // Guard: Never allow pure integers or serial IDs (e.g. "1", "2") to become the lead name
+      if (!name || isLikelySerial(name) || /^\d+$/.test(name)) {
+        name = `Lead ${cleanedPhone}`;
+      }
+
       validRows.push({
-        name: name.trim() || `Lead ${trimmedPhone}`,
-        phone: trimmedPhone,
-        company: company.trim() || 'Private Client',
-        city: city.trim() || 'Pan-India',
-        email: email.trim() || '',
+        name,
+        phone: cleanedPhone,
+        company: company || 'Private Client',
+        city: city || 'Pan-India',
+        email: email || '',
       });
     }
 
     return { validRows, skipped };
+  };
+
+  const parseDelimitedText = (text: string) => {
+    const lines = text.trim().split(/\r?\n/).filter((l) => l.trim());
+    const rawRows = lines.map((line) => {
+      const cleaned = line.replace(/^"|"$/g, '');
+      return cleaned.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)|\t|\|/).map((p) => p.trim().replace(/^"|"$/g, ''));
+    });
+    return parseMatrix(rawRows);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,11 +211,12 @@ export const ExcelLeadUploadModal: React.FC = () => {
       reader.onload = (event) => {
         try {
           const buffer = event.target?.result as ArrayBuffer;
-          const workbook = XLSX.read(buffer, { type: 'array' });
+          const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
           const sheetName = workbook.SheetNames[0];
           const sheet = workbook.Sheets[sheetName];
-          const csvText = XLSX.utils.sheet_to_csv(sheet);
-          const { validRows, skipped } = parseRows(csvText);
+          // Use raw: true so numbers are exact, avoiding loss of precision or scientific notation
+          const rawMatrix = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, raw: true, defval: '' });
+          const { validRows, skipped } = parseMatrix(rawMatrix);
           setParsedLeads(validRows);
           setSkippedCount(skipped);
           if (!validRows.length) {
@@ -178,7 +234,7 @@ export const ExcelLeadUploadModal: React.FC = () => {
     } else {
       const reader = new FileReader();
       reader.onload = () => {
-        const { validRows, skipped } = parseRows(String(reader.result ?? ''));
+        const { validRows, skipped } = parseDelimitedText(String(reader.result ?? ''));
         setParsedLeads(validRows);
         setSkippedCount(skipped);
         if (!validRows.length) {
@@ -195,7 +251,7 @@ export const ExcelLeadUploadModal: React.FC = () => {
 
   const handleParseCustomText = () => {
     if (!pastedData.trim()) return;
-    const { validRows, skipped } = parseRows(pastedData);
+    const { validRows, skipped } = parseDelimitedText(pastedData);
     setSkippedCount(skipped);
     if (!validRows.length) {
       setParseError(`No valid leads found. Supported: Phone numbers only, or Name & Phone.${skipped > 0 ? ` (${skipped} invalid rows skipped)` : ''}`);

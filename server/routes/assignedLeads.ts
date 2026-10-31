@@ -153,9 +153,84 @@ router.post('/bulk', (req: Request, res: Response) => {
     }
 
     const createdBatch = db.prepare('SELECT * FROM lead_batches WHERE id = ?').get(batchId);
-    const createdLeads = db.prepare('SELECT * FROM assigned_leads WHERE batchId = ?').all(batchId);
+    
+    // For large uploads (> 500 leads), avoid serializing 25MB JSON string which blocks event loop and swap
+    if (Array.isArray(leads) && leads.length > 500) {
+      return res.status(201).json({ 
+        success: true, 
+        count: leads.length, 
+        batchId, 
+        batch: createdBatch,
+        isLargeBatch: true 
+      });
+    }
 
-    return res.status(201).json({ batch: createdBatch, leads: createdLeads });
+    const createdLeads = db.prepare('SELECT * FROM assigned_leads WHERE batchId = ?').all(batchId);
+    return res.status(201).json({ success: true, batch: createdBatch, leads: createdLeads });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// POST /api/assigned-leads/auto-distribute (Atomic high-speed server-side lead distribution)
+router.post('/auto-distribute', (req: Request, res: Response) => {
+  try {
+    const { telecallers } = req.body;
+    if (!Array.isArray(telecallers) || !telecallers.length) {
+      return res.status(400).json({ error: 'telecallers array is required' });
+    }
+
+    const distributeTx = db.transaction(() => {
+      // 1. First priority: leads that are explicitly unassigned
+      let candidates = db.prepare(`
+        SELECT id FROM assigned_leads
+        WHERE assignedToEmployeeId IS NULL 
+           OR assignedToEmployeeId = '' 
+           OR assignedToEmployeeId = 'UNASSIGNED'
+           OR assignedToEmployeeName = 'Unassigned'
+        ORDER BY id ASC
+      `).all() as { id: string }[];
+
+      // 2. If no unassigned leads exist in the pool, fallback to fresh uncalled leads (callCount = 0)
+      if (candidates.length === 0) {
+        candidates = db.prepare(`
+          SELECT id FROM assigned_leads
+          WHERE (callCount = 0 OR callCount IS NULL) AND status != 'CONVERTED'
+          ORDER BY id ASC
+        `).all() as { id: string }[];
+      }
+
+      if (candidates.length === 0) {
+        return { count: 0, totalCandidates: 0 };
+      }
+
+      const updateStmt = db.prepare(`
+        UPDATE assigned_leads
+        SET assignedToEmployeeId = ?, assignedToEmployeeName = ?, updatedAt = ?
+        WHERE id = ?
+      `);
+
+      const now = new Date().toISOString();
+      const perCaller = Math.ceil(candidates.length / telecallers.length);
+      let updatedCount = 0;
+
+      for (let i = 0; i < telecallers.length; i++) {
+        const caller = telecallers[i];
+        const callerId = String(caller.id || '');
+        const callerName = String(caller.name || 'Telecaller');
+        const chunk = candidates.slice(i * perCaller, (i + 1) * perCaller);
+        
+        for (const lead of chunk) {
+          updateStmt.run(callerId, callerName, now, lead.id);
+          updatedCount++;
+        }
+      }
+
+      return { count: updatedCount, totalCandidates: candidates.length, callersCount: telecallers.length };
+    });
+
+    const result = distributeTx();
+    return res.status(200).json({ success: true, ...result });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }

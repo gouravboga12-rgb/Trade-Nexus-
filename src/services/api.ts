@@ -395,6 +395,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  autoDistributeAssignedLeads: (telecallers: Array<{ id: string; name: string }>) =>
+    request<{ success: boolean; count: number; totalCandidates: number; callersCount: number }>('/assigned-leads/auto-distribute', {
+      method: 'POST',
+      body: JSON.stringify({ telecallers }),
+    }),
   reclaimAssignedLeads: (data: { employeeId?: string; batchId?: string; leadIds?: string[]; onlyFresh?: boolean }) =>
     request<{ success: boolean; reclaimedCount: number }>('/assigned-leads/reclaim', {
       method: 'POST',
