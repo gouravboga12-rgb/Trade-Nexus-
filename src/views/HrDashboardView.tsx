@@ -1401,10 +1401,14 @@ export const HrDashboardView: React.FC = () => {
                   {/* 4 Metric Columns for this team */}
                   {(() => {
                     const teamEmps = teamMembers.filter(m => isMemberOfSquad(m, selectedTeamGroup.name));
+                    const teamMemberNames = new Set(teamEmps.map(m => (m.name || '').trim().toLowerCase()));
+                    const teamTodayPayments = verifiedPayments.filter(
+                      p => (p.timestamp || '').slice(0, 10) === todayYMD && teamMemberNames.has((p.telecallerName || '').trim().toLowerCase())
+                    );
                     const teamDials = teamEmps.reduce((s, m) => s + (m.dialsToday || 0), 0);
                     const teamGoals = teamEmps.reduce((s, m) => s + (m.goalCalls || 0), 0);
-                    const teamWon = teamEmps.filter(m => m.salesAchieved > 0).length;
-                    const teamRev = teamEmps.reduce((s, m) => s + (m.salesAchieved || 0), 0);
+                    const teamWon = teamTodayPayments.length;
+                    const teamRev = teamTodayPayments.reduce((s, p) => s + (p.dealAmount || 0), 0);
                     const teamPresent = teamEmps.filter(m => m.attendanceStatus === 'PRESENT').length;
                     const teamLate = teamEmps.filter(m => m.attendanceStatus === 'LATE').length;
                     const teamLeave = teamEmps.filter(m => m.attendanceStatus === 'ON_LEAVE').length;
@@ -1445,7 +1449,7 @@ export const HrDashboardView: React.FC = () => {
                               {formatInLakhs(teamRev)}
                             </strong>
                             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mt-0.5">
-                              Revenue
+                              Today's Revenue
                             </span>
                           </div>
                         </div>
@@ -1675,10 +1679,10 @@ export const HrDashboardView: React.FC = () => {
 
                     <div className="px-1">
                       <strong className="text-base font-display font-black text-[#00A88B] block leading-tight">
-                        {formatInLakhs(totalSalesAchieved)}
+                        {formatInLakhs(todayVerifiedSales)}
                       </strong>
                       <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mt-0.5">
-                        Revenue
+                        Today's Revenue
                       </span>
                     </div>
                   </div>
@@ -1703,11 +1707,15 @@ export const HrDashboardView: React.FC = () => {
                 <div className="space-y-3">
                   {teamGroups.map((group) => {
                     const groupMembers = teamMembers.filter(m => isMemberOfSquad(m, group.name));
+                    const groupMemberNames = new Set(groupMembers.map(m => (m.name || '').trim().toLowerCase()));
+                    const groupTodayPayments = verifiedPayments.filter(
+                      p => (p.timestamp || '').slice(0, 10) === todayYMD && groupMemberNames.has((p.telecallerName || '').trim().toLowerCase())
+                    );
                     const groupPresent = groupMembers.filter(m => m.attendanceStatus === 'PRESENT').length;
                     const groupLate = groupMembers.filter(m => m.attendanceStatus === 'LATE').length;
                     const groupLeave = groupMembers.filter(m => m.attendanceStatus === 'ON_LEAVE').length;
                     const groupDials = groupMembers.reduce((s, m) => s + (m.dialsToday || 0), 0);
-                    const groupSales = groupMembers.reduce((s, m) => s + (m.salesAchieved || 0), 0);
+                    const groupTodaySales = groupTodayPayments.reduce((s, p) => s + (p.dealAmount || 0), 0);
 
                     // Soft squircle styling based on squad type
                     const isTeal = group.name.includes('HNI');
@@ -1758,8 +1766,8 @@ export const HrDashboardView: React.FC = () => {
                             <strong className="text-xs font-mono font-black text-[#0A2540]">{groupDials} calls</strong>
                           </div>
                           <div className="bg-white rounded-lg py-1 px-1 shadow-2xs border border-slate-100/90">
-                            <span className="text-[9px] text-emerald-600 block font-bold uppercase tracking-wider">Revenue</span>
-                            <strong className="text-xs font-mono font-black text-[#00A88B]">{formatInLakhs(groupSales)}</strong>
+                            <span className="text-[9px] text-emerald-600 block font-bold uppercase tracking-wider">Today's Sales</span>
+                            <strong className="text-xs font-mono font-black text-[#00A88B]">{formatInLakhs(groupTodaySales)}</strong>
                           </div>
                           <div className="bg-white rounded-lg py-1 px-1 shadow-2xs border border-slate-100/90">
                             <span className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">Attendance</span>
