@@ -26,6 +26,7 @@ import {
   ExperienceCertData,
   RelievingLetterData,
   InvoiceData,
+  TopPerformer,
   NewEmployeeInput,
   CompanyHoliday,
   CalendarSettings,
@@ -312,6 +313,14 @@ interface AppContextType {
   sendOnboardingEmailToEmployee: (employee: Partial<TeamMember>, offerLetter?: Partial<OfferLetterData>) => Promise<boolean>;
 
   updateEmployeeAvatar: (empId: string, photoDataUrl: string) => void;
+
+  // Top Performers Showcase State & Actions
+  topPerformers: TopPerformer[];
+  isTopPerformersModalOpen: boolean;
+  setIsTopPerformersModalOpen: (open: boolean) => void;
+  fetchTopPerformers: (month?: string) => Promise<void>;
+  saveTopPerformer: (data: Partial<TopPerformer>) => Promise<boolean>;
+  deleteTopPerformer: (id: string) => Promise<boolean>;
   
   // Backend connection status & on-demand loading
   isDataLoading: boolean;
@@ -478,6 +487,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [invoices, setInvoices] = useState<InvoiceData[]>(INITIAL_INVOICES);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+
+  // Top Performers Showcase State
+  const [topPerformers, setTopPerformers] = useState<TopPerformer[]>([]);
+  const [isTopPerformersModalOpen, setIsTopPerformersModalOpen] = useState(false);
 
   // Team Leader Module State
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -867,6 +880,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     invoices: setInvoices,
     experienceCerts: setExperienceCerts,
     relievingLetters: setRelievingLetters,
+    topPerformers: setTopPerformers,
   });
 
   const [resourceStatus, setResourceStatus] = useState<Record<ResourceKey, ResourceStatus>>(
@@ -2100,6 +2114,46 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setInvoices(prev => [target, ...prev]);
       }
       triggerToast(`✗ Failed to delete invoice: ${err?.message || 'Server error'}`);
+      return false;
+    }
+  };
+
+  const fetchTopPerformers = async (month?: string) => {
+    try {
+      const data = await api.getTopPerformers(month);
+      setTopPerformers(data);
+    } catch (err) {
+      console.warn('Failed to fetch top performers:', err);
+    }
+  };
+
+  const saveTopPerformer = async (data: Partial<TopPerformer>): Promise<boolean> => {
+    try {
+      const saved = await api.saveTopPerformer(data);
+      setTopPerformers(prev => {
+        const filtered = prev.filter(p => p.id !== saved.id && p.rank !== saved.rank);
+        return [...filtered, saved].sort((a, b) => a.rank - b.rank);
+      });
+      triggerToast(`✓ Star Performer #${saved.rank} saved and published!`);
+      refreshResources(['topPerformers']);
+      return true;
+    } catch (err: any) {
+      console.warn('Failed to save top performer:', err);
+      triggerToast(`✕ Failed to save top performer: ${err.message || 'Server error'}`);
+      return false;
+    }
+  };
+
+  const deleteTopPerformer = async (id: string): Promise<boolean> => {
+    try {
+      await api.deleteTopPerformer(id);
+      setTopPerformers(prev => prev.filter(p => p.id !== id));
+      triggerToast('✓ Top performer removed from showcase');
+      refreshResources(['topPerformers']);
+      return true;
+    } catch (err: any) {
+      console.warn('Failed to delete top performer:', err);
+      triggerToast(`✕ Failed to delete top performer: ${err.message || 'Server error'}`);
       return false;
     }
   };
@@ -3725,6 +3779,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updateInvoiceStatus,
         updateInvoice,
         deleteInvoice,
+        topPerformers,
+        isTopPerformersModalOpen,
+        setIsTopPerformersModalOpen,
+        fetchTopPerformers,
+        saveTopPerformer,
+        deleteTopPerformer,
         sendPayslipEmailToEmployee,
         sendRelievingLetterEmailToEmployee,
         sendExperienceCertEmailToEmployee,

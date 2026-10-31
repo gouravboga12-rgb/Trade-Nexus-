@@ -33,6 +33,7 @@ import mediaRoutes from './routes/media.js';
 import invoicesRoutes from './routes/invoices.js';
 import experienceCertsRoutes from './routes/experienceCerts.js';
 import relievingLettersRoutes from './routes/relievingLetters.js';
+import topPerformersRoutes from './routes/topPerformers.js';
 
 // Preserve backup before any startup schema checks or queries
 createDatabaseBackup('startup');
@@ -107,6 +108,7 @@ app.use('/api/calendar', authenticate, calendarRoutes);
 app.use('/api/invoices', authenticate, invoicesRoutes);
 app.use('/api/experience-certs', authenticate, experienceCertsRoutes);
 app.use('/api/relieving-letters', authenticate, relievingLettersRoutes);
+app.use('/api/top-performers', authenticate, topPerformersRoutes);
 app.use('/api/media', mediaRoutes);
 
 // Global Error Handler

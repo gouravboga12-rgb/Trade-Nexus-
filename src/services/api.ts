@@ -25,6 +25,7 @@ import {
   InvoiceData,
   RelievingLetterData,
   ExperienceCertData,
+  TopPerformer,
 } from '../types';
 
 export type { AuthUser };
@@ -629,6 +630,16 @@ export const api = {
       invoice,
       'POST'
     ),
+
+  // Top Performers Showcase ("Hall of Fame")
+  getTopPerformers: (month?: string) => {
+    const q = month ? `?month=${encodeURIComponent(month)}` : '';
+    return request<TopPerformer[]>(`/top-performers${q}`);
+  },
+  saveTopPerformer: (data: Partial<TopPerformer>) =>
+    request<TopPerformer>('/top-performers', { method: 'POST', body: JSON.stringify(data) }),
+  deleteTopPerformer: (id: string) =>
+    request<{ success: boolean; message: string }>(`/top-performers/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };
 
 /**

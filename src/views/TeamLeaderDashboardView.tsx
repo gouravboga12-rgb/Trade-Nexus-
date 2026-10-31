@@ -37,6 +37,7 @@ import { RejectedLeaveBanner } from '../components/common/RejectedLeaveBanner';
 import { Employee360ProfileView } from './Employee360ProfileView';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { MeetingTimePicker } from '../components/common/MeetingTimePicker';
+import { TopPerformersShowcase } from '../components/common/TopPerformersShowcase';
 
 export const TeamLeaderDashboardView: React.FC = () => {
   const { 
@@ -855,6 +856,9 @@ export const TeamLeaderDashboardView: React.FC = () => {
                 )}
               </div>
             )}
+
+            {/* 🏆 Monthly Top Sales Champions Showcase (Hall of Fame) */}
+            <TopPerformersShowcase />
 
             {/* Team Overview Section (Today's Summary) */}
             <div className="space-y-2">

@@ -894,5 +894,30 @@ function runMigrations() {
   } catch (e) {
     // Ignore if table not yet initialized
   }
+
+  // Top Sales Performers Showcase ("Hall of Fame")
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS top_performers (
+        id TEXT PRIMARY KEY,
+        monthYear TEXT NOT NULL,
+        rank INTEGER NOT NULL,
+        employeeId TEXT,
+        employeeName TEXT NOT NULL,
+        designation TEXT NOT NULL,
+        salesAmount REAL NOT NULL DEFAULT 0,
+        leadsClosedCount INTEGER NOT NULL DEFAULT 0,
+        photoUrl TEXT,
+        badgeNote TEXT,
+        isActive INTEGER DEFAULT 1,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_top_performers_rank ON top_performers(rank);
+      CREATE INDEX IF NOT EXISTS idx_top_performers_active ON top_performers(isActive);
+    `);
+  } catch (e) {
+    console.error('[SQLite DB] Failed to create top_performers table:', e);
+  }
 }
 

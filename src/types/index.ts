@@ -614,3 +614,19 @@ export interface InvoiceData {
   status: 'PAID' | 'PENDING' | 'SENT' | 'OVERDUE';
 }
 
+export interface TopPerformer {
+  id: string;
+  monthYear: string;
+  rank: 1 | 2 | 3;
+  employeeId?: string;
+  employeeName: string;
+  designation: string;
+  salesAmount: number;
+  leadsClosedCount: number;
+  photoUrl?: string;
+  badgeNote?: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { RejectedLeaveBanner } from '../components/common/RejectedLeaveBanner';
 import { sumVerifiedRevenue } from '../utils/revenueUtils';
+import { TopPerformersShowcase } from '../components/common/TopPerformersShowcase';
 
 export const TelecallerHomeView: React.FC = () => {
   const { 
@@ -398,6 +399,9 @@ export const TelecallerHomeView: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* 🏆 Monthly Top Sales Champions Showcase (Hall of Fame) */}
+      <TopPerformersShowcase />
 
       {/* 3. Today's Calling Goal Progress Card */}
       <div className="nexus-card p-4 bg-white border border-slate-200 shadow-sm flex flex-col justify-between">

@@ -54,6 +54,7 @@ import {
   Undo2,
   ChevronDown,
   ChevronUp,
+  Trophy,
 } from 'lucide-react';
 import { ExcelLeadUploadModal } from '../components/modals/ExcelLeadUploadModal';
 import { AddEmployeeModal } from '../components/modals/AddEmployeeModal';
@@ -66,6 +67,8 @@ import { AdminTargetSettingsModal } from '../components/modals/AdminTargetSettin
 import { AdminScheduleMeetingModal } from '../components/modals/AdminScheduleMeetingModal';
 import { GeofenceLocationModal } from '../components/modals/GeofenceLocationModal';
 import { InAppLiveMapModal } from '../components/modals/InAppLiveMapModal';
+import { TopPerformersModal } from '../components/modals/TopPerformersModal';
+import { TopPerformersShowcase } from '../components/common/TopPerformersShowcase';
 import { OfficeSettings, TeamGroup, TeamMember, UserRole, LeaveRequest, PaymentVerificationItem, AttendanceRecord } from '../types';
 import { api } from '../services/api';
 import { Employee360ProfileView } from './Employee360ProfileView';
@@ -145,6 +148,9 @@ export const AdminDashboardView: React.FC = () => {
     calendarSettings,
     updateCalendarSettings,
     reEvaluateTodayAttendance,
+    topPerformers,
+    isTopPerformersModalOpen,
+    setIsTopPerformersModalOpen,
   } = useApp();
 
   useScreenData('adminDashboard');
@@ -765,6 +771,9 @@ export const AdminDashboardView: React.FC = () => {
                 <span>Add Staff</span>
               </button>
             </div>
+
+            {/* 🏆 Monthly Top Sales Champions Showcase (Hall of Fame) */}
+            <TopPerformersShowcase onManage={() => setIsTopPerformersModalOpen(true)} />
 
             {/* 📹 Active LIVE & Scheduled Meeting Alerts for Super Admin */}
             {(() => {
@@ -3484,6 +3493,30 @@ export const AdminDashboardView: React.FC = () => {
                 <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-purple-600 transition-colors" />
               </div>
 
+              {/* Top Sales Champions (Hall of Fame) */}
+              <div
+                onClick={() => setIsTopPerformersModalOpen(true)}
+                className="bg-white border border-slate-200/90 hover:border-amber-400 rounded-2xl p-4 shadow-2xs flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
+                    <Trophy className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-sm text-[#0A2540] group-hover:text-amber-600 transition-colors">
+                        Top Sales Champions
+                      </h4>
+                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-mono">
+                        Hall of Fame
+                      </span>
+                    </div>
+                    <span className="text-xs text-slate-500">Showcase top 1, 2, 3 performers with photos, sales &amp; leads</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-amber-600 transition-colors" />
+              </div>
+
               {/* Attendance Photo Audit */}
               <div
                 onClick={() => setTab('attendance_verification')}
@@ -5491,6 +5524,12 @@ export const AdminDashboardView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Top Performers Management Modal */}
+      <TopPerformersModal
+        isOpen={isTopPerformersModalOpen}
+        onClose={() => setIsTopPerformersModalOpen(false)}
+      />
 
     </div>
   );

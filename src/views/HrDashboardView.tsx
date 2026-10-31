@@ -58,6 +58,7 @@ import { OnboardingEmployee, ExitEmployee, TeamMember, TeamGroup, PayslipItem } 
 import { AddEmployeeModal } from '../components/modals/AddEmployeeModal';
 import { PayrollBuilderModal } from '../components/modals/PayrollBuilderModal';
 import { computePayrollTotals } from '../components/payroll/payrollTemplate';
+import { TopPerformersShowcase } from '../components/common/TopPerformersShowcase';
 import { RejectedLeaveBanner } from '../components/common/RejectedLeaveBanner';
 import { OfferLetterModal } from '../components/modals/OfferLetterModal';
 import { GenerateOfferLetterModal } from '../components/modals/GenerateOfferLetterModal';
@@ -664,6 +665,9 @@ export const HrDashboardView: React.FC = () => {
                 </div>
               );
             })()}
+
+            {/* 🏆 Monthly Top Sales Champions Showcase (Hall of Fame) */}
+            <TopPerformersShowcase />
 
             {/* 3 Top Stat Cards */}
             <div className="grid grid-cols-3 gap-2.5">
