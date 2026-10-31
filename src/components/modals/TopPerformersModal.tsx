@@ -13,7 +13,8 @@ import {
   AlertCircle,
   Search,
   ChevronDown,
-  Check
+  Check,
+  Plus
 } from 'lucide-react';
 import { TopPerformer } from '../../types';
 
@@ -27,7 +28,19 @@ export const TopPerformersModal: React.FC<TopPerformersModalProps> = ({ isOpen, 
 
   const currentDefaultMonth = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
   const [selectedMonth, setSelectedMonth] = useState<string>(currentDefaultMonth);
-  const [activeRankTab, setActiveRankTab] = useState<1 | 2 | 3>(1);
+
+  // Dynamic Ranks List: Admin can dynamically add or edit any rank slot
+  const existingRanks = useMemo(() => topPerformers.map(p => p.rank), [topPerformers]);
+  const [availableRanks, setAvailableRanks] = useState<number[]>([1, 2, 3]);
+  const [activeRankTab, setActiveRankTab] = useState<number>(1);
+
+  // Sync available ranks when topPerformers change
+  useEffect(() => {
+    setAvailableRanks(prev => {
+      const merged = Array.from(new Set([...prev, ...existingRanks]));
+      return merged.sort((a, b) => a - b);
+    });
+  }, [existingRanks]);
 
   // Searchable Staff Dropdown State
   const [isStaffDropdownOpen, setIsStaffDropdownOpen] = useState<boolean>(false);
@@ -115,7 +128,7 @@ export const TopPerformersModal: React.FC<TopPerformersModalProps> = ({ isOpen, 
       if (matched.role) {
         setDesignation(matched.role);
       }
-      // If employee already has a photo/avatar
+      // If employee already has an avatar
       if (matched.avatar && (matched.avatar.startsWith('data:image') || matched.avatar.startsWith('http') || matched.avatar.startsWith('/'))) {
         setPhotoUrl(matched.avatar);
       }
@@ -140,7 +153,29 @@ export const TopPerformersModal: React.FC<TopPerformersModalProps> = ({ isOpen, 
     reader.readAsDataURL(file);
   };
 
-  // Handle Save
+  // Add a dynamic rank slot
+  const handleAddRankSlot = () => {
+    const nextRank = (availableRanks.length > 0 ? Math.max(...availableRanks) : 0) + 1;
+    setAvailableRanks(prev => [...prev, nextRank]);
+    setActiveRankTab(nextRank);
+  };
+
+  // Remove a dynamic rank slot
+  const handleRemoveRankSlot = async (rankToRemove: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const existing = topPerformers.find(p => p.rank === rankToRemove);
+    if (existing) {
+      if (!window.confirm(`Remove Rank #${rankToRemove} (${existing.employeeName}) from the showcase?`)) return;
+      await deleteTopPerformer(existing.id);
+    }
+    setAvailableRanks(prev => prev.filter(r => r !== rankToRemove));
+    if (activeRankTab === rankToRemove) {
+      const remaining = availableRanks.filter(r => r !== rankToRemove);
+      setActiveRankTab(remaining.length > 0 ? remaining[0] : 1);
+    }
+  };
+
+  // Handle Save & Publish -> Closes Modal immediately without asking for next member!
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!employeeName.trim() || !designation.trim()) {
@@ -168,10 +203,7 @@ export const TopPerformersModal: React.FC<TopPerformersModalProps> = ({ isOpen, 
 
       const success = await saveTopPerformer(payload);
       if (success) {
-        // Stay in modal so admin can easily set Rank 2 and Rank 3
-        if (activeRankTab < 3) {
-          setActiveRankTab((prev) => (prev + 1) as 2 | 3);
-        }
+        onClose(); // Closes immediately!
       }
     } finally {
       setIsSubmitting(false);
@@ -198,10 +230,6 @@ export const TopPerformersModal: React.FC<TopPerformersModalProps> = ({ isOpen, 
       }
     }
   };
-
-  const existingRank1 = topPerformers.find(p => p.rank === 1);
-  const existingRank2 = topPerformers.find(p => p.rank === 2);
-  const existingRank3 = topPerformers.find(p => p.rank === 3);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -253,102 +281,96 @@ export const TopPerformersModal: React.FC<TopPerformersModalProps> = ({ isOpen, 
             />
           </div>
 
-          {/* Rank Tabs (1st, 2nd, 3rd) */}
-          <div className="grid grid-cols-3 gap-2">
-            {/* Rank 1 Button */}
-            <button
-              type="button"
-              onClick={() => setActiveRankTab(1)}
-              className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                activeRankTab === 1
-                  ? 'border-amber-400 bg-amber-50/70 shadow-xs ring-2 ring-amber-400/20'
-                  : 'border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-amber-700 flex items-center gap-1">
-                  <Crown className="w-3.5 h-3.5 fill-amber-500 text-amber-600" />
-                  <span>Rank #1</span>
+          {/* Dynamic Rank Tabs */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-[#0A2540]">
+                  Dynamic Rank Slots ({availableRanks.length})
                 </span>
-                {existingRank1 ? (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" title="Active" />
-                ) : (
-                  <span className="w-2 h-2 rounded-full bg-slate-300" title="Empty" />
-                )}
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                  Click slot to edit
+                </span>
               </div>
-              <p className="text-[11px] font-bold text-[#0A2540] truncate mt-1">
-                {existingRank1?.employeeName || 'Empty'}
-              </p>
-              <span className="text-[10px] text-slate-400 block truncate">
-                {existingRank1 ? `₹${existingRank1.salesAmount.toLocaleString('en-IN')}` : 'Click to set'}
-              </span>
-            </button>
+              <button
+                type="button"
+                onClick={handleAddRankSlot}
+                className="flex items-center gap-1 text-xs font-bold text-amber-800 hover:text-amber-900 bg-amber-100/70 hover:bg-amber-200/70 px-2.5 py-1 rounded-xl border border-amber-300 transition-colors cursor-pointer shadow-2xs"
+                title="Add a new rank position (e.g. Rank 4, Rank 5)"
+              >
+                <Plus className="w-3.5 h-3.5 text-amber-700" />
+                <span>Add Rank Slot</span>
+              </button>
+            </div>
 
-            {/* Rank 2 Button */}
-            <button
-              type="button"
-              onClick={() => setActiveRankTab(2)}
-              className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                activeRankTab === 2
-                  ? 'border-slate-400 bg-slate-100 shadow-xs ring-2 ring-slate-400/20'
-                  : 'border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-slate-700 flex items-center gap-1">
-                  <Award className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Rank #2</span>
-                </span>
-                {existingRank2 ? (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" title="Active" />
-                ) : (
-                  <span className="w-2 h-2 rounded-full bg-slate-300" title="Empty" />
-                )}
-              </div>
-              <p className="text-[11px] font-bold text-[#0A2540] truncate mt-1">
-                {existingRank2?.employeeName || 'Empty'}
-              </p>
-              <span className="text-[10px] text-slate-400 block truncate">
-                {existingRank2 ? `₹${existingRank2.salesAmount.toLocaleString('en-IN')}` : 'Click to set'}
-              </span>
-            </button>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {availableRanks.map(rank => {
+                const performer = topPerformers.find(p => p.rank === rank);
+                const isActive = activeRankTab === rank;
+                return (
+                  <div
+                    key={rank}
+                    onClick={() => setActiveRankTab(rank)}
+                    className={`relative p-3 rounded-2xl border text-left transition-all cursor-pointer group ${
+                      isActive
+                        ? rank === 1
+                          ? 'border-amber-400 bg-amber-50/70 shadow-xs ring-2 ring-amber-400/20'
+                          : rank === 2
+                          ? 'border-slate-400 bg-slate-100 shadow-xs ring-2 ring-slate-400/20'
+                          : 'border-amber-600 bg-orange-50/70 shadow-xs ring-2 ring-amber-600/20'
+                        : 'border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-black flex items-center gap-1 ${
+                        rank === 1 ? 'text-amber-700' : rank === 2 ? 'text-slate-700' : 'text-amber-800'
+                      }`}>
+                        {rank === 1 ? (
+                          <Crown className="w-3.5 h-3.5 fill-amber-500 text-amber-600" />
+                        ) : (
+                          <Award className="w-3.5 h-3.5" />
+                        )}
+                        <span>Rank #{rank}</span>
+                      </span>
 
-            {/* Rank 3 Button */}
-            <button
-              type="button"
-              onClick={() => setActiveRankTab(3)}
-              className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                activeRankTab === 3
-                  ? 'border-amber-600 bg-orange-50/70 shadow-xs ring-2 ring-amber-600/20'
-                  : 'border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-amber-800 flex items-center gap-1">
-                  <Award className="w-3.5 h-3.5 text-amber-700" />
-                  <span>Rank #3</span>
-                </span>
-                {existingRank3 ? (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" title="Active" />
-                ) : (
-                  <span className="w-2 h-2 rounded-full bg-slate-300" title="Empty" />
-                )}
-              </div>
-              <p className="text-[11px] font-bold text-[#0A2540] truncate mt-1">
-                {existingRank3?.employeeName || 'Empty'}
-              </p>
-              <span className="text-[10px] text-slate-400 block truncate">
-                {existingRank3 ? `₹${existingRank3.salesAmount.toLocaleString('en-IN')}` : 'Click to set'}
-              </span>
-            </button>
+                      <div className="flex items-center gap-1.5">
+                        {performer ? (
+                          <span className="w-2 h-2 rounded-full bg-emerald-500" title="Active Performer" />
+                        ) : (
+                          <span className="w-2 h-2 rounded-full bg-slate-300" title="Empty Slot" />
+                        )}
+
+                        {availableRanks.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleRemoveRankSlot(rank, e)}
+                            className="text-slate-300 hover:text-rose-500 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Delete rank slot"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] font-bold text-[#0A2540] truncate mt-1">
+                      {performer?.employeeName || 'Empty'}
+                    </p>
+                    <span className="text-[10px] text-slate-400 block truncate">
+                      {performer ? `₹${performer.salesAmount.toLocaleString('en-IN')}` : 'Click to set'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Form for Active Rank */}
           <form onSubmit={handleSave} className="space-y-4 pt-1">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5 font-mono">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5 font-mono">
                 <span>Configuring Rank #{activeRankTab}</span>
-                {activeRankTab === 1 ? '🥇 Champion' : activeRankTab === 2 ? '🥈 Runner Up' : '🥉 2nd Runner Up'}
+                {activeRankTab === 1 ? '🥇 Champion' : activeRankTab === 2 ? '🥈 Runner Up' : activeRankTab === 3 ? '🥉 2nd Runner Up' : `🌟 Performer #${activeRankTab}`}
               </h4>
 
               {topPerformers.some(p => p.rank === activeRankTab) && (
@@ -362,6 +384,33 @@ export const TopPerformersModal: React.FC<TopPerformersModalProps> = ({ isOpen, 
                   <span>Clear Rank #{activeRankTab}</span>
                 </button>
               )}
+            </div>
+
+            {/* Dynamic Rank Number Selector / Editor */}
+            <div className="p-3 bg-amber-50/60 rounded-2xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div>
+                <label className="text-xs font-bold text-[#0A2540] block">
+                  Dynamic Rank Position
+                </label>
+                <span className="text-[11px] text-slate-500">
+                  Admin dynamic access: assign any rank number (e.g. 1, 2, 3, 4, 5...)
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-600 font-mono">Rank #</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="99"
+                  value={activeRankTab}
+                  onChange={(e) => {
+                    const val = Math.max(1, parseInt(e.target.value) || 1);
+                    setActiveRankTab(val);
+                    setAvailableRanks(prev => Array.from(new Set([...prev, val])).sort((a, b) => a - b));
+                  }}
+                  className="w-20 px-3 py-1.5 text-xs font-black text-center bg-white border border-amber-300 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 shadow-inner"
+                />
+              </div>
             </div>
 
             {/* Searchable Quick Pick from Staff Dropdown */}
@@ -449,22 +498,22 @@ export const TopPerformersModal: React.FC<TopPerformersModalProps> = ({ isOpen, 
                     <button
                       type="button"
                       onClick={() => {
-                        setEmployeeId('');
+                        handleSelectStaff('');
                         setIsStaffDropdownOpen(false);
                       }}
-                      className="w-full px-3.5 py-2 text-left text-xs text-slate-500 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer font-medium"
+                      className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-500 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer"
                     >
-                      <span>-- Enter custom details manually --</span>
-                      {!employeeId && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                      <span>-- Custom / Manual Entry (No linked profile) --</span>
+                      {!employeeId && <Check className="w-3.5 h-3.5 text-amber-600" />}
                     </button>
 
                     {filteredStaff.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-slate-400 font-medium">
-                        No employees found matching "{staffSearchQuery}"
+                      <div className="px-4 py-6 text-center text-xs text-slate-400">
+                        No team members matching "{staffSearchQuery}"
                       </div>
                     ) : (
                       filteredStaff.map((m) => {
-                        const isSelected = m.id === employeeId;
+                        const isSelected = employeeId === m.id;
                         return (
                           <button
                             key={m.id}
@@ -473,8 +522,8 @@ export const TopPerformersModal: React.FC<TopPerformersModalProps> = ({ isOpen, 
                               handleSelectStaff(m.id);
                               setIsStaffDropdownOpen(false);
                             }}
-                            className={`w-full px-3.5 py-2 text-left text-xs flex items-center justify-between gap-2.5 transition-colors cursor-pointer ${
-                              isSelected ? 'bg-amber-50/80 text-amber-900 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                            className={`w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                              isSelected ? 'bg-amber-50/80' : 'hover:bg-slate-50'
                             }`}
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
@@ -486,137 +535,110 @@ export const TopPerformersModal: React.FC<TopPerformersModalProps> = ({ isOpen, 
                                 </div>
                               )}
                               <div className="min-w-0">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="font-bold text-[#0A2540] truncate">{m.name}</span>
-                                  {m.empCode && (
-                                    <span className="text-[9px] font-mono text-slate-400">({m.empCode})</span>
-                                  )}
+                                <div className="font-bold text-[#0A2540] truncate">
+                                  {m.name}
                                 </div>
-                                <div className="text-[11px] text-slate-500 truncate flex items-center gap-1.5">
-                                  <span>{m.role || 'Staff'}</span>
-                                  <span>•</span>
-                                  <span className="text-amber-700 font-semibold">{m.group || 'Squad'}</span>
+                                <div className="text-[10px] text-slate-500 truncate">
+                                  {m.role || 'Staff'} {m.group ? `• ${m.group}` : ''}
                                 </div>
                               </div>
                             </div>
-
-                            {isSelected && (
-                              <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                            )}
+                            {isSelected && <Check className="w-4 h-4 text-amber-600 flex-shrink-0" />}
                           </button>
                         );
                       })
                     )}
                   </div>
-
-                  {/* Footer Count */}
-                  <div className="px-3.5 py-1.5 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-400 font-medium flex items-center justify-between">
-                    <span>Showing {filteredStaff.length} of {teamMembers.length} staff</span>
-                    <span>Click outside to close</span>
-                  </div>
                 </div>
               )}
             </div>
 
-            {/* Name & Designation Fields */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-bold text-[#0A2540] block mb-1">
-                  Employee Full Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={employeeName}
-                  onChange={(e) => setEmployeeName(e.target.value)}
-                  placeholder="e.g. Rahul Sharma"
-                  className="w-full px-3.5 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-[#0A2540] block mb-1">
-                  Designation / Position *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={designation}
-                  onChange={(e) => setDesignation(e.target.value)}
-                  placeholder="e.g. Senior Sales Executive"
-                  className="w-full px-3.5 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
-                />
-              </div>
+            {/* Employee Full Name */}
+            <div>
+              <label className="text-xs font-bold text-[#0A2540] block mb-1">
+                Employee Full Name *
+              </label>
+              <input
+                type="text"
+                required
+                value={employeeName}
+                onChange={(e) => setEmployeeName(e.target.value)}
+                placeholder="e.g. Rahul Sharma"
+                className="w-full px-3.5 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
+              />
             </div>
 
-            {/* Sales Amount & Leads Closed */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-bold text-[#0A2540] block mb-1">
-                  Sales Cleared (₹) *
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                    ₹
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1000"
-                    required
-                    value={salesAmount}
-                    onChange={(e) => setSalesAmount(e.target.value)}
-                    placeholder="e.g. 300000"
-                    className="w-full pl-8 pr-3.5 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-mono font-bold"
-                  />
-                </div>
-                {Number(salesAmount) >= 100000 && (
-                  <span className="text-[10px] text-emerald-600 font-bold mt-1 block">
-                    Displays as: ₹{(Number(salesAmount) / 100000).toFixed(2)} Lakhs
-                  </span>
-                )}
-              </div>
+            {/* Designation / Position */}
+            <div>
+              <label className="text-xs font-bold text-[#0A2540] block mb-1">
+                Designation / Position *
+              </label>
+              <input
+                type="text"
+                required
+                value={designation}
+                onChange={(e) => setDesignation(e.target.value)}
+                placeholder="e.g. Senior Telecaller / SDR, BDA, Sales Specialist"
+                className="w-full px-3.5 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
+              />
+            </div>
 
-              <div>
-                <label className="text-xs font-bold text-[#0A2540] block mb-1">
-                  Marketing Leads Closed *
-                </label>
+            {/* Sales Cleared (₹) */}
+            <div>
+              <label className="text-xs font-bold text-[#0A2540] block mb-1">
+                Sales Cleared (₹) *
+              </label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                  ₹
+                </span>
                 <input
                   type="number"
                   min="0"
+                  step="any"
                   required
-                  value={leadsClosedCount}
-                  onChange={(e) => setLeadsClosedCount(e.target.value)}
-                  placeholder="e.g. 24"
-                  className="w-full px-3.5 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-mono font-bold"
+                  value={salesAmount}
+                  onChange={(e) => setSalesAmount(e.target.value)}
+                  placeholder="e.g. 300000"
+                  className="w-full pl-8 pr-3.5 py-2 text-xs font-mono bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-bold"
                 />
               </div>
             </div>
 
-            {/* Photo Upload & Preview */}
-            <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-3">
-              <label className="text-xs font-bold text-[#0A2540] block">
+            {/* Marketing Leads Closed Count */}
+            <div>
+              <label className="text-xs font-bold text-[#0A2540] block mb-1">
+                Marketing Leads Closed *
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                required
+                value={leadsClosedCount}
+                onChange={(e) => setLeadsClosedCount(e.target.value)}
+                placeholder="e.g. 24"
+                className="w-full px-3.5 py-2 text-xs font-mono bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-bold"
+              />
+            </div>
+
+            {/* Performer Photo */}
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80">
+              <label className="text-xs font-bold text-[#0A2540] block mb-2">
                 Performer Photo
               </label>
-
+              
               <div className="flex items-center gap-4">
-                {/* Photo Preview Circle */}
-                <div className="relative">
+                <div className="w-16 h-16 rounded-2xl bg-slate-200 flex items-center justify-center overflow-hidden border border-slate-300 flex-shrink-0 shadow-inner">
                   {photoUrl ? (
-                    <img
-                      src={photoUrl}
-                      alt="Preview"
-                      className="w-16 h-16 rounded-2xl object-cover ring-2 ring-amber-400 shadow-md"
-                    />
+                    <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-16 h-16 rounded-2xl bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-xs shadow-inner">
-                      <User className="w-7 h-7 text-slate-400" />
-                    </div>
+                    <User className="w-8 h-8 text-slate-400" />
                   )}
                 </div>
 
-                <div className="flex-1 space-y-1.5">
-                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs">
+                <div className="space-y-1.5 flex-1">
+                  <label className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white hover:bg-slate-100 text-[#0A2540] text-xs font-bold rounded-xl border border-slate-200 shadow-2xs transition-colors cursor-pointer">
                     <Upload className="w-3.5 h-3.5 text-slate-500" />
                     <span>Upload New Photo</span>
                     <input
@@ -656,7 +678,7 @@ export const TopPerformersModal: React.FC<TopPerformersModalProps> = ({ isOpen, 
               />
             </div>
 
-            {/* Submit Action */}
+            {/* Submit Action: Saves & immediately closes modal */}
             <div className="pt-2 flex items-center justify-end gap-2.5">
               <button
                 type="button"
@@ -671,7 +693,7 @@ export const TopPerformersModal: React.FC<TopPerformersModalProps> = ({ isOpen, 
                 className="flex items-center gap-1.5 px-5 py-2.5 bg-[#0A2540] hover:bg-slate-800 text-white text-xs font-black rounded-xl shadow-md transition-all active:scale-95 cursor-pointer disabled:opacity-50"
               >
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Save &amp; Publish Rank #{activeRankTab}</span>
+                <span>Save &amp; Publish</span>
               </button>
             </div>
           </form>

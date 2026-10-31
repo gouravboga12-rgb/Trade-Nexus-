@@ -96,15 +96,28 @@ export const TopPerformersShowcase: React.FC<TopPerformersShowcaseProps> = ({ on
         icon: <Award className="w-3.5 h-3.5 text-slate-500" />,
       };
     }
+    if (rank === 3) {
+      return {
+        label: '3rd Rank',
+        tag: '2nd Runner Up 🥉',
+        ring: 'ring-4 ring-amber-700/60 shadow-amber-900/20',
+        bg: 'bg-gradient-to-br from-amber-700 to-amber-800 text-white',
+        border: 'border-amber-200/80 bg-orange-50/30',
+        crownColor: 'text-amber-700',
+        pillBg: 'bg-orange-100 text-amber-900 border-amber-300',
+        icon: <Award className="w-3.5 h-3.5 text-amber-700" />,
+      };
+    }
+    const suffix = rank === 1 ? 'st' : rank === 2 ? 'nd' : rank === 3 ? 'rd' : 'th';
     return {
-      label: '3rd Rank',
-      tag: '2nd Runner Up 🥉',
-      ring: 'ring-4 ring-amber-700/60 shadow-amber-900/20',
-      bg: 'bg-gradient-to-br from-amber-700 to-amber-800 text-white',
-      border: 'border-amber-200/80 bg-orange-50/30',
-      crownColor: 'text-amber-700',
-      pillBg: 'bg-orange-100 text-amber-900 border-amber-300',
-      icon: <Award className="w-3.5 h-3.5 text-amber-700" />,
+      label: `${rank}${suffix} Rank`,
+      tag: `Top Performer #${rank} 🌟`,
+      ring: 'ring-4 ring-indigo-400/50 shadow-indigo-200/40',
+      bg: 'bg-gradient-to-br from-indigo-500 to-indigo-600 text-white',
+      border: 'border-indigo-200/80 bg-indigo-50/30',
+      crownColor: 'text-indigo-500',
+      pillBg: 'bg-indigo-100 text-indigo-900 border-indigo-300',
+      icon: <Award className="w-3.5 h-3.5 text-indigo-500" />,
     };
   };
 
@@ -155,8 +168,10 @@ export const TopPerformersShowcase: React.FC<TopPerformersShowcaseProps> = ({ on
         sorted.length === 1
           ? 'grid-cols-1 max-w-md mx-auto'
           : sorted.length === 2
-          ? 'grid-cols-1 sm:grid-cols-2'
-          : 'grid-cols-1 md:grid-cols-3'
+          ? 'grid-cols-1 sm:grid-cols-2 max-w-2xl mx-auto'
+          : sorted.length === 3
+          ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3'
+          : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
       }`}>
         {sorted.map((p) => {
           const styling = getRankBadge(p.rank);
@@ -253,3 +268,4 @@ export const TopPerformersShowcase: React.FC<TopPerformersShowcaseProps> = ({ on
     </div>
   );
 };
+

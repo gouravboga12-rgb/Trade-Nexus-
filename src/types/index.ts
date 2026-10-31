@@ -617,7 +617,7 @@ export interface InvoiceData {
 export interface TopPerformer {
   id: string;
   monthYear: string;
-  rank: 1 | 2 | 3;
+  rank: number;
   employeeId?: string;
   employeeName: string;
   designation: string;

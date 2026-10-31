@@ -20,7 +20,7 @@ router.get('/', (req: Request, res: Response) => {
 
     const performers = rows.map((r) => ({
       ...r,
-      rank: Number(r.rank) as 1 | 2 | 3,
+      rank: Number(r.rank),
       salesAmount: Number(r.salesAmount || 0),
       leadsClosedCount: Number(r.leadsClosedCount || 0),
       isActive: Boolean(r.isActive === 1 || r.isActive === true),
@@ -155,3 +155,4 @@ router.delete('/:id', (req: Request, res: Response) => {
 });
 
 export default router;
+
