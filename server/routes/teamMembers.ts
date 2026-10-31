@@ -542,14 +542,20 @@ router.put('/:id', (req: Request, res: Response) => {
     if (req.body.password) {
       try {
         const newHash = hashPassword(req.body.password);
-        // Update by employeeId first, then fall back to empCode
+        // Update by employeeId first, then fall back to empCode, then email
         const affected = db.prepare(`
           UPDATE users SET passwordHash = ?, name = ? WHERE employeeId = ?
         `).run(newHash, merged.name, existing.id);
         if ((affected as any).changes === 0) {
-          db.prepare(`
+          const aff2 = db.prepare(`
             UPDATE users SET passwordHash = ?, name = ? WHERE empCode = ?
           `).run(newHash, merged.name, existing.empCode);
+          if ((aff2 as any).changes === 0 && (merged.email || existing.email)) {
+            const cleanTargetEmail = (merged.email || existing.email).trim().toLowerCase();
+            db.prepare(`
+              UPDATE users SET passwordHash = ?, name = ? WHERE LOWER(email) = LOWER(?)
+            `).run(newHash, merged.name, cleanTargetEmail);
+          }
         }
       } catch (_) {}
     }
