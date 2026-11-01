@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
 import { hashPassword } from '../db/authUtils.js';
 import { syncDailyRosterStatus } from '../services/attendanceLifecycle.js';
+import { getSocketService } from '../services/socketService.js';
 
 const router = Router();
 
@@ -361,6 +362,12 @@ router.post('/', (req: Request, res: Response) => {
     createAtomic();
 
     const created = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, emergencyPhone, dob, employeeType, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup, companyAddress, companyPhone, companyEmail, companyWebsite, signatoryName, signatoryRole FROM team_members WHERE id = ?').get(memberId);
+    if (created) {
+      try {
+        getSocketService().emitToAll('team_member:created', created);
+        getSocketService().emitToAll('resource:invalidated', { resource: 'teamMembers' });
+      } catch (_) {}
+    }
     return res.status(201).json(created);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -636,6 +643,12 @@ router.put('/:id', (req: Request, res: Response) => {
       FROM team_members 
       WHERE id = ? OR empCode = ?
     `).get(existing.id, merged.empCode || existing.empCode);
+    if (updated) {
+      try {
+        getSocketService().emitToAll('team_member:updated', updated);
+        getSocketService().emitToAll('resource:invalidated', { resource: 'teamMembers' });
+      } catch (_) {}
+    }
     return res.status(200).json(updated);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -775,6 +788,11 @@ router.delete('/:id', (req: Request, res: Response) => {
     deleteAtomic();
 
     console.log(`[Admin Action] Deleted employee: ${name} (${empCode}) [ID: ${empId}]`);
+
+    try {
+      getSocketService().emitToAll('team_member:deleted', { id: empId, empCode });
+      getSocketService().emitToAll('resource:invalidated', { resource: 'teamMembers' });
+    } catch (_) {}
 
     return res.status(200).json({
       success: true,

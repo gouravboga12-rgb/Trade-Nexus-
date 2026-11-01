@@ -44,8 +44,9 @@ export function ensureSuperAdminUser() {
       `).run('usr-4', adminEmail, hash, 'Super Admin', 'admin', 'TNX-AD01', 'emp-ad-1', 1);
       console.log('[SQLite DB] Verified/Created Super Admin account: sagarsuchi26@gmail.com');
     } else {
-      db.prepare('UPDATE users SET role = ?, name = ?, passwordHash = ?, active = 1 WHERE id = ?')
-        .run('admin', 'Super Admin', hash, existing.id);
+      // Preserve existing admin password if already created/reset by user
+      db.prepare('UPDATE users SET role = ?, name = ?, active = 1 WHERE id = ?')
+        .run('admin', 'Super Admin', existing.id);
     }
   } catch (err) {
     console.error('[SQLite DB] Error ensuring super admin user:', err);

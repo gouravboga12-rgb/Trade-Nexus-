@@ -1154,6 +1154,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setTeamMeetings((prev) => prev.filter((m) => m.id !== id));
     });
 
+    // Real-time team member updates (password changes, profile updates, credentials)
+    socket.on('team_member:updated', (updatedMember: any) => {
+      if (!updatedMember || !updatedMember.id) return;
+      setTeamMembers((prev) =>
+        prev.map((m) =>
+          m.id === updatedMember.id || m.empCode === updatedMember.empCode ? { ...m, ...updatedMember } : m
+        )
+      );
+    });
+
+    socket.on('team_member:created', (newMember: any) => {
+      if (!newMember || !newMember.id) return;
+      setTeamMembers((prev) => {
+        if (prev.some((m) => m.id === newMember.id || m.empCode === newMember.empCode)) {
+          return prev.map((m) => (m.id === newMember.id || m.empCode === newMember.empCode ? { ...m, ...newMember } : m));
+        }
+        return [newMember, ...prev];
+      });
+      refreshResources(['teamGroups']);
+    });
+
+    socket.on('team_member:deleted', ({ id, empCode }: { id: string; empCode?: string }) => {
+      setTeamMembers((prev) => prev.filter((m) => m.id !== id && (!empCode || m.empCode !== empCode)));
+      refreshResources(['teamGroups']);
+    });
+
+    socket.on('resource:invalidated', ({ resource }: { resource: string }) => {
+      if (resource === 'teamMembers') {
+        refreshResources(['teamMembers']);
+      }
+    });
+
     return () => {
       socket.disconnect();
       socketRef.current = null;

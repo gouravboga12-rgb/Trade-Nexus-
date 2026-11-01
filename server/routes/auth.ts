@@ -3,6 +3,7 @@ import db from '../db/connection.js';
 import { hashPassword, verifyPassword, createToken, verifyToken } from '../db/authUtils.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { sendPasswordResetOtpEmail } from '../services/emailService.js';
+import { getSocketService } from '../services/socketService.js';
 
 const router = Router();
 
@@ -180,6 +181,21 @@ router.post('/change-password', (req: Request, res: Response) => {
         SET password = ?
         WHERE id = ? OR empCode = ? OR (email IS NOT NULL AND LOWER(email) = LOWER(?))
       `).run(newPassword, user.employeeId || '', user.empCode || '', user.email || '');
+
+      const updatedMember = db.prepare(`
+        SELECT id, empCode, name, avatar, role, groupName as "group", phone, emergencyPhone, dob, employeeType, 
+               attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, 
+               salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, 
+               bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, 
+               aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup
+        FROM team_members
+        WHERE id = ? OR empCode = ? OR (email IS NOT NULL AND LOWER(email) = LOWER(?))
+      `).get(user.employeeId || '', user.empCode || '', user.email || '') as any;
+
+      if (updatedMember) {
+        getSocketService().emitToAll('team_member:updated', updatedMember);
+      }
+      getSocketService().emitToAll('resource:invalidated', { resource: 'teamMembers' });
     } catch (_) {}
 
     return res.status(200).json({ ok: true });
@@ -315,7 +331,7 @@ router.post('/forgot-password/reset-password', (req: Request, res: Response) => 
     }
 
     // Find the user
-    const user = db.prepare('SELECT id, email, role, name FROM users WHERE LOWER(email) = ?').get(cleanEmail) as any;
+    const user = db.prepare('SELECT id, email, role, name, empCode, employeeId FROM users WHERE LOWER(email) = ?').get(cleanEmail) as any;
     if (!user) {
       return res.status(404).json({ error: 'User account not found' });
     }
@@ -331,6 +347,21 @@ router.post('/forgot-password/reset-password', (req: Request, res: Response) => 
         SET password = ?
         WHERE id = ? OR empCode = ? OR (email IS NOT NULL AND LOWER(email) = LOWER(?))
       `).run(String(newPassword), user.employeeId || '', user.empCode || '', cleanEmail);
+
+      const updatedMember = db.prepare(`
+        SELECT id, empCode, name, avatar, role, groupName as "group", phone, emergencyPhone, dob, employeeType, 
+               attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, 
+               salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, 
+               bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, 
+               aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup
+        FROM team_members
+        WHERE id = ? OR empCode = ? OR (email IS NOT NULL AND LOWER(email) = LOWER(?))
+      `).get(user.employeeId || '', user.empCode || '', cleanEmail) as any;
+
+      if (updatedMember) {
+        getSocketService().emitToAll('team_member:updated', updatedMember);
+      }
+      getSocketService().emitToAll('resource:invalidated', { resource: 'teamMembers' });
     } catch (_) {}
 
     // Clean up OTP records for this email
