@@ -1671,8 +1671,8 @@ export const TeamLeaderDashboardView: React.FC = () => {
                             </div>
 
                             <div className="flex items-center gap-3 text-xs text-slate-500 font-mono mt-1 flex-wrap">
-                              <button
-                                type="button"
+                              <a
+                                href={lead.phone ? `tel:${lead.phone}` : undefined}
                                 onClick={() => {
                                   openCallModalForLead(lead);
                                   if (lead.phone) {
@@ -1683,7 +1683,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
                                 className="font-bold text-slate-800 hover:text-[#00A88B] transition-colors cursor-pointer text-left"
                               >
                                 {lead.phone || '—'}
-                              </button>
+                              </a>
                               {lead.city && <span>📍 {lead.city}</span>}
                               <span>📞 {lead.callCount || 0} Dials</span>
                               {lead.lastCallTimestamp && <span>🕒 {lead.lastCallTimestamp}</span>}
@@ -1696,8 +1696,8 @@ export const TeamLeaderDashboardView: React.FC = () => {
                             )}
                           </div>
 
-                          <button
-                            type="button"
+                          <a
+                            href={lead.phone ? `tel:${lead.phone}` : undefined}
                             onClick={() => {
                               openCallModalForLead(lead);
                               if (lead.phone) {
@@ -1709,7 +1709,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
                           >
                             <Phone className="w-3.5 h-3.5 stroke-[2.5]" />
                             <span>Call Lead</span>
-                          </button>
+                          </a>
                         </div>
                       </div>
                     );

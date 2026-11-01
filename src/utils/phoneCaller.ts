@@ -1,8 +1,7 @@
 /**
  * Safely dials a phone number across both Mobile App (React Native WebView) and Web Browsers.
- * - In React Native WebView: posts 'CALL_PHONE' message to trigger native Android Linking.openURL(`tel:${phone}`)
- *   without reloading the webview or triggering splash loading screen.
- * - In Web Browser: sets window.location.href to `tel:${phone}`.
+ * - Posts 'CALL_PHONE' message to React Native bridge (for native APK intent handoff).
+ * - Triggers telephone protocol so it works instantly on the current installed app, mobile Chrome, Safari, and desktops.
  */
 export function dialPhoneNumber(phone: string | number | undefined | null) {
   if (!phone) return;
@@ -11,6 +10,9 @@ export function dialPhoneNumber(phone: string | number | undefined | null) {
   const cleanPhone = rawStr.replace(/[^\d+]/g, '');
   if (!cleanPhone) return;
 
+  const telUri = `tel:${cleanPhone}`;
+
+  // 1. Post message to React Native WebView bridge (for native app shell)
   const rnw = (window as any).ReactNativeWebView;
   if (rnw && typeof rnw.postMessage === 'function') {
     try {
@@ -20,13 +22,25 @@ export function dialPhoneNumber(phone: string | number | undefined | null) {
           phone: cleanPhone,
         })
       );
-      return;
     } catch (err) {
-      console.warn('[dialPhoneNumber] Bridge message failed, falling back to tel: URI', err);
+      console.warn('[dialPhoneNumber] Bridge message failed:', err);
     }
   }
 
-  // Fallback for regular web browsers
-  window.location.href = `tel:${cleanPhone}`;
+  // 2. Trigger telephone call via hidden anchor element click
+  try {
+    const a = document.createElement('a');
+    a.href = telUri;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      try {
+        document.body.removeChild(a);
+      } catch {}
+    }, 500);
+  } catch (err) {
+    // 3. Fallback direct assignment
+    window.location.href = telUri;
+  }
 }
-

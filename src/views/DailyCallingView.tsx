@@ -518,13 +518,13 @@ export const DailyCallingView: React.FC = () => {
 
                         <div className="min-w-0">
                           {/* Full Phone Number with room to breathe, Click to dial */}
-                          <button
-                            type="button"
+                          <a
+                            href={`tel:${lead.phone}`}
                             onClick={() => handleCallLead(lead)}
                             className="font-mono font-black text-[15px] text-[#0A2540] tracking-tight block text-left hover:text-[#00A88B] transition-colors cursor-pointer"
                           >
                             {lead.phone}
-                          </button>
+                          </a>
                           {lead.name && (
                             <span className="text-xs text-slate-500 font-medium block truncate">
                               {lead.name}
@@ -562,13 +562,14 @@ export const DailyCallingView: React.FC = () => {
 
                     {/* Bottom Action Row: Spacious 50/50 Thumb-Friendly Action Buttons */}
                     <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
-                      <button
+                      <a
+                        href={`tel:${lead.phone}`}
                         onClick={() => handleCallLead(lead)}
                         className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#00C9A7] to-[#00B4D8] hover:opacity-95 text-[#0A2540] font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-xs cursor-pointer"
                       >
                         <Phone className="w-3.5 h-3.5 fill-current" />
                         <span>Call Lead</span>
-                      </button>
+                      </a>
                       <button
                         onClick={() => openCallModalForLead(lead)}
                         className="w-full py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer border border-slate-200/80"
