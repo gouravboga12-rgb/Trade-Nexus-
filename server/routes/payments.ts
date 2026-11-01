@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
 import { requireRole } from '../middleware/auth.js';
+import { emitSocketEvent } from '../services/socketService.js';
 
 const router = Router();
 
@@ -142,6 +143,7 @@ router.post('/', (req: Request, res: Response) => {
     );
 
     const created = db.prepare('SELECT * FROM payment_verifications WHERE id = ?').get(payId);
+    emitSocketEvent('payment:created', created);
     return res.status(201).json(created);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -200,7 +202,11 @@ router.put('/:id', requireRole('admin', 'hr'), (req: Request, res: Response) => 
 
     syncTransaction();
 
-    const updated = db.prepare('SELECT * FROM payment_verifications WHERE id = ?').get(id);
+    const updated = db.prepare('SELECT * FROM payment_verifications WHERE id = ?').get(id) as any;
+    emitSocketEvent('payment:updated', updated);
+    if (updated?.status === 'VERIFIED') {
+      emitSocketEvent('payment:verified', updated);
+    }
     return res.status(200).json(updated);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -252,7 +258,7 @@ router.delete('/:id', requireRole('admin', 'hr'), (req: Request, res: Response) 
     });
 
     deleteTransaction();
-
+    emitSocketEvent('payment:deleted', { id });
     return res.status(200).json({ success: true, id });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });

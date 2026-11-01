@@ -1,8 +1,46 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
 import { getTodayDateIST } from '../utils/dateUtils.js';
+import { emitSocketEvent } from '../services/socketService.js';
 
 const router = Router();
+
+// GET /api/assigned-leads/stats — aggregate counters without transferring full table
+router.get('/stats', (req: Request, res: Response) => {
+  try {
+    const user = req.user;
+    let whereClause = '';
+    const params: any[] = [];
+    if (user && (user.role === 'telecaller' || user.role === 'employee')) {
+      whereClause = 'WHERE assignedToEmployeeId = ? OR assignedToEmployeeId = ? OR LOWER(assignedToEmployeeName) = LOWER(?)';
+      params.push(user.employeeId || user.id, user.empCode || '', user.name || '');
+    }
+    const counts = db.prepare(`
+      SELECT 
+        count(*) as total,
+        sum(CASE WHEN status = 'CONVERTED' THEN 1 ELSE 0 END) as converted,
+        sum(CASE WHEN status = 'INTERESTED' THEN 1 ELSE 0 END) as interested,
+        sum(CASE WHEN status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as inProgress,
+        sum(CASE WHEN status = 'NOT_INTERESTED' THEN 1 ELSE 0 END) as notInterested,
+        sum(CASE WHEN status = 'PENDING' OR status IS NULL THEN 1 ELSE 0 END) as pending,
+        sum(dealValue) as totalDealValue
+      FROM assigned_leads
+      ${whereClause}
+    `).get(...params) as any;
+
+    return res.status(200).json({
+      total: counts?.total || 0,
+      converted: counts?.converted || 0,
+      interested: counts?.interested || 0,
+      inProgress: counts?.inProgress || 0,
+      notInterested: counts?.notInterested || 0,
+      pending: counts?.pending || 0,
+      totalDealValue: counts?.totalDealValue || 0,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: (err as Error).message });
+  }
+});
 
 // GET /api/assigned-leads
 router.get('/', (req: Request, res: Response) => {
@@ -71,10 +109,39 @@ router.get('/', (req: Request, res: Response) => {
       }
     }
 
-    // 3. Admin / HR (or fallback): Full access or query filter
-    const leads = requestedEmpId
-      ? db.prepare('SELECT * FROM assigned_leads WHERE assignedToEmployeeId = ? ORDER BY createdAt DESC').all(requestedEmpId)
-      : db.prepare('SELECT * FROM assigned_leads ORDER BY createdAt DESC').all();
+    // 3. Admin / HR (or fallback): Scoped query filter with default limit to prevent 50MB payload
+    const batchId = String(req.query.batchId || '').trim();
+    const search = String(req.query.search || '').trim();
+    const all = req.query.all === 'true';
+    const limit = req.query.limit ? Number(req.query.limit) : (all ? null : 500);
+
+    let query = 'SELECT * FROM assigned_leads';
+    const conditions: string[] = [];
+    const queryParams: any[] = [];
+
+    if (requestedEmpId) {
+      conditions.push('(assignedToEmployeeId = ? OR LOWER(assignedToEmployeeName) = LOWER(?))');
+      queryParams.push(requestedEmpId, requestedEmpId);
+    }
+    if (batchId) {
+      conditions.push('batchId = ?');
+      queryParams.push(batchId);
+    }
+    if (search) {
+      conditions.push('(name LIKE ? OR phone LIKE ? OR company LIKE ?)');
+      const s = `%${search}%`;
+      queryParams.push(s, s, s);
+    }
+    if (conditions.length > 0) {
+      query += ` WHERE ${conditions.join(' AND ')}`;
+    }
+    query += ' ORDER BY createdAt DESC';
+    if (limit) {
+      query += ' LIMIT ?';
+      queryParams.push(limit);
+    }
+
+    const leads = db.prepare(query).all(...queryParams);
     return res.status(200).json(leads);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -230,6 +297,7 @@ router.post('/auto-distribute', (req: Request, res: Response) => {
     });
 
     const result = distributeTx();
+    emitSocketEvent('leads:distributed', result);
     return res.status(200).json({ success: true, ...result });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -260,6 +328,7 @@ router.post('/reassign-batch', (req: Request, res: Response) => {
     });
 
     const count = reassignMany(leadIds, targetEmployeeId, targetEmployeeName || 'Employee');
+    emitSocketEvent('leads:distributed', { count, targetEmployeeId });
     return res.status(200).json({ success: true, count, targetEmployeeId, targetEmployeeName });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -514,7 +583,11 @@ router.put('/:id', (req: Request, res: Response) => {
       }
     }
 
-    const updated = db.prepare('SELECT * FROM assigned_leads WHERE id = ?').get(id);
+    const updated = db.prepare('SELECT * FROM assigned_leads WHERE id = ?').get(id) as any;
+    emitSocketEvent('lead:updated', updated);
+    if (merged.status === 'CONVERTED') {
+      emitSocketEvent('lead:converted', updated);
+    }
     return res.status(200).json(updated);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });

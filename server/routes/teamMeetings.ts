@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
 import { zoomService } from '../services/zoomService.js';
+import { emitSocketEvent } from '../services/socketService.js';
 
 const router = Router();
 
@@ -233,6 +234,7 @@ router.post('/create-zoom', async (req: Request, res: Response) => {
     );
 
     const created = db.prepare('SELECT * FROM team_meetings WHERE id = ?').get(meetingId);
+    emitSocketEvent('meeting:created', created);
     return res.status(201).json(created);
   } catch (error) {
     console.error('[POST /team-meetings/create-zoom] Error:', error);
@@ -336,6 +338,7 @@ router.post('/', async (req: Request, res: Response) => {
     );
 
     const created = db.prepare('SELECT * FROM team_meetings WHERE id = ?').get(meetingId);
+    emitSocketEvent('meeting:created', created);
     return res.status(201).json(created);
   } catch (error) {
     console.error('[POST /team-meetings] Error:', error);
@@ -438,6 +441,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     }
 
     db.prepare('DELETE FROM team_meetings WHERE id = ?').run(id);
+    emitSocketEvent('meeting:deleted', { id });
     return res.status(200).json({ success: true, message: 'Meeting deleted successfully' });
   } catch (error) {
     console.error('[DELETE /team-meetings/:id] Error:', error);

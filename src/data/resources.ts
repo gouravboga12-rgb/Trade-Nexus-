@@ -156,3 +156,38 @@ export const SCREEN_RESOURCES = {
 } as const satisfies Record<string, readonly ResourceKey[]>;
 
 export type ScreenName = keyof typeof SCREEN_RESOURCES;
+
+/**
+ * Returns strictly the resource keys needed for the active screen/tab,
+ * eliminating the 22-parallel-request flood on manual refresh.
+ */
+export function getActiveScreenResourceKeys(role: string, tab?: string): readonly ResourceKey[] {
+  const normRole = (role || '').toLowerCase();
+  const cleanTab = (tab || '').toLowerCase();
+
+  if (normRole === 'telecaller' || normRole === 'employee') {
+    if (cleanTab === 'leads' || cleanTab === 'calling') return ['assignedLeads', 'callLogs', 'stats', 'profile'];
+    if (cleanTab === 'attendance') return ['attendanceLogs', 'leaveRequests', 'companyHolidays', 'calendarSettings'];
+    return ['profile', 'attendanceLogs', 'stats', 'assignedLeads', 'callLogs', 'teamMeetings', 'paymentVerifications'];
+  }
+
+  if (normRole === 'team_leader') {
+    if (cleanTab === 'team' || cleanTab === 'attendance') return ['teamMembers', 'attendanceLogs', 'teamGroups', 'teamMeetings'];
+    if (cleanTab === 'leads') return ['assignedLeads', 'callLogs', 'stats'];
+    return ['profile', 'attendanceLogs', 'teamMembers', 'teamGroups', 'paymentVerifications', 'callLogs'];
+  }
+
+  if (normRole === 'hr') {
+    if (cleanTab === 'attendance') return ['attendanceLogs', 'leaveRequests', 'teamMembers', 'companyHolidays'];
+    if (cleanTab === 'team') return ['teamMembers', 'teamGroups', 'paymentVerifications'];
+    if (cleanTab === 'approvals') return ['leaveRequests', 'paymentVerifications'];
+    return ['teamMembers', 'paymentVerifications', 'attendanceLogs', 'leaveRequests', 'teamGroups'];
+  }
+
+  // Admin
+  if (cleanTab === 'attendance' || cleanTab === 'attendance_verification') return ['attendanceLogs', 'teamMembers', 'companyHolidays'];
+  if (cleanTab === 'leads') return ['assignedLeads', 'leadBatches', 'stats'];
+  if (cleanTab === 'revenue' || cleanTab === 'approvals') return ['paymentVerifications', 'teamMembers', 'teamGroups'];
+  if (cleanTab === 'people' || cleanTab === 'manage_employees') return ['teamMembers', 'teamGroups'];
+  return ['teamMembers', 'paymentVerifications', 'attendanceLogs', 'stats', 'teamGroups', 'teamMeetings'];
+}

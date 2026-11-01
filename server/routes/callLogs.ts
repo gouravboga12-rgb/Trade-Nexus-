@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
+import { emitSocketEvent } from '../services/socketService.js';
 
 const router = Router();
 
@@ -68,10 +69,34 @@ router.get('/', (req: Request, res: Response) => {
       }
     }
 
-    // 3. Admin / HR: Full access or query filter
-    const logs = requestedEmpId
-      ? db.prepare('SELECT * FROM call_logs WHERE employeeId = ? ORDER BY createdAt DESC').all(requestedEmpId)
-      : db.prepare('SELECT * FROM call_logs ORDER BY createdAt DESC').all();
+    // 3. Admin / HR: Scoped query filter with default limit to prevent 10MB payload
+    const all = req.query.all === 'true';
+    const limit = req.query.limit ? Number(req.query.limit) : (all ? null : 1000);
+    const search = String(req.query.search || '').trim();
+
+    let query = 'SELECT * FROM call_logs';
+    const conditions: string[] = [];
+    const queryParams: any[] = [];
+
+    if (requestedEmpId) {
+      conditions.push('employeeId = ?');
+      queryParams.push(requestedEmpId);
+    }
+    if (search) {
+      conditions.push('(clientName LIKE ? OR companyName LIKE ? OR phoneNumber LIKE ?)');
+      const s = `%${search}%`;
+      queryParams.push(s, s, s);
+    }
+    if (conditions.length > 0) {
+      query += ` WHERE ${conditions.join(' AND ')}`;
+    }
+    query += ' ORDER BY createdAt DESC';
+    if (limit) {
+      query += ' LIMIT ?';
+      queryParams.push(limit);
+    }
+
+    const logs = db.prepare(query).all(...queryParams);
     return res.status(200).json(logs);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -97,6 +122,7 @@ router.post('/', (req: Request, res: Response) => {
     );
 
     const created = db.prepare('SELECT * FROM call_logs WHERE id = ?').get(logId);
+    emitSocketEvent('call:logged', created);
     return res.status(201).json(created);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });

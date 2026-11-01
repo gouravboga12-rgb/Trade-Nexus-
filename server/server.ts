@@ -1,10 +1,13 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
+import http from 'node:http';
 import { initializeDatabaseSchema } from './db/schema.js';
 import { seedInitialDataIfEmpty, resetDatabaseToClean } from './db/seed.js';
 import { createDatabaseBackup } from './db/backup.js';
 import { authenticate, requireRole } from './middleware/auth.js';
+import { initSocketIO } from './services/socketService.js';
 
 // Route imports
 import profileRoutes from './routes/profile.js';
@@ -43,10 +46,15 @@ initializeDatabaseSchema();
 seedInitialDataIfEmpty();
 
 const app = express();
+const httpServer = http.createServer(app);
 const PORT = process.env.PORT || 5001;
+
+// Mount Socket.IO Real-Time Gateway on /api/socket.io
+initSocketIO(httpServer);
 
 // Middleware
 app.use(cors());
+app.use(compression());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -121,9 +129,10 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 // Start Server
 if (process.env.NODE_ENV !== 'test') {
-  const server = app.listen(PORT, () => {
+  const server = httpServer.listen(PORT, () => {
     console.log(`\n==================================================`);
     console.log(`🚀 Trade Nexus SQLite Server running on http://localhost:${PORT}`);
+    console.log(`⚡ Socket.IO real-time gateway mounted on path /api/socket.io`);
     console.log(`📊 Connected to SQLite local database.`);
     console.log(`==================================================\n`);
   });
@@ -147,4 +156,5 @@ if (process.env.NODE_ENV !== 'test') {
   process.on('SIGINT', () => handleShutdown('SIGINT'));
 }
 
+export { httpServer };
 export default app;

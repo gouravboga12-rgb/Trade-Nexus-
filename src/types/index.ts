@@ -90,6 +90,7 @@ export interface AttendanceRecord {
   employeeName?: string;
   /** Photo taken at check-in. Admin only — never sent to other roles. */
   checkInPhoto?: string;
+  hasCheckInPhoto?: boolean;
   /** Coordinates at check-in. Admin only — never sent to other roles. */
   checkInLat?: number;
   checkInLng?: number;
@@ -99,6 +100,7 @@ export interface AttendanceRecord {
   locationStatus?: 'AT_OFFICE' | 'AWAY' | 'NOT_SHARED' | 'OFFICE_NOT_SET';
   /** Photo taken at check-out. Admin only. */
   checkOutPhoto?: string;
+  hasCheckOutPhoto?: boolean;
   checkOutLat?: number;
   checkOutLng?: number;
   checkOutDistanceM?: number;
@@ -249,8 +251,10 @@ export interface TeamMember {
   bankIfscCode?: string;
   panDocumentName?: string;
   panDocumentUrl?: string;
+  hasPanDoc?: boolean;
   aadhaarDocumentName?: string;
   aadhaarDocumentUrl?: string;
+  hasAadhaarDoc?: boolean;
   salary?: number;
   joiningDate?: string;
   address?: string;
@@ -454,8 +458,10 @@ export interface NewEmployeeInput {
   specialAllowance?: number;
   panDocumentName?: string;
   panDocumentUrl?: string;
+  hasPanDoc?: boolean;
   aadhaarDocumentName?: string;
   aadhaarDocumentUrl?: string;
+  hasAadhaarDoc?: boolean;
   bankName: string;
   bankAccountNumber: string;
   bankIfscCode: string;

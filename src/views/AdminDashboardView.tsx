@@ -223,6 +223,17 @@ export const AdminDashboardView: React.FC = () => {
   const [suspiciousModalItem, setSuspiciousModalItem] = useState<AttendanceRecord | null>(null);
   const [suspiciousReason, setSuspiciousReason] = useState<string>('Suspicious face photo / Proxy verification suspected');
   const [zoomPhotoUrl, setZoomPhotoUrl] = useState<string | null>(null);
+
+  const handleZoomAttendancePhoto = async (rec: AttendanceRecord, type: 'in' | 'out') => {
+    let photo = type === 'in' ? rec.checkInPhoto : rec.checkOutPhoto;
+    if (!photo && (type === 'in' ? rec.hasCheckInPhoto : rec.hasCheckOutPhoto) && rec.id) {
+      try {
+        const res = await api.getAttendancePhoto(rec.id);
+        photo = type === 'in' ? (res.checkInPhoto || undefined) : (res.checkOutPhoto || undefined);
+      } catch (err) {}
+    }
+    if (photo) setZoomPhotoUrl(photo);
+  };
   const [isClearAttendanceModalOpen, setIsClearAttendanceModalOpen] = useState(false);
   const [clearAttendanceScope, setClearAttendanceScope] = useState<'SELECTED_DAY' | 'THIS_MONTH' | 'CUSTOM_RANGE' | 'ALL'>('SELECTED_DAY');
   const [clearCustomStartDate, setClearCustomStartDate] = useState<string>(getTodayDateIST());
@@ -4344,7 +4355,7 @@ export const AdminDashboardView: React.FC = () => {
           const presentCount = dateFilteredLogs.filter(r => r.status === 'PRESENT' && !r.disputedByAdmin).length;
           const flaggedCount = dateFilteredLogs.filter(r => r.disputedByAdmin).length;
           const punchedOutCount = dateFilteredLogs.filter(r => !!r.checkOut || !!r.checkOutPhoto).length;
-          const noPhotoCount = dateFilteredLogs.filter(r => r.status === 'PRESENT' && !r.checkInPhoto && !r.checkOutPhoto).length;
+          const noPhotoCount = dateFilteredLogs.filter(r => r.status === 'PRESENT' && !r.checkInPhoto && !r.checkOutPhoto && !r.hasCheckInPhoto && !r.hasCheckOutPhoto).length;
 
           return (
             <div className="space-y-4 animate-in fade-in duration-150">
@@ -4578,7 +4589,7 @@ export const AdminDashboardView: React.FC = () => {
 
                             <div
                               className="relative w-full aspect-square rounded-lg overflow-hidden bg-slate-200/60 cursor-pointer group mb-1.5"
-                              onClick={() => rec.checkInPhoto && setZoomPhotoUrl(rec.checkInPhoto)}
+                              onClick={() => (rec.checkInPhoto || rec.hasCheckInPhoto) && handleZoomAttendancePhoto(rec, 'in')}
                             >
                               {rec.checkInPhoto ? (
                                 <>
@@ -4591,6 +4602,11 @@ export const AdminDashboardView: React.FC = () => {
                                     <Maximize2 className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                                   </div>
                                 </>
+                              ) : rec.hasCheckInPhoto ? (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-teal-50 text-[#00A88B] hover:bg-teal-100 transition-colors">
+                                  <Maximize2 className="w-4 h-4 mb-1" />
+                                  <span className="text-[9px] font-bold">View Photo</span>
+                                </div>
                               ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
                                   <CameraOff className="w-5 h-5 mb-1 opacity-50" />
@@ -4644,7 +4660,7 @@ export const AdminDashboardView: React.FC = () => {
 
                             <div
                               className="relative w-full aspect-square rounded-lg overflow-hidden bg-slate-200/60 cursor-pointer group mb-1.5"
-                              onClick={() => rec.checkOutPhoto && setZoomPhotoUrl(rec.checkOutPhoto)}
+                              onClick={() => (rec.checkOutPhoto || rec.hasCheckOutPhoto) && handleZoomAttendancePhoto(rec, 'out')}
                             >
                               {rec.checkOutPhoto ? (
                                 <>
@@ -4657,6 +4673,11 @@ export const AdminDashboardView: React.FC = () => {
                                     <Maximize2 className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                                   </div>
                                 </>
+                              ) : rec.hasCheckOutPhoto ? (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-teal-50 text-[#00A88B] hover:bg-teal-100 transition-colors">
+                                  <Maximize2 className="w-4 h-4 mb-1" />
+                                  <span className="text-[9px] font-bold">View Photo</span>
+                                </div>
                               ) : (rec.punchOutStatus === 'MISSED_PUNCH_OUT' || rec.isAutoClosed) ? (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-amber-700 bg-amber-50/90 border border-amber-200/80 p-2 text-center rounded-lg">
                                   <AlertTriangle className="w-5 h-5 mb-1 text-amber-600 animate-bounce" />

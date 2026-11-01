@@ -3,6 +3,7 @@ import db from '../db/connection.js';
 import { getTodayDateIST, getCurrentTimeIST, minutesOfDay } from '../utils/dateUtils.js';
 import { sweepUnclosedAttendance } from '../services/attendanceLifecycle.js';
 import { recalculateTodayAttendance } from './calendar.js';
+import { emitSocketEvent } from '../services/socketService.js';
 
 const router = Router();
 
@@ -27,23 +28,34 @@ function metresBetween(lat1: number, lng1: number, lat2: number, lng2: number): 
 
 /**
  * Attendance rows carry a photo and coordinates.
- * Admin sees all. Employees see their own (Telecaller sees own).
- * Team Leader and HR never receive photos or locations on the wire.
+ * Admin and Employees see their own.
+ * Team Leader and HR never receive raw locations on the wire.
+ * For bandwidth optimization: full photos are returned for today's live floor view or when includePhotos=true.
+ * Historical records return lightweight hasCheckInPhoto / hasCheckOutPhoto flags and on-demand GET /:id/photo.
  */
-function forViewer(row: any, isAdmin: boolean, requestingEmployeeId?: string) {
-  if (isAdmin) return row;
-  if (requestingEmployeeId && (row.employeeId === requestingEmployeeId || row.id === requestingEmployeeId)) {
-    return row;
+function forViewer(row: any, isAdmin: boolean, requestingEmployeeId?: string, includePhotos?: boolean) {
+  const isToday = row.date === getTodayDateIST();
+  const allowPhotos = includePhotos || isToday;
+  const hasCheckInPhoto = Boolean(row.checkInPhoto);
+  const hasCheckOutPhoto = Boolean(row.checkOutPhoto);
+
+  if (isAdmin || (requestingEmployeeId && (row.employeeId === requestingEmployeeId || row.id === requestingEmployeeId))) {
+    if (allowPhotos) {
+      return { ...row, hasCheckInPhoto, hasCheckOutPhoto };
+    }
+    const { checkInPhoto, checkOutPhoto, ...rest } = row;
+    return { ...rest, hasCheckInPhoto, hasCheckOutPhoto };
   }
   const { checkInPhoto, checkInLat, checkInLng, checkOutPhoto, checkOutLat, checkOutLng, ...rest } = row;
-  return rest;
+  return { ...rest, hasCheckInPhoto, hasCheckOutPhoto };
 }
 
-// GET /api/attendance?role=admin&employeeId=...
+// GET /api/attendance?role=admin&employeeId=...&includePhotos=false
 router.get('/', (req: Request, res: Response) => {
   try {
     sweepUnclosedAttendance();
     const isAdmin = String(req.query.role || '').toLowerCase() === 'admin' || req.user?.role === 'admin';
+    const includePhotos = req.query.includePhotos === 'true';
     // Resolve the target employee: explicit query param takes precedence, then JWT payload
     const requestedEmpId = String(req.query.employeeId || '').trim();
     const jwtEmpId = req.user?.employeeId || req.user?.id || '';
@@ -66,7 +78,25 @@ router.get('/', (req: Request, res: Response) => {
         records = [];
       }
     }
-    return res.status(200).json(records.map((r) => forViewer(r, isAdmin, requestedEmpId || jwtEmpId)));
+    return res.status(200).json(records.map((r) => forViewer(r, isAdmin, requestedEmpId || jwtEmpId, includePhotos)));
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// GET /api/attendance/:id/photo — on-demand photo fetch for zoom modal / verification audit
+router.get('/:id/photo', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const record = db.prepare('SELECT id, checkInPhoto, checkOutPhoto FROM attendance_records WHERE id = ?').get(id) as any;
+    if (!record) {
+      return res.status(404).json({ error: 'Attendance record not found' });
+    }
+    return res.status(200).json({
+      id: record.id,
+      checkInPhoto: record.checkInPhoto || null,
+      checkOutPhoto: record.checkOutPhoto || null,
+    });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }
@@ -370,6 +400,15 @@ router.post('/', (req: Request, res: Response) => {
     }
 
     const record = db.prepare('SELECT * FROM attendance_records WHERE id = ?').get(recId) as any;
+    emitSocketEvent('attendance:punched', {
+      id: record?.id,
+      employeeId: record?.employeeId,
+      employeeName: record?.employeeName,
+      status: record?.status,
+      date: record?.date,
+      checkIn: record?.checkIn,
+      checkOut: record?.checkOut,
+    });
     return res.status(201).json({
       ...record,
       inTime: record.checkIn,
@@ -558,7 +597,17 @@ router.put('/:id', (req: Request, res: Response) => {
       }
     }
 
-    return res.status(200).json(db.prepare('SELECT * FROM attendance_records WHERE id = ?').get(targetRecordId));
+    const updatedRec = db.prepare('SELECT * FROM attendance_records WHERE id = ?').get(targetRecordId) as any;
+    emitSocketEvent('attendance:punched', {
+      id: updatedRec?.id,
+      employeeId: updatedRec?.employeeId,
+      employeeName: updatedRec?.employeeName,
+      status: updatedRec?.status,
+      date: updatedRec?.date,
+      checkIn: updatedRec?.checkIn,
+      checkOut: updatedRec?.checkOut,
+    });
+    return res.status(200).json(updatedRec);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }

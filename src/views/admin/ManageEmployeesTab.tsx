@@ -24,6 +24,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { TeamMember, TeamGroup, UserRole } from '../../types';
+import { api } from '../../services/api';
 
 interface ManageEmployeesTabProps {
   teamMembers: TeamMember[];
@@ -106,6 +107,54 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
     setEditPanUrl(member.panDocumentUrl);
     setEditAadhaarName(member.aadhaarDocumentName || '');
     setEditAadhaarUrl(member.aadhaarDocumentUrl);
+  };
+
+  const handleViewDoc = async (member: TeamMember, type: 'PAN' | 'Aadhaar') => {
+    const isPan = type === 'PAN';
+    let url = isPan ? member.panDocumentUrl : member.aadhaarDocumentUrl;
+    const fileName = isPan
+      ? (member.panDocumentName || `${member.empCode}_PAN.pdf`)
+      : (member.aadhaarDocumentName || `${member.empCode}_Aadhaar.pdf`);
+
+    if (!url) {
+      try {
+        triggerToast(`Loading ${type} document...`);
+        const doc = await api.getTeamMemberDocument(member.id, isPan ? 'pan' : 'aadhaar');
+        url = doc.docUrl;
+      } catch (e) {
+        triggerToast(`✗ Could not load ${type} document`);
+        return;
+      }
+    }
+    setPreviewDoc({
+      empId: member.id,
+      title: `${type} Card Document`,
+      url,
+      fileName,
+      empName: member.name,
+      empCode: member.empCode,
+      type: isPan ? 'PAN' : 'AADHAAR',
+    });
+  };
+
+  const handleDownloadDoc = async (member: TeamMember, type: 'PAN' | 'Aadhaar') => {
+    const isPan = type === 'PAN';
+    let url = isPan ? member.panDocumentUrl : member.aadhaarDocumentUrl;
+    const fileName = isPan
+      ? (member.panDocumentName || `${member.empCode}_PAN.pdf`)
+      : (member.aadhaarDocumentName || `${member.empCode}_Aadhaar.pdf`);
+
+    if (!url) {
+      try {
+        triggerToast(`Downloading ${type} document...`);
+        const doc = await api.getTeamMemberDocument(member.id, isPan ? 'pan' : 'aadhaar');
+        url = doc.docUrl;
+      } catch (e) {
+        triggerToast(`✗ Could not download ${type} document`);
+        return;
+      }
+    }
+    triggerDownload(fileName, url, member.empCode, member.name, `${type} Card`);
   };
 
   // Direct file upload handler from employee cards or preview modal
@@ -378,9 +427,9 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
       ) : (
         <div className="space-y-3.5">
           {filteredMembers.map((member) => {
-            const hasPan = Boolean(member.panDocumentUrl || (member.panDocumentName && member.panDocumentName !== 'No PAN Uploaded'));
+            const hasPan = Boolean(member.hasPanDoc || member.panDocumentUrl || (member.panDocumentName && member.panDocumentName !== 'No PAN Uploaded'));
             const panName = member.panDocumentName || (hasPan ? `${member.empCode}_PAN.pdf` : 'No PAN Uploaded');
-            const hasAadhaar = Boolean(member.aadhaarDocumentUrl || (member.aadhaarDocumentName && member.aadhaarDocumentName !== 'No Aadhaar Uploaded'));
+            const hasAadhaar = Boolean(member.hasAadhaarDoc || member.aadhaarDocumentUrl || (member.aadhaarDocumentName && member.aadhaarDocumentName !== 'No Aadhaar Uploaded'));
             const aadhaarName = member.aadhaarDocumentName || (hasAadhaar ? `${member.empCode}_Aadhaar.pdf` : 'No Aadhaar Uploaded');
             const bankName = member.bankName || 'HDFC Bank';
             const bankAccount = member.bankAccountNumber || '50100482910482';
@@ -612,17 +661,7 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
                           <div className="flex gap-1.5">
                             <button
                               type="button"
-                              onClick={() =>
-                                setPreviewDoc({
-                                  empId: member.id,
-                                  title: 'PAN Card Document',
-                                  url: member.panDocumentUrl,
-                                  fileName: panName,
-                                  empName: member.name,
-                                  empCode: member.empCode,
-                                  type: 'PAN',
-                                })
-                              }
+                              onClick={() => handleViewDoc(member, 'PAN')}
                               className="flex-1 py-1 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer"
                             >
                               <Eye className="w-3 h-3 text-slate-500" />
@@ -630,15 +669,7 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
                             </button>
                             <button
                               type="button"
-                              onClick={() =>
-                                triggerDownload(
-                                  panName,
-                                  member.panDocumentUrl,
-                                  member.empCode,
-                                  member.name,
-                                  'PAN Card'
-                                )
-                              }
+                              onClick={() => handleDownloadDoc(member, 'PAN')}
                               className="flex-1 py-1 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border border-emerald-200"
                             >
                               <Download className="w-3 h-3 text-emerald-600" />
@@ -700,17 +731,7 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
                           <div className="flex gap-1.5">
                             <button
                               type="button"
-                              onClick={() =>
-                                setPreviewDoc({
-                                  empId: member.id,
-                                  title: 'Aadhaar Card Document',
-                                  url: member.aadhaarDocumentUrl,
-                                  fileName: aadhaarName,
-                                  empName: member.name,
-                                  empCode: member.empCode,
-                                  type: 'AADHAAR',
-                                })
-                              }
+                              onClick={() => handleViewDoc(member, 'Aadhaar')}
                               className="flex-1 py-1 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer"
                             >
                               <Eye className="w-3 h-3 text-slate-500" />
@@ -718,15 +739,7 @@ export const ManageEmployeesTab: React.FC<ManageEmployeesTabProps> = ({
                             </button>
                             <button
                               type="button"
-                              onClick={() =>
-                                triggerDownload(
-                                  aadhaarName,
-                                  member.aadhaarDocumentUrl,
-                                  member.empCode,
-                                  member.name,
-                                  'Aadhaar Card'
-                                )
-                              }
+                              onClick={() => handleDownloadDoc(member, 'Aadhaar')}
                               className="flex-1 py-1 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[10px] flex items-center justify-center gap-1 transition-all cursor-pointer border border-emerald-200"
                             >
                               <Download className="w-3 h-3 text-emerald-600" />

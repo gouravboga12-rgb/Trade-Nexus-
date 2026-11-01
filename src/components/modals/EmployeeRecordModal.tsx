@@ -56,7 +56,18 @@ export const EmployeeRecordModal: React.FC<Props> = ({ employee, onClose }) => {
   const [docCategory, setDocCategory] = useState('ID Proof');
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [loadedPhotos, setLoadedPhotos] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const fetchRecordPhoto = async (recordId: string) => {
+    if (loadedPhotos[recordId]) return;
+    try {
+      const res = await api.getAttendancePhoto(recordId);
+      if (res?.checkInPhoto) {
+        setLoadedPhotos((prev) => ({ ...prev, [recordId]: res.checkInPhoto! }));
+      }
+    } catch {}
+  };
 
   const employeeId = employee?.id;
   useEffect(() => {
@@ -363,12 +374,22 @@ export const EmployeeRecordModal: React.FC<Props> = ({ employee, onClose }) => {
                       key={a.id || a.date}
                       className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3"
                     >
-                      {a.checkInPhoto ? (
+                      {a.checkInPhoto || (a.id && loadedPhotos[a.id]) ? (
                         <img
-                          src={a.checkInPhoto}
+                          src={a.checkInPhoto || (a.id ? loadedPhotos[a.id] : '')}
                           alt={`${employee.name} at check-in`}
                           className="w-12 h-12 rounded-xl object-cover flex-shrink-0 border border-slate-200"
                         />
+                      ) : a.hasCheckInPhoto && a.id ? (
+                        <button
+                          type="button"
+                          onClick={() => fetchRecordPhoto(a.id!)}
+                          className="w-12 h-12 rounded-xl bg-teal-50 hover:bg-teal-100 text-[#00A88B] flex flex-col items-center justify-center flex-shrink-0 border border-teal-200/80 cursor-pointer transition-colors"
+                          title="Click to view photo"
+                        >
+                          <span className="text-[8px] font-bold">View</span>
+                          <span className="text-[7.5px] font-black">Photo 📷</span>
+                        </button>
                       ) : (
                         <div className="w-12 h-12 rounded-xl bg-slate-200 flex items-center justify-center flex-shrink-0">
                           <span className="text-[9px] font-bold text-slate-500">No photo</span>

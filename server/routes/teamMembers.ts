@@ -35,6 +35,17 @@ router.get('/', (req: Request, res: Response) => {
     ensureAllStaffInTeamMembers();
     syncDailyRosterStatus();
     const user = req.user;
+    const includeDocuments = req.query.includeDocuments === 'true';
+
+    const formatMember = (m: any) => {
+      const hasPanDoc = Boolean(m.panDocumentUrl && m.panDocumentUrl.length > 0);
+      const hasAadhaarDoc = Boolean(m.aadhaarDocumentUrl && m.aadhaarDocumentUrl.length > 0);
+      if (includeDocuments) {
+        return { ...m, hasPanDoc, hasAadhaarDoc };
+      }
+      const { panDocumentUrl, aadhaarDocumentUrl, ...rest } = m;
+      return { ...rest, hasPanDoc, hasAadhaarDoc };
+    };
 
     // Team Leader: Scoped strictly to employees belonging to their assigned squad/team
     if (user && user.role === 'team_leader') {
@@ -62,19 +73,44 @@ router.get('/', (req: Request, res: Response) => {
           FROM team_members 
           WHERE LOWER(groupName) = LOWER(?) OR id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
         `).all(squadName, leaderId, leaderEmpCode, leaderName);
-        return res.status(200).json(members);
+        return res.status(200).json(members.map(formatMember));
       } else {
         const members = db.prepare(`
           SELECT id, empCode, name, avatar, role, groupName as "group", phone, emergencyPhone, dob, employeeType, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup 
           FROM team_members 
           WHERE id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
         `).all(leaderId, leaderEmpCode, leaderName);
-        return res.status(200).json(members);
+        return res.status(200).json(members.map(formatMember));
       }
     }
 
     const members = db.prepare('SELECT id, empCode, name, avatar, role, groupName as "group", phone, emergencyPhone, dob, employeeType, attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, bankName, bankAccountNumber, bankIfscCode, panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup, companyAddress, companyPhone, companyEmail, companyWebsite, signatoryName, signatoryRole FROM team_members').all();
-    return res.status(200).json(members);
+    return res.status(200).json(members.map(formatMember));
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// GET /api/team-members/:id/document/:type — On-demand KYC PDF fetch (pan or aadhaar)
+router.get('/:id/document/:type', (req: Request, res: Response) => {
+  try {
+    const { id, type } = req.params;
+    if (type !== 'pan' && type !== 'aadhaar') {
+      return res.status(400).json({ error: 'Invalid document type. Must be pan or aadhaar' });
+    }
+    const columnUrl = type === 'pan' ? 'panDocumentUrl' : 'aadhaarDocumentUrl';
+    const columnName = type === 'pan' ? 'panDocumentName' : 'aadhaarDocumentName';
+    const row = db.prepare(`SELECT id, name, ${columnName} as docName, ${columnUrl} as docUrl FROM team_members WHERE id = ? OR empCode = ?`).get(id, id) as any;
+    if (!row || !row.docUrl) {
+      return res.status(404).json({ error: `${type.toUpperCase()} document not found for this employee` });
+    }
+    return res.status(200).json({
+      id: row.id,
+      name: row.name,
+      type,
+      docName: row.docName || `${type.toUpperCase()}_Document.pdf`,
+      docUrl: row.docUrl,
+    });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }

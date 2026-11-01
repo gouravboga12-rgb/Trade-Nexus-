@@ -33,6 +33,7 @@ import {
   AuthUser,
 } from '../types';
 import { api, getStoredAuthUser, setStoredAuthUser, getAuthToken, setAuthToken } from '../services/api';
+import { io, Socket } from 'socket.io-client';
 import { getTodayDateIST, getCurrentTimeIST } from '../utils/dateUtils';
 import {
   ALL_RESOURCE_KEYS,
@@ -41,6 +42,7 @@ import {
   RESOURCE_FETCHERS,
   ResourceKey,
   ResourceStatus,
+  getActiveScreenResourceKeys,
 } from '../data/resources';
 import {
   INITIAL_PROFILE,
@@ -989,7 +991,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               'callLogs',
               'paymentVerifications',
               'teamMeetings'
-            ], { force: true });
+            ]);
           }
         })
         .catch((err) => {
@@ -1051,21 +1053,129 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     ]);
   }, [authStep, loadResources]);
 
+  // Socket.IO Real-Time Gateway Connection
+  const socketRef = useRef<Socket | null>(null);
+
+  useEffect(() => {
+    if (authStep !== 'AUTHENTICATED') {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+      return;
+    }
+
+    const token = getAuthToken();
+    const socketUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+      ? 'http://localhost:5001'
+      : (typeof window !== 'undefined' ? window.location.origin : '');
+
+    if (!socketUrl) return;
+
+    const socket = io(socketUrl, {
+      path: '/api/socket.io',
+      auth: { token },
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+    });
+
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('[Socket.IO] Connected to Trade Nexus real-time gateway');
+    });
+
+    // Real-time payment verification updates
+    socket.on('payment:created', (newPay: PaymentVerificationItem) => {
+      setPaymentVerifications((prev) => {
+        if (prev.some((p) => p.id === newPay.id)) return prev;
+        return [newPay, ...prev];
+      });
+    });
+
+    socket.on('payment:updated', (updatedPay: PaymentVerificationItem) => {
+      setPaymentVerifications((prev) =>
+        prev.map((p) => (p.id === updatedPay.id ? updatedPay : p))
+      );
+    });
+
+    socket.on('payment:verified', (verifiedPay: PaymentVerificationItem) => {
+      setPaymentVerifications((prev) => {
+        const exists = prev.some((p) => p.id === verifiedPay.id);
+        if (!exists) return [verifiedPay, ...prev];
+        return prev.map((p) => (p.id === verifiedPay.id ? verifiedPay : p));
+      });
+      refreshResources(['teamMembers', 'teamGroups', 'stats']);
+    });
+
+    socket.on('payment:deleted', ({ id }: { id: string }) => {
+      setPaymentVerifications((prev) => prev.filter((p) => p.id !== id));
+      refreshResources(['teamMembers', 'teamGroups', 'stats']);
+    });
+
+    // Real-time attendance punches
+    socket.on('attendance:punched', (punch: AttendanceRecord) => {
+      setAttendanceLogs((prev) => {
+        const filtered = prev.filter((a) => a.id !== punch.id && !(a.employeeId === punch.employeeId && a.date === punch.date));
+        return [punch, ...filtered];
+      });
+      refreshResources(['teamMembers', 'teamGroups']);
+    });
+
+    // Real-time lead conversions and allocations
+    socket.on('lead:converted', (lead: AssignedLead) => {
+      setAssignedLeads((prev) => prev.map((l) => (l.id === lead.id ? lead : l)));
+      refreshResources(['stats', 'paymentVerifications']);
+    });
+
+    socket.on('lead:updated', (lead: AssignedLead) => {
+      setAssignedLeads((prev) => prev.map((l) => (l.id === lead.id ? lead : l)));
+    });
+
+    socket.on('leads:distributed', () => {
+      refreshResources(['assignedLeads', 'stats']);
+      triggerToast('⚡ Leads updated from server');
+    });
+
+    // Real-time call logs
+    socket.on('call:logged', (log: CallLogItem) => {
+      setCallLogs((prev) => [log, ...prev.filter((c) => c.id !== log.id)]);
+      refreshResources(['teamMembers', 'stats']);
+    });
+
+    // Real-time meetings
+    socket.on('meeting:created', (meeting: TeamMeeting) => {
+      setTeamMeetings((prev) => [meeting, ...prev.filter((m) => m.id !== meeting.id)]);
+      triggerToast(`📅 Meeting scheduled: ${meeting.title}`);
+    });
+
+    socket.on('meeting:deleted', ({ id }: { id: string }) => {
+      setTeamMeetings((prev) => prev.filter((m) => m.id !== id));
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [authStep, refreshResources, triggerToast]);
+
   // Manual one-tap refresh triggered from headers across all 4 panels
   const [isRefreshing, setIsRefreshing] = useState(false);
   const refreshAllData = useCallback(async () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
     try {
-      await refreshResources(ALL_RESOURCE_KEYS);
-      triggerToast('✓ Data refreshed successfully');
+      const keys = getActiveScreenResourceKeys(currentRole, activeTab);
+      await refreshResources(keys);
+      triggerToast('✓ Synced with server');
     } catch (e) {
       console.error('Failed to sync data:', e);
       triggerToast('⚠ Error syncing with server');
     } finally {
-      setTimeout(() => setIsRefreshing(false), 600);
+      setIsRefreshing(false);
     }
-  }, [isRefreshing, refreshResources, triggerToast]);
+  }, [isRefreshing, currentRole, activeTab, refreshResources, triggerToast]);
 
 
 

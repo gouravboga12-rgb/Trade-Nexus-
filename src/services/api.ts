@@ -151,7 +151,15 @@ export const api = {
     request<TelecallerStats>('/stats', { method: 'PUT', body: JSON.stringify(data) }),
 
   // Call Logs
-  getCallLogs: () => request<CallLogItem[]>('/call-logs'),
+  getCallLogs: (params?: { employeeId?: string; search?: string; all?: boolean; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.employeeId) q.set('employeeId', params.employeeId);
+    if (params?.search) q.set('search', params.search);
+    if (params?.all) q.set('all', 'true');
+    if (params?.limit) q.set('limit', String(params.limit));
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return request<CallLogItem[]>(`/call-logs${qs}`);
+  },
   createCallLog: (data: Omit<CallLogItem, 'id'> & { id?: string }) => 
     request<CallLogItem>('/call-logs', { method: 'POST', body: JSON.stringify(data) }),
   deleteCallLog: (id: string) => 
@@ -180,13 +188,16 @@ export const api = {
       method?: string;
       locationStatus?: string;
     }>(`/attendance/today${employeeId ? `?employeeId=${employeeId}` : ''}`),
-  getAttendance: (role?: string, employeeId?: string) => {
+  getAttendance: (role?: string, employeeId?: string, includePhotos?: boolean) => {
     const params = new URLSearchParams();
     if (role) params.set('role', role);
     if (employeeId) params.set('employeeId', employeeId);
+    if (includePhotos) params.set('includePhotos', 'true');
     const qs = params.toString();
     return request<AttendanceRecord[]>(`/attendance${qs ? `?${qs}` : ''}`);
   },
+  getAttendancePhoto: (id: string) =>
+    request<{ id: string; checkInPhoto: string | null; checkOutPhoto: string | null }>(`/attendance/${id}/photo`),
   updateAttendance2: (id: string, data: Partial<AttendanceRecord>) =>
     request<AttendanceRecord>(`/attendance/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   getOffice: () => request<OfficeSettings>('/attendance/office'),
@@ -302,7 +313,10 @@ export const api = {
     request<{ ok: boolean }>(`/payslips/${id}`, { method: 'DELETE' }),
 
   // Team Members
-  getTeamMembers: () => request<TeamMember[]>('/team-members'),
+  getTeamMembers: (includeDocuments?: boolean) => 
+    request<TeamMember[]>(`/team-members${includeDocuments ? '?includeDocuments=true' : ''}`),
+  getTeamMemberDocument: (id: string, type: 'pan' | 'aadhaar') =>
+    request<{ id: string; name: string; type: string; docName: string; docUrl: string }>(`/team-members/${id}/document/${type}`),
   createTeamMember: (data: Omit<TeamMember, 'id'> & { id?: string }) => 
     request<TeamMember>('/team-members', { method: 'POST', body: JSON.stringify(data) }),
   updateTeamMember: (id: string, data: Partial<TeamMember>) => 
@@ -377,8 +391,29 @@ export const api = {
     request<ExitEmployee>(`/exit-employees/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   // Assigned Leads
-  getAssignedLeads: (employeeId?: string) => 
-    request<AssignedLead[]>(`/assigned-leads${employeeId ? `?employeeId=${employeeId}` : ''}`),
+  getAssignedLeads: (params?: string | { employeeId?: string; batchId?: string; search?: string; all?: boolean; limit?: number }) => {
+    if (typeof params === 'string') {
+      return request<AssignedLead[]>(`/assigned-leads${params ? `?employeeId=${params}` : ''}`);
+    }
+    const q = new URLSearchParams();
+    if (params?.employeeId) q.set('employeeId', params.employeeId);
+    if (params?.batchId) q.set('batchId', params.batchId);
+    if (params?.search) q.set('search', params.search);
+    if (params?.all) q.set('all', 'true');
+    if (params?.limit) q.set('limit', String(params.limit));
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return request<AssignedLead[]>(`/assigned-leads${qs}`);
+  },
+  getAssignedLeadsStats: () =>
+    request<{
+      total: number;
+      converted: number;
+      interested: number;
+      inProgress: number;
+      notInterested: number;
+      pending: number;
+      totalDealValue: number;
+    }>('/assigned-leads/stats'),
   createAssignedLead: (data: Omit<AssignedLead, 'id'> & { id?: string }) => 
     request<AssignedLead>('/assigned-leads', { method: 'POST', body: JSON.stringify(data) }),
   bulkImportAssignedLeads: (fileName: string, targetEmployeeId: string, targetEmployeeName: string, leads: any[]) => 
