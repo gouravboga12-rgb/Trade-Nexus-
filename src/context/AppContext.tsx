@@ -1529,6 +1529,91 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [isRefreshing, currentRole, activeTab, refreshResources, triggerToast]);
 
+  // Register push token with server whenever user changes or token arrives
+  const [devicePushToken, setDevicePushToken] = useState<string>(() => {
+    try {
+      return localStorage.getItem('tnx_device_push_token') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  useEffect(() => {
+    (window as any).__setPushToken = (token: string) => {
+      if (token && typeof token === 'string') {
+        console.log('[Native Push Token Hook Received]', token);
+        setDevicePushToken(token);
+        try {
+          localStorage.setItem('tnx_device_push_token', token);
+        } catch {}
+      }
+    };
+    return () => {
+      delete (window as any).__setPushToken;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!devicePushToken || authStep !== 'AUTHENTICATED') return;
+    const token = getAuthToken();
+    const curUser = currentUserRef.current;
+    const curProf = profileRef.current;
+    const userId = curUser?.employeeId || curUser?.id || curProf.id;
+    const empCode = curUser?.empCode || curProf.empCode;
+    const role = currentRoleRef.current;
+    const userName = curUser?.name || curProf.name;
+
+    fetch('/api/notifications/register-token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        token: devicePushToken,
+        userId,
+        empCode,
+        role,
+        userName,
+        platform: 'android'
+      })
+    })
+      .then(r => r.json())
+      .then(d => console.log('[Push Token Registered with Backend]', d))
+      .catch(err => console.warn('[Push Token Registration Error]', err));
+  }, [devicePushToken, authStep, currentUser]);
+
+  // Seamless Background-to-Foreground Resume Auto-Sync (No need to ever exit the app!)
+  useEffect(() => {
+    const handleResume = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[App Resume] App returned to foreground, reconnecting socket & refreshing data...');
+        if (socketRef.current) {
+          if (!socketRef.current.connected) {
+            socketRef.current.connect();
+          }
+        }
+        refreshAllData();
+      }
+    };
+
+    (window as any).__triggerTradeNexusResume = () => {
+      console.log('[Native AppState Signal] Foreground resume triggered!');
+      handleResume();
+    };
+
+    document.addEventListener('visibilitychange', handleResume);
+    window.addEventListener('focus', handleResume);
+    window.addEventListener('online', handleResume);
+
+    return () => {
+      delete (window as any).__triggerTradeNexusResume;
+      document.removeEventListener('visibilitychange', handleResume);
+      window.removeEventListener('focus', handleResume);
+      window.removeEventListener('online', handleResume);
+    };
+  }, [refreshAllData]);
+
 
 
 

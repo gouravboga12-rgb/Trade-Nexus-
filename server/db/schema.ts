@@ -915,9 +915,24 @@ function runMigrations() {
       );
       CREATE INDEX IF NOT EXISTS idx_top_performers_rank ON top_performers(rank);
       CREATE INDEX IF NOT EXISTS idx_top_performers_active ON top_performers(isActive);
+
+      -- Device Push Notification Tokens
+      CREATE TABLE IF NOT EXISTS device_push_tokens (
+        id TEXT PRIMARY KEY,
+        token TEXT NOT NULL UNIQUE,
+        userId TEXT,
+        empCode TEXT,
+        role TEXT,
+        userName TEXT,
+        platform TEXT DEFAULT 'android',
+        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_push_tokens_user ON device_push_tokens(userId);
+      CREATE INDEX IF NOT EXISTS idx_push_tokens_emp ON device_push_tokens(empCode);
+      CREATE INDEX IF NOT EXISTS idx_push_tokens_role ON device_push_tokens(role);
     `);
   } catch (e) {
-    console.error('[SQLite DB] Failed to create top_performers table:', e);
+    console.error('[SQLite DB] Failed to create tables:', e);
   }
 }
 

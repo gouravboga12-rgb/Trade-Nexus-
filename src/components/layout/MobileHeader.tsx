@@ -69,11 +69,12 @@ export const MobileHeader: React.FC = () => {
           onClick={refreshAllData}
           disabled={isRefreshing}
           title="Refresh Data from Server"
-          className={`w-8 h-8 rounded-xl bg-slate-100 hover:bg-[#E6FAF6] hover:border-[#00C9A7]/40 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-[#00A88B] shadow-2xs active:scale-95 transition-all flex-shrink-0 cursor-pointer ${
-            isRefreshing ? 'opacity-70 pointer-events-none' : ''
+          className={`h-8 px-2.5 rounded-xl bg-slate-100 hover:bg-[#E6FAF6] hover:border-[#00C9A7]/40 border border-slate-200 flex items-center gap-1.5 text-slate-700 hover:text-[#00A88B] shadow-2xs active:scale-95 transition-all flex-shrink-0 cursor-pointer ${
+            isRefreshing ? 'opacity-80 pointer-events-none bg-[#E6FAF6] text-[#00A88B]' : ''
           }`}
         >
           <RotateCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#00A88B]' : ''}`} />
+          <span className="text-[11px] font-bold hidden xs:inline">{isRefreshing ? 'Syncing...' : 'Refresh'}</span>
         </button>
 
         {/* Small Exit Account / Logout Button beside Profile Badge */}

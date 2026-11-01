@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
 import { zoomService } from '../services/zoomService.js';
 import { emitSocketEvent } from '../services/socketService.js';
+import { sendPushNotification } from '../services/notificationService.js';
 
 const router = Router();
 
@@ -233,8 +234,17 @@ router.post('/create-zoom', async (req: Request, res: Response) => {
       priority
     );
 
-    const created = db.prepare('SELECT * FROM team_meetings WHERE id = ?').get(meetingId);
+    const created = db.prepare('SELECT * FROM team_meetings WHERE id = ?').get(meetingId) as any;
     emitSocketEvent('meeting:created', created);
+
+    if (created) {
+      sendPushNotification({
+        title: 'Team Meeting Scheduled 📅',
+        body: `${created.title || 'Meeting'} scheduled for ${created.time || 'today'}.`,
+        data: { targetTab: 'home', meetingId }
+      }).catch(() => {});
+    }
+
     return res.status(201).json(created);
   } catch (error) {
     console.error('[POST /team-meetings/create-zoom] Error:', error);
@@ -337,8 +347,17 @@ router.post('/', async (req: Request, res: Response) => {
       priority
     );
 
-    const created = db.prepare('SELECT * FROM team_meetings WHERE id = ?').get(meetingId);
+    const created = db.prepare('SELECT * FROM team_meetings WHERE id = ?').get(meetingId) as any;
     emitSocketEvent('meeting:created', created);
+
+    if (created) {
+      sendPushNotification({
+        title: 'Team Meeting Scheduled 📅',
+        body: `${created.title || 'Meeting'} scheduled for ${created.time || 'today'}.`,
+        data: { targetTab: 'home', meetingId }
+      }).catch(() => {});
+    }
+
     return res.status(201).json(created);
   } catch (error) {
     console.error('[POST /team-meetings] Error:', error);

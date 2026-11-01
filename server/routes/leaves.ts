@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
 import { emitSocketEvent } from '../services/socketService.js';
+import { sendPushNotification } from '../services/notificationService.js';
 
 const router = Router();
 
@@ -174,6 +175,15 @@ router.post('/', (req: Request, res: Response) => {
 
     const created = db.prepare('SELECT * FROM leave_requests WHERE id = ?').get(leaveId);
     emitSocketEvent('leave:created', created);
+
+    // Send external push notification to Admin & HR
+    sendPushNotification({
+      targetRole: ['admin', 'hr'],
+      title: 'New Leave Application 📋',
+      body: `${(created as any)?.employeeName || 'An employee'} applied for ${(created as any)?.leaveType || 'Leave'} (${(created as any)?.totalDays || 1} day).`,
+      data: { targetTab: 'leaves', leaveId }
+    }).catch(() => {});
+
     return res.status(201).json(created);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -268,8 +278,31 @@ router.put('/:id', (req: Request, res: Response) => {
       id
     );
 
-    const updated = db.prepare('SELECT * FROM leave_requests WHERE id = ?').get(id);
+    const updated = db.prepare('SELECT * FROM leave_requests WHERE id = ?').get(id) as any;
     emitSocketEvent('leave:updated', updated);
+
+    // Send external push notification directly to the applicant
+    if (updated) {
+      const isApproved = updated.status === 'APPROVED';
+      const isRejected = updated.status === 'REJECTED';
+      const approver = updated.rejectedBy || updated.approvedBy || updated.adminApprovedBy || updated.hrApprovedBy || 'Admin';
+
+      const title = isApproved ? 'Leave Request Approved! ✅' : isRejected ? 'Leave Request Declined ❌' : 'Leave Status Updated';
+      const body = isApproved
+        ? `Your leave for ${updated.fromDate} was approved by ${approver}.`
+        : isRejected
+        ? `Your leave for ${updated.fromDate} was declined by ${approver}.${updated.rejectionReason ? ` Reason: "${updated.rejectionReason}"` : ''}`
+        : `Your leave stage moved to ${updated.approvalStage || updated.status}.`;
+
+      sendPushNotification({
+        targetUserId: updated.employeeId,
+        targetEmpCode: updated.employeeCode,
+        title,
+        body,
+        data: { targetTab: 'leaves', leaveId: id }
+      }).catch(() => {});
+    }
+
     return res.status(200).json(updated);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });

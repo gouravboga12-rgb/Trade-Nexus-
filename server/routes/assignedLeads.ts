@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
 import { getTodayDateIST } from '../utils/dateUtils.js';
 import { emitSocketEvent } from '../services/socketService.js';
+import { sendPushNotification } from '../services/notificationService.js';
 
 const router = Router();
 
@@ -230,6 +231,15 @@ router.post('/bulk', (req: Request, res: Response) => {
       count: Array.isArray(leads) ? leads.length : 0
     });
 
+    if (targetEmployeeId) {
+      sendPushNotification({
+        targetUserId: targetEmployeeId,
+        title: 'New Leads Assigned 📞',
+        body: `Admin assigned ${Array.isArray(leads) ? leads.length : 0} new leads (${fileName || 'New batch'}).`,
+        data: { targetTab: 'calling', batchId }
+      }).catch(() => {});
+    }
+
     // For large uploads (> 500 leads), avoid serializing 25MB JSON string which blocks event loop and swap
     if (Array.isArray(leads) && leads.length > 500) {
       return res.status(201).json({ 
@@ -338,6 +348,15 @@ router.post('/reassign-batch', (req: Request, res: Response) => {
 
     const count = reassignMany(leadIds, targetEmployeeId, targetEmployeeName || 'Employee');
     emitSocketEvent('leads:distributed', { count, targetEmployeeId });
+
+    if (targetEmployeeId && count > 0) {
+      sendPushNotification({
+        targetUserId: targetEmployeeId,
+        title: 'Leads Distributed to You 📞',
+        body: `Admin allocated ${count} leads to your calling list.`,
+        data: { targetTab: 'calling' }
+      }).catch(() => {});
+    }
     return res.status(200).json({ success: true, count, targetEmployeeId, targetEmployeeName });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });

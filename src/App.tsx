@@ -185,7 +185,7 @@ export const App: React.FC = () => {
       {/* 2. UNIFIED RESPONSIVE APP WORKSPACE (Mobile, Tablet, Laptop & Desktop) - Strictly hidden during print */}
       <div className="flex flex-col min-h-screen w-full bg-[#F8FAFC] relative print:hidden">
         {/* Global Responsive Header */}
-        {activeTab !== 'profile' && <MobileHeader />}
+        <MobileHeader />
 
         {/* Global Floating Header Notification Pop-Up Alert */}
         <HeaderNotificationBanner />

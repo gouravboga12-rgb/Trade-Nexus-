@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
 import { requireRole } from '../middleware/auth.js';
 import { emitSocketEvent } from '../services/socketService.js';
+import { sendPushNotification } from '../services/notificationService.js';
 
 const router = Router();
 
@@ -142,8 +143,18 @@ router.post('/', (req: Request, res: Response) => {
       customerIfscCode || null, customerUpiId || null
     );
 
-    const created = db.prepare('SELECT * FROM payment_verifications WHERE id = ?').get(payId);
+    const created = db.prepare('SELECT * FROM payment_verifications WHERE id = ?').get(payId) as any;
     emitSocketEvent('payment:created', created);
+
+    if (created) {
+      sendPushNotification({
+        targetRole: ['admin', 'hr'],
+        title: 'New Payment Submitted 💰',
+        body: `${created.telecallerName || 'Sales rep'} submitted ₹${Number(created.dealAmount || 0).toLocaleString('en-IN')} for verification.`,
+        data: { targetTab: 'approvals', paymentId: created.id }
+      }).catch(() => {});
+    }
+
     return res.status(201).json(created);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -206,6 +217,19 @@ router.put('/:id', requireRole('admin', 'hr'), (req: Request, res: Response) => 
     emitSocketEvent('payment:updated', updated);
     if (updated?.status === 'VERIFIED') {
       emitSocketEvent('payment:verified', updated);
+      sendPushNotification({
+        targetUserId: updated.employeeId,
+        title: 'Payment Verified! 💰',
+        body: `Payment of ₹${Number(updated.dealAmount || 0).toLocaleString('en-IN')} for ${updated.leadName || 'Client'} was approved.`,
+        data: { targetTab: 'clients', paymentId: id }
+      }).catch(() => {});
+    } else if (updated?.status === 'REJECTED') {
+      sendPushNotification({
+        targetUserId: updated.employeeId,
+        title: 'Payment Rejected ❌',
+        body: `Payment verification for ${updated.leadName || 'Client'} was declined.`,
+        data: { targetTab: 'clients', paymentId: id }
+      }).catch(() => {});
     }
     return res.status(200).json(updated);
   } catch (error) {
