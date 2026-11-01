@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { useScreenData } from '../hooks/useScreenData';
 import { getTodayDateIST, getLeadDate, isDateInPeriodIST, getDateRangeIST } from '../utils/dateUtils';
 import { getPaymentDateIST, isPaymentInPeriod, paymentBelongsTo } from '../utils/revenueUtils';
+import { dialPhoneNumber } from '../utils/phoneCaller';
 import { 
   Users, 
   PhoneCall, 
@@ -1670,7 +1671,19 @@ export const TeamLeaderDashboardView: React.FC = () => {
                             </div>
 
                             <div className="flex items-center gap-3 text-xs text-slate-500 font-mono mt-1 flex-wrap">
-                              <span className="font-bold text-slate-700">{lead.phone || '—'}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  openCallModalForLead(lead);
+                                  if (lead.phone) {
+                                    dialPhoneNumber(lead.phone);
+                                    triggerToast(`📞 Dialing ${lead.phone}...`);
+                                  }
+                                }}
+                                className="font-bold text-slate-800 hover:text-[#00A88B] transition-colors cursor-pointer text-left"
+                              >
+                                {lead.phone || '—'}
+                              </button>
                               {lead.city && <span>📍 {lead.city}</span>}
                               <span>📞 {lead.callCount || 0} Dials</span>
                               {lead.lastCallTimestamp && <span>🕒 {lead.lastCallTimestamp}</span>}
@@ -1685,7 +1698,13 @@ export const TeamLeaderDashboardView: React.FC = () => {
 
                           <button
                             type="button"
-                            onClick={() => openCallModalForLead(lead)}
+                            onClick={() => {
+                              openCallModalForLead(lead);
+                              if (lead.phone) {
+                                dialPhoneNumber(lead.phone);
+                                triggerToast(`📞 Dialing ${lead.phone}...`);
+                              }
+                            }}
                             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs shadow-xs active:scale-95 transition-all flex-shrink-0 cursor-pointer"
                           >
                             <Phone className="w-3.5 h-3.5 stroke-[2.5]" />

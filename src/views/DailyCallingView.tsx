@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useScreenData } from '../hooks/useScreenData';
+import { dialPhoneNumber } from '../utils/phoneCaller';
 import { 
   PhoneCall, 
   Plus, 
@@ -46,6 +47,12 @@ export const DailyCallingView: React.FC = () => {
   const [activeQueueFilter, setActiveQueueFilter] = useState<QueueFilter>('ALL_ASSIGNED');
   const [selectedOutcome, setSelectedOutcome] = useState<string>('ALL');
   const [search, setSearch] = useState('');
+  const [visibleLimit, setVisibleLimit] = useState(40);
+
+  // Reset pagination limit when switching queue tabs or searching
+  useEffect(() => {
+    setVisibleLimit(40);
+  }, [activeQueueFilter, search]);
 
   // Historical Date Range Filter State
   type DatePeriod = 'TODAY' | 'YESTERDAY' | 'LAST_7' | 'LAST_30' | 'ALL' | 'CUSTOM';
@@ -246,7 +253,7 @@ export const DailyCallingView: React.FC = () => {
 
   const handleCallLead = (lead: AssignedLead) => {
     openCallModalForLead(lead);
-    window.location.href = `tel:${lead.phone}`;
+    dialPhoneNumber(lead.phone);
     triggerToast(`📞 Dialing ${lead.phone}...`);
   };
 
@@ -472,10 +479,10 @@ export const DailyCallingView: React.FC = () => {
             )}
           </div>
 
-          {/* Calling Queue Cards: FULL Phone Number Displayed, NO developer import junk */}
+          {/* Calling Queue Cards: FULL Phone Number Displayed, Progressive Loading for Performance */}
           {currentQueueLeads.length > 0 ? (
             <div className="space-y-2">
-              {currentQueueLeads.map((lead) => {
+              {currentQueueLeads.slice(0, visibleLimit).map((lead) => {
                 const isYesterdayCallback =
                   lead.status === 'CALLBACK' &&
                   ((lead.followUpDate || '').toLowerCase().includes('yesterday') ||
@@ -510,10 +517,14 @@ export const DailyCallingView: React.FC = () => {
                         </div>
 
                         <div className="min-w-0">
-                          {/* Full Phone Number with room to breathe */}
-                          <span className="font-mono font-black text-[15px] text-[#0A2540] tracking-tight block">
+                          {/* Full Phone Number with room to breathe, Click to dial */}
+                          <button
+                            type="button"
+                            onClick={() => handleCallLead(lead)}
+                            className="font-mono font-black text-[15px] text-[#0A2540] tracking-tight block text-left hover:text-[#00A88B] transition-colors cursor-pointer"
+                          >
                             {lead.phone}
-                          </span>
+                          </button>
                           {lead.name && (
                             <span className="text-xs text-slate-500 font-medium block truncate">
                               {lead.name}
@@ -569,6 +580,19 @@ export const DailyCallingView: React.FC = () => {
                   </div>
                 );
               })}
+
+              {/* Load More Button for Large Assigned Excel Lead Lists */}
+              {currentQueueLeads.length > visibleLimit && (
+                <div className="pt-2 pb-3 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleLimit((prev) => prev + 40)}
+                    className="px-6 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-[#00A88B] hover:border-[#00C9A7] font-bold text-xs shadow-2xs active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2"
+                  >
+                    <span>Load More Leads ({Math.min(visibleLimit, currentQueueLeads.length)} of {currentQueueLeads.length})</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="nexus-card p-8 bg-white border border-slate-200 rounded-2xl text-center space-y-2">
@@ -812,13 +836,17 @@ export const DailyCallingView: React.FC = () => {
 
                         {/* Action Row */}
                         <div className="pt-1 flex items-center justify-end gap-2 border-t border-slate-100">
-                          <a
-                            href={`tel:${log.phoneNumber}`}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              dialPhoneNumber(log.phoneNumber);
+                              triggerToast(`📞 Dialing ${log.phoneNumber}...`);
+                            }}
                             className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[11px] flex items-center gap-1 cursor-pointer active:scale-95 transition-all"
                           >
                             <Phone className="w-3 h-3 text-emerald-600 fill-current" />
                             <span>Call Again</span>
-                          </a>
+                          </button>
                         </div>
                       </div>
                     ))}

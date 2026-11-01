@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { RejectedLeaveBanner } from '../components/common/RejectedLeaveBanner';
 import { sumVerifiedRevenue } from '../utils/revenueUtils';
+import { dialPhoneNumber } from '../utils/phoneCaller';
 import { TopPerformersShowcase } from '../components/common/TopPerformersShowcase';
 
 export const TelecallerHomeView: React.FC = () => {
@@ -167,7 +168,7 @@ export const TelecallerHomeView: React.FC = () => {
       setActiveCallingLead(null);
       setIsQuickCallModalOpen(true);
     }
-    window.location.href = `tel:${urgentLead.phone}`;
+    dialPhoneNumber(urgentLead.phone);
   };
 
   return (

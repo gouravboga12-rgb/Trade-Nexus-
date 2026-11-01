@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useScreenData } from '../../hooks/useScreenData';
 import { 
@@ -25,6 +25,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { CallOutcome, AssignedLead, CallLogItem } from '../../types';
+import { dialPhoneNumber } from '../../utils/phoneCaller';
 
 export const DesktopDailyCalling: React.FC = () => {
   const { 
@@ -45,6 +46,11 @@ export const DesktopDailyCalling: React.FC = () => {
   const [activeQueueFilter, setActiveQueueFilter] = useState<'ALL_ASSIGNED' | 'CALLBACKS' | 'INTERESTED'>('ALL_ASSIGNED');
   const [selectedOutcome, setSelectedOutcome] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [visibleLimit, setVisibleLimit] = useState(50);
+
+  useEffect(() => {
+    setVisibleLimit(50);
+  }, [activeQueueFilter, searchQuery]);
 
   // Historical Date Range Filter State
   type DatePeriod = 'TODAY' | 'YESTERDAY' | 'LAST_7' | 'LAST_30' | 'ALL' | 'CUSTOM';
@@ -123,7 +129,8 @@ export const DesktopDailyCalling: React.FC = () => {
   }, [myAssignedLeads, activeQueueFilter, callbackLeads, interestedLeads, searchQuery]);
 
   const handleDialActive = (lead: AssignedLead) => {
-    window.location.href = `tel:${lead.phone}`;
+    openCallModalForLead(lead);
+    dialPhoneNumber(lead.phone);
     triggerToast(`📞 Dialing ${lead.phone}...`);
   };
 
@@ -426,8 +433,9 @@ export const DesktopDailyCalling: React.FC = () => {
 
             {/* Lead Cards Grid (2-column desktop grid for comfortable reading) */}
             {currentQueueLeads.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {currentQueueLeads.map((lead) => {
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {currentQueueLeads.slice(0, visibleLimit).map((lead) => {
                   const isYesterdayCallback =
                     lead.status === 'CALLBACK' &&
                     ((lead.followUpDate || '').toLowerCase().includes('yesterday') ||
@@ -508,6 +516,19 @@ export const DesktopDailyCalling: React.FC = () => {
                   );
                 })}
               </div>
+
+              {currentQueueLeads.length > visibleLimit && (
+                <div className="pt-3 pb-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleLimit(prev => prev + 50)}
+                    className="px-6 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-[#00A88B] hover:border-[#00C9A7] font-bold text-xs shadow-2xs active:scale-95 transition-all cursor-pointer inline-flex items-center gap-2"
+                  >
+                    <span>Load More Leads ({Math.min(visibleLimit, currentQueueLeads.length)} of {currentQueueLeads.length})</span>
+                  </button>
+                </div>
+              )}
+              </>
             ) : (
               <div className="nexus-card p-12 bg-white border border-slate-200 rounded-3xl text-center space-y-2">
                 <CheckCircle2 className="w-10 h-10 text-[#00C9A7] mx-auto" />

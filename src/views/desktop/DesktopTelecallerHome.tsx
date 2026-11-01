@@ -27,6 +27,7 @@ import {
 import { RejectedLeaveBanner } from '../../components/common/RejectedLeaveBanner';
 import { getTodayDateIST } from '../../utils/dateUtils';
 import { sumVerifiedRevenue } from '../../utils/revenueUtils';
+import { dialPhoneNumber } from '../../utils/phoneCaller';
 
 export const DesktopTelecallerHome: React.FC = () => {
   const { 
@@ -64,7 +65,7 @@ export const DesktopTelecallerHome: React.FC = () => {
   const handleInstantCall = () => {
     if (!urgentLead) return;
     triggerToast(`📞 Dialing ${urgentLead.name} (${urgentLead.phone})...`);
-    window.location.href = `tel:${urgentLead.phone}`;
+    dialPhoneNumber(urgentLead.phone);
     setTimeout(() => {
       setIsQuickCallModalOpen(true);
     }, 500);
