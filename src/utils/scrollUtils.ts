@@ -40,4 +40,9 @@ export function scrollToTop(instant: boolean = true): void {
   setTimeout(() => {
     resetAll();
   }, 40);
+
+  // 4. Secondary tick (guarantees top positioning even after asynchronous data population)
+  setTimeout(() => {
+    resetAll();
+  }, 120);
 }
