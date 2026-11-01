@@ -1,25 +1,63 @@
 {
   "expo": {
-    "name": "tradex-mobile",
+    "name": "Trade Nexus Trade Smart",
     "slug": "tradex-mobile",
-    "version": "1.0.0",
+    "owner": "tradenexustrade",
+    "version": "1.0.5",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tradenexus.tradesmart"
     },
     "android": {
+      "package": "com.tradenexus.tradesmart",
+      "versionCode": 6,
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#07192C",
+        "foregroundImage": "./assets/android-icon-foreground.png"
       },
-      "predictiveBackGestureEnabled": false
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "CALL_PHONE",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
+    "plugins": [
+      "expo-secure-store",
+      "expo-sharing",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Trade Nexus requires camera access for Biometric Face ID attendance punch-in."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Trade Nexus requires location access to verify office geofence attendance check-ins."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#00C9A7"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d852e74d-c724-4241-a1c5-03ee7c5df28c"
+      }
     }
   }
 }

@@ -1,0 +1,638 @@
+export type UserRole = 'telecaller' | 'employee' | 'team_leader' | 'hr' | 'admin';
+
+export type AuthStep = 'LOGIN' | 'FACE_SCAN' | 'ATTENDANCE_SUCCESS' | 'AUTHENTICATED';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  empCode: string | null;
+  employeeId: string | null;
+  groupName?: string;
+  phone?: string;
+}
+
+export type NavTab = 'home' | 'calling' | 'clients' | 'leaves' | 'profile' | 'menu';
+
+export type CallOutcome = 'CONNECTED' | 'BUSY' | 'CALLBACK' | 'INTERESTED' | 'NOT_INTERESTED' | 'DEAL_CLOSED';
+
+export type LeadTemperature = 'HOT' | 'WARM' | 'COLD' | 'CONVERTED';
+
+export interface TelecallerStats {
+  todayGoalCalls: number;
+  dialsMade: number;
+  connected: number;
+  interested: number;
+  rejected: number;
+  averageCallDurationSec: number;
+  monthlySalesTarget: number;
+  monthlySalesAchieved: number;
+}
+
+export interface CallLogItem {
+  id: string;
+  clientName: string;
+  phoneNumber: string;
+  companyName: string;
+  timestamp: string;
+  durationSec: number;
+  outcome: CallOutcome;
+  notes: string;
+  followUpDate?: string;
+  employeeId?: string;
+  employeeName?: string;
+  createdAt?: string;
+  date?: string;
+}
+
+export interface ClientLead {
+  id: string;
+  name: string;
+  company: string;
+  phone: string;
+  email: string;
+  temperature: LeadTemperature;
+  status: 'Due Today' | 'Pending' | 'Follow-up' | 'Converted' | 'Lost';
+  dueTime?: string;
+  dealValue: number;
+  requirement: string;
+  lastContacted: string;
+}
+
+export interface CompanyHoliday {
+  id: string;
+  name: string;
+  date: string; // YYYY-MM-DD
+  type?: 'NATIONAL' | 'FESTIVAL' | 'COMPANY' | 'OPTIONAL';
+  description?: string;
+}
+
+export interface CalendarSettings {
+  id?: string;
+  weeklyOffDays: number[]; // e.g. [0] for Sunday, [0, 6] for Sat & Sun
+  weekendPolicy: 'SUNDAY_ONLY' | 'SATURDAY_SUNDAY' | 'ALTERNATE_SATURDAY' | 'CUSTOM';
+  shiftStartTime: string; // e.g. "09:30 AM"
+  shiftEndTime: string;   // e.g. "06:30 PM"
+  gracePeriodMinutes: number; // e.g. 15
+  halfDayThresholdHours: number; // e.g. 4.0
+  fullDayThresholdHours: number; // e.g. 8.0
+  enableLateMarking?: boolean; // if false, Late tag is turned off & punches are marked PRESENT
+  punchInWindowStart?: string; // e.g. "08:00 AM"
+  punchInWindowEnd?: string;   // e.g. "09:30 AM" (cutoff for on-time punch-in)
+  autoPunchOutTime?: string;   // e.g. "11:59 PM"
+  updatedAt?: string;
+}
+
+export interface AttendanceRecord {
+  id?: string;
+  employeeId?: string;
+  employeeName?: string;
+  /** Photo taken at check-in. Admin only — never sent to other roles. */
+  checkInPhoto?: string;
+  hasCheckInPhoto?: boolean;
+  /** Coordinates at check-in. Admin only — never sent to other roles. */
+  checkInLat?: number;
+  checkInLng?: number;
+  /** Metres from the office at check-in. */
+  checkInDistanceM?: number;
+  distanceM?: number;
+  locationStatus?: 'AT_OFFICE' | 'AWAY' | 'NOT_SHARED' | 'OFFICE_NOT_SET';
+  /** Photo taken at check-out. Admin only. */
+  checkOutPhoto?: string;
+  hasCheckOutPhoto?: boolean;
+  checkOutLat?: number;
+  checkOutLng?: number;
+  checkOutDistanceM?: number;
+  checkOutLocationStatus?: 'AT_OFFICE' | 'AWAY' | 'NOT_SHARED' | 'OFFICE_NOT_SET';
+  punchOutStatus?: 'NORMAL' | 'MISSED_PUNCH_OUT' | 'AUTO_CLOSED';
+  isAutoClosed?: boolean;
+  autoClosedAt?: string;
+  date: string;
+  dayNumber: number;
+  status: 'PRESENT' | 'LATE' | 'ABSENT' | 'LEAVE' | 'HOLIDAY' | 'HALF_DAY' | 'WEEKLY_OFF';
+  checkIn?: string;
+  checkOut?: string;
+  workHours?: string;
+  method?: 'Face ID Biometric' | 'Geo-tagged';
+  disputedByAdmin?: boolean;
+  disputeReason?: string | null;
+}
+
+export interface LeaveRequest {
+  id: string;
+  employeeName?: string;
+  employeeCode?: string;
+  employeeId?: string;
+  employeeRole?: 'telecaller' | 'team_leader' | 'hr' | 'admin';
+  leaveType: 'Casual Leave' | 'Sick Leave' | 'Earned / Paid Leave';
+  fromDate: string;
+  toDate: string;
+  totalDays: number;
+  reason: string;
+  /** Overall simplified status for display */
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  /**
+   * Tracks which level of approval is currently pending.
+   * telecaller  → PENDING_TEAM_LEADER → PENDING_HR → PENDING_ADMIN → APPROVED
+   * team_leader → PENDING_HR → PENDING_ADMIN → APPROVED
+   * hr          → PENDING_ADMIN → APPROVED
+   */
+  approvalStage?: 'PENDING_TEAM_LEADER' | 'PENDING_HR' | 'PENDING_ADMIN' | 'APPROVED' | 'REJECTED';
+  teamName?: string;
+  appliedOn: string;
+  approvedBy?: string;
+  rejectedBy?: string;
+  rejectionReason?: string;
+  teamLeaderApprovedBy?: string;
+  teamLeaderApprovedAt?: string;
+  hrApprovedBy?: string;
+  hrApprovedAt?: string;
+  adminApprovedBy?: string;
+  adminApprovedAt?: string;
+}
+
+export interface PayslipItem {
+  id: string;
+  employeeId?: string;
+  employeeName?: string;
+  employeeCode?: string;
+  empCode?: string;
+  email?: string;
+  roleTitle?: string;
+  department?: string;
+  employeeType?: string;
+  payDate?: string;
+  month: string;
+  year: number;
+  basicSalary: number;
+  hra: number;
+  specialAllowance: number;
+  incentives: number;
+  housingAllowance?: number;
+  transportation?: number;
+  performanceBonus?: number;
+  pfDeduction: number;
+  taxDeduction: number;
+  healthInsurance?: number;
+  pensionContribution?: number;
+  netPay: number;
+  generatedDate: string;
+  status: 'PAID' | 'PROCESSED' | 'PENDING' | 'REVISED';
+  customNotes?: string;
+  changeRemarks?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  paymentMode?: string;
+  authorizedName?: string;
+  authorizedRole?: string;
+  modifiedBy?: string;
+  modifiedAt?: string;
+  payrollStatus?: 'DRAFT' | 'DISPATCHED';
+  dispatchedAt?: string | null;
+  dispatchedBy?: string | null;
+  emailedAt?: string | null;
+  templateVersion?: string;
+  documentId?: string | null;
+  authorizedSignature?: string | null;
+}
+
+export interface EmployeeProfile {
+  id: string;
+  empCode: string;
+  name: string;
+  roleTitle: string;
+  department: string;
+  teamName: string;
+  teamLeaderName: string;
+  email: string;
+  phone: string;
+  address?: string;
+  joinDate: string;
+  bloodGroup: string;
+  faceIdStatus: 'VERIFIED_PRESENT' | 'ON_BREAK' | 'NOT_CHECKED_IN';
+  checkInTime: string;
+  checkOutTime?: string;
+  avatar?: string;
+  dob?: string;
+  emergencyPhone?: string;
+  totalLeaveBalance: number;
+  disputedByAdmin?: boolean;
+  disputeReason?: string | null;
+}
+
+export interface TeamMember {
+  id: string;
+  empCode: string;
+  name: string;
+  avatar: string;
+  role: string;
+  group: string;
+  phone: string;
+  attendanceStatus: 'PRESENT' | 'LATE' | 'ON_LEAVE' | 'ABSENT' | 'WEEKLY_OFF' | 'HOLIDAY';
+  checkInTime?: string;
+  checkOutTime?: string;
+  checkInMethod?: 'Face ID Biometric' | 'Geo-tagged' | '' | string;
+  dialsToday: number;
+  goalCalls: number;
+  connected: number;
+  interested: number;
+  salesAchieved: number;
+  salesTarget: number;
+  conversionRate: number;
+  email?: string;
+  /** Which of the four portals this person may enter. */
+  portal?: UserRole;
+  password?: string;
+  active?: number;
+  deactivatedOn?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankIfscCode?: string;
+  panDocumentName?: string;
+  panDocumentUrl?: string;
+  hasPanDoc?: boolean;
+  aadhaarDocumentName?: string;
+  aadhaarDocumentUrl?: string;
+  hasAadhaarDoc?: boolean;
+  salary?: number;
+  joiningDate?: string;
+  address?: string;
+  bloodGroup?: string;
+  dob?: string;
+  emergencyPhone?: string;
+  employeeType?: string;
+  empType?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  companyWebsite?: string;
+  signatoryName?: string;
+  signatoryRole?: string;
+}
+
+export interface TeamGroup {
+  id: string;
+  name: string;
+  description: string;
+  leaderName: string;
+  memberCount: number;
+  monthlyTarget: number;
+  achieved: number;
+  color: string;
+}
+
+export interface TeamTask {
+  id: string;
+  title: string;
+  assignedTo: string;
+  group?: string;
+  dueDate: string;
+  priority: 'HIGH' | 'MEDIUM' | 'NORMAL';
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+}
+
+export interface TeamMeeting {
+  id: string;
+  title: string;
+  dateTime: string;
+  type: string;
+  location: string;
+  attendeesCount: number;
+  agenda: string;
+  status?: 'LIVE' | 'UPCOMING' | 'COMPLETED';
+  meetingLink?: string;
+  invitedMemberName?: string;
+  targetAudience?: 'ALL' | 'TEAM' | 'INDIVIDUAL' | 'LEADERSHIP' | 'ALL_HR' | 'ALL_TL' | 'ALL_TELECALLER' | 'SQUAD';
+  targetTeam?: string;
+  targetEmployeeId?: string;
+  createdByRole?: string;
+  priority?: 'NORMAL' | 'HIGH' | 'MANDATORY';
+  zoomMeetingId?: string | null;
+  zoomJoinUrl?: string | null;
+  zoomStartUrl?: string | null;
+  zoomPassword?: string | null;
+  hostRole?: 'admin' | 'hr' | 'team_leader' | 'telecaller';
+  hostName?: string;
+  hostEmpCode?: string | null;
+  includeAdmin?: boolean | number;
+}
+
+export interface CandidateInterview {
+  id: string;
+  candidateName: string;
+  roleApplied: string;
+  experience: string;
+  email: string;
+  phone: string;
+  status: 'APPLIED' | 'SCREENING' | 'INTERVIEW_SCHEDULED' | 'OFFER_EXTENDED' | 'HIRED' | 'REJECTED';
+  interviewTime?: string;
+  interviewer?: string;
+  rating?: number;
+  notes?: string;
+}
+
+export interface OnboardingEmployee {
+  id: string;
+  empCode: string;
+  name: string;
+  role: string;
+  department: string;
+  joiningDate: string;
+  probationEnd: string;
+  status: 'DOCS_PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+  checklist: {
+    documentsVerified: boolean;
+    workstationAllocated: boolean;
+    biometricEnrolled: boolean;
+    trainingScheduled: boolean;
+  };
+}
+
+export interface ExitEmployee {
+  id: string;
+  empCode: string;
+  name: string;
+  role: string;
+  department: string;
+  resignationDate: string;
+  lastWorkingDay: string;
+  status: 'CLEARANCE_PENDING' | 'CLEARANCE_COMPLETED' | 'RELIEVED';
+  checklist: {
+    assetsReturned: boolean;
+    accountsSettled: boolean;
+    knowledgeTransfer: boolean;
+    relievingLetterIssued: boolean;
+  };
+}
+
+export interface AssignedLead {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  company: string;
+  city?: string;
+  assignedToEmployeeId: string;
+  assignedToEmployeeName: string;
+  assignedTo?: string;
+  batchId: string;
+  assignedDate: string;
+  createdAt?: string;
+  status: 'PENDING' | 'CONNECTED' | 'INTERESTED' | 'CALLBACK' | 'NOT_INTERESTED' | 'CONVERTED' | 'BUSY';
+  notes: string;
+  callCount: number;
+  lastCallTimestamp?: string;
+  dealValue?: number;
+  followUpDate?: string;
+  updatedAt?: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerBankName?: string;
+  customerAccountNumber?: string;
+  customerIfscCode?: string;
+  customerUpiId?: string;
+}
+
+export interface LeadBatch {
+  id: string;
+  fileName: string;
+  uploadedAt: string;
+  totalLeads: number;
+  assignedToEmployeeName: string;
+  assignedToEmployeeId: string;
+  createdAt?: string;
+}
+
+export interface FaceBiometricProfile {
+  employeeId: string;
+  employeeName: string;
+  registeredPhoto: string; // Base64 data URL
+  registeredAt: string;
+  status: 'REGISTERED' | 'NOT_REGISTERED';
+}
+
+export interface OfferLetterData {
+  id: string;
+  candidateName: string;
+  candidateAddress?: string;
+  candidateEmail: string;
+  candidatePhone: string;
+  roleTitle: string;
+  department: string;
+  annualCtc: number;
+  monthlyGross: number;
+  joiningDate: string;
+  reportingManager: string;
+  location: string;
+  issuedDate: string;
+  acceptanceDeadline?: string;
+  signatoryName?: string;
+  signatoryRole?: string;
+  employeeType?: string;
+  salaryType?: string;
+  companyName?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  companyWebsite?: string;
+}
+
+export interface NewEmployeeInput {
+  firstName: string;
+  lastName: string;
+  name: string; // Combined full name
+  email: string;
+  phone: string;
+  role: UserRole;
+  roleTitle: string;
+  department: string;
+  teamGroup: string;
+  teamLeaderName?: string;
+  address: string;
+  location?: string;
+  employeeType: 'Full Time' | 'Intern' | 'Contract';
+  salary: number;
+  basicSalary?: number;
+  hra?: number;
+  specialAllowance?: number;
+  panDocumentName?: string;
+  panDocumentUrl?: string;
+  hasPanDoc?: boolean;
+  aadhaarDocumentName?: string;
+  aadhaarDocumentUrl?: string;
+  hasAadhaarDoc?: boolean;
+  bankName: string;
+  bankAccountNumber: string;
+  bankIfscCode: string;
+  empCode: string;
+  password?: string;
+  joiningDate: string;
+  salaryDate: string;
+  avatar?: string;
+  bloodGroup?: string;
+  dob?: string;
+  emergencyPhone?: string;
+  acceptanceDeadline?: string;
+  signatoryName?: string;
+  signatoryRole?: string;
+  issuedDate?: string;
+  salaryType?: string;
+  companyName?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  companyWebsite?: string;
+}
+
+export interface PaymentVerificationItem {
+  id: string;
+  leadName: string;
+  companyName: string;
+  telecallerName: string;
+  dealAmount: number;
+  utrNumber: string;
+  paymentMode: string;
+  timestamp: string;
+  /** SQLite insert time (UTC, "YYYY-MM-DD HH:MM:SS"); used when `timestamp` is not a real date */
+  createdAt?: string;
+  status: 'PENDING_HR_AUDIT' | 'VERIFIED' | 'REJECTED';
+  receiptUrl?: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerBankName?: string;
+  customerAccountNumber?: string;
+  customerIfscCode?: string;
+  customerUpiId?: string;
+}
+
+export interface OfficeSettings {
+  id: string;
+  label: string;
+  latitude: number | null;
+  longitude: number | null;
+  radiusMeters: number;
+}
+
+export interface ExperienceCertData {
+  id: string;
+  /** Links to team_members.id — used for per-employee isolation */
+  employeeId?: string;
+  employeeName: string;
+  empCode: string;
+  guardianName?: string;
+  designation: string;
+  department: string;
+  startDate: string;
+  endDate: string;
+  refNumber: string;
+  issuedDate: string;
+  /** Opening paragraph text (HR-editable) */
+  introParagraph?: string;
+  /** Second paragraph describing role & department (HR-editable) */
+  roleParagraph?: string;
+  /** Conduct/duties paragraph (HR-editable) */
+  conductRemarks?: string;
+  /** Closing appreciation paragraph (HR-editable) */
+  closingParagraph?: string;
+  /** Company name as it appears in body text */
+  companyName?: string;
+  signatoryName: string;
+  signatoryRole: string;
+  /** Reference to employee_documents.id for the stored PDF */
+  documentId?: string;
+  /** ISO timestamp when HR dispatched the letter */
+  dispatchedAt?: string;
+  /** Whether email was sent successfully */
+  emailedAt?: string;
+}
+
+export interface RelievingLetterData {
+  id: string;
+  employeeId?: string;
+  employeeName: string;
+  empCode: string;
+  designation: string;
+  department: string;
+  employeeType: string;
+  employeeAddress: string;
+  resignationDate: string;
+  lastWorkingDate: string;
+  joiningDate: string;
+  issuedDate: string;
+  companyName?: string;
+  refNumber?: string;
+  bodyParagraph1?: string;
+  bodyParagraph2?: string;
+  bodyParagraph3?: string;
+  bodyParagraph4?: string;
+  signatoryName: string;
+  signatoryRole: string;
+  /** Document ID referencing employee_documents entry for this relieving letter */
+  documentId?: string;
+  /** ISO timestamp when HR dispatched the letter */
+  dispatchedAt?: string;
+  /** Whether email was sent successfully */
+  emailedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface InvoiceItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+export interface InvoiceData {
+  id: string;
+  invoiceNumber: string;
+  date: string;
+  dueDate?: string;
+  createdAt?: string;
+  // Bill To
+  clientName: string;
+  clientCompany?: string;
+  clientPhone: string;
+  clientEmail?: string;
+  clientAddress: string;
+  // From
+  fromName: string;
+  fromRole?: string;
+  fromPhone: string;
+  fromEmail: string;
+  fromAddress: string;
+  // Items & Summary
+  items: InvoiceItem[];
+  subTotal: number;
+  taxRate?: number;
+  taxAmount?: number;
+  tax?: number;
+  grandTotal: number;
+  note?: string;
+  // Payment Info
+  bankName: string;
+  accountNumber: string;
+  ifscCode?: string;
+  paymentEmail: string;
+  status: 'PAID' | 'PENDING' | 'SENT' | 'OVERDUE';
+}
+
+export interface TopPerformer {
+  id: string;
+  monthYear: string;
+  rank: number;
+  employeeId?: string;
+  employeeName: string;
+  designation: string;
+  salesAmount: number;
+  leadsClosedCount: number;
+  photoUrl?: string;
+  badgeNote?: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+

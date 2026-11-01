@@ -1,0 +1,716 @@
+import {
+  EmployeeProfile,
+  TelecallerStats,
+  CallLogItem,
+  ClientLead,
+  AttendanceRecord,
+  LeaveRequest,
+  PayslipItem,
+  TeamMember,
+  TeamGroup,
+  TeamTask,
+  TeamMeeting,
+  CandidateInterview,
+  OnboardingEmployee,
+  ExitEmployee,
+  AssignedLead,
+  LeadBatch,
+  FaceBiometricProfile,
+  OfferLetterData,
+  PaymentVerificationItem,
+  OfficeSettings,
+  CompanyHoliday,
+  CalendarSettings,
+  AuthUser,
+  InvoiceData,
+  RelievingLetterData,
+  ExperienceCertData,
+  TopPerformer,
+} from '../types';
+import { storageService } from './storageService';
+
+export type { AuthUser };
+
+export const API_BASE = 'https://tradenexustradesmart.co.in/api';
+
+let cachedToken: string | null = null;
+let cachedUser: AuthUser | null = null;
+
+export async function initApiAuth(): Promise<void> {
+  cachedToken = await storageService.getToken();
+  cachedUser = await storageService.getUser();
+}
+
+export function getAuthToken(): string | null {
+  return cachedToken;
+}
+
+export function setAuthToken(token: string | null): void {
+  cachedToken = token;
+  if (token) {
+    storageService.setToken(token).catch(console.warn);
+  } else {
+    storageService.removeToken().catch(console.warn);
+  }
+}
+
+export function getStoredAuthUser(): AuthUser | null {
+  return cachedUser;
+}
+
+export function setStoredAuthUser(user: AuthUser | null): void {
+  cachedUser = user;
+  if (user) {
+    storageService.setUser(user).catch(console.warn);
+  } else {
+    storageService.setUser(null).catch(console.warn);
+  }
+}
+
+export class ApiError extends Error {
+  status: number;
+  data: any;
+  constructor(status: number, message: string, data: any = {}) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.data = data;
+  }
+}
+
+async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options?.headers,
+    },
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, errBody.error || `Request failed (${res.status})`, errBody);
+  }
+
+  return (await res.json()) as T;
+}
+
+export const api = {
+  // Auth
+  login: (email: string, password: string) =>
+    request<{ token: string; user: AuthUser }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+  me: () => request<{ user: AuthUser }>('/auth/me'),
+  createLogin: (data: { email: string; name: string; role: string; empCode?: string; employeeId?: string }) =>
+    request<{ email: string; temporaryPassword: string }>('/auth/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ ok: boolean }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+  forgotPasswordSendOtp: (email: string, role?: string) =>
+    request<{ ok: boolean; email: string; role?: string; name?: string; message: string; devHint?: string }>('/auth/forgot-password/send-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, role }),
+    }),
+  forgotPasswordVerifyOtp: (email: string, otp: string) =>
+    request<{ ok: boolean; message: string }>('/auth/forgot-password/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp }),
+    }),
+  forgotPasswordResetPassword: (email: string, otp: string, newPassword: string) =>
+    request<{ ok: boolean; message: string; user?: AuthUser }>('/auth/forgot-password/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp, newPassword }),
+    }),
+
+  // Profile
+  getProfile: () => request<EmployeeProfile>('/profile'),
+  updateProfile: (data: Partial<EmployeeProfile>) => 
+    request<EmployeeProfile>('/profile', { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Stats
+  getStats: () => request<TelecallerStats>('/stats'),
+  updateStats: (data: Partial<TelecallerStats>) => 
+    request<TelecallerStats>('/stats', { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Call Logs
+  getCallLogs: (params?: { employeeId?: string; search?: string; all?: boolean; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.employeeId) q.set('employeeId', params.employeeId);
+    if (params?.search) q.set('search', params.search);
+    if (params?.all) q.set('all', 'true');
+    if (params?.limit) q.set('limit', String(params.limit));
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return request<CallLogItem[]>(`/call-logs${qs}`);
+  },
+  createCallLog: (data: Omit<CallLogItem, 'id'> & { id?: string }) => 
+    request<CallLogItem>('/call-logs', { method: 'POST', body: JSON.stringify(data) }),
+  deleteCallLog: (id: string) => 
+    request<{ success: boolean }>('/call-logs/' + id, { method: 'DELETE' }),
+
+  // Clients
+  getClients: () => request<ClientLead[]>('/clients'),
+  createClient: (data: Omit<ClientLead, 'id'> & { id?: string }) => 
+    request<ClientLead>('/clients', { method: 'POST', body: JSON.stringify(data) }),
+  updateClient: (id: string, data: Partial<ClientLead>) => 
+    request<ClientLead>(`/clients/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteClient: (id: string) => 
+    request<{ success: boolean }>(`/clients/${id}`, { method: 'DELETE' }),
+
+  // Attendance
+  getTodayAttendance: (employeeId?: string) =>
+    request<{
+      hasRecord: boolean;
+      id?: string;
+      date: string;
+      status: string;
+      faceIdStatus: string;
+      checkIn: string | null;
+      checkOut: string | null;
+      workHours: string | null;
+      method?: string;
+      locationStatus?: string;
+    }>(`/attendance/today${employeeId ? `?employeeId=${employeeId}` : ''}`),
+  getAttendance: (role?: string, employeeId?: string, includePhotos?: boolean) => {
+    const params = new URLSearchParams();
+    if (role) params.set('role', role);
+    if (employeeId) params.set('employeeId', employeeId);
+    if (includePhotos) params.set('includePhotos', 'true');
+    const qs = params.toString();
+    return request<AttendanceRecord[]>(`/attendance${qs ? `?${qs}` : ''}`);
+  },
+  getAttendancePhoto: (id: string) =>
+    request<{ id: string; checkInPhoto: string | null; checkOutPhoto: string | null }>(`/attendance/${id}/photo`),
+  updateAttendance2: (id: string, data: Partial<AttendanceRecord>) =>
+    request<AttendanceRecord>(`/attendance/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  getOffice: () => request<OfficeSettings>('/attendance/office'),
+  updateOffice: (data: Partial<OfficeSettings>) =>
+    request<OfficeSettings>('/attendance/office', { method: 'PUT', body: JSON.stringify(data) }),
+  reverseGeocode: async (lat: number, lng: number): Promise<string | null> => {
+    // 1. Try backend geocode reverse proxy (with JWT token)
+    try {
+      const data = await request<{ displayName: string }>(`/attendance/geocode/reverse?lat=${lat}&lon=${lng}`);
+      if (data?.displayName) return data.displayName;
+    } catch {
+      // Fallback
+    }
+
+    // 2. Client-side fallback via BigDataCloud (CORS-friendly, no keys)
+    try {
+      const bdcRes = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
+      );
+      if (bdcRes.ok) {
+        const bdc = (await bdcRes.json()) as any;
+        const parts = [
+          bdc.locality || bdc.city,
+          bdc.principalSubdivision,
+          bdc.postcode,
+          bdc.countryName
+        ].filter(Boolean);
+        if (parts.length > 0) return parts.join(', ');
+      }
+    } catch {
+      // Fallback
+    }
+
+    return null;
+  },
+  searchAddress: async (query: string): Promise<Array<{ display_name: string; lat: string; lon: string }>> => {
+    // 1. Try backend geocode search proxy (with JWT token)
+    try {
+      const data = await request<Array<{ display_name: string; lat: string; lon: string }>>(
+        `/attendance/geocode/search?q=${encodeURIComponent(query.trim())}`
+      );
+      if (Array.isArray(data) && data.length > 0) {
+        return data.map((item: any) => ({
+          display_name: item.display_name,
+          lat: String(item.lat),
+          lon: String(item.lon)
+        }));
+      }
+    } catch {
+      // Fallback
+    }
+    return [];
+  },
+  recordAttendance: (data: AttendanceRecord) => 
+    request<AttendanceRecord>('/attendance', { method: 'POST', body: JSON.stringify(data) }),
+  updateAttendance: (id: string, data: Partial<AttendanceRecord>) => 
+    request<AttendanceRecord>(`/attendance/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  clearAttendanceRecords: (params?: { date?: string; startDate?: string; endDate?: string; month?: string; year?: string; all?: boolean }) => {
+    const q = new URLSearchParams();
+    if (params?.all) q.set('all', 'true');
+    if (params?.date) q.set('date', params.date);
+    if (params?.startDate) q.set('startDate', params.startDate);
+    if (params?.endDate) q.set('endDate', params.endDate);
+    if (params?.month) q.set('month', params.month);
+    if (params?.year) q.set('year', params.year);
+    return request<{ success: boolean; count: number; message: string }>(`/attendance?${q.toString()}`, { method: 'DELETE' });
+  },
+  deleteAttendanceRecord: (id: string) => 
+    request<{ success: boolean; count: number }>(`/attendance/${id}`, { method: 'DELETE' }),
+
+  // Leaves
+  getLeaves: () => request<LeaveRequest[]>('/leaves'),
+  createLeave: (data: Omit<LeaveRequest, 'id'> & { id?: string }) => 
+    request<LeaveRequest>('/leaves', { method: 'POST', body: JSON.stringify(data) }),
+  updateLeave: (id: string, data: Partial<LeaveRequest>) => 
+    request<LeaveRequest>(`/leaves/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Payslips / Payroll (Phase 3: DRAFT → DISPATCHED lifecycle)
+  getPayslips: () => request<PayslipItem[]>('/payslips'),
+  /** Create (or update the existing) DRAFT payroll for an employee + month. */
+  savePayrollDraft: (data: Partial<PayslipItem>) =>
+    request<PayslipItem>('/payslips', { method: 'POST', body: JSON.stringify(data) }),
+  createPayslip: (data: Omit<PayslipItem, 'id'> & { id?: string }) =>
+    request<PayslipItem>('/payslips', { method: 'POST', body: JSON.stringify(data) }),
+  updatePayslip: (id: string, data: Partial<PayslipItem> & { confirmRevision?: boolean }) =>
+    request<PayslipItem>(`/payslips/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  /** Finalise: render + store PDF, mark DISPATCHED, email employee. `resend` re-dispatches an issued month. */
+  dispatchPayslip: (id: string, opts: { resend?: boolean } = {}) =>
+    request<{ payslip: PayslipItem; emailResult?: any }>(`/payslips/${id}/dispatch`, {
+      method: 'POST',
+      body: JSON.stringify(opts),
+    }),
+  /** Render the exact final payroll PDF for (unsaved) form data and return it as a Blob. */
+  previewPayslipPdf: async (data: Partial<PayslipItem>): Promise<Blob> => {
+    const token = getAuthToken();
+    const res = await fetch(`${API_BASE}/payslips/preview`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new ApiError(res.status, errBody.error || `Preview failed (${res.status})`, errBody);
+    }
+    return res.blob();
+  },
+  generateBulkPayslips: (month: string, year: string, employeeIds?: string[]) =>
+    request<PayslipItem[]>('/payslips/bulk', { method: 'POST', body: JSON.stringify({ month, year, employeeIds }) }),
+  deletePayslip: (id: string) =>
+    request<{ ok: boolean }>(`/payslips/${id}`, { method: 'DELETE' }),
+
+  // Team Members
+  getTeamMembers: (includeDocuments?: boolean) => 
+    request<TeamMember[]>(`/team-members${includeDocuments ? '?includeDocuments=true' : ''}`),
+  getTeamMemberDocument: (id: string, type: 'pan' | 'aadhaar') =>
+    request<{ id: string; name: string; type: string; docName: string; docUrl: string }>(`/team-members/${id}/document/${type}`),
+  createTeamMember: (data: Omit<TeamMember, 'id'> & { id?: string }) => 
+    request<TeamMember>('/team-members', { method: 'POST', body: JSON.stringify(data) }),
+  updateTeamMember: (id: string, data: Partial<TeamMember>) => 
+    request<TeamMember>(`/team-members/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  batchUpdateTargets: (targets: Array<{ id: string; salesTarget?: number; goalCalls?: number }>) =>
+    request<{ success: boolean; updatedCount: number; members: TeamMember[] }>('/team-members/targets/batch', {
+      method: 'PUT',
+      body: JSON.stringify({ targets }),
+    }),
+  deleteTeamMember: (id: string) =>
+    request<{ success: boolean; deletedId: string; name?: string; empCode?: string }>(`/team-members/${id}`, { method: 'DELETE' }),
+
+  // Team Groups
+  getTeamGroups: () => request<TeamGroup[]>('/team-groups'),
+  createTeamGroup: (data: Omit<TeamGroup, 'id'> & { id?: string }) => 
+    request<TeamGroup>('/team-groups', { method: 'POST', body: JSON.stringify(data) }),
+  updateTeamGroup: (id: string, data: Partial<TeamGroup>) => 
+    request<TeamGroup>(`/team-groups/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteTeamGroup: (id: string) =>
+    request<{ success: boolean; id: string }>(`/team-groups/${id}`, { method: 'DELETE' }),
+
+  // Team Tasks
+  getTeamTasks: () => request<TeamTask[]>('/team-tasks'),
+  createTeamTask: (data: Omit<TeamTask, 'id'> & { id?: string }) => 
+    request<TeamTask>('/team-tasks', { method: 'POST', body: JSON.stringify(data) }),
+  updateTeamTask: (id: string, data: Partial<TeamTask>) => 
+    request<TeamTask>(`/team-tasks/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Team Meetings
+  getTeamMeetings: () => request<TeamMeeting[]>('/team-meetings'),
+  createTeamMeeting: (data: Omit<TeamMeeting, 'id'> & { id?: string; useZoom?: boolean }) => 
+    request<TeamMeeting>('/team-meetings', { method: 'POST', body: JSON.stringify(data) }),
+  createZoomMeeting: (data: {
+    title: string;
+    dateTime?: string;
+    duration?: number;
+    agenda?: string;
+    type?: string;
+    targetAudience?: string;
+    targetTeam?: string;
+    targetEmployeeId?: string;
+    invitedMemberName?: string;
+    includeAdmin?: boolean | number;
+    status?: string;
+    priority?: string;
+    attendeesCount?: number;
+  }) => request<TeamMeeting>('/team-meetings/create-zoom', { method: 'POST', body: JSON.stringify(data) }),
+  updateTeamMeeting: (id: string, data: Partial<TeamMeeting>) => 
+    request<TeamMeeting>(`/team-meetings/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteTeamMeeting: (id: string) => 
+    request<{ success: boolean }>(`/team-meetings/${id}`, { method: 'DELETE' }),
+
+  // Candidates / Interviews
+  getInterviews: () => request<CandidateInterview[]>('/interviews'),
+  createInterview: (data: Omit<CandidateInterview, 'id'> & { id?: string }) => 
+    request<CandidateInterview>('/interviews', { method: 'POST', body: JSON.stringify(data) }),
+  updateInterview: (id: string, data: Partial<CandidateInterview>) => 
+    request<CandidateInterview>(`/interviews/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Onboarding
+  getOnboarding: () => request<OnboardingEmployee[]>('/onboarding'),
+  createOnboarding: (data: OnboardingEmployee) => 
+    request<OnboardingEmployee>('/onboarding', { method: 'POST', body: JSON.stringify(data) }),
+  updateOnboarding: (id: string, data: Partial<OnboardingEmployee>) => 
+    request<OnboardingEmployee>(`/onboarding/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Exit Employees
+  getExitEmployees: () => request<ExitEmployee[]>('/exit-employees'),
+  createExitEmployee: (data: ExitEmployee) => 
+    request<ExitEmployee>('/exit-employees', { method: 'POST', body: JSON.stringify(data) }),
+  updateExitEmployee: (id: string, data: Partial<ExitEmployee>) => 
+    request<ExitEmployee>(`/exit-employees/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Assigned Leads
+  getAssignedLeads: (params?: string | { employeeId?: string; batchId?: string; search?: string; all?: boolean; limit?: number }) => {
+    if (typeof params === 'string') {
+      return request<AssignedLead[]>(`/assigned-leads${params ? `?employeeId=${params}` : ''}`);
+    }
+    const q = new URLSearchParams();
+    if (params?.employeeId) q.set('employeeId', params.employeeId);
+    if (params?.batchId) q.set('batchId', params.batchId);
+    if (params?.search) q.set('search', params.search);
+    if (params?.all) q.set('all', 'true');
+    if (params?.limit) q.set('limit', String(params.limit));
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return request<AssignedLead[]>(`/assigned-leads${qs}`);
+  },
+  getAssignedLeadsStats: () =>
+    request<{
+      total: number;
+      converted: number;
+      interested: number;
+      inProgress: number;
+      notInterested: number;
+      pending: number;
+      totalDealValue: number;
+    }>('/assigned-leads/stats'),
+  createAssignedLead: (data: Omit<AssignedLead, 'id'> & { id?: string }) => 
+    request<AssignedLead>('/assigned-leads', { method: 'POST', body: JSON.stringify(data) }),
+  bulkImportAssignedLeads: (fileName: string, targetEmployeeId: string, targetEmployeeName: string, leads: any[]) => 
+    request<{ batch: LeadBatch; leads: AssignedLead[] }>('/assigned-leads/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ fileName, targetEmployeeId, targetEmployeeName, leads }),
+    }),
+  updateAssignedLead: (id: string, data: Partial<AssignedLead>) => 
+    request<AssignedLead>(`/assigned-leads/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteAssignedLead: (id: string) => 
+    request<{ success: boolean; id: string }>(`/assigned-leads/${id}`, { method: 'DELETE' }),
+  reassignBatchAssignedLeads: (data: { leadIds: string[]; targetEmployeeId: string; targetEmployeeName: string }) => 
+    request<{ success: boolean; count: number; targetEmployeeId: string; targetEmployeeName: string }>('/assigned-leads/reassign-batch', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  autoDistributeAssignedLeads: (telecallers: Array<{ id: string; name: string }>) =>
+    request<{ success: boolean; count: number; totalCandidates: number; callersCount: number }>('/assigned-leads/auto-distribute', {
+      method: 'POST',
+      body: JSON.stringify({ telecallers }),
+    }),
+  reclaimAssignedLeads: (data: { employeeId?: string; batchId?: string; leadIds?: string[]; onlyFresh?: boolean }) =>
+    request<{ success: boolean; reclaimedCount: number }>('/assigned-leads/reclaim', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  bulkDeleteAssignedLeads: (data: { leadIds?: string[]; employeeId?: string; batchId?: string; onlyFresh?: boolean }) =>
+    request<{ success: boolean; deletedCount: number }>('/assigned-leads/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Lead Batches
+  getLeadBatches: () => request<LeadBatch[]>('/lead-batches'),
+  createLeadBatch: (data: Omit<LeadBatch, 'id'> & { id?: string }) => 
+    request<LeadBatch>('/lead-batches', { method: 'POST', body: JSON.stringify(data) }),
+  deleteLeadBatch: (id: string, mode?: 'delete_leads' | 'unassign_leads') =>
+    request<{ success: boolean; deletedBatchId: string; mode?: string }>(`/lead-batches/${id}${mode ? `?mode=${mode}` : ''}`, {
+      method: 'DELETE',
+    }),
+
+  // Biometrics
+  getBiometrics: () => request<FaceBiometricProfile[]>('/biometrics'),
+  registerBiometric: (data: FaceBiometricProfile) => 
+    request<FaceBiometricProfile>('/biometrics', { method: 'POST', body: JSON.stringify(data) }),
+  verifyBiometric: (employeeId?: string) => 
+    request<{ verified: boolean; checkInTime: string; status: string }>('/biometrics/verify', {
+      method: 'POST',
+      body: JSON.stringify({ employeeId }),
+    }),
+
+  // Offer Letters
+  getOfferLetters: () => request<OfferLetterData[]>('/offer-letters'),
+  createOfferLetter: (data: Omit<OfferLetterData, 'id'> & { id?: string }) => 
+    request<OfferLetterData>('/offer-letters', { method: 'POST', body: JSON.stringify(data) }),
+  updateOfferLetter: (id: string, data: Partial<OfferLetterData>) =>
+    request<OfferLetterData>(`/offer-letters/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteOfferLetter: (id: string) =>
+    request<{ ok: boolean }>(`/offer-letters/${id}`, { method: 'DELETE' }),
+
+  // Payments
+  // Employee documents
+  getEmployeeDocuments: (employeeId: string) =>
+    request<any[]>(`/employee-documents?employeeId=${employeeId}`),
+  getEmployeeDocument: (id: string) => request<any>(`/employee-documents/${id}`),
+  uploadEmployeeDocument: (data: {
+    employeeId: string; title: string; category: string; fileName: string;
+    mimeType: string; sizeBytes: number; content: string;
+  }) => request<any>('/employee-documents', { method: 'POST', body: JSON.stringify(data) }),
+  deleteEmployeeDocument: (id: string) =>
+    request<{ deleted: string }>(`/employee-documents/${id}`, { method: 'DELETE' }),
+  generateIdCard: (employeeId: string, cardData?: any) =>
+    request<{ success: boolean; documentId: string; fileName: string; sizeBytes: number; content: string; message: string }>(
+      '/employee-documents/generate/id-card',
+      {
+        method: 'POST',
+        body: JSON.stringify({ employeeId, cardData }),
+      }
+    ),
+  generateOfferLetter: (employeeId?: string, offerLetter?: Partial<OfferLetterData>) =>
+    request<{
+      success: boolean;
+      documentId: string;
+      offerId: string;
+      fileName: string;
+      sizeBytes: number;
+      content: string;
+      offerLetter: OfferLetterData;
+      message: string;
+    }>('/employee-documents/generate/offer-letter', {
+      method: 'POST',
+      body: JSON.stringify({ employeeId, offerLetter }),
+    }),
+
+  getPayments: () => request<PaymentVerificationItem[]>('/payments'),
+  createPayment: (data: Omit<PaymentVerificationItem, 'id'> & { id?: string }) => 
+    request<PaymentVerificationItem>('/payments', { method: 'POST', body: JSON.stringify(data) }),
+  updatePayment: (id: string, data: Partial<PaymentVerificationItem>) => 
+    request<PaymentVerificationItem>(`/payments/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deletePayment: (id: string) => 
+    request<{ success: boolean; id: string }>(`/payments/${id}`, { method: 'DELETE' }),
+
+  // Invoices & Billing
+  getInvoices: (params?: { startDate?: string; endDate?: string; clientEmail?: string }) => {
+    const q = new URLSearchParams(params as any).toString();
+    return request<InvoiceData[]>(`/invoices${q ? `?${q}` : ''}`);
+  },
+  createInvoice: (data: Omit<InvoiceData, 'id'> & { id?: string }) =>
+    request<InvoiceData>('/invoices', { method: 'POST', body: JSON.stringify(data) }),
+  resendInvoice: (id: string) =>
+    request<{ success: boolean; emailResult?: any }>(`/invoices/${id}/resend`, { method: 'POST' }),
+  deleteInvoice: (id: string) =>
+    request<{ deleted: string }>(`/invoices/${id}`, { method: 'DELETE' }),
+  updateInvoiceStatus: (id: string, status: 'PAID' | 'PENDING' | 'SENT' | 'OVERDUE') =>
+    request<InvoiceData>(`/invoices/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  updateInvoice: (id: string, data: Partial<InvoiceData>) =>
+    request<InvoiceData>(`/invoices/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Document Email Dispatchers
+  sendOnboardingEmail: (employee: Partial<TeamMember>, offerLetter?: Partial<OfferLetterData>) =>
+    request<{ success: boolean; messageId?: string }>('/employee-documents/send-onboarding-email', {
+      method: 'POST',
+      body: JSON.stringify({ employee, offerLetter }),
+    }),
+  sendPayslipEmail: (payslipId: string, email?: string) =>
+    request<{ success: boolean; emailResult?: any }>(`/payslips/${payslipId}/send-email`, {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  sendRelievingEmail: (employee: Partial<TeamMember>, relievingLetter: Partial<RelievingLetterData>) =>
+    request<{ success: boolean; messageId?: string }>('/employee-documents/send-relieving-email', {
+      method: 'POST',
+      body: JSON.stringify({ employee, relievingLetter }),
+    }),
+  sendExperienceEmail: (employee: Partial<TeamMember>, cert: Partial<ExperienceCertData>) =>
+    request<{ success: boolean; messageId?: string }>('/employee-documents/send-experience-email', {
+      method: 'POST',
+      body: JSON.stringify({ employee, cert }),
+    }),
+  /** Generate ONE PDF → save to DB → email employee. Returns full cert record with documentId. */
+  generateExperienceCert: (employeeId: string, certData: Partial<ExperienceCertData>, uploadedBy?: string) =>
+    request<{
+      success: boolean;
+      documentId: string;
+      fileName: string;
+      content: string;
+      certData: ExperienceCertData & { documentId: string; dispatchedAt: string; emailedAt: string | null };
+      emailResult: { success: boolean; messageId?: string; error?: string };
+      message: string;
+    }>('/employee-documents/generate/experience-cert', {
+      method: 'POST',
+      body: JSON.stringify({ employeeId, certData, uploadedBy, sendEmail: true }),
+    }),
+  /** Check if experience cert exists for an employee (returns { exists, document } or 404). */
+  checkExperienceCertExists: (employeeId: string) =>
+    request<{ exists: boolean; document?: any }>(`/employee-documents/experience-cert/${employeeId}`),
+  /** Get all experience certs (or filter by employeeId) */
+  getExperienceCerts: (employeeId?: string) =>
+    request<ExperienceCertData[]>(`/experience-certs${employeeId ? `?employeeId=${encodeURIComponent(employeeId)}` : ''}`),
+  /** Delete experience cert */
+  deleteExperienceCert: (id: string) =>
+    request<{ success: boolean; id: string }>(`/experience-certs/${id}`, { method: 'DELETE' }),
+  /** Get all relieving letters (or filter by employeeId) */
+  getRelievingLetters: (employeeId?: string) =>
+    request<RelievingLetterData[]>(`/relieving-letters${employeeId ? `?employeeId=${encodeURIComponent(employeeId)}` : ''}`),
+  /** Delete relieving letter */
+  deleteRelievingLetter: (id: string) =>
+    request<{ success: boolean; id: string }>(`/relieving-letters/${id}`, { method: 'DELETE' }),
+  /** Generate Relieving Letter → save to DB → email employee. Returns full letter record with documentId. */
+  generateRelievingLetter: (employeeId: string, letterData: Partial<RelievingLetterData>, uploadedBy?: string) =>
+    request<{
+      success: boolean;
+      documentId: string;
+      fileName: string;
+      content: string;
+      letterData: RelievingLetterData & { documentId: string; dispatchedAt: string; emailedAt: string | null };
+      emailResult: { success: boolean; messageId?: string; error?: string };
+      message: string;
+    }>('/employee-documents/generate/relieving-letter', {
+      method: 'POST',
+      body: JSON.stringify({ employeeId, letterData, uploadedBy, sendEmail: true }),
+    }),
+  sendIdCardEmail: (employee: Partial<TeamMember>, cardData?: any) =>
+    request<{ success: boolean; messageId?: string }>('/employee-documents/send-id-card-email', {
+      method: 'POST',
+      body: JSON.stringify({ employee, cardData }),
+    }),
+
+
+  // Company Calendar & Holidays
+  getHolidays: () => request<CompanyHoliday[]>('/calendar/holidays'),
+  createHoliday: (data: Omit<CompanyHoliday, 'id'> & { id?: string }) =>
+    request<CompanyHoliday>('/calendar/holidays', { method: 'POST', body: JSON.stringify(data) }),
+  deleteHoliday: (id: string) =>
+    request<{ deleted: string }>(`/calendar/holidays/${id}`, { method: 'DELETE' }),
+  clearAllHolidays: () =>
+    request<{ cleared: boolean }>('/calendar/holidays', { method: 'DELETE' }),
+  loadPresetHolidays: () =>
+    request<CompanyHoliday[]>('/calendar/holidays/bulk-preset', { method: 'POST' }),
+  getCalendarSettings: () => request<CalendarSettings>('/calendar/settings'),
+  updateCalendarSettings: (data: Partial<CalendarSettings> & { applyToToday?: boolean }) =>
+    request<CalendarSettings & { recalculatedCount?: number }>('/calendar/settings', { method: 'PUT', body: JSON.stringify(data) }),
+  reEvaluateTodayAttendance: () =>
+    request<{ success: boolean; count: number; message: string }>('/attendance/re-evaluate-today', { method: 'POST' }),
+
+  // Binary PDF Downloaders (True file downloads to user's device)
+  downloadOfferLetter: (offerLetter: Partial<OfferLetterData>) =>
+    downloadFile(
+      '/employee-documents/download/offer-letter',
+      `Job_Offer_Letter_${(offerLetter.candidateName || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`,
+      { offerLetter },
+      'POST'
+    ),
+
+  downloadExperienceCert: (employee: Partial<TeamMember>, cert: Partial<ExperienceCertData>) =>
+    downloadFile(
+      '/employee-documents/download/experience-cert',
+      `Experience_Certificate_${(cert.employeeName || employee?.name || 'Employee').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`,
+      { employee, cert },
+      'POST'
+    ),
+
+  downloadRelievingLetter: (employee: Partial<TeamMember>, relievingLetter: Partial<RelievingLetterData>) =>
+    downloadFile(
+      '/employee-documents/download/relieving-letter',
+      `Relieving_Letter_${(relievingLetter.employeeName || employee?.name || 'Employee').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`,
+      { employee, relievingLetter },
+      'POST'
+    ),
+
+  downloadIdCard: (employee: Partial<TeamMember>, cardData: any) =>
+    downloadFile(
+      '/employee-documents/download/id-card',
+      `Digital_ID_Card_${(cardData?.name || employee?.name || 'Staff').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`,
+      { employee, cardData },
+      'POST'
+    ),
+
+  /**
+   * Saved payroll → GET /payslips/:id/download (server enforces owner + DISPATCHED for employees).
+   * Unsaved HR form data → POST /payslips/download (HR only).
+   */
+  downloadPayslip: (payslip: Partial<PayslipItem>) => {
+    const fileName = `Payslip_${payslip.month || 'Salary'}_${payslip.year || ''}_${(payslip.employeeName || 'Employee').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    return payslip.id
+      ? downloadFile(`/payslips/${encodeURIComponent(payslip.id)}/download`, fileName)
+      : downloadFile('/payslips/download', fileName, payslip, 'POST');
+  },
+
+  downloadInvoice: (invoice: Partial<InvoiceData>) =>
+    downloadFile(
+      '/invoices/download',
+      `Invoice_${(invoice.invoiceNumber || 'INV').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`,
+      invoice,
+      'POST'
+    ),
+
+  // Top Performers Showcase ("Hall of Fame")
+  getTopPerformers: (month?: string) => {
+    const q = month ? `?month=${encodeURIComponent(month)}` : '';
+    return request<TopPerformer[]>(`/top-performers${q}`);
+  },
+  saveTopPerformer: (data: Partial<TopPerformer>) =>
+    request<TopPerformer>('/top-performers', { method: 'POST', body: JSON.stringify(data) }),
+  deleteTopPerformer: (id: string) =>
+    request<{ success: boolean; message: string }>(`/top-performers/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+};
+
+/**
+ * Direct file download helper that triggers browser attachment download
+ */
+export async function downloadFile(
+  endpoint: string,
+  filename: string,
+  body?: any,
+  method: string = 'GET'
+): Promise<void> {
+  const url = `${API_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const headers: Record<string, string> = {};
+  const token = getAuthToken() || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (body) headers['Content-Type'] = 'application/json';
+
+  const res = await fetch(url, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!res.ok) {
+    let errMsg = `Download failed with status ${res.status}`;
+    try {
+      const errJson = await res.json();
+      if (errJson.error) errMsg = errJson.error;
+    } catch {}
+    throw new Error(errMsg);
+  }
+
+  const blob = await res.blob();
+  const blobUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(blobUrl);
+}
+

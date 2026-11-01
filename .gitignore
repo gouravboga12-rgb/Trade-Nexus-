@@ -32,6 +32,16 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
+.env.*
+
+# Sensitive credentials & service account keys
+*firebase*.json
+*service-account*.json
+google-services.json
+GoogleService-Info.plist
+*.keystore
+tradex-key.pem
 
 # typescript
 *.tsbuildinfo
