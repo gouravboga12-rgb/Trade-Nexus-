@@ -37,6 +37,18 @@ export const InvoiceModal: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 720);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (typeof window !== 'undefined') {
+        setContainerWidth(window.innerWidth);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (selectedInvoice) {
@@ -243,18 +255,42 @@ export const InvoiceModal: React.FC = () => {
         </div>
 
         {/* Scrollable Document Container */}
-        <div ref={scrollRef} className="overflow-y-auto flex-1 p-0 sm:p-6 bg-slate-50/60 flex justify-center printable-scroll-container print:p-0 print:bg-white">
-          
-          {/* Printable Invoice Sheet matching Template 5 (5.png) */}
-          <div 
-            id="printable-invoice"
-            className="w-full max-w-[720px] bg-white text-slate-800 rounded-none overflow-hidden relative border-0 sm:border sm:border-slate-200/60 font-sans shadow-none sm:shadow-xs print:shadow-none print:border-none print:m-0 print:p-0 print:rounded-none print:max-w-none"
-            style={{ 
-              minHeight: '940px',
-              WebkitPrintColorAdjust: 'exact',
-              printColorAdjust: 'exact'
-            }}
-          >
+        {(() => {
+          // If screen width is less than 750px, auto-scale the entire pristine 720px template uniformly
+          const isMobile = containerWidth < 750;
+          const availableW = Math.max(containerWidth - 28, 280);
+          const scale = isMobile ? Math.min(availableW / 720, 1) : 1;
+          const scaledH = 940 * scale;
+
+          return (
+            <div 
+              ref={scrollRef} 
+              className="overflow-y-auto overflow-x-auto flex-1 p-2 sm:p-6 bg-slate-50/60 flex justify-center items-start printable-scroll-container print:p-0 print:bg-white print:overflow-visible"
+            >
+              <div 
+                className="flex justify-center print:transform-none"
+                style={isMobile ? {
+                  width: `${availableW}px`,
+                  height: `${scaledH}px`,
+                  overflow: 'visible'
+                } : { width: '100%', maxWidth: '720px' }}
+              >
+                {/* Printable Invoice Sheet matching Template 5 (5.png) - 100% PRESERVED */}
+                <div 
+                  id="printable-invoice"
+                  className="bg-white text-slate-800 rounded-none overflow-hidden relative border border-slate-200/60 font-sans shadow-sm print:shadow-none print:border-none print:m-0 print:p-0 print:rounded-none print:max-w-none"
+                  style={{ 
+                    width: '720px',
+                    minWidth: '720px',
+                    minHeight: '940px',
+                    WebkitPrintColorAdjust: 'exact',
+                    printColorAdjust: 'exact',
+                    ...(isMobile ? {
+                      transform: `scale(${scale})`,
+                      transformOrigin: 'top left'
+                    } : {})
+                  }}
+                >
             {/* Watermark Emblem matching Reference Template */}
             <div 
               className="absolute inset-0 pointer-events-none flex items-center justify-center z-0" 
@@ -623,7 +659,10 @@ export const InvoiceModal: React.FC = () => {
             </div>
 
           </div>
-        </div>
+              </div>
+            </div>
+          );
+        })()}
 
       </div>
     </div>
