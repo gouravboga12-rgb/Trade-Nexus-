@@ -69,6 +69,7 @@ import { Employee360ProfileView } from './Employee360ProfileView';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { MeetingTimePicker } from '../components/common/MeetingTimePicker';
 import { InvoicesLedger } from '../components/common/InvoicesLedger';
+import { HomeNotificationsFeed } from '../components/common/HomeNotificationsFeed';
 
 const formatInLakhs = (val: number) => {
   if (val >= 100000) {
@@ -198,15 +199,8 @@ export const HrDashboardView: React.FC = () => {
     setVisiblePasswords(prev => ({ ...prev, [empId]: !prev[empId] }));
   };
 
-  const handleCopyCredentials = (emp: TeamMember) => {
-    const isAdminAccount = emp.role === 'admin' || emp.portal === 'admin' || emp.empCode === 'ADM-01' || (emp.role && emp.role.toLowerCase().includes('admin'));
-    if (isAdminAccount) {
-      triggerToast('⚠️ Admin credentials are confidential and restricted to Super Admin.');
-      return;
-    }
-    const credText = `Trade Nexus Staff Credentials\nName: ${emp.name}\nEmp Code: ${emp.empCode}\nLogin ID: ${emp.email || emp.phone || emp.empCode}\nPassword: ${emp.password || 'Trade@1234'}\nRole: ${emp.role}\nPortal URL: ${window.location.origin}`;
-    navigator.clipboard.writeText(credText);
-    triggerToast(`✓ Copied credentials for ${emp.name} to clipboard!`);
+  const handleCopyCredentials = (_emp: TeamMember) => {
+    triggerToast('⚠️ Employee login credentials are confidential and accessible only to Super Admin.');
   };
 
   // Modals
@@ -516,6 +510,9 @@ export const HrDashboardView: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* 🔔 Real-Time Operational Notifications Feed */}
+            <HomeNotificationsFeed maxItems={3} className="my-1" />
 
             {/* ⚠️ Suspicious Attendance Dispute Alert Banner */}
             {isAttendanceDisputed && (
@@ -2390,61 +2387,23 @@ export const HrDashboardView: React.FC = () => {
                           <div className="bg-slate-50/90 border border-slate-100 rounded-xl p-2.5 space-y-1.5 text-xs">
                             <div className="flex items-center justify-between text-[11px]">
                               <span className="text-slate-400 font-medium">Login ID:</span>
-                              {isAdminAccount ? (
-                                <span className="text-slate-400 italic font-semibold text-[10px] flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
-                                  <Shield className="w-3 h-3 text-amber-500" />
-                                  <span>Protected (Super Admin Only)</span>
-                                </span>
-                              ) : (
-                                <span className="font-mono font-bold text-slate-800 selection:bg-teal-100">
-                                  {emp.email || emp.phone || emp.empCode}
-                                </span>
-                              )}
+                              <span className="font-mono font-bold text-slate-800 selection:bg-teal-100">
+                                {emp.email || emp.phone || emp.empCode}
+                              </span>
                             </div>
 
                             <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200/60">
                               <span className="text-slate-400 font-medium">Password:</span>
-                              {isAdminAccount ? (
-                                <span className="text-slate-400 italic text-[10px] flex items-center gap-1 font-medium bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
-                                  <Lock className="w-3 h-3 text-slate-400" />
-                                  <span>Confidential • Visible only to Super Admin</span>
-                                </span>
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <span className="font-mono font-bold text-[#0A2540]">
-                                    {isPassVisible ? passwordDisplay : '••••••••••••'}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => togglePasswordVisibility(emp.id)}
-                                    className="text-slate-400 hover:text-slate-700 transition-colors p-0.5 cursor-pointer"
-                                    title={isPassVisible ? 'Hide Password' : 'Show Password'}
-                                  >
-                                    {isPassVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                  </button>
-                                </div>
-                              )}
+                              <span className="text-slate-400 italic text-[10px] flex items-center gap-1 font-medium bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
+                                <Lock className="w-3 h-3 text-slate-400" />
+                                <span>Confidential • Super Admin Access Only</span>
+                              </span>
                             </div>
                           </div>
 
-                          {/* Quick Actions Row: Copy Credentials | View ID Card | Inspect 360 */}
+                          {/* Quick Actions Row: View ID Card | Inspect 360 */}
                           <div className="flex items-center justify-between gap-2 pt-0.5">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <button
-                                type="button"
-                                disabled={isAdminAccount}
-                                onClick={() => !isAdminAccount && handleCopyCredentials(emp)}
-                                className={`px-2.5 py-1.5 rounded-xl font-bold text-[10px] inline-flex items-center gap-1.5 transition-all shadow-2xs ${
-                                  isAdminAccount
-                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60 border border-slate-200'
-                                    : 'bg-slate-100 hover:bg-[#00C9A7] text-slate-700 hover:text-[#0A2540] active:scale-95 cursor-pointer'
-                                }`}
-                                title={isAdminAccount ? 'Admin credentials can only be viewed and copied by Super Admin' : 'Copy credentials to send to employee'}
-                              >
-                                <Copy className="w-3.5 h-3.5" />
-                                <span>{isAdminAccount ? 'Admin Restricted' : 'Copy Credentials'}</span>
-                              </button>
-
                               <button
                                 type="button"
                                 onClick={() => {

@@ -78,12 +78,32 @@ export const DigitalIdCardModal: React.FC = () => {
   });
 
   useEffect(() => {
-    if (selectedIdCardEmpId) {
+    if (!canEditIdCard) {
+      // Non-admins (Telecallers, Employees, Team Leaders) must ONLY see their own ID card
+      const selfId = profile.id || currentUser?.employeeId || currentUser?.id || '';
+      setSelectedEmpId(selfId);
+    } else if (selectedIdCardEmpId) {
       setSelectedEmpId(selectedIdCardEmpId);
-    } else if (canEditIdCard && teamMembers.length > 0 && !selectedEmpId) {
+    } else if (teamMembers.length > 0 && !selectedEmpId) {
       setSelectedEmpId(teamMembers[0].id);
     }
-  }, [selectedIdCardEmpId, isIdCardModalOpen, canEditIdCard, teamMembers, selectedEmpId]);
+  }, [selectedIdCardEmpId, isIdCardModalOpen, canEditIdCard, teamMembers, profile.id, currentUser]);
+
+  // Dynamically load company settings from server on modal open
+  useEffect(() => {
+    if (isIdCardModalOpen) {
+      api.getCompanySettings().then((settings) => {
+        if (settings) {
+          if (settings.companyAddress) setCustomCompanyAddress(settings.companyAddress);
+          if (settings.companyEmail) setCustomCompanyEmail(settings.companyEmail);
+          if (settings.companyWebsite) setCustomCompanyWebsite(settings.companyWebsite);
+          if (settings.companyPhone) setCustomCompanyPhone(settings.companyPhone);
+          if (settings.signatoryName) setCustomSignatoryName(settings.signatoryName);
+          if (settings.signatoryRole) setCustomSignatoryRole(settings.signatoryRole);
+        }
+      }).catch(() => {});
+    }
+  }, [isIdCardModalOpen]);
 
   useEffect(() => {
     if (isEditing) return; // Prevent background updates from overwriting uncommitted edits
@@ -255,7 +275,21 @@ export const DigitalIdCardModal: React.FC = () => {
         signatoryRole: customSignatoryRole,
       } as any);
 
-      // 2. Cache in localStorage for immediate client hydration
+      // 2. Persist company settings globally on the server so all accounts dynamically reflect them
+      try {
+        await api.updateCompanySettings({
+          companyAddress: customCompanyAddress,
+          companyEmail: customCompanyEmail,
+          companyWebsite: customCompanyWebsite,
+          companyPhone: customCompanyPhone,
+          signatoryName: customSignatoryName,
+          signatoryRole: customSignatoryRole,
+        });
+      } catch (cErr) {
+        console.warn('Failed to update global company settings:', cErr);
+      }
+
+      // 3. Cache in localStorage for immediate client hydration
       try {
         localStorage.setItem('tnx_idCard_companyAddress', customCompanyAddress);
         localStorage.setItem('tnx_idCard_companyEmail', customCompanyEmail);
@@ -265,7 +299,7 @@ export const DigitalIdCardModal: React.FC = () => {
         localStorage.setItem('tnx_idCard_signatoryRole', customSignatoryRole);
       } catch {}
 
-      // 3. Generate canonical PDF and store into employee_documents table
+      // 4. Generate canonical PDF and store into employee_documents table
       await api.generateIdCard(selectedEmpId, cardPayload);
 
       triggerToast(`✓ Official ID Card & Address saved to Employee Documents!`);

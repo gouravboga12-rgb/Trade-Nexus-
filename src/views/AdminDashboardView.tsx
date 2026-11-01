@@ -73,6 +73,7 @@ import { OfficeSettings, TeamGroup, TeamMember, UserRole, LeaveRequest, PaymentV
 import { api } from '../services/api';
 import { Employee360ProfileView } from './Employee360ProfileView';
 import { AdminCalendarConfig } from '../components/common/AdminCalendarConfig';
+import { HomeNotificationsFeed } from '../components/common/HomeNotificationsFeed';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { LeafletGeofenceMap } from '../components/common/LeafletGeofenceMap';
 import { ManageEmployeesTab } from './admin/ManageEmployeesTab';
@@ -684,6 +685,9 @@ export const AdminDashboardView: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* 🔔 Real-Time Operational Notifications Feed */}
+            <HomeNotificationsFeed maxItems={3} className="my-1" />
 
             {/* 4 Core Compact KPI Cards (2x2 on Mobile, 4x1 on Desktop) */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3.5 lg:gap-4">

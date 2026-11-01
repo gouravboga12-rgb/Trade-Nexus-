@@ -652,6 +652,29 @@ export const api = {
       'POST'
     ),
 
+  getCompanySettings: () =>
+    request<{
+      companyAddress?: string;
+      companyPhone?: string;
+      companyEmail?: string;
+      companyWebsite?: string;
+      signatoryName?: string;
+      signatoryRole?: string;
+    }>('/employee-documents/company-settings'),
+
+  updateCompanySettings: (data: {
+    companyAddress?: string;
+    companyPhone?: string;
+    companyEmail?: string;
+    companyWebsite?: string;
+    signatoryName?: string;
+    signatoryRole?: string;
+  }) =>
+    request<{ success: boolean; message: string }>('/employee-documents/company-settings', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
   /**
    * Saved payroll → GET /payslips/:id/download (server enforces owner + DISPATCHED for employees).
    * Unsaved HR form data → POST /payslips/download (HR only).

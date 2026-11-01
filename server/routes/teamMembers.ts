@@ -49,8 +49,8 @@ router.get('/', (req: Request, res: Response) => {
         out = { ...rest, hasPanDoc, hasAadhaarDoc };
       }
 
-      // Security Lockdown: Never expose Super Admin credentials to non-admin accounts (e.g. HR)
-      if (user && user.role !== 'admin' && (m.portal === 'admin' || m.role === 'admin' || m.empCode === 'ADM-01')) {
+      // Security Lockdown: Never expose login credentials/passwords to non-admin accounts (e.g. HR, TL, Telecallers)
+      if (user && user.role !== 'admin') {
         delete out.password;
       }
       return out;

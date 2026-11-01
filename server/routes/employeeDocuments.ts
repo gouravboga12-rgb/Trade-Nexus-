@@ -585,6 +585,33 @@ router.post('/generate/id-card', async (req: Request, res: Response) => {
           payload.signatoryRole || null,
           actualEmpId, actualEmpId
         );
+
+        // Global propagation: Company template contact details apply organization-wide to all accounts
+        const compAddr = payload.address || payload.companyAddress;
+        const compEmail = payload.email || payload.companyEmail;
+        const compWeb = payload.website || payload.companyWebsite;
+        const compPhone = payload.companyPhone;
+        const sigName = payload.signatoryName;
+        const sigRole = payload.signatoryRole;
+
+        if (compAddr || compEmail || compWeb || compPhone || sigName || sigRole) {
+          db.prepare(`
+            UPDATE team_members
+            SET companyAddress = COALESCE(?, companyAddress),
+                companyEmail = COALESCE(?, companyEmail),
+                companyWebsite = COALESCE(?, companyWebsite),
+                companyPhone = COALESCE(?, companyPhone),
+                signatoryName = COALESCE(?, signatoryName),
+                signatoryRole = COALESCE(?, signatoryRole)
+          `).run(
+            compAddr || null,
+            compEmail || null,
+            compWeb || null,
+            compPhone || null,
+            sigName || null,
+            sigRole || null
+          );
+        }
         db.prepare('UPDATE employee_profiles SET updatedAt = CURRENT_TIMESTAMP WHERE id = ? OR empCode = ?').run(actualEmpId, emp.empCode || '');
       } catch (uErr) {
         console.warn('[Sync ID Card Fields Warning]', uErr);
@@ -872,6 +899,78 @@ router.post('/download/id-card', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[Download ID Card Error]', error);
     return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+
+// GET /api/employee-documents/company-settings
+router.get('/company-settings', (_req: Request, res: Response) => {
+  try {
+    const row = db.prepare(`
+      SELECT companyAddress, companyPhone, companyEmail, companyWebsite, signatoryName, signatoryRole
+      FROM team_members
+      WHERE companyAddress IS NOT NULL AND TRIM(companyAddress) != ''
+      LIMIT 1
+    `).get() as any;
+
+    const defaultSettings = {
+      companyAddress: '123 Business Avenue, Financial District, Your City, 500001',
+      companyPhone: '+91 98765 43210',
+      companyEmail: 'info@tradenexus.com',
+      companyWebsite: 'www.tradenexus.com',
+      signatoryName: 'T.Vidhya Sagar',
+      signatoryRole: 'Chief executive Officer',
+    };
+
+    return res.status(200).json(row || defaultSettings);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/employee-documents/company-settings
+router.post('/company-settings', async (req: Request, res: Response) => {
+  try {
+    const { companyAddress, companyPhone, companyEmail, companyWebsite, signatoryName, signatoryRole } = req.body;
+
+    if (companyAddress || companyPhone || companyEmail || companyWebsite || signatoryName || signatoryRole) {
+      db.prepare(`
+        UPDATE team_members
+        SET companyAddress = COALESCE(?, companyAddress),
+            companyPhone = COALESCE(?, companyPhone),
+            companyEmail = COALESCE(?, companyEmail),
+            companyWebsite = COALESCE(?, companyWebsite),
+            signatoryName = COALESCE(?, signatoryName),
+            signatoryRole = COALESCE(?, signatoryRole)
+      `).run(
+        companyAddress || null,
+        companyPhone || null,
+        companyEmail || null,
+        companyWebsite || null,
+        signatoryName || null,
+        signatoryRole || null
+      );
+
+      // Broadcast to all clients via Socket.IO
+      try {
+        const { getSocketService } = await import('../services/socketService.js');
+        getSocketService().emitToAll('company:settings-updated', {
+          companyAddress,
+          companyPhone,
+          companyEmail,
+          companyWebsite,
+          signatoryName,
+          signatoryRole,
+        });
+      } catch (_) {}
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Company settings updated globally across all accounts',
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 });
 

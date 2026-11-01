@@ -1327,6 +1327,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       refreshResources(['teamGroups']);
     });
 
+    // Real-time company settings update
+    socket.on('company:settings-updated', (settings: any) => {
+      if (!settings) return;
+      setTeamMembers((prev) =>
+        prev.map((m) => ({
+          ...m,
+          companyAddress: settings.companyAddress || (m as any).companyAddress,
+          companyPhone: settings.companyPhone || (m as any).companyPhone,
+          companyEmail: settings.companyEmail || (m as any).companyEmail,
+          companyWebsite: settings.companyWebsite || (m as any).companyWebsite,
+          signatoryName: settings.signatoryName || (m as any).signatoryName,
+          signatoryRole: settings.signatoryRole || (m as any).signatoryRole,
+        }))
+      );
+      addAppNotification({
+        title: 'Company Details Updated',
+        body: 'Company template information has been refreshed',
+        category: 'system',
+      });
+    });
+
     socket.on('resource:invalidated', ({ resource }: { resource: string }) => {
       if (resource === 'teamMembers') {
         refreshResources(['teamMembers']);

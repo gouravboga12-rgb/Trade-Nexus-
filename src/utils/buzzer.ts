@@ -42,3 +42,4 @@ class BuzzerService {
 }
 
 export const buzzer = new BuzzerService();
+

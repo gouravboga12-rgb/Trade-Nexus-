@@ -270,7 +270,10 @@ export const ProfileSelfServiceView: React.FC = () => {
 
       {/* 3. Digital ID Card Row - Sleek, Compact & Mobile-proportioned */}
       <div 
-        onClick={() => setIsIdCardModalOpen(true)}
+        onClick={() => {
+          setSelectedIdCardEmpId(profile.id || profile.empCode);
+          setIsIdCardModalOpen(true);
+        }}
         className="rounded-2xl py-2.5 px-3.5 bg-white border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] cursor-pointer hover:border-slate-200 transition-all flex items-center justify-between group active:scale-[0.99]"
       >
         <div className="flex items-center gap-2.5">

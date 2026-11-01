@@ -38,6 +38,7 @@ import { Employee360ProfileView } from './Employee360ProfileView';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { MeetingTimePicker } from '../components/common/MeetingTimePicker';
 import { TopPerformersShowcase } from '../components/common/TopPerformersShowcase';
+import { HomeNotificationsFeed } from '../components/common/HomeNotificationsFeed';
 
 export const TeamLeaderDashboardView: React.FC = () => {
   const { 
@@ -630,6 +631,9 @@ export const TeamLeaderDashboardView: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* 🔔 Real-Time Operational Notifications Feed */}
+            <HomeNotificationsFeed maxItems={3} className="my-1" />
 
             {/* 3 Top Attendance Metric Cards */}
             <div className="grid grid-cols-3 gap-2.5">

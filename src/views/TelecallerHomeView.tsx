@@ -24,6 +24,7 @@ import {
 import { RejectedLeaveBanner } from '../components/common/RejectedLeaveBanner';
 import { sumVerifiedRevenue } from '../utils/revenueUtils';
 import { TopPerformersShowcase } from '../components/common/TopPerformersShowcase';
+import { HomeNotificationsFeed } from '../components/common/HomeNotificationsFeed';
 
 export const TelecallerHomeView: React.FC = () => {
   const { 
@@ -208,6 +209,9 @@ export const TelecallerHomeView: React.FC = () => {
           {profile.name.substring(0, 2).toUpperCase()}
         </div>
       </div>
+
+      {/* 🔔 Real-Time Operational Notifications Feed */}
+      <HomeNotificationsFeed maxItems={3} className="my-1" />
 
       {/* 🔴 Active LIVE & 📅 Scheduled Zoom Meetings for Employees */}
       {(() => {
