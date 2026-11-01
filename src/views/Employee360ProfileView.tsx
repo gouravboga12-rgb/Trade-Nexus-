@@ -163,31 +163,48 @@ const Employee360ProfileContent: React.FC<Omit<Employee360ProfileViewProps, 'mem
       const isSunday = d.getDay() === 0;
       const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
       const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-      const dIso = d.toISOString().split('T')[0];
+
+      // Use local calendar year-month-day to match exactly without UTC timezone slippage
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const dayNum = String(d.getDate()).padStart(2, '0');
+      const localIso = `${y}-${m}-${dayNum}`;
+
+      const matchesDate = (itemDate: any) => {
+        if (!itemDate) return false;
+        if (typeof itemDate === 'string') {
+          if (itemDate.startsWith(localIso) || itemDate.includes(localIso) || itemDate.includes(dateStr)) return true;
+          try {
+            const parsed = new Date(itemDate);
+            if (!isNaN(parsed.getTime())) {
+              const py = parsed.getFullYear();
+              const pm = String(parsed.getMonth() + 1).padStart(2, '0');
+              const pday = String(parsed.getDate()).padStart(2, '0');
+              if (`${py}-${pm}-${pday}` === localIso) return true;
+            }
+          } catch (e) {}
+        }
+        return false;
+      };
 
       // Find all call logs on this date
       const dayCalls = memberCallLogs.filter((c: any) => {
-        if (c.createdAt && typeof c.createdAt === 'string') {
-          return c.createdAt.startsWith(dIso);
-        }
-        if (c.date && c.date === dIso) return true;
-        return c.timestamp && (c.timestamp.includes(dIso) || c.timestamp.includes(dateStr));
+        return matchesDate(c.createdAt) || matchesDate(c.date) || matchesDate(c.timestamp);
       });
 
       // Find payments matching this date
       const dayPayments = memberPayments.filter((p: any) => {
-        if (p.createdAt && typeof p.createdAt === 'string') return p.createdAt.startsWith(dIso);
-        return p.timestamp && (p.timestamp.includes(dIso) || p.timestamp.includes(dateStr));
+        return matchesDate(p.createdAt) || matchesDate(p.timestamp) || matchesDate(p.date);
       });
 
       // Find leads called or updated on this date
       const dayLeads = i === 0 
         ? memberLeads 
         : memberLeads.filter(l => {
-            if (l.lastCallTimestamp && (l.lastCallTimestamp.includes(dIso) || l.lastCallTimestamp.includes(dateStr))) return true;
-            if (l.updatedAt && l.updatedAt.startsWith(dIso)) return true;
-            // Also include if a call log on this day was with this lead
-            return dayCalls.some(c => (c.phoneNumber && l.phone && c.phoneNumber.replace(/\s+/g, '') === l.phone.replace(/\s+/g, '')) || (c.clientName && l.name && c.clientName.toLowerCase() === l.name.toLowerCase()));
+            if (matchesDate(l.lastCallTimestamp) || matchesDate(l.updatedAt) || matchesDate(l.assignedDate)) return true;
+            if (dayCalls.some(c => (c.phoneNumber && l.phone && c.phoneNumber.replace(/\s+/g, '') === l.phone.replace(/\s+/g, '')) || (c.clientName && l.name && c.clientName.toLowerCase() === l.name.toLowerCase()))) return true;
+            if (dayPayments.some((p: any) => (p.leadName && l.name && p.leadName.toLowerCase() === l.name.toLowerCase()) || (p.customerName && l.name && p.customerName.toLowerCase() === l.name.toLowerCase()) || (p.customerPhone && l.phone && p.customerPhone.replace(/\s+/g, '') === l.phone.replace(/\s+/g, '')))) return true;
+            return false;
           });
 
       // Calculate revenue from verified/recorded payments on this date
@@ -208,82 +225,50 @@ const Employee360ProfileContent: React.FC<Omit<Employee360ProfileViewProps, 'mem
 
       let dayRevenue = paymentRevenue + uncountedConvertedCallsRevenue;
 
-      if (i === 0) {
-        // TODAY: use actual call logs + member.dialsToday only — NOT all-time lead statuses
-        // Using all-time lead statuses here is what causes Yesterday/Last7/etc. to show wrong totals.
-        const calledCount    = Math.max(dayCalls.length, member.dialsToday || 0);
-        const interestedCount = dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'INTERESTED').length;
-        const callbackCount   = dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'CALLBACK').length;
-        const notIntCount     = dayCalls.filter((c: any) =>
-          ['NOT_INTERESTED', 'LOST', 'REJECTED', 'BUSY'].includes((c.outcome || '').toUpperCase())
-        ).length;
-        const convertedCount  = dayCalls.filter((c: any) =>
-          ['CONVERTED', 'WON', 'DEAL_CLOSED'].includes((c.outcome || '').toUpperCase())
-        ).length;
+      // Accurately count won deals from payments, call outcomes, and lead statuses
+      const wonCallsCount = dayCalls.filter((c: any) =>
+        ['CONVERTED', 'WON', 'DEAL_CLOSED'].includes((c.outcome || '').toUpperCase())
+      ).length;
+      const wonLeadsCount = dayLeads.filter((l: any) => l.status === 'CONVERTED').length;
+      const wonPaymentsCount = dayPayments.length;
+      const convertedCount = Math.max(wonPaymentsCount, wonCallsCount, wonLeadsCount);
 
-        // Revenue: only fall back to member.salesAchieved when today has actual won deals
-        if (dayRevenue === 0 && convertedCount > 0) {
-          const leadsRev = memberLeads.filter(l => l.status === 'CONVERTED').reduce((sum, l) => sum + (l.dealValue || 0), 0);
-          dayRevenue = leadsRev > 0 ? leadsRev : (member.salesAchieved || 0);
-        }
+      const calledCount = Math.max(
+        dayCalls.length,
+        wonPaymentsCount,
+        i === 0 ? (member.dialsToday || 0) : dayLeads.filter(l => l.status !== 'PENDING').length
+      );
 
-        const isActuallyRestDay = isSunday && calledCount === 0 && convertedCount === 0 && dayRevenue === 0;
+      const interestedCount = dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'INTERESTED').length;
+      const callbackCount   = dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'CALLBACK').length;
+      const notIntCount     = dayCalls.filter((c: any) =>
+        ['NOT_INTERESTED', 'LOST', 'REJECTED', 'BUSY'].includes((c.outcome || '').toUpperCase())
+      ).length;
 
-        records.push({
-          index: i,
-          dateLabel: `Today (${dateStr})`,
-          assigned: memberLeads.length,
-          called: calledCount,
-          target: member.goalCalls || 60,
-          interested: interestedCount,
-          callback: callbackCount,
-          notInterested: notIntCount,
-          converted: convertedCount,
-          revenue: dayRevenue,
-          isSunday: isActuallyRestDay,
-          leads: memberLeads,
-          calls: dayCalls,
-          payments: dayPayments,
-          dateIso: dIso,
-        });
-      } else {
-        // Past Days with Real Call Logs, Leads & Payments
-        const calledCount = Math.max(
-          dayCalls.length,
-          dayLeads.filter(l => l.status !== 'PENDING').length
-        );
-        const interestedCount = dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'INTERESTED').length;
-        const callbackCount = dayCalls.filter((c: any) => (c.outcome || '').toUpperCase() === 'CALLBACK').length;
-        const notIntCount = dayCalls.filter((c: any) => ['NOT_INTERESTED', 'LOST', 'REJECTED', 'BUSY'].includes((c.outcome || '').toUpperCase())).length;
-        const convertedCount = Math.max(
-          dayCalls.filter((c: any) => ['CONVERTED', 'WON', 'DEAL_CLOSED'].includes((c.outcome || '').toUpperCase())).length,
-          dayLeads.filter(l => l.status === 'CONVERTED').length
-        );
-
-        if (dayRevenue === 0 && convertedCount > 0) {
-          dayRevenue = dayLeads.filter(l => l.status === 'CONVERTED').reduce((sum, l) => sum + (l.dealValue || 0), 0);
-        }
-
-        const isActuallyRestDay = isSunday && calledCount === 0 && convertedCount === 0 && dayRevenue === 0;
-
-        records.push({
-          index: i,
-          dateLabel: `${dateStr} (${dayName})`,
-          assigned: Math.max(calledCount, dayLeads.length),
-          called: calledCount,
-          target: member.goalCalls || 60,
-          interested: interestedCount,
-          callback: callbackCount,
-          notInterested: notIntCount,
-          converted: convertedCount,
-          revenue: dayRevenue,
-          isSunday: isActuallyRestDay,
-          leads: dayLeads,
-          calls: dayCalls,
-          payments: dayPayments,
-          dateIso: dIso,
-        });
+      if (dayRevenue === 0 && convertedCount > 0) {
+        const leadsRev = dayLeads.filter(l => l.status === 'CONVERTED').reduce((sum, l) => sum + (l.dealValue || 0), 0);
+        dayRevenue = leadsRev > 0 ? leadsRev : (i === 0 ? (member.salesAchieved || 0) : 0);
       }
+
+      const isActuallyRestDay = isSunday && calledCount === 0 && convertedCount === 0 && dayRevenue === 0;
+
+      records.push({
+        index: i,
+        dateLabel: i === 0 ? `Today (${dateStr})` : `${dateStr} (${dayName})`,
+        assigned: Math.max(calledCount, dayLeads.length, wonPaymentsCount),
+        called: calledCount,
+        target: member.goalCalls || 60,
+        interested: interestedCount,
+        callback: callbackCount,
+        notInterested: notIntCount,
+        converted: convertedCount,
+        revenue: dayRevenue,
+        isSunday: isActuallyRestDay,
+        leads: dayLeads,
+        calls: dayCalls,
+        payments: dayPayments,
+        dateIso: localIso,
+      });
     }
     return records;
   }, [member, memberLeads, memberCallLogs, memberPayments]);
@@ -844,10 +829,43 @@ const Employee360ProfileContent: React.FC<Omit<Employee360ProfileViewProps, 'mem
                     {isExpanded && (
                       <div className="pt-3 border-t border-slate-100 space-y-2 animate-in fade-in duration-200">
                         <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
-                          <span>Call Activity &amp; Records ({day.calls?.length || day.leads?.length || 0})</span>
+                          <span>Activity &amp; Records ({(day.payments?.length || 0) + (day.calls?.length || 0) + (day.leads?.length || 0)})</span>
                           <span className="text-[10px] text-teal-600">Tap card to collapse</span>
                         </div>
 
+                        {/* 1. Verified Sales & Payments Closed */}
+                        {day.payments && day.payments.length > 0 && (
+                          <div className="space-y-1.5">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 flex items-center gap-1">
+                              🏆 Verified Sales Closed ({day.payments.length})
+                            </span>
+                            {day.payments.map((p: any, pIdx: number) => (
+                              <div key={p.id || `pay-${pIdx}`} className="bg-emerald-50/70 rounded-xl p-2.5 border border-emerald-200 text-xs space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <strong className="font-bold text-[#0A2540] flex items-center gap-1.5">
+                                    <span>{p.customerName || p.leadName || 'Client Deal'}</span>
+                                    {p.paymentMode && (
+                                      <span className="text-[9px] font-semibold text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                                        {p.paymentMode}
+                                      </span>
+                                    )}
+                                  </strong>
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-200/70 text-emerald-900 border border-emerald-300">
+                                    ✓ {p.status || 'VERIFIED'}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-[11px] text-slate-600 font-mono">
+                                  <span>{p.customerPhone ? `📞 ${maskPhone(p.customerPhone)}` : (p.utrNumber ? `Txn: ${p.utrNumber}` : 'Verified Payment')}</span>
+                                  <span className="text-[#00897B] font-bold font-sans text-xs">
+                                    {formatInLakhs(p.dealAmount || 0)}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* 2. Call Logs */}
                         {day.calls && day.calls.length > 0 ? (
                           <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                             {day.calls.map((call: any, cIdx: number) => {
@@ -911,11 +929,11 @@ const Employee360ProfileContent: React.FC<Omit<Employee360ProfileViewProps, 'mem
                               </div>
                             ))}
                           </div>
-                        ) : (
+                        ) : (!day.payments || day.payments.length === 0) ? (
                           <div className="p-3 bg-slate-50 rounded-xl text-center text-xs text-slate-400 font-medium">
                             No individual call records logged for this day.
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     )}
                   </div>
@@ -1105,6 +1123,49 @@ const Employee360ProfileContent: React.FC<Omit<Employee360ProfileViewProps, 'mem
                                       ))}
                                     </div>
                                   </div>
+
+                                  {/* Verified Sales & Payments on this Day (Desktop) */}
+                                  {day.payments && day.payments.length > 0 && (
+                                    <div className="space-y-2 mb-3">
+                                      <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">
+                                        🏆 Verified Sales Closed ({day.payments.length}):
+                                      </span>
+                                      <div className="divide-y divide-emerald-100 border border-emerald-200/80 bg-emerald-50/40 rounded-xl overflow-hidden">
+                                        {day.payments.map((p: any, pIdx: number) => (
+                                          <div key={p.id || `dt-pay-${pIdx}`} className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-emerald-50/70 transition-colors">
+                                            <div className="space-y-0.5">
+                                              <div className="flex items-center gap-2">
+                                                <span className="font-bold text-xs text-[#0A2540]">{p.customerName || p.leadName}</span>
+                                                {p.paymentMode && (
+                                                  <span className="text-[10px] font-mono text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                                                    {p.paymentMode}
+                                                  </span>
+                                                )}
+                                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                                                  🏆 WON DEAL VERIFIED
+                                                </span>
+                                              </div>
+                                              {p.utrNumber && (
+                                                <p className="text-[11px] text-slate-500 font-mono">
+                                                  Transaction / UTR: {p.utrNumber}
+                                                </p>
+                                              )}
+                                            </div>
+                                            <div className="flex items-center gap-4 text-xs font-mono">
+                                              {p.customerPhone && (
+                                                <span className="text-slate-500 font-bold">
+                                                  📞 {maskPhone(p.customerPhone)}
+                                                </span>
+                                              )}
+                                              <span className="text-[#00A88B] font-bold font-sans text-sm">
+                                                {formatInLakhs(p.dealAmount || 0)}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
 
                                   {/* Calls Logged on this Day */}
                                   <div className="space-y-2">
