@@ -84,3 +84,10 @@ export function emitSocketEvent(eventName: string, data: any, rooms?: string | s
   }
 }
 
+export function getSocketService() {
+  return {
+    emitToAll: (eventName: string, data: any) => emitSocketEvent(eventName, data),
+    emitToRoom: (room: string, eventName: string, data: any) => emitSocketEvent(eventName, data, room),
+  };
+}
+
