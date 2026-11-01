@@ -130,8 +130,6 @@ export const DesktopDailyCalling: React.FC = () => {
 
   const handleDialActive = (lead: AssignedLead) => {
     openCallModalForLead(lead);
-    dialPhoneNumber(lead.phone);
-    triggerToast(`📞 Dialing ${lead.phone}...`);
   };
 
   // Helper to extract local YYYY-MM-DD date from a call log item

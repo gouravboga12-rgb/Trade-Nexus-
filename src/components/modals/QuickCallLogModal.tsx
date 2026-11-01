@@ -244,25 +244,25 @@ export const QuickCallLogModal: React.FC = () => {
           <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3.5 mb-3.5 flex items-center justify-between shadow-2xs">
             <div>
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Phone Number</span>
-              <a
-                href={`tel:${activeCallingLead.phone}`}
+              <button
+                type="button"
                 onClick={() => dialPhoneNumber(activeCallingLead.phone)}
                 className="font-mono font-black text-lg text-[#0A2540] hover:text-[#00A88B] transition-colors cursor-pointer text-left block"
                 title="Tap to redial"
               >
                 {activeCallingLead.phone}
-              </a>
+              </button>
             </div>
             <div className="flex items-center gap-2">
-              <a
-                href={`tel:${activeCallingLead.phone}`}
+              <button
+                type="button"
                 onClick={() => dialPhoneNumber(activeCallingLead.phone)}
-                className="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 cursor-pointer active:scale-95 transition-all flex items-center gap-1 text-xs font-bold"
+                className="p-2.5 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black shadow-xs cursor-pointer active:scale-95 transition-all flex items-center gap-1.5 text-xs"
                 title="Redial phone"
               >
                 <Phone className="w-3.5 h-3.5 fill-current" />
                 <span>Redial</span>
-              </a>
+              </button>
               <span className="text-[10px] font-mono font-extrabold px-2.5 py-1 rounded-lg bg-[#00C9A7]/15 text-[#00876f] border border-[#00C9A7]/30">
                 {activeCallingLead.status.replace('_', ' ')}
               </span>
