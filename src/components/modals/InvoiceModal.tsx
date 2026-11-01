@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
-import { 
-  X, 
+import {
+  X,
+  ArrowLeft,
   Printer, 
   Download, 
   Receipt, 
@@ -185,70 +186,150 @@ export const InvoiceModal: React.FC = () => {
       <div className="bg-white rounded-none sm:rounded-3xl shadow-xl border border-slate-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[96vh] printable-modal-dialog print:max-w-none print:rounded-none print:border-none print:shadow-none print:max-h-none">
         
         {/* Top Header Bar */}
-        <div className="bg-[#06152B] px-4 sm:px-6 py-3.5 text-white flex items-center justify-between border-b border-slate-800 print:hidden flex-shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#00C9A7]/20 text-[#00C9A7] flex items-center justify-center border border-[#00C9A7]/30">
-              <Receipt className="w-4 h-4" />
+        <div className="bg-[#06152B] border-b border-slate-800 text-white print:hidden flex-shrink-0">
+          {/* Main Navigation Row */}
+          <div className="px-3 sm:px-6 py-2.5 sm:py-3.5 flex items-center justify-between gap-2">
+            
+            {/* Left: Back button (always visible and prominent on mobile and desktop) */}
+            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+              <button
+                type="button"
+                onClick={() => setIsInvoiceModalOpen(false)}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold transition-all border border-slate-700/60 shadow-xs cursor-pointer shrink-0"
+                title="Back to Invoices"
+              >
+                <ArrowLeft className="w-4 h-4 text-[#00C9A7]" />
+                <span className="font-semibold">Back</span>
+              </button>
+
+              <div className="hidden sm:flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-[#00C9A7]/20 text-[#00C9A7] flex items-center justify-center border border-[#00C9A7]/30 shrink-0">
+                  <Receipt className="w-4 h-4" />
+                </div>
+                <div className="truncate">
+                  <h3 className="font-display font-bold text-sm text-white truncate">Official Tax Invoice Generator</h3>
+                  <p className="text-[11px] text-slate-400 truncate">Trade Nexus Commercial Billing & Settlement</p>
+                </div>
+              </div>
+
+              {/* Mobile Invoice badge */}
+              <div className="sm:hidden font-mono font-bold text-xs text-slate-300 truncate">
+                #{formData.invoiceNumber}
+              </div>
             </div>
-            <div>
-              <h3 className="font-display font-bold text-sm text-white">Official Tax Invoice Generator</h3>
-              <p className="text-[11px] text-slate-400">Trade Nexus Commercial Billing & Settlement</p>
+
+            {/* Desktop Action Buttons (visible on sm+) */}
+            <div className="hidden sm:flex items-center gap-2 shrink-0">
+              <button
+                onClick={handleToggleEdit}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  isEditing ? 'bg-[#00C9A7] text-[#0A2540]' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                }`}
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>{isEditing ? 'Save Changes' : 'Edit Invoice'}</span>
+              </button>
+
+              <button
+                onClick={handlePrint}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5 text-[#00C9A7]" />
+                <span>Print</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={isSendingEmail}
+                onClick={handleSendEmail}
+                className="px-3.5 py-1.5 rounded-xl border border-[#00C9A7]/40 bg-[#E6FAF6] hover:bg-[#D0F7F0] font-bold text-[#00897B] text-xs flex items-center gap-1.5 transition-all shadow-2xs disabled:opacity-50 cursor-pointer"
+              >
+                <Mail className="w-3.5 h-3.5 text-[#00A88B]" />
+                <span>{isSendingEmail ? 'Sending...' : 'Email Customer'}</span>
+              </button>
+
+              <button
+                onClick={handleDownload}
+                className="px-3.5 py-1.5 rounded-xl bg-[#00C9A7] hover:bg-[#00A88B] text-[#0A2540] text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-[#00C9A7]/20 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Save PDF</span>
+              </button>
+
+              {/* Close Button on Desktop */}
+              <button
+                onClick={() => setIsInvoiceModalOpen(false)}
+                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all ml-1 cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
+
+            {/* Mobile Right: Close (X) button is right here on top-right, never cut off! */}
+            <div className="sm:hidden flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => setIsInvoiceModalOpen(false)}
+                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
+                title="Close"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Mobile Action Sub-Toolbar: neatly places the 4 buttons on mobile in their own clean row! */}
+          <div className="sm:hidden px-3 py-2 bg-[#091E38] border-t border-slate-800/80 flex items-center justify-between gap-1.5 overflow-x-auto">
             <button
               onClick={handleToggleEdit}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1 whitespace-nowrap cursor-pointer ${
                 isEditing ? 'bg-[#00C9A7] text-[#0A2540]' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
               }`}
             >
               <Edit3 className="w-3.5 h-3.5" />
-              <span>{isEditing ? 'Save Changes' : 'Edit Invoice'}</span>
+              <span>{isEditing ? 'Save' : 'Edit'}</span>
             </button>
 
             <button
               onClick={handlePrint}
-              className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
+              className="flex-1 py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold transition-all flex items-center justify-center gap-1 whitespace-nowrap shadow-xs cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5 text-[#00C9A7]" />
-              <span className="hidden sm:inline">Print</span>
+              <span>Print</span>
             </button>
 
             <button
               type="button"
               disabled={isSendingEmail}
               onClick={handleSendEmail}
-              className="px-3.5 py-1.5 rounded-xl border border-[#00C9A7]/40 bg-[#E6FAF6] hover:bg-[#D0F7F0] font-bold text-[#00897B] text-xs flex items-center gap-1.5 transition-all shadow-2xs disabled:opacity-50 cursor-pointer"
+              className="flex-1 py-1.5 px-2 rounded-lg border border-[#00C9A7]/40 bg-[#E6FAF6] hover:bg-[#D0F7F0] font-bold text-[#00897B] text-[11px] flex items-center justify-center gap-1 whitespace-nowrap transition-all shadow-2xs disabled:opacity-50 cursor-pointer"
             >
               <Mail className="w-3.5 h-3.5 text-[#00A88B]" />
-              <span>{isSendingEmail ? 'Sending...' : 'Email Customer'}</span>
+              <span>{isSendingEmail ? 'Sending...' : 'Email'}</span>
             </button>
 
             <button
               onClick={handleDownload}
-              className="px-3.5 py-1.5 rounded-xl bg-[#00C9A7] hover:bg-[#00A88B] text-[#0A2540] text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-[#00C9A7]/20 cursor-pointer"
+              className="flex-1 py-1.5 px-2 rounded-lg bg-[#00C9A7] hover:bg-[#00A88B] text-[#0A2540] text-[11px] font-bold transition-all flex items-center justify-center gap-1 whitespace-nowrap shadow-md shadow-[#00C9A7]/20 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Save PDF</span>
-            </button>
-
-            <button
-              onClick={() => setIsInvoiceModalOpen(false)}
-              className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all ml-1 cursor-pointer"
-            >
-              <X className="w-5 h-5" />
+              <span>PDF</span>
             </button>
           </div>
         </div>
 
         {/* Scrollable Document Container */}
-        <div ref={scrollRef} className="overflow-y-auto flex-1 p-0 sm:p-6 bg-slate-50/60 flex justify-center printable-scroll-container print:p-0 print:bg-white">
-          
+        <div 
+          ref={scrollRef} 
+          className="overflow-x-auto overflow-y-auto flex-1 p-2 sm:p-6 bg-slate-100/80 flex justify-start sm:justify-center printable-scroll-container print:p-0 print:bg-white print:overflow-visible"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {/* Printable Invoice Sheet matching Template 5 (5.png) */}
           <div 
             id="printable-invoice"
-            className="w-full max-w-[720px] bg-white text-slate-800 rounded-none overflow-hidden relative border-0 sm:border sm:border-slate-200/60 font-sans shadow-none sm:shadow-xs print:shadow-none print:border-none print:m-0 print:p-0 print:rounded-none print:max-w-none"
+            className="w-[720px] min-w-[720px] bg-white text-slate-800 rounded-lg sm:rounded-none overflow-hidden relative border border-slate-200/80 font-sans shadow-md sm:shadow-xs print:shadow-none print:border-none print:m-0 print:p-0 print:rounded-none print:w-full print:min-w-0"
             style={{ 
               minHeight: '940px',
               WebkitPrintColorAdjust: 'exact',
