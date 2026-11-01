@@ -110,7 +110,7 @@ export interface AttendanceRecord {
   autoClosedAt?: string;
   date: string;
   dayNumber: number;
-  status: 'PRESENT' | 'LATE' | 'ABSENT' | 'LEAVE' | 'HOLIDAY' | 'HALF_DAY';
+  status: 'PRESENT' | 'LATE' | 'ABSENT' | 'LEAVE' | 'HOLIDAY' | 'HALF_DAY' | 'WEEKLY_OFF';
   checkIn?: string;
   checkOut?: string;
   workHours?: string;
@@ -229,7 +229,7 @@ export interface TeamMember {
   role: string;
   group: string;
   phone: string;
-  attendanceStatus: 'PRESENT' | 'LATE' | 'ON_LEAVE' | 'ABSENT';
+  attendanceStatus: 'PRESENT' | 'LATE' | 'ON_LEAVE' | 'ABSENT' | 'WEEKLY_OFF' | 'HOLIDAY';
   checkInTime?: string;
   checkOutTime?: string;
   checkInMethod?: 'Face ID Biometric' | 'Geo-tagged' | '' | string;

@@ -1,6 +1,7 @@
 import express from 'express';
 import db from '../db/connection.js';
 import { getTodayDateIST, minutesOfDay } from '../utils/dateUtils.js';
+import { syncDailyRosterStatus } from '../services/attendanceLifecycle.js';
 
 const router = express.Router();
 
@@ -78,6 +79,7 @@ router.post('/holidays', (req, res) => {
     insertOrReplace.run(holidayId, name.trim(), date, type, description.trim());
 
     const created = db.prepare('SELECT * FROM company_holidays WHERE id = ?').get(holidayId);
+    syncDailyRosterStatus(true);
     res.status(201).json(created);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -93,6 +95,7 @@ router.delete('/holidays/:id', (req, res) => {
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Holiday not found' });
     }
+    syncDailyRosterStatus(true);
     res.json({ deleted: id });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -103,6 +106,7 @@ router.delete('/holidays/:id', (req, res) => {
 router.delete('/holidays', (req, res) => {
   try {
     db.prepare('DELETE FROM company_holidays').run();
+    syncDailyRosterStatus(true);
     res.json({ cleared: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -125,6 +129,7 @@ router.post('/holidays/bulk-preset', (req, res) => {
     }
 
     const allHolidays = db.prepare('SELECT * FROM company_holidays ORDER BY date ASC').all();
+    syncDailyRosterStatus(true);
     res.json(allHolidays);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -198,6 +203,8 @@ export function recalculateTodayAttendance(settings: any): number {
         updatedCount++;
       }
     }
+    // Synchronize team members table immediately to reflect updated policy/off-days
+    syncDailyRosterStatus(true);
     return updatedCount;
   } catch (e) {
     console.warn('[Recalculate Today Attendance Error]', e);
@@ -267,6 +274,8 @@ router.put('/settings', (req, res) => {
     let recalculatedCount = 0;
     if (req.body.applyToToday !== false) {
       recalculatedCount = recalculateTodayAttendance(formatted);
+    } else {
+      syncDailyRosterStatus(true);
     }
 
     res.json({

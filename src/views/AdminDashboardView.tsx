@@ -145,6 +145,8 @@ export const AdminDashboardView: React.FC = () => {
     logout,
     autoDistributeFreshLeads,
     refreshResources,
+    weeklyOffDays,
+    companyHolidays,
     calendarSettings,
     updateCalendarSettings,
     reEvaluateTodayAttendance,
@@ -471,8 +473,20 @@ export const AdminDashboardView: React.FC = () => {
   );
   const leadsDueToday = clients.filter((c) => c.status === 'Due Today');
 
-  const awayWithoutLeave = teamMembers.filter((m) => m.attendanceStatus === 'ABSENT');
-  const idleToday = teamMembers.filter(
+  // Check if today is an official Weekly Off day or Holiday
+  const todayDateObj = new Date();
+  const todayDayOfWeek = todayDateObj.getDay();
+  const dayOfMonth = todayDateObj.getDate();
+  const satIndex = Math.ceil(dayOfMonth / 7);
+  const isAltSatOff = calendarSettings?.weekendPolicy === 'ALTERNATE_SATURDAY' && todayDayOfWeek === 6 && (satIndex === 2 || satIndex === 4);
+  const isTodayWeeklyOff = (weeklyOffDays || [0]).includes(todayDayOfWeek) || isAltSatOff;
+  const todayHoliday = (companyHolidays || []).find((h) => h.date === todayYMD);
+  const isTodayHoliday = Boolean(todayHoliday);
+  const isNonWorkingDay = isTodayWeeklyOff || isTodayHoliday;
+
+  // On scheduled weekly offs and holidays, unpunched staff are on rest — suppress absent & zero-dial floor alerts
+  const awayWithoutLeave = isNonWorkingDay ? [] : teamMembers.filter((m) => m.attendanceStatus === 'ABSENT');
+  const idleToday = isNonWorkingDay ? [] : teamMembers.filter(
     (m) => m.attendanceStatus === 'PRESENT' && (m.dialsToday || 0) === 0
   );
 
@@ -1031,7 +1045,13 @@ export const AdminDashboardView: React.FC = () => {
               </div>
 
               {!pendingPayments.length && !awayWithoutLeave.length && !idleToday.length ? (
-                <Empty text="✨ All clear! No pending audits or floor alerts right now." />
+                <Empty text={
+                  isTodayWeeklyOff
+                    ? '✨ Today is Weekly Off (Sunday) — Floor operations are on scheduled rest.'
+                    : isTodayHoliday
+                    ? `✨ Today is ${todayHoliday?.name || 'a Company Holiday'} — Office is closed.`
+                    : '✨ All clear! No pending audits or floor alerts right now.'
+                } />
               ) : (
                 <div className="space-y-2">
                   {/* Pending Payment Cards */}
@@ -1671,10 +1691,16 @@ export const AdminDashboardView: React.FC = () => {
                                   ? 'bg-emerald-100/90 text-emerald-800 border border-emerald-200/80'
                                   : isLate
                                   ? 'bg-amber-100/90 text-amber-800 border border-amber-200/80'
+                                  : member.attendanceStatus === 'ON_LEAVE'
+                                  ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                  : member.attendanceStatus === 'WEEKLY_OFF'
+                                  ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                                  : member.attendanceStatus === 'HOLIDAY'
+                                  ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
                                   : 'bg-rose-100/90 text-rose-800 border border-rose-200/80'
                               }`}
                             >
-                              {member.attendanceStatus}
+                              {member.attendanceStatus.replace('_', ' ')}
                             </span>
                           </div>
 
@@ -1876,10 +1902,16 @@ export const AdminDashboardView: React.FC = () => {
                                   ? 'bg-emerald-100/90 text-emerald-800 border border-emerald-200/80'
                                   : isLate
                                   ? 'bg-amber-100/90 text-amber-800 border border-amber-200/80'
+                                  : member.attendanceStatus === 'ON_LEAVE'
+                                  ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                  : member.attendanceStatus === 'WEEKLY_OFF'
+                                  ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                                  : member.attendanceStatus === 'HOLIDAY'
+                                  ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
                                   : 'bg-rose-100/90 text-rose-800 border border-rose-200/80'
                               }`}
                             >
-                              {member.attendanceStatus}
+                              {member.attendanceStatus.replace('_', ' ')}
                             </span>
                           </div>
 
@@ -2221,7 +2253,13 @@ export const AdminDashboardView: React.FC = () => {
                               ? 'bg-[#E6FAF6] text-[#00A88B] border border-[#00C9A7]/40'
                               : isLate
                               ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                              : 'bg-purple-50 text-purple-800 border border-purple-200'
+                              : isLeave
+                              ? 'bg-purple-50 text-purple-800 border border-purple-200'
+                              : member.attendanceStatus === 'WEEKLY_OFF'
+                              ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                              : member.attendanceStatus === 'HOLIDAY'
+                              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                              : 'bg-rose-50 text-rose-700 border border-rose-200'
                           }`}
                         >
                           {isPresent && <span className="w-1.5 h-1.5 rounded-full bg-[#00C9A7] animate-pulse" />}

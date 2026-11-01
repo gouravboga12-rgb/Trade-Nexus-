@@ -5,6 +5,48 @@ interface CalendarSettingsRow {
   shiftStartTime?: string;
   shiftEndTime?: string;
   gracePeriodMinutes?: number;
+  weeklyOffDays?: string;
+  weekendPolicy?: string;
+}
+
+/**
+ * Checks whether the given date is a scheduled non-working day (Weekly Off or Company Holiday).
+ */
+export function isDateNonWorking(dateStr: string): { isNonWorking: boolean; reason: 'WEEKLY_OFF' | 'HOLIDAY' | null; holidayName?: string } {
+  try {
+    // 1. Check official company holidays
+    const hol = db.prepare('SELECT id, name FROM company_holidays WHERE date = ?').get(dateStr) as any;
+    if (hol) {
+      return { isNonWorking: true, reason: 'HOLIDAY', holidayName: hol.name };
+    }
+
+    // 2. Check weekly off schedule & policy
+    const cal = db.prepare('SELECT weeklyOffDays, weekendPolicy FROM calendar_settings WHERE id = ?').get('settings-default') as CalendarSettingsRow | undefined;
+    let weeklyOffDays: number[] = [0];
+    try {
+      weeklyOffDays = JSON.parse(cal?.weeklyOffDays || '[0]');
+    } catch {
+      weeklyOffDays = [0];
+    }
+
+    // Day of week in IST (0 = Sun, 1 = Mon, ..., 6 = Sat)
+    const dateObj = new Date(`${dateStr}T12:00:00+05:30`);
+    const dayOfWeek = dateObj.getDay();
+    const dayOfMonth = dateObj.getDate();
+    const satIndex = Math.ceil(dayOfMonth / 7);
+
+    // Alternate Saturday check (2nd & 4th Saturday)
+    const isAltSat = cal?.weekendPolicy === 'ALTERNATE_SATURDAY' && dayOfWeek === 6 && (satIndex === 2 || satIndex === 4);
+
+    if (weeklyOffDays.includes(dayOfWeek) || isAltSat) {
+      return { isNonWorking: true, reason: 'WEEKLY_OFF' };
+    }
+
+    return { isNonWorking: false, reason: null };
+  } catch (err) {
+    console.warn('[isDateNonWorking Warning]', err);
+    return { isNonWorking: false, reason: null };
+  }
 }
 
 /** "09:05 AM" -> minutes since midnight, or null if unparseable. */
@@ -90,6 +132,10 @@ export function syncDailyRosterStatus(force = false): void {
 
   try {
     const today = getTodayDateIST();
+    const nonWorkingCheck = isDateNonWorking(today);
+    const defaultNonPunchedStatus = nonWorkingCheck.isNonWorking
+      ? (nonWorkingCheck.reason || 'WEEKLY_OFF')
+      : 'ABSENT';
 
     // Today's attendance records
     const todayRecords = db.prepare(`
@@ -145,9 +191,9 @@ export function syncDailyRosterStatus(force = false): void {
           updateStatus.run('ON_LEAVE', null, m.id);
         }
       } else {
-        // No punch-in today -> ABSENT (do NOT keep yesterday's PRESENT status!)
-        if (m.attendanceStatus !== 'ABSENT' || m.checkInTime) {
-          updateStatus.run('ABSENT', null, m.id);
+        // No punch-in today -> defaultNonPunchedStatus (WEEKLY_OFF, HOLIDAY, or ABSENT)
+        if (m.attendanceStatus !== defaultNonPunchedStatus || m.checkInTime) {
+          updateStatus.run(defaultNonPunchedStatus, null, m.id);
         }
       }
     }

@@ -108,6 +108,8 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
     deleteEmployee,
     triggerToast,
     autoDistributeFreshLeads,
+    weeklyOffDays,
+    companyHolidays,
     calendarSettings,
     updateCalendarSettings,
     reEvaluateTodayAttendance,
@@ -268,8 +270,21 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
   const leadsDueToday = clients.filter((c) => c.status === 'Due Today');
 
   // Things that need a decision from the Admin today
-  const awayWithoutLeave = teamMembers.filter((m) => m.attendanceStatus === 'ABSENT');
-  const idleToday = teamMembers.filter(
+  // Check if today is an official Weekly Off day or Holiday
+  const todayDateObj = new Date();
+  const todayDayOfWeek = todayDateObj.getDay();
+  const dayOfMonth = todayDateObj.getDate();
+  const satIndex = Math.ceil(dayOfMonth / 7);
+  const isAltSatOff = calendarSettings?.weekendPolicy === 'ALTERNATE_SATURDAY' && todayDayOfWeek === 6 && (satIndex === 2 || satIndex === 4);
+  const isTodayWeeklyOff = (weeklyOffDays || [0]).includes(todayDayOfWeek) || isAltSatOff;
+  const todayCalendarDateStr = getTodayDateIST();
+  const todayHoliday = (companyHolidays || []).find((h) => h.date === todayCalendarDateStr);
+  const isTodayHoliday = Boolean(todayHoliday);
+  const isNonWorkingDay = isTodayWeeklyOff || isTodayHoliday;
+
+  // Things that need a decision from the Admin today (suppressed on scheduled rest days)
+  const awayWithoutLeave = isNonWorkingDay ? [] : teamMembers.filter((m) => m.attendanceStatus === 'ABSENT');
+  const idleToday = isNonWorkingDay ? [] : teamMembers.filter(
     (m) => m.attendanceStatus === 'PRESENT' && (m.dialsToday || 0) === 0
   );
 
@@ -639,7 +654,13 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
           </div>
 
           {!pendingPayments.length && !awayWithoutLeave.length && !idleToday.length ? (
-            <Empty text="Nothing outstanding. Everyone is checked in and no approvals are pending." />
+            <Empty text={
+              isTodayWeeklyOff
+                ? '✨ Today is Weekly Off (Sunday) — Floor operations are on scheduled rest.'
+                : isTodayHoliday
+                ? `✨ Today is ${todayHoliday?.name || 'a Company Holiday'} — Office is closed.`
+                : 'Nothing outstanding. Everyone is checked in and no approvals are pending.'
+            } />
           ) : (
             <div className="divide-y divide-slate-100">
               {pendingPayments.map((p) => (
@@ -846,6 +867,10 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                           ? 'bg-amber-50 text-amber-700'
                           : m.attendanceStatus === 'ON_LEAVE'
                           ? 'bg-sky-50 text-sky-700'
+                          : m.attendanceStatus === 'WEEKLY_OFF'
+                          ? 'bg-slate-100 text-slate-700'
+                          : m.attendanceStatus === 'HOLIDAY'
+                          ? 'bg-purple-50 text-purple-700'
                           : 'bg-rose-50 text-rose-700'
                       }`}
                     >
@@ -1354,7 +1379,11 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
                             ? 'bg-amber-50 text-amber-700'
                             : effectiveStatus === 'ON_LEAVE' || effectiveStatus === 'LEAVE'
                             ? 'bg-sky-50 text-sky-700'
-                            : 'bg-rose-50 text-rose-700'
+                            : m.attendanceStatus === 'WEEKLY_OFF'
+                          ? 'bg-slate-100 text-slate-700'
+                          : m.attendanceStatus === 'HOLIDAY'
+                          ? 'bg-purple-50 text-purple-700'
+                          : 'bg-rose-50 text-rose-700'
                         }`}
                       >
                         {String(effectiveStatus || 'ABSENT').replace('_', ' ')}

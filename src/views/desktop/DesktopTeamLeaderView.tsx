@@ -595,7 +595,7 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
                             member.attendanceStatus === 'LATE' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
                             'bg-slate-100 text-slate-600'
                           }`}>
-                            {member.attendanceStatus}
+                            {member.attendanceStatus.replace('_', ' ')}
                           </span>
                         </td>
                         <td className="py-3 font-mono font-bold text-slate-800">
@@ -1441,7 +1441,7 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
                               member.attendanceStatus === 'LATE' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
                               'bg-slate-100 text-slate-600'
                             }`}>
-                              {member.attendanceStatus}
+                              {member.attendanceStatus.replace('_', ' ')}
                             </span>
                           </td>
                           <td className="py-3.5 font-mono text-slate-700 font-bold">

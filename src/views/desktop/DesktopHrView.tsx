@@ -829,7 +829,7 @@ export const DesktopHrView: React.FC<DesktopHrViewProps> = ({
                           emp.attendanceStatus === 'LATE' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
                           'bg-slate-100 text-slate-600'
                         }`}>
-                          {emp.attendanceStatus}
+                          {emp.attendanceStatus.replace('_', ' ')}
                         </span>
                       </td>
                       <td className="py-3.5 font-mono text-slate-700">{emp.checkInTime || '—'}</td>
