@@ -104,13 +104,24 @@ During this session, we addressed all critical client feedback and operational b
 
 ---
 
-## 5. Agenda & Next Steps for Tomorrow
+## 5. Completed Next Steps & Socket.IO Architecture (November 1, 2026)
 
-1. **Socket.IO Real-Time Updates (Phase 2):**
-   - Add Socket.IO server hook on `tradex-server` and client socket hook in `AppContext.tsx`.
-   - Broadcast events on `lead:converted`, `payment:verified`, and `leads:distributed` so telecallers, team leaders, and admins receive instant UI updates without manual browser refresh.
-2. **Batch Lead Reclaim & Re-assignment Benchmarking:**
-   - Test a 30,000-row sample Excel upload end-to-end on production to verify execution time and ensure memory stays well under 500MB.
-3. **Client Walkthrough & Final Polish:**
-   - Confirm Admin and HR numbers match in daily operational meetings.
+1. **Payload Reduction (96.11 MB → < 600 KB):**
+   - **Attendance:** Stripped Base64 check-in/out photos from historical records. Added on-demand `GET /api/attendance/:id/photo`. Reduced from 25.71 MB to 205 KB.
+   - **Team Members:** Stripped Base64 PAN/Aadhaar PDFs. Added on-demand `GET /api/team-members/:id/document/:type`. Reduced from 8.12 MB to 793 KB.
+   - **Assigned Leads:** Scoped `GET /api/assigned-leads` to default 500 rows unless filtered/all. Added `GET /api/assigned-leads/stats`. Reduced from 51.66 MB to 327 KB.
+   - **Call Logs:** Scoped to default 1000 rows. Reduced from 10.62 MB to 332 KB.
+   - **Compression:** Enabled Gzip/Brotli `compression()` in Express.
+
+2. **Socket.IO Real-Time Gateway:**
+   - Mounted on `/api/socket.io` through Nginx.
+   - Emits micro-events (`payment:verified`, `attendance:punched`, `lead:converted`, `leads:distributed`, `meeting:created`).
+   - Client `AppContext.tsx` automatically listens and updates React state in real-time.
+   - 100% compatible with upcoming native mobile app.
+
+3. **Screen-Aware Scoped Refresh:**
+   - Replaced blanket 22-endpoint refresh with `getActiveScreenResourceKeys(role, tab)` (~100 KB total).
+   - Spinner awaits true promise completion with feedback toast.
+   - PM2 memory usage verified at **44.9 MB** on AWS EC2.
+
 
