@@ -19,12 +19,12 @@ import {
   Video,
   Award,
   ArrowRight,
-  ArrowUpRight
+  ArrowUpRight,
+  Bell
 } from 'lucide-react';
 import { RejectedLeaveBanner } from '../components/common/RejectedLeaveBanner';
 import { sumVerifiedRevenue } from '../utils/revenueUtils';
 import { TopPerformersShowcase } from '../components/common/TopPerformersShowcase';
-import { HomeNotificationsFeed } from '../components/common/HomeNotificationsFeed';
 
 export const TelecallerHomeView: React.FC = () => {
   const { 
@@ -45,6 +45,8 @@ export const TelecallerHomeView: React.FC = () => {
     openPunchOut,
     triggerToast,
     setActiveTab,
+    setIsNotificationDrawerOpen,
+    unreadNotificationCount,
     setClientPipelineTab,
     paymentVerifications,
   } = useApp();
@@ -204,14 +206,26 @@ export const TelecallerHomeView: React.FC = () => {
           </div>
         </div>
 
-        {/* User Mini Avatar Badge */}
-        <div className="w-9 h-9 rounded-xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-black text-xs shadow-sm">
-          {profile.name.substring(0, 2).toUpperCase()}
+        {/* Notification Bell & User Mini Avatar Badge */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsNotificationDrawerOpen(true)}
+            title="Open In-App Notifications"
+            className="relative w-9 h-9 rounded-xl bg-white border border-slate-200/90 text-slate-700 flex items-center justify-center shadow-2xs active:scale-95 transition-all flex-shrink-0 cursor-pointer"
+          >
+            <Bell className="w-4 h-4 text-slate-600" />
+            {unreadNotificationCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#00C9A7] text-[#0A2540] text-[9px] font-black flex items-center justify-center ring-2 ring-white">
+                {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+              </span>
+            )}
+          </button>
+          <div className="w-9 h-9 rounded-xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-black text-xs shadow-sm">
+            {profile.name.substring(0, 2).toUpperCase()}
+          </div>
         </div>
       </div>
-
-      {/* 🔔 Real-Time Operational Notifications Feed */}
-      <HomeNotificationsFeed maxItems={3} className="my-1" />
 
       {/* 🔴 Active LIVE & 📅 Scheduled Zoom Meetings for Employees */}
       {(() => {

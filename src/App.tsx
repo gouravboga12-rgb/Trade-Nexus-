@@ -28,6 +28,7 @@ import { GenerateInvoiceModal } from './components/modals/GenerateInvoiceModal';
 import { PayslipDetailModal } from './components/modals/PayslipDetailModal';
 import { RecentPayslipsModal } from './components/modals/RecentPayslipsModal';
 import { DevSettingsModal } from './components/common/DevSettingsModal';
+import { HeaderNotificationBanner } from './components/common/HeaderNotificationBanner';
 import { LiveVideoRoomModal } from './components/modals/LiveVideoRoomModal';
 import { NotificationDrawer } from './components/layout/NotificationDrawer';
 
@@ -178,6 +179,9 @@ export const App: React.FC = () => {
       <div className="flex flex-col min-h-screen w-full bg-[#F8FAFC] relative print:hidden">
         {/* Global Responsive Header */}
         {activeTab !== 'profile' && <MobileHeader />}
+
+        {/* Global Floating Header Notification Pop-Up Alert */}
+        <HeaderNotificationBanner />
 
         {/* Scrollable Page Body */}
         <main className="flex-1 overflow-y-auto print:hidden">

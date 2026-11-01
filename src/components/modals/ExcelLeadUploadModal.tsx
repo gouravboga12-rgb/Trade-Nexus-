@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { useApp } from '../../context/AppContext';
 import { useListDefault } from '../../hooks/useListDefault';
@@ -8,7 +8,11 @@ import {
   FileSpreadsheet, 
   Users, 
   CheckCircle2, 
-  AlertCircle
+  AlertCircle,
+  Search,
+  ChevronDown,
+  Check,
+  User
 } from 'lucide-react';
 import { isTelecallerOrCallingEmployee } from '../../utils/teamUtils';
 
@@ -73,6 +77,34 @@ export const ExcelLeadUploadModal: React.FC = () => {
   const [pastedData, setPastedData] = useState('');
   const [parseError, setParseError] = useState<string | null>(null);
   const [skippedCount, setSkippedCount] = useState<number>(0);
+  const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
+  const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsEmployeeDropdownOpen(false);
+      }
+    };
+    if (isEmployeeDropdownOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isEmployeeDropdownOpen]);
+
+  const filteredTelecallers = useMemo(() => {
+    const q = employeeSearchQuery.toLowerCase().trim();
+    if (!q) return telecallers;
+    return telecallers.filter((m) =>
+      (m.name || '').toLowerCase().includes(q) ||
+      (m.empCode || '').toLowerCase().includes(q) ||
+      (m.group || '').toLowerCase().includes(q) ||
+      (m.role || '').toLowerCase().includes(q)
+    );
+  }, [telecallers, employeeSearchQuery]);
 
   // Populated only from a file the user picks or rows they paste
   const [parsedLeads, setParsedLeads] = useState<Array<{ name: string; phone: string; company: string; city: string; email: string }>>([]);
@@ -314,21 +346,90 @@ export const ExcelLeadUploadModal: React.FC = () => {
               </span>
               <span className="text-[10px] font-normal text-slate-500">Confidential Allocation</span>
             </label>
-            <select
-              value={selectedEmployeeId}
-              onChange={(e) => setSelectedEmployeeId(e.target.value)}
-              className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
-            >
-              {telecallers.length === 0 ? (
-                <option value="">No active calling executives found</option>
-              ) : (
-                telecallers.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} ({m.empCode}) — {m.role} ({m.group || 'Team'})
-                  </option>
-                ))
+            {/* Custom Mobile-Optimized Searchable Staff Picker */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen)}
+                className="w-full bg-white border border-slate-300 hover:border-[#00C9A7] rounded-xl px-3 py-2.5 text-left text-xs font-semibold text-slate-800 flex items-center justify-between shadow-2xs transition-all active:scale-98 cursor-pointer"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-[#0A2540] text-[#00C9A7] font-black text-[10px] flex items-center justify-center flex-shrink-0">
+                    {(targetEmp?.name || 'EM').substring(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <span className="font-bold text-slate-900 truncate">{targetEmp?.name || 'Select Telecaller'}</span>
+                      {targetEmp?.empCode && (
+                        <span className="text-[10px] text-slate-400 font-mono">({targetEmp.empCode})</span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-[#00A88B] block truncate font-medium">
+                      {targetEmp?.role || 'Calling Executive'} • {targetEmp?.group || 'Direct Team'}
+                    </span>
+                  </div>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${isEmployeeDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isEmployeeDropdownOpen && (
+                <div className="absolute z-50 top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-in fade-in-50 zoom-in-95 duration-150">
+                  <div className="p-2 border-b border-slate-100 bg-slate-50/80">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={employeeSearchQuery}
+                        onChange={(e) => setEmployeeSearchQuery(e.target.value)}
+                        placeholder="Search by name, ID or squad..."
+                        className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00C9A7]"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+
+                  <div className="max-h-56 overflow-y-auto divide-y divide-slate-50 p-1">
+                    {filteredTelecallers.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-slate-400">
+                        No matching telecallers found
+                      </div>
+                    ) : (
+                      filteredTelecallers.map((m) => {
+                        const isSelected = m.id === selectedEmployeeId;
+                        return (
+                          <div
+                            key={m.id}
+                            onClick={() => {
+                              setSelectedEmployeeId(m.id);
+                              setIsEmployeeDropdownOpen(false);
+                              setEmployeeSearchQuery('');
+                            }}
+                            className={`p-2 rounded-xl flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+                              isSelected ? 'bg-teal-50/80 text-[#0A2540]' : 'hover:bg-slate-50 text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-6 h-6 rounded-lg bg-[#0A2540] text-[#00C9A7] font-black text-[9px] flex items-center justify-center flex-shrink-0">
+                                {(m.name || 'EM').substring(0, 2).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-bold text-xs truncate leading-tight">{m.name}</p>
+                                <p className="text-[10px] text-slate-400 truncate">
+                                  {m.empCode} • {m.role} ({m.group || 'Direct'})
+                                </p>
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <Check className="w-4 h-4 text-[#00A88B] flex-shrink-0" />
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
               )}
-            </select>
+            </div>
             <p className="text-[11px] text-slate-500">
               Only <strong className="text-slate-800">{targetEmp?.name || 'the selected employee'}</strong> will see this allocated batch in their calling queue.
             </p>

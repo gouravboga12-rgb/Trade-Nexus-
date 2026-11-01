@@ -59,7 +59,7 @@ router.post('/', (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Rank, employee name, and designation are required.' });
     }
 
-    const numericRank = Math.min(3, Math.max(1, Number(rank))) as 1 | 2 | 3;
+    const numericRank = Math.max(1, Math.floor(Number(rank) || 1));
     const finalMonth = (monthYear || '').trim() || new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
     const targetId = id || `performer-${Date.now()}-${numericRank}`;
 

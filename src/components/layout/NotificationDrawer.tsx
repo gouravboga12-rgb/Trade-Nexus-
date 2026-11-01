@@ -108,33 +108,41 @@ export const NotificationDrawer: React.FC = () => {
           </div>
         </div>
 
-        {/* Action Bar */}
-        <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs">
-          <span className="text-slate-500 font-medium">
-            {notifications.length} {notifications.length === 1 ? 'alert' : 'alerts'} logged
-          </span>
-          <div className="flex items-center gap-2">
-            {unreadNotificationCount > 0 && (
-              <button
-                type="button"
-                onClick={markAllNotificationsAsRead}
-                className="text-[11px] font-bold text-[#00A88B] hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <CheckCheck className="w-3.5 h-3.5" />
-                <span>Mark all read</span>
-              </button>
-            )}
-            {notifications.length > 0 && (
-              <button
-                type="button"
-                onClick={clearAllNotifications}
-                className="text-[11px] font-bold text-rose-500 hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Clear</span>
-              </button>
-            )}
+        {/* Top Action Bar with Two Dedicated Buttons */}
+        <div className="p-3 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={markAllNotificationsAsRead}
+              disabled={unreadNotificationCount === 0}
+              className={`flex-1 sm:flex-initial px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-2xs border ${
+                unreadNotificationCount > 0
+                  ? 'bg-white border-[#00C9A7]/60 text-[#0A2540] hover:bg-[#E6FAF6] cursor-pointer active:scale-95'
+                  : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              <CheckCheck className={`w-3.5 h-3.5 ${unreadNotificationCount > 0 ? 'text-[#00A88B]' : 'text-slate-400'}`} />
+              <span>Read all notifications</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={clearAllNotifications}
+              disabled={notifications.length === 0}
+              className={`flex-1 sm:flex-initial px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-2xs border ${
+                notifications.length > 0
+                  ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 cursor-pointer active:scale-95'
+                  : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              <Trash2 className={`w-3.5 h-3.5 ${notifications.length > 0 ? 'text-rose-600' : 'text-slate-400'}`} />
+              <span>Clear all notifications</span>
+            </button>
           </div>
+
+          <span className="text-[11px] font-semibold text-slate-500 self-end sm:self-center">
+            {notifications.length} {notifications.length === 1 ? 'alert' : 'alerts'} ({unreadNotificationCount} unread)
+          </span>
         </div>
 
         {/* Notifications List */}

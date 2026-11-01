@@ -388,6 +388,8 @@ interface AppContextType {
   unreadNotificationCount: number;
   isNotificationDrawerOpen: boolean;
   setIsNotificationDrawerOpen: (open: boolean) => void;
+  bannerNotification: AppNotification | null;
+  dismissBannerNotification: () => void;
   markNotificationAsRead: (id: string) => void;
   markAllNotificationsAsRead: () => void;
   clearAllNotifications: () => void;
@@ -467,6 +469,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   });
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
+  const [bannerNotification, setBannerNotification] = useState<AppNotification | null>(null);
+
+  const dismissBannerNotification = useCallback(() => {
+    setBannerNotification(null);
+  }, []);
 
   const unreadNotificationCount = useMemo(() => {
     return notifications.filter((n) => !n.read).length;
@@ -490,6 +497,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Instant zero-polling Web Audio alert chime
     buzzer.playBuzzer();
+
+    // Trigger header pop-up banner for top-level user visibility
+    setBannerNotification(newNotif);
 
     // Trigger local push notification in native Android shell if running in WebView
     if (typeof window !== 'undefined' && (window as any).ReactNativeWebView) {
@@ -1279,6 +1289,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
     });
 
+    socket.on('leads:assigned', (payload: { batchId: string; fileName: string; targetEmployeeId: string; targetEmployeeName: string; count: number }) => {
+      refreshResources(['assignedLeads', 'stats']);
+      const isTarget = currentUser && (
+        currentUser.id === payload.targetEmployeeId ||
+        (currentUser as any).empCode === payload.targetEmployeeId ||
+        (currentUser.name && payload.targetEmployeeName && currentUser.name.toLowerCase().trim() === payload.targetEmployeeName.toLowerCase().trim())
+      );
+      if (isTarget) {
+        addAppNotification({
+          title: `🎯 ${payload.count} Fresh Leads Assigned!`,
+          body: `${payload.count} leads allocated to you from "${payload.fileName || 'Batch'}". Touch to start calling!`,
+          category: 'leads',
+          targetTab: 'calling',
+        });
+      } else if (currentRole === 'admin' || currentRole === 'team_leader' || currentRole === 'hr') {
+        addAppNotification({
+          title: `🎯 Leads Allocated: ${payload.targetEmployeeName || 'Telecaller'}`,
+          body: `${payload.count} leads allocated to ${payload.targetEmployeeName} (${payload.fileName || 'Batch'}).`,
+          category: 'leads',
+          targetTab: 'leads',
+        });
+      }
+    });
+
+    socket.on('calendar:settings-updated', () => {
+      refreshResources(['teamMembers', 'stats']);
+    });
+
     // Real-time call logs
     socket.on('call:logged', (log: CallLogItem) => {
       setCallLogs((prev) => [log, ...prev.filter((c) => c.id !== log.id)]);
@@ -1359,6 +1397,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       socketRef.current = null;
     };
   }, [authStep, refreshResources, triggerToast]);
+
+  // Deep-linking hook from mobile shell external notifications
+  useEffect(() => {
+    (window as any).__switchTradeNexusTab = (tab: string, recordId?: string) => {
+      console.log('[Native Deep-Link Switch Tab]', tab, recordId);
+      if (tab) {
+        setActiveTab(tab as any);
+      }
+    };
+    return () => {
+      delete (window as any).__switchTradeNexusTab;
+    };
+  }, [setActiveTab]);
 
   // Manual one-tap refresh triggered from headers across all 4 panels
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -4080,6 +4131,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         unreadNotificationCount,
         isNotificationDrawerOpen,
         setIsNotificationDrawerOpen,
+        bannerNotification,
+        dismissBannerNotification,
         markNotificationAsRead,
         markAllNotificationsAsRead,
         clearAllNotifications,

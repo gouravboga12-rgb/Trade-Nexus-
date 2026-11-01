@@ -43,6 +43,8 @@ export const ProfileSelfServiceView: React.FC = () => {
     relievingLetters, 
     setIsRecentPayslipsModalOpen,
     setActiveTab,
+    setIsNotificationDrawerOpen,
+    unreadNotificationCount,
     logout, 
     triggerToast 
   } = useApp();
@@ -207,11 +209,18 @@ export const ProfileSelfServiceView: React.FC = () => {
 
         <div className="flex items-center gap-1.5">
           <button
-            onClick={() => triggerToast('🔔 2 pending callbacks and 1 leave approval')}
-            className="w-8 h-8 rounded-xl bg-white border border-slate-100 shadow-[0_2px_6px_rgba(0,0,0,0.03)] flex items-center justify-center text-slate-700 hover:bg-slate-50 relative active:scale-95 transition-all"
+            onClick={() => setIsNotificationDrawerOpen(true)}
+            title="Open Notifications"
+            className="w-8 h-8 rounded-xl bg-white border border-slate-200/90 shadow-[0_2px_6px_rgba(0,0,0,0.03)] flex items-center justify-center text-slate-700 hover:bg-slate-50 relative active:scale-95 transition-all cursor-pointer"
           >
             <Bell className="w-4 h-4 text-slate-700" />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 ring-2 ring-white" />
+            {unreadNotificationCount > 0 ? (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#00C9A7] text-[#0A2540] text-[9px] font-black flex items-center justify-center ring-2 ring-white">
+                {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+              </span>
+            ) : (
+              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+            )}
           </button>
 
           <button

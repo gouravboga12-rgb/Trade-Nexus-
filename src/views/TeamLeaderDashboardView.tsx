@@ -26,6 +26,7 @@ import {
   AlertTriangle,
   Camera,
   LogOut,
+  Bell,
   Phone,
   Award,
   Sparkles,
@@ -38,7 +39,6 @@ import { Employee360ProfileView } from './Employee360ProfileView';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { MeetingTimePicker } from '../components/common/MeetingTimePicker';
 import { TopPerformersShowcase } from '../components/common/TopPerformersShowcase';
-import { HomeNotificationsFeed } from '../components/common/HomeNotificationsFeed';
 
 export const TeamLeaderDashboardView: React.FC = () => {
   const { 
@@ -60,6 +60,8 @@ export const TeamLeaderDashboardView: React.FC = () => {
     openPunchOut,
     triggerToast,
     logout,
+    setIsNotificationDrawerOpen,
+    unreadNotificationCount,
     companyHolidays,
     weeklyOffDays,
     callLogs,
@@ -617,8 +619,21 @@ export const TeamLeaderDashboardView: React.FC = () => {
                 </p>
               </div>
 
-              {/* Avatar Badge & Exit Account Button */}
+              {/* Avatar Badge, Notification Bell & Exit Account Button */}
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsNotificationDrawerOpen(true)}
+                  title="Open In-App Notifications"
+                  className="relative w-10 h-10 rounded-2xl bg-white border border-slate-200/90 text-slate-700 flex items-center justify-center shadow-2xs active:scale-95 transition-all flex-shrink-0 cursor-pointer"
+                >
+                  <Bell className="w-4 h-4 text-slate-600" />
+                  {unreadNotificationCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#00C9A7] text-[#0A2540] text-[9px] font-black flex items-center justify-center ring-2 ring-white">
+                      {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                    </span>
+                  )}
+                </button>
                 <div className="w-10 h-10 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-black text-xs shadow-sm">
                   {leaderInitials}
                 </div>
@@ -631,9 +646,6 @@ export const TeamLeaderDashboardView: React.FC = () => {
                 </button>
               </div>
             </div>
-
-            {/* 🔔 Real-Time Operational Notifications Feed */}
-            <HomeNotificationsFeed maxItems={3} className="my-1" />
 
             {/* 3 Top Attendance Metric Cards */}
             <div className="grid grid-cols-3 gap-2.5">

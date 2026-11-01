@@ -2,6 +2,7 @@ import express from 'express';
 import db from '../db/connection.js';
 import { getTodayDateIST, minutesOfDay } from '../utils/dateUtils.js';
 import { syncDailyRosterStatus } from '../services/attendanceLifecycle.js';
+import { emitSocketEvent } from '../services/socketService.js';
 
 const router = express.Router();
 
@@ -80,6 +81,7 @@ router.post('/holidays', (req, res) => {
 
     const created = db.prepare('SELECT * FROM company_holidays WHERE id = ?').get(holidayId);
     syncDailyRosterStatus(true);
+    emitSocketEvent('calendar:settings-updated', { type: 'holiday_added', holiday: created });
     res.status(201).json(created);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -96,6 +98,7 @@ router.delete('/holidays/:id', (req, res) => {
       return res.status(404).json({ error: 'Holiday not found' });
     }
     syncDailyRosterStatus(true);
+    emitSocketEvent('calendar:settings-updated', { type: 'holiday_deleted', id });
     res.json({ deleted: id });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -130,6 +133,7 @@ router.post('/holidays/bulk-preset', (req, res) => {
 
     const allHolidays = db.prepare('SELECT * FROM company_holidays ORDER BY date ASC').all();
     syncDailyRosterStatus(true);
+    emitSocketEvent('calendar:settings-updated', { type: 'holidays_preset', count: allHolidays.length });
     res.json(allHolidays);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -277,6 +281,9 @@ router.put('/settings', (req, res) => {
     } else {
       syncDailyRosterStatus(true);
     }
+
+    emitSocketEvent('calendar:settings-updated', { type: 'settings_updated', settings: formatted });
+    emitSocketEvent('attendance:synced', { today: getTodayDateIST() });
 
     res.json({
       ...formatted,

@@ -35,6 +35,7 @@ import {
   Target,
   Video,
   Award,
+  Bell,
   DollarSign,
   Maximize2,
   Minimize2,
@@ -73,7 +74,6 @@ import { OfficeSettings, TeamGroup, TeamMember, UserRole, LeaveRequest, PaymentV
 import { api } from '../services/api';
 import { Employee360ProfileView } from './Employee360ProfileView';
 import { AdminCalendarConfig } from '../components/common/AdminCalendarConfig';
-import { HomeNotificationsFeed } from '../components/common/HomeNotificationsFeed';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { LeafletGeofenceMap } from '../components/common/LeafletGeofenceMap';
 import { ManageEmployeesTab } from './admin/ManageEmployeesTab';
@@ -154,6 +154,8 @@ export const AdminDashboardView: React.FC = () => {
     topPerformers,
     isTopPerformersModalOpen,
     setIsTopPerformersModalOpen,
+    setIsNotificationDrawerOpen,
+    unreadNotificationCount,
   } = useApp();
 
   useScreenData('adminDashboard');
@@ -415,6 +417,28 @@ export const AdminDashboardView: React.FC = () => {
   const headcount = teamMembers.length;
   const presentToday = teamMembers.filter((m) => m.attendanceStatus === 'PRESENT').length;
   const callsToday = teamMembers.reduce((sum, m) => sum + (m.dialsToday || 0), 0);
+
+  const todayStr = useMemo(() => getTodayDateIST(), []);
+  const approvedLeaveEmpIds = useMemo(() => {
+    const ids = new Set<string>();
+    leaveRequests.forEach((l) => {
+      const from = l.fromDate || (l as any).startDate;
+      const to = l.toDate || (l as any).endDate || from;
+      if (l.status === 'APPROVED' && (!from || from <= todayStr) && (!to || to >= todayStr)) {
+        if (l.employeeId) ids.add(l.employeeId);
+        if (l.employeeCode) ids.add(l.employeeCode);
+      }
+    });
+    return ids;
+  }, [leaveRequests, todayStr]);
+
+  const unapprovedAbsents = useMemo(() => {
+    return teamMembers.filter((m) => 
+      m.attendanceStatus === 'ABSENT' && 
+      !approvedLeaveEmpIds.has(m.id) && 
+      !approvedLeaveEmpIds.has(m.empCode)
+    );
+  }, [teamMembers, approvedLeaveEmpIds]);
   
   // Deduplicate won deal payment verifications to avoid double cards in Needs Your Attention & Ledger
   const uniquePayments = useMemo<PaymentVerificationItem[]>(() => {
@@ -673,6 +697,19 @@ export const AdminDashboardView: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsNotificationDrawerOpen(true)}
+                  title="Open In-App Notifications"
+                  className="relative w-9 h-9 rounded-2xl bg-white border border-slate-200/90 text-slate-700 flex items-center justify-center shadow-2xs active:scale-95 transition-all flex-shrink-0 cursor-pointer"
+                >
+                  <Bell className="w-4 h-4 text-slate-600" />
+                  {unreadNotificationCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#00C9A7] text-[#0A2540] text-[9px] font-black flex items-center justify-center ring-2 ring-white">
+                      {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                    </span>
+                  )}
+                </button>
                 <div className="w-9 h-9 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-display font-black text-xs shadow-xs border border-[#00C9A7]/30">
                   {adminInitials}
                 </div>
@@ -685,9 +722,6 @@ export const AdminDashboardView: React.FC = () => {
                 </button>
               </div>
             </div>
-
-            {/* 🔔 Real-Time Operational Notifications Feed */}
-            <HomeNotificationsFeed maxItems={3} className="my-1" />
 
             {/* 4 Core Compact KPI Cards (2x2 on Mobile, 4x1 on Desktop) */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3.5 lg:gap-4">
@@ -778,6 +812,38 @@ export const AdminDashboardView: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* ⚠️ Unapproved Absence / Leave Without Permission Alert Card */}
+            {unapprovedAbsents.length > 0 && (
+              <div 
+                onClick={() => setTab('attendance')}
+                className="bg-gradient-to-r from-rose-50 to-orange-50 border-2 border-rose-300 hover:border-rose-400 rounded-2xl p-3.5 shadow-xs cursor-pointer active:scale-98 transition-all flex items-center justify-between gap-3 animate-in slide-in-from-top-1"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                    <AlertTriangle className="w-5 h-5 stroke-[2.5]" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs font-black text-rose-950 uppercase tracking-wide">
+                        Unapproved Absence Alert
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black">
+                        {unapprovedAbsents.length} Staff
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-rose-800 font-medium truncate mt-0.5">
+                      {unapprovedAbsents.map(m => m.name).slice(0, 3).join(', ')}{unapprovedAbsents.length > 3 ? ` +${unapprovedAbsents.length - 3} more` : ''} absent on a working day without approved leave
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 text-[11px] font-black text-rose-700 bg-white/80 border border-rose-200 px-2.5 py-1.5 rounded-xl flex-shrink-0 shadow-2xs">
+                  <span>Roster</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
+            )}
 
             {/* Executive Quick Actions Bar */}
             <div className="flex items-center gap-2">

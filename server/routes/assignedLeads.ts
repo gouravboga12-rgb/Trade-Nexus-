@@ -221,6 +221,15 @@ router.post('/bulk', (req: Request, res: Response) => {
 
     const createdBatch = db.prepare('SELECT * FROM lead_batches WHERE id = ?').get(batchId);
     
+    // Broadcast real-time push event to assigned employee and leaders
+    emitSocketEvent('leads:assigned', {
+      batchId,
+      fileName: fileName || 'imported_leads.xlsx',
+      targetEmployeeId: targetEmployeeId || null,
+      targetEmployeeName: targetEmployeeName || 'Employee',
+      count: Array.isArray(leads) ? leads.length : 0
+    });
+
     // For large uploads (> 500 leads), avoid serializing 25MB JSON string which blocks event loop and swap
     if (Array.isArray(leads) && leads.length > 500) {
       return res.status(201).json({ 

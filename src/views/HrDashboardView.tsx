@@ -69,7 +69,6 @@ import { Employee360ProfileView } from './Employee360ProfileView';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { MeetingTimePicker } from '../components/common/MeetingTimePicker';
 import { InvoicesLedger } from '../components/common/InvoicesLedger';
-import { HomeNotificationsFeed } from '../components/common/HomeNotificationsFeed';
 
 const formatInLakhs = (val: number) => {
   if (val >= 100000) {
@@ -134,6 +133,8 @@ export const HrDashboardView: React.FC = () => {
     triggerToast,
     refreshResources,
     logout,
+    setIsNotificationDrawerOpen,
+    unreadNotificationCount,
     sendPayslipEmailToEmployee,
   } = useApp();
 
@@ -498,6 +499,19 @@ export const HrDashboardView: React.FC = () => {
 
               {/* Avatar Badge & Exit Account Button */}
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsNotificationDrawerOpen(true)}
+                  title="Open In-App Notifications"
+                  className="relative w-10 h-10 rounded-2xl bg-white border border-slate-200/90 text-slate-700 flex items-center justify-center shadow-2xs active:scale-95 transition-all flex-shrink-0 cursor-pointer"
+                >
+                  <Bell className="w-4 h-4 text-slate-600" />
+                  {unreadNotificationCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#00C9A7] text-[#0A2540] text-[9px] font-black flex items-center justify-center ring-2 ring-white">
+                      {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                    </span>
+                  )}
+                </button>
                 <div className="w-10 h-10 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-display font-black text-xs shadow-sm border border-[#00C9A7]/30">
                   {hrInitials}
                 </div>
@@ -510,9 +524,6 @@ export const HrDashboardView: React.FC = () => {
                 </button>
               </div>
             </div>
-
-            {/* 🔔 Real-Time Operational Notifications Feed */}
-            <HomeNotificationsFeed maxItems={3} className="my-1" />
 
             {/* ⚠️ Suspicious Attendance Dispute Alert Banner */}
             {isAttendanceDisputed && (
