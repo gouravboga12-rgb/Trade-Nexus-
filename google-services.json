@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "75935712472",
+    "project_id": "trade-nexus-trade-smart-f7ab1",
+    "storage_bucket": "trade-nexus-trade-smart-f7ab1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:75935712472:android:f5db61664f9335d4b1c3ad",
+        "android_client_info": {
+          "package_name": "com.tradenexus.tradesmart"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBiYrrxir3-Llw_iuQi-gDp95ME0PqNoAw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
