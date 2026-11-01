@@ -121,6 +121,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
     } catch {}
   };
   const [callingSearchQuery, setCallingSearchQuery] = useState('');
+  const [callingVisibleLimit, setCallingVisibleLimit] = useState(30);
   const [callingStatusFilter, setCallingStatusFilter] = useState<string>('ALL');
   const [leaveSubTab, setLeaveSubTab] = useState<'approvals' | 'calendar'>('approvals');
   const [calendarMonthOffset, setCalendarMonthOffset] = useState(0);
@@ -234,6 +235,58 @@ export const TeamLeaderDashboardView: React.FC = () => {
       return matchesId || matchesName;
     });
   }, [assignedLeads, currentUser, profile]);
+
+  // Precomputed O(1) filter pill counts (prevents UI freeze when switching to Calling tab)
+  const callingCounts = useMemo(() => {
+    let fresh = 0;
+    let interested = 0;
+    let callback = 0;
+    let won = 0;
+    let busy = 0;
+    let notInterested = 0;
+
+    for (let i = 0; i < myAssignedLeads.length; i++) {
+      const l = myAssignedLeads[i];
+      if ((l.callCount || 0) === 0 && l.status !== 'CONVERTED') fresh++;
+      if (l.status === 'INTERESTED') interested++;
+      else if (l.status === 'CALLBACK') callback++;
+      else if (l.status === 'CONVERTED') won++;
+      else if (l.status === 'BUSY') busy++;
+      else if (l.status === 'NOT_INTERESTED') notInterested++;
+    }
+
+    return {
+      all: myAssignedLeads.length,
+      fresh,
+      interested,
+      callback,
+      won,
+      busy,
+      notInterested,
+    };
+  }, [myAssignedLeads]);
+
+  // Memoized filtered leads list (prevents recalculation on irrelevant renders)
+  const filteredCallingLeads = useMemo(() => {
+    const q = callingSearchQuery.trim().toLowerCase();
+    return myAssignedLeads.filter((l) => {
+      const matchesQ =
+        !q ||
+        (l.name && l.name.toLowerCase().includes(q)) ||
+        (l.phone && l.phone.includes(q)) ||
+        (l.company && l.company.toLowerCase().includes(q)) ||
+        (l.city && l.city.toLowerCase().includes(q));
+
+      const matchesStatus =
+        callingStatusFilter === 'ALL'
+          ? true
+          : callingStatusFilter === 'FRESH'
+          ? (l.callCount || 0) === 0 && l.status !== 'CONVERTED'
+          : l.status === callingStatusFilter;
+
+      return matchesQ && matchesStatus;
+    });
+  }, [myAssignedLeads, callingSearchQuery, callingStatusFilter]);
 
   const myFreshLeadsCount = useMemo(() => {
     return myAssignedLeads.filter((l) => (l.callCount || 0) === 0 && l.status !== 'CONVERTED').length;
@@ -1539,13 +1592,13 @@ export const TeamLeaderDashboardView: React.FC = () => {
               {/* Status Filter Pills */}
               <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
                 {[
-                  { id: 'ALL', label: 'All', count: myAssignedLeads.length },
-                  { id: 'FRESH', label: 'Fresh', count: myFreshLeadsCount },
-                  { id: 'INTERESTED', label: 'Interested', count: myAssignedLeads.filter(l => l.status === 'INTERESTED').length },
-                  { id: 'CALLBACK', label: 'Callback', count: myAssignedLeads.filter(l => l.status === 'CALLBACK').length },
-                  { id: 'CONVERTED', label: 'Won Deals', count: myAssignedLeads.filter(l => l.status === 'CONVERTED').length },
-                  { id: 'BUSY', label: 'Busy', count: myAssignedLeads.filter(l => l.status === 'BUSY').length },
-                  { id: 'NOT_INTERESTED', label: 'Not Interested', count: myAssignedLeads.filter(l => l.status === 'NOT_INTERESTED').length },
+                  { id: 'ALL', label: 'All', count: callingCounts.all },
+                  { id: 'FRESH', label: 'Fresh', count: callingCounts.fresh },
+                  { id: 'INTERESTED', label: 'Interested', count: callingCounts.interested },
+                  { id: 'CALLBACK', label: 'Callback', count: callingCounts.callback },
+                  { id: 'CONVERTED', label: 'Won Deals', count: callingCounts.won },
+                  { id: 'BUSY', label: 'Busy', count: callingCounts.busy },
+                  { id: 'NOT_INTERESTED', label: 'Not Interested', count: callingCounts.notInterested },
                 ].map((f) => (
                   <button
                     key={f.id}
@@ -1570,23 +1623,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
 
             {/* Leads List */}
             {(() => {
-              const filteredLeads = myAssignedLeads.filter((l) => {
-                const q = callingSearchQuery.trim().toLowerCase();
-                const matchesQ = !q ||
-                  (l.name && l.name.toLowerCase().includes(q)) ||
-                  (l.phone && l.phone.includes(q)) ||
-                  (l.company && l.company.toLowerCase().includes(q)) ||
-                  (l.city && l.city.toLowerCase().includes(q));
-
-                const matchesStatus =
-                  callingStatusFilter === 'ALL'
-                    ? true
-                    : callingStatusFilter === 'FRESH'
-                    ? (l.callCount || 0) === 0 && l.status !== 'CONVERTED'
-                    : l.status === callingStatusFilter;
-
-                return matchesQ && matchesStatus;
-              });
+              const displayedLeads = filteredCallingLeads.slice(0, callingVisibleLimit);
 
               if (!myAssignedLeads.length) {
                 return (
@@ -1602,7 +1639,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
                 );
               }
 
-              if (!filteredLeads.length) {
+              if (!filteredCallingLeads.length) {
                 return (
                   <div className="bg-white border border-slate-200 rounded-2xl p-6 text-center text-slate-400 text-xs">
                     No leads matching "{callingSearchQuery}" in {callingStatusFilter} filter.
@@ -1611,8 +1648,9 @@ export const TeamLeaderDashboardView: React.FC = () => {
               }
 
               return (
+                <>
                 <div className="space-y-2.5">
-                  {filteredLeads.map((lead) => {
+                  {displayedLeads.map((lead) => {
                     const isWon = lead.status === 'CONVERTED';
                     const isFresh = (lead.callCount || 0) === 0 && !isWon;
                     return (
@@ -1683,6 +1721,18 @@ export const TeamLeaderDashboardView: React.FC = () => {
                     );
                   })}
                 </div>
+                {filteredCallingLeads.length > callingVisibleLimit && (
+                  <div className="pt-2 pb-4 text-center">
+                    <button
+                      type="button"
+                      onClick={() => setCallingVisibleLimit(prev => prev + 30)}
+                      className="px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-[#00A88B] hover:border-[#00C9A7] font-bold text-xs shadow-2xs active:scale-95 transition-all cursor-pointer"
+                    >
+                      Load More Leads ({callingVisibleLimit} of {filteredCallingLeads.length})
+                    </button>
+                  </div>
+                )}
+              </>
               );
             })()}
           </div>

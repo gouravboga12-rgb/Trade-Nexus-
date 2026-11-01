@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
-import { RotateCw, ArrowDown } from 'lucide-react';
+import { RotateCw } from 'lucide-react';
 
 interface PullToRefreshProps {
   children: React.ReactNode;
@@ -10,7 +10,6 @@ interface PullToRefreshProps {
 export const PullToRefresh: React.FC<PullToRefreshProps> = ({ children, containerId = 'main-scroll-container' }) => {
   const { isRefreshing, refreshAllData } = useApp();
   const [pullDistance, setPullDistance] = useState(0);
-  const [isPulling, setIsPulling] = useState(false);
   const startYRef = useRef(0);
   const isTrackingRef = useRef(false);
 
@@ -47,11 +46,9 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ children, containe
       if (diff > 12 && scrollTop <= 0) {
         const pull = Math.min(80, Math.pow(diff, 0.82) * 1.3);
         setPullDistance(pull);
-        setIsPulling(true);
       } else if (diff <= 0 || scrollTop > 0) {
         isTrackingRef.current = false;
         setPullDistance(0);
-        setIsPulling(false);
       }
     };
 
@@ -62,11 +59,10 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ children, containe
       if (pullDistance >= THRESHOLD && !isRefreshing) {
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
           try {
-            navigator.vibrate(25);
+            navigator.vibrate(20);
           } catch {}
         }
         setPullDistance(THRESHOLD);
-        setIsPulling(false);
         try {
           await refreshAllData();
         } finally {
@@ -74,7 +70,6 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ children, containe
         }
       } else {
         setPullDistance(0);
-        setIsPulling(false);
       }
     };
 
@@ -89,34 +84,19 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ children, containe
     };
   }, [containerId, pullDistance, isRefreshing, refreshAllData]);
 
-  const showIndicator = pullDistance > 12 || isRefreshing;
-  const isTriggered = pullDistance >= THRESHOLD;
+  const showIndicator = pullDistance > 14 || isRefreshing;
+  const isTriggered = pullDistance >= THRESHOLD || isRefreshing;
 
   return (
     <div className="relative w-full">
-      {/* Visual Pull-to-refresh Pill */}
+      {/* Clean Native Minimalist Pull Spinner (No text banners or header mentions) */}
       {showIndicator && (
         <div 
-          style={{ transform: `translateY(${Math.max(0, pullDistance - 40)}px)` }}
-          className="fixed top-14 left-0 right-0 z-40 flex justify-center pointer-events-none transition-transform duration-75 ease-out"
+          style={{ transform: `translateY(${Math.max(0, pullDistance - 25)}px)` }}
+          className="fixed top-12 left-0 right-0 z-40 flex justify-center pointer-events-none transition-transform duration-75 ease-out"
         >
-          <div className="bg-[#0A2540]/95 backdrop-blur-md text-white border border-[#00C9A7]/40 px-3.5 py-1.5 rounded-full shadow-lg flex items-center gap-2 text-xs font-bold animate-in fade-in">
-            {isRefreshing ? (
-              <>
-                <RotateCw className="w-3.5 h-3.5 text-[#00C9A7] animate-spin" />
-                <span className="text-[#00C9A7]">Syncing latest data...</span>
-              </>
-            ) : isTriggered ? (
-              <>
-                <RotateCw className="w-3.5 h-3.5 text-[#00C9A7]" />
-                <span className="text-[#00C9A7]">Release to refresh</span>
-              </>
-            ) : (
-              <>
-                <ArrowDown className="w-3.5 h-3.5 text-slate-300 animate-bounce" />
-                <span className="text-slate-200">Pull down to refresh</span>
-              </>
-            )}
+          <div className="w-9 h-9 rounded-full bg-white shadow-md border border-slate-200/90 flex items-center justify-center text-[#00C9A7]">
+            <RotateCw className={`w-4 h-4 text-[#00C9A7] ${isTriggered ? 'animate-spin' : ''}`} style={{ transform: `rotate(${pullDistance * 4}deg)` }} />
           </div>
         </div>
       )}
