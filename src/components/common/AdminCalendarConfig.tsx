@@ -348,9 +348,9 @@ export const AdminCalendarConfig: React.FC<AdminCalendarConfigProps> = ({
   }, [selectedDayStr, companyHolidays, weeklyOffDays]);
 
   return (
-    <div className="nexus-card bg-white border border-slate-200 shadow-sm rounded-3xl p-4 sm:p-6 lg:p-7 space-y-6 w-full max-w-full">
+    <div className="nexus-card bg-white border border-slate-200 shadow-sm rounded-3xl p-4 sm:p-6 lg:p-7 space-y-6 w-full max-w-full overflow-hidden">
       {/* --------------------------------------------------------- Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4 max-w-full min-w-0">
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center shadow-xs flex-shrink-0">
             <CalendarIcon className="w-6 h-6 stroke-[2.2]" />
@@ -372,69 +372,74 @@ export const AdminCalendarConfig: React.FC<AdminCalendarConfigProps> = ({
         </div>
 
         {/* Tab Switcher Pills & Action Buttons */}
-        <div className="flex items-center gap-2 self-start lg:self-auto flex-wrap">
-          <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200/80 overflow-x-auto max-w-full">
-            <button
-              type="button"
-              onClick={() => setActiveTab('CALENDAR')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'CALENDAR'
-                  ? 'bg-white text-[#0A2540] shadow-xs'
-                  : 'text-slate-600 hover:text-[#0A2540]'
-              }`}
-            >
-              <CalendarDays className="w-3.5 h-3.5" />
-              <span>Monthly Grid</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('POLICY')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'POLICY'
-                  ? 'bg-white text-[#0A2540] shadow-xs'
-                  : 'text-slate-600 hover:text-[#0A2540]'
-              }`}
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>Shift &amp; Policy</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('HOLIDAYS')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'HOLIDAYS'
-                  ? 'bg-white text-[#0A2540] shadow-xs'
-                  : 'text-slate-600 hover:text-[#0A2540]'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-              <span>Official Holidays ({companyHolidays.length})</span>
-            </button>
+        <div className="flex items-center gap-2 w-full lg:w-auto min-w-0 justify-between lg:justify-end">
+          {/* Horizontal scroll wrapper on mobile to prevent overflow */}
+          <div className="w-full lg:w-auto min-w-0 overflow-x-auto no-scrollbar scrollbar-none py-1 -my-1 touch-pan-x">
+            <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200/80 flex-nowrap min-w-max">
+              <button
+                type="button"
+                onClick={() => setActiveTab('CALENDAR')}
+                className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'CALENDAR'
+                    ? 'bg-white text-[#0A2540] shadow-xs'
+                    : 'text-slate-600 hover:text-[#0A2540]'
+                }`}
+              >
+                <CalendarDays className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>Monthly Grid</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('POLICY')}
+                className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'POLICY'
+                    ? 'bg-white text-[#0A2540] shadow-xs'
+                    : 'text-slate-600 hover:text-[#0A2540]'
+                }`}
+              >
+                <Sliders className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>Shift &amp; Policy</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('HOLIDAYS')}
+                className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'HOLIDAYS'
+                    ? 'bg-white text-[#0A2540] shadow-xs'
+                    : 'text-slate-600 hover:text-[#0A2540]'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-purple-600 flex-shrink-0" />
+                <span>Official Holidays ({companyHolidays.length})</span>
+              </button>
+            </div>
           </div>
 
-          {onExpandFull && !isFullPage && (
-            <button
-              type="button"
-              onClick={onExpandFull}
-              title="Expand to Full Page"
-              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-[#0A2540] border border-slate-200/80 transition-colors cursor-pointer hidden sm:flex items-center gap-1 text-xs font-bold"
-            >
-              <Maximize2 className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Full Page</span>
-            </button>
-          )}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {onExpandFull && !isFullPage && (
+              <button
+                type="button"
+                onClick={onExpandFull}
+                title="Expand to Full Page"
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-[#0A2540] border border-slate-200/80 transition-colors cursor-pointer hidden sm:flex items-center gap-1 text-xs font-bold flex-shrink-0"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Full Page</span>
+              </button>
+            )}
 
-          {onClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              title="Close Setup"
-              className="p-2 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200/80 hover:border-rose-200 transition-colors cursor-pointer flex items-center gap-1 text-xs font-bold"
-            >
-              <X className="w-4 h-4" />
-              <span className="hidden sm:inline">Close</span>
-            </button>
-          )}
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                title="Close Setup"
+                className="p-2 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200/80 hover:border-rose-200 transition-colors cursor-pointer flex items-center gap-1 text-xs font-bold flex-shrink-0"
+              >
+                <X className="w-4 h-4" />
+                <span className="hidden sm:inline">Close</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1126,22 +1131,22 @@ export const AdminCalendarConfig: React.FC<AdminCalendarConfigProps> = ({
       {activeTab === 'HOLIDAYS' && (
         <div className="space-y-4 animate-in fade-in duration-150">
           {/* Action Strip: Load Presets, Add Holiday, Clear All */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5 bg-purple-50/60 p-3.5 rounded-2xl border border-purple-100">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-purple-50/60 p-3.5 rounded-2xl border border-purple-100 max-w-full min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto min-w-0">
               <button
                 type="button"
                 onClick={handleLoadPresets}
                 disabled={isLoadingPresets}
-                className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
+                className="flex items-center justify-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer w-full sm:w-auto text-center"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>{isLoadingPresets ? 'Loading...' : '✨ Load 2026 Indian Gazetted Holidays (15 Days)'}</span>
+                <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">{isLoadingPresets ? 'Loading...' : '✨ Load 2026 Indian Gazetted Holidays (15 Days)'}</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setIsAdding(!isAdding)}
-                className="flex items-center gap-1.5 bg-white hover:bg-purple-100 text-purple-900 border border-purple-200 font-bold text-xs px-3.5 py-2 rounded-xl transition-all cursor-pointer"
+                className="flex items-center justify-center gap-1.5 bg-white hover:bg-purple-100 text-purple-900 border border-purple-200 font-bold text-xs px-3.5 py-2 rounded-xl transition-all cursor-pointer w-full sm:w-auto text-center flex-shrink-0"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>{isAdding ? 'Close Form' : '+ Add Holiday'}</span>

@@ -3689,7 +3689,7 @@ export const AdminDashboardView: React.FC = () => {
 
         {/* --------------------------------------------------- Company Calendar & Shift Setup Full View */}
         {tab === 'company_calendar' && (
-          <div className="space-y-4 animate-in fade-in duration-150">
+          <div className="space-y-4 animate-in fade-in duration-150 max-w-full overflow-hidden">
             <button
               onClick={() => setTab('more')}
               className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-[#0A2540] transition-colors mb-1 cursor-pointer"
