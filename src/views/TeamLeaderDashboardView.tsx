@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useScreenData } from '../hooks/useScreenData';
 import { getTodayDateIST, getLeadDate, isDateInPeriodIST, getDateRangeIST } from '../utils/dateUtils';
@@ -39,6 +39,7 @@ import { Employee360ProfileView } from './Employee360ProfileView';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { MeetingTimePicker } from '../components/common/MeetingTimePicker';
 import { TopPerformersShowcase } from '../components/common/TopPerformersShowcase';
+import { scrollToTop } from '../utils/scrollUtils';
 
 export const TeamLeaderDashboardView: React.FC = () => {
   const { 
@@ -107,8 +108,14 @@ export const TeamLeaderDashboardView: React.FC = () => {
     }
   });
 
+  // Scroll to top on Leader tab switch
+  useEffect(() => {
+    scrollToTop();
+  }, [activeTab]);
+
   const setActiveTab = (newTab: 'home' | 'team' | 'calling' | 'leaves' | 'reports' | 'meetings') => {
     setActiveTabState(newTab);
+    scrollToTop();
     try {
       localStorage.setItem('tnx_tlTab', newTab);
     } catch {}

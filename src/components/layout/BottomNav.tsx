@@ -15,6 +15,7 @@ import {
   Award
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { scrollToTop } from '../../utils/scrollUtils';
 
 export const BottomNav: React.FC = () => {
   const { currentRole, activeTab, setActiveTab, leaveRequests, paymentVerifications } = useApp();
@@ -78,7 +79,7 @@ export const BottomNav: React.FC = () => {
         return (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
+            onClick={() => { setActiveTab(tab.id as any); scrollToTop(); }}
             className={`relative flex flex-col items-center justify-center flex-1 py-0.5 px-0.5 transition-all duration-200 ${
               isActive ? 'text-[#00A88B]' : 'text-slate-400 hover:text-slate-600'
             }`}

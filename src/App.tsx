@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { scrollToTop } from './utils/scrollUtils';
 import { useApp } from './context/AppContext';
 import { BottomNav } from './components/layout/BottomNav';
 import { MobileHeader } from './components/layout/MobileHeader';
@@ -115,6 +116,11 @@ export const App: React.FC = () => {
     refreshAllData
   } = useApp();
 
+  // Reset scroll to top on tab/role switch
+  useEffect(() => {
+    scrollToTop();
+  }, [activeTab, currentRole]);
+
   const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
 
   const backendBanner = (backendError && isLocalhost) ? (
@@ -184,7 +190,7 @@ export const App: React.FC = () => {
         <HeaderNotificationBanner />
 
         {/* Scrollable Page Body */}
-        <main className="flex-1 overflow-y-auto print:hidden">
+        <main id="main-scroll-container" className="flex-1 overflow-y-auto print:hidden">
           {renderActiveView()}
         </main>
 

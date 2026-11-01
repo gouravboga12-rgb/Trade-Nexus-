@@ -78,6 +78,7 @@ import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { LeafletGeofenceMap } from '../components/common/LeafletGeofenceMap';
 import { ManageEmployeesTab } from './admin/ManageEmployeesTab';
 import { InvoicesLedger } from '../components/common/InvoicesLedger';
+import { scrollToTop } from '../utils/scrollUtils';
 import { RecentLeadUploadsLedger } from '../components/common/RecentLeadUploadsLedger';
 import { getTodayDateIST, getLeadDate, isDateInPeriodIST, formatLeadAssignmentDateTime } from '../utils/dateUtils';
 import {
@@ -180,8 +181,14 @@ export const AdminDashboardView: React.FC = () => {
     }
   });
 
+  // Scroll to top on tab switch
+  useEffect(() => {
+    scrollToTop();
+  }, [tab]);
+
   const setTab = (newTab: AdminTab) => {
     setTabState(newTab);
+    scrollToTop();
     try {
       localStorage.setItem('tnx_adminTab', newTab);
     } catch {}

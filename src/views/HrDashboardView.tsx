@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useListDefault } from '../hooks/useListDefault';
 import { useScreenData } from '../hooks/useScreenData';
@@ -69,6 +69,7 @@ import { Employee360ProfileView } from './Employee360ProfileView';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { MeetingTimePicker } from '../components/common/MeetingTimePicker';
 import { InvoicesLedger } from '../components/common/InvoicesLedger';
+import { scrollToTop } from '../utils/scrollUtils';
 
 const formatInLakhs = (val: number) => {
   if (val >= 100000) {
@@ -178,8 +179,14 @@ export const HrDashboardView: React.FC = () => {
     }
   });
 
+  // Scroll to top on HR tab switch
+  useEffect(() => {
+    scrollToTop();
+  }, [activeHrNav]);
+
   const setActiveHrNav = (newNav: 'home' | 'attendance' | 'employees' | 'approvals' | 'reports' | 'more') => {
     setActiveHrNavState(newNav);
+    scrollToTop();
     try {
       localStorage.setItem('tnx_hrTab', newNav);
     } catch {}
