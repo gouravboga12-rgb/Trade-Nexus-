@@ -38,7 +38,6 @@ yarn-error.*
 # Sensitive credentials & service account keys
 *firebase*.json
 *service-account*.json
-google-services.json
 GoogleService-Info.plist
 *.keystore
 tradex-key.pem
