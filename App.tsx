@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   AppState,
+  Linking,
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -186,6 +187,18 @@ function MainAppShell() {
     try {
       const data = JSON.parse(event.nativeEvent.data);
 
+      // 0. Direct Native Phone Call Trigger
+      if (data.type === 'CALL_PHONE' || data.type === 'DIAL_PHONE') {
+        if (data.phone) {
+          const cleanPhone = String(data.phone).replace(/\s+/g, '');
+          const telUrl = `tel:${cleanPhone}`;
+          Linking.openURL(telUrl).catch((err) => {
+            console.warn('[Call] Failed to open phone dialer:', err.message);
+          });
+        }
+        return;
+      }
+
       // 1. Native Direct File Download (Direct to Device Downloads Folder)
       if (data.type === 'DOWNLOAD_FILE') {
         try {
@@ -309,6 +322,22 @@ function MainAppShell() {
         allowsInlineMediaPlayback={true}
         mediaPlaybackRequiresUserAction={false}
         originWhitelist={['*']}
+        onShouldStartLoadWithRequest={(request: any) => {
+          const url = request?.url || '';
+          if (
+            url.startsWith('tel:') ||
+            url.startsWith('mailto:') ||
+            url.startsWith('sms:') ||
+            url.startsWith('whatsapp:') ||
+            url.startsWith('intent:')
+          ) {
+            Linking.openURL(url).catch((err) => {
+              console.warn('[WebView] Failed to open external scheme:', url, err.message);
+            });
+            return false; // Prevent WebView from reloading or triggering splash screen
+          }
+          return true;
+        }}
         injectedJavaScript={injectedBridgeScript}
         onMessage={handleMessage}
         onNavigationStateChange={(navState: any) => {
