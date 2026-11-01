@@ -134,6 +134,7 @@ export const HrDashboardView: React.FC = () => {
     triggerToast,
     refreshResources,
     logout,
+    setIsLeaveModalOpen,
     setIsNotificationDrawerOpen,
     unreadNotificationCount,
     sendPayslipEmailToEmployee,
@@ -340,6 +341,20 @@ export const HrDashboardView: React.FC = () => {
 
   const pendingPaymentsCount = paymentVerifications.filter((p) => p.status === 'PENDING_HR_AUDIT').length;
   const pendingApprovalsCount = pendingLeavesCount + pendingPaymentsCount;
+
+  // Leave Section View Mode: Team Approvals vs Personal Leaves
+  const [leaveSectionMode, setLeaveSectionMode] = useState<'approvals' | 'my_leaves'>('approvals');
+
+  const hrEmpId = currentUser?.employeeId || currentUser?.id || profile.id;
+
+  const myLeaves = useMemo(() => {
+    return leaveRequests.filter((r) => {
+      if (hrEmpId && (r.employeeId === hrEmpId || (r as any).userId === hrEmpId)) return true;
+      if (hrCode && r.employeeCode === hrCode) return true;
+      if (r.employeeName && hrName && r.employeeName.toLowerCase().trim() === hrName.toLowerCase().trim()) return true;
+      return false;
+    });
+  }, [leaveRequests, hrEmpId, hrCode, hrName]);
 
   // Leave Approvals & Sanctions States
   const [leaveApprovalTab, setLeaveApprovalTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
@@ -1824,16 +1839,69 @@ export const HrDashboardView: React.FC = () => {
         {/* --- TAB 3: APPROVALS & LEAVES --- */}
         {activeHrNav === 'approvals' && (
           <div className="space-y-4 animate-in fade-in duration-150">
-            {/* Clean Executive Header (No bulky badge pill) */}
-            <div>
-              <h2 className="font-display font-black text-xl text-[#0A2540]">
-                HR Sanctions &amp; Approvals
-              </h2>
-              <p className="text-xs text-slate-500">Leave applications and floor attendance governance</p>
+            {/* Executive Header with Apply Leave Button */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-display font-black text-xl text-[#0A2540]">
+                  HR Leaves & Sanctions
+                </h2>
+                <p className="text-xs text-slate-500">Apply for personal leave & audit floor attendance</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsLeaveModalOpen(true)}
+                className="flex items-center gap-1.5 bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs px-3.5 py-2 rounded-xl shadow-xs active:scale-95 transition-all flex-shrink-0 cursor-pointer"
+              >
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span>Apply Leave</span>
+              </button>
             </div>
 
-            {/* Sleek Segmented Control with subtle color touches */}
-            <div className="bg-slate-100/90 p-1 rounded-xl flex items-center gap-1 border border-slate-200/60 shadow-2xs">
+            {/* Segmented Mode Switcher: Team Approvals vs My Leaves */}
+            <div className="flex p-1 bg-slate-100 rounded-2xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setLeaveSectionMode('approvals')}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  leaveSectionMode === 'approvals'
+                    ? 'bg-[#0A2540] text-white shadow-xs font-black'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Team Approvals</span>
+                {pendingLeaves.length > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-black bg-rose-500 text-white ml-0.5">
+                    {pendingLeaves.length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setLeaveSectionMode('my_leaves')}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  leaveSectionMode === 'my_leaves'
+                    ? 'bg-[#0A2540] text-white shadow-xs font-black'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>My Leaves & Balance</span>
+                {myLeaves.filter(l => l.status === 'PENDING').length > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-black bg-amber-500 text-white ml-0.5">
+                    {myLeaves.filter(l => l.status === 'PENDING').length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* View Mode 1: Team Approvals (Floor Governance) */}
+            {leaveSectionMode === 'approvals' && (
+              <div className="space-y-4">
+                {/* Sleek Segmented Control with subtle color touches */}
+                <div className="bg-slate-100/90 p-1 rounded-xl flex items-center gap-1 border border-slate-200/60 shadow-2xs">
               <button
                 onClick={() => setLeaveApprovalTab('PENDING')}
                 className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
@@ -2186,6 +2254,133 @@ export const HrDashboardView: React.FC = () => {
                     })}
                   </div>
                 )}
+              </div>
+            )}
+              </div>
+            )}
+
+            {/* View Mode 2: HR Personal Leaves & Balance (Sent directly to Super Admin) */}
+            {leaveSectionMode === 'my_leaves' && (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                {/* Annual Leave Balance Card */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-display font-black text-sm text-[#0A2540]">Annual Leave Balance</h4>
+                      <p className="text-[11px] text-slate-500 font-medium">
+                        {profile.totalLeaveBalance || 18} Days Available for 2026
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsLeaveModalOpen(true)}
+                      className="text-[#00A88B] text-xs font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>+ Apply Now</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 pt-1">
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-center">
+                      <span className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">Casual</span>
+                      <strong className="text-xs font-mono font-black text-[#0A2540]">
+                        {(profile as any).leaveBalances?.['Casual Leave'] ?? 8} / 12
+                      </strong>
+                    </div>
+
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-center">
+                      <span className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">Sick</span>
+                      <strong className="text-xs font-mono font-black text-[#0A2540]">
+                        {(profile as any).leaveBalances?.['Sick Leave'] ?? 6} / 8
+                      </strong>
+                    </div>
+
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-center">
+                      <span className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">Earned / Paid</span>
+                      <strong className="text-xs font-mono font-black text-[#0A2540]">
+                        {(profile as any).leaveBalances?.['Earned / Paid Leave'] ?? 4} / 6
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* List of Applied Personal Leaves */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-xs text-[#0A2540]">My Leave Application History</h4>
+                    <span className="text-[11px] text-slate-500 font-medium">{myLeaves.length} records</span>
+                  </div>
+
+                  {myLeaves.length === 0 ? (
+                    <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center space-y-3 shadow-2xs">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
+                        <Calendar className="w-6 h-6" />
+                      </div>
+                      <p className="text-xs font-bold text-slate-700">No personal leaves submitted yet</p>
+                      <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
+                        When you apply for leave, your application will route directly to the Super Admin for sign-off.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setIsLeaveModalOpen(true)}
+                        className="px-4 py-2 bg-[#00C9A7] text-[#0A2540] text-xs font-black rounded-xl shadow-xs cursor-pointer active:scale-95 transition-all inline-flex items-center gap-1.5"
+                      >
+                        <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                        <span>Apply for Leave</span>
+                      </button>
+                    </div>
+                  ) : (
+                    myLeaves.map((leave) => {
+                      const isPending = leave.status === 'PENDING';
+                      const isApproved = leave.status === 'APPROVED';
+                      return (
+                        <div
+                          key={leave.id}
+                          className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs space-y-2.5"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-xs text-[#0A2540]">{leave.leaveType}</span>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 border border-teal-200/60">
+                                  {leave.totalDays} {leave.totalDays === 1 ? 'Day' : 'Days'}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                                {leave.fromDate} {leave.toDate && leave.toDate !== leave.fromDate ? `➔ ${leave.toDate}` : ''}
+                              </p>
+                            </div>
+
+                            <div className="flex-shrink-0">
+                              {isPending ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
+                                  <Clock className="w-3 h-3 text-amber-600" />
+                                  <span>Pending Admin Approval</span>
+                                </span>
+                              ) : isApproved ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  <span>Approved by Admin</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200 shadow-2xs">
+                                  <XCircle className="w-3 h-3 text-rose-600" />
+                                  <span>Declined</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {leave.reason && (
+                            <p className="text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                              <strong className="text-slate-700">Reason:</strong> {leave.reason}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -2855,6 +3050,14 @@ export const HrDashboardView: React.FC = () => {
                   </div>
 
                   <div className="pt-1 flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsLeaveModalOpen(true)}
+                      className="w-full py-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 border border-[#00C9A7]/40 text-[#00A88B] font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-98 shadow-2xs cursor-pointer"
+                    >
+                      <CalendarCheck className="w-4 h-4 text-[#00A88B]" />
+                      <span>Apply Personal Leave (To Admin)</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => {

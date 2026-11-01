@@ -37,3 +37,4 @@ export function scrollToTop(instant: boolean = true): void {
     });
   });
 }
+
