@@ -679,32 +679,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
                 </p>
               </div>
 
-              {/* Avatar Badge, Notification Bell & Exit Account Button */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsNotificationDrawerOpen(true)}
-                  title="Open In-App Notifications"
-                  className="relative w-10 h-10 rounded-2xl bg-white border border-slate-200/90 text-slate-700 flex items-center justify-center shadow-2xs active:scale-95 transition-all flex-shrink-0 cursor-pointer"
-                >
-                  <Bell className="w-4 h-4 text-slate-600" />
-                  {unreadNotificationCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#00C9A7] text-[#0A2540] text-[9px] font-black flex items-center justify-center ring-2 ring-white">
-                      {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
-                    </span>
-                  )}
-                </button>
-                <div className="w-10 h-10 rounded-2xl bg-[#0A2540] text-[#00C9A7] flex items-center justify-center font-black text-xs shadow-sm">
-                  {leaderInitials}
-                </div>
-                <button
-                  onClick={() => logout()}
-                  title="Exit Account / Logout"
-                  className="w-10 h-10 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/80 flex items-center justify-center shadow-2xs active:scale-95 transition-all flex-shrink-0 cursor-pointer"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
+
             </div>
 
             {/* 3 Top Attendance Metric Cards */}
