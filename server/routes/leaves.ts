@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
+import { emitSocketEvent } from '../services/socketService.js';
 
 const router = Router();
 
@@ -172,6 +173,7 @@ router.post('/', (req: Request, res: Response) => {
     }
 
     const created = db.prepare('SELECT * FROM leave_requests WHERE id = ?').get(leaveId);
+    emitSocketEvent('leave:created', created);
     return res.status(201).json(created);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -267,6 +269,7 @@ router.put('/:id', (req: Request, res: Response) => {
     );
 
     const updated = db.prepare('SELECT * FROM leave_requests WHERE id = ?').get(id);
+    emitSocketEvent('leave:updated', updated);
     return res.status(200).json(updated);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -298,6 +301,7 @@ router.delete('/:id', (req: Request, res: Response) => {
     }
 
     db.prepare('DELETE FROM leave_requests WHERE id = ?').run(id);
+    emitSocketEvent('leave:deleted', { id });
     return res.status(200).json({ success: true, message: 'Leave request deleted and quota refunded' });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });

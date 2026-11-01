@@ -99,7 +99,7 @@ export const DesktopAttendanceLeaves: React.FC = () => {
     <div className="space-y-6 max-w-7xl mx-auto">
       
       {/* Rejected Leave Notification Banner */}
-      <RejectedLeaveBanner className="mb-2" />
+
 
       {/* Top Header */}
       <div className="flex items-center justify-between">

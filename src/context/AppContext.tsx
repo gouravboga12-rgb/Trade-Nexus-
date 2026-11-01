@@ -1181,6 +1181,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Socket.IO Real-Time Gateway Connection
   const socketRef = useRef<Socket | null>(null);
 
+  // Keep live refs for socket event handlers to prevent stale closures
+  const currentUserRef = useRef(currentUser);
+  currentUserRef.current = currentUser;
+  const profileRef = useRef(profile);
+  profileRef.current = profile;
+  const currentRoleRef = useRef(currentRole);
+  currentRoleRef.current = currentRole;
+  const addAppNotificationRef = useRef(addAppNotification);
+  addAppNotificationRef.current = addAppNotification;
+
   useEffect(() => {
     if (authStep !== 'AUTHENTICATED') {
       if (socketRef.current) {
@@ -1392,6 +1402,86 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     });
 
+    // Real-time leave events (Application, Multi-stage approval, and Rejection)
+    socket.on('leave:created', (newLeave: LeaveRequest) => {
+      if (!newLeave || !newLeave.id) return;
+      setLeaveRequests((prev) => {
+        if (prev.some((l) => l.id === newLeave.id)) {
+          return prev.map((l) => (l.id === newLeave.id ? { ...l, ...newLeave } : l));
+        }
+        return [newLeave, ...prev];
+      });
+
+      const role = currentRoleRef.current;
+      const isApprover = role === 'admin' || role === 'hr' || role === 'team_leader';
+      if (isApprover) {
+        triggerToast(`📋 New leave application: ${newLeave.employeeName || 'Employee'}`);
+        addAppNotificationRef.current({
+          title: 'New Leave Application',
+          body: `${newLeave.employeeName || 'Employee'} applied for ${newLeave.leaveType || 'Leave'} (${newLeave.totalDays || 1} day)`,
+          category: 'leave',
+          targetTab: 'leaves',
+        });
+      }
+    });
+
+    socket.on('leave:updated', (updatedLeave: LeaveRequest) => {
+      if (!updatedLeave || !updatedLeave.id) return;
+      setLeaveRequests((prev) =>
+        prev.map((l) => (l.id === updatedLeave.id ? { ...l, ...updatedLeave } : l))
+      );
+
+      refreshResources(['teamMembers', 'profile']);
+
+      const curUser = currentUserRef.current;
+      const curProf = profileRef.current;
+      const empId = curUser?.employeeId || curUser?.id || curProf.id;
+      const empCode = curUser?.empCode || curProf.empCode;
+      const empName = (curUser?.name || curProf.name || '').toLowerCase().trim();
+
+      const isApplicant =
+        (updatedLeave.employeeId && (updatedLeave.employeeId === empId || updatedLeave.employeeId === empCode)) ||
+        (updatedLeave.employeeCode && (updatedLeave.employeeCode === empCode || updatedLeave.employeeCode === empId)) ||
+        (updatedLeave.employeeName && updatedLeave.employeeName.toLowerCase().trim() === empName);
+
+      if (isApplicant) {
+        const isApproved = updatedLeave.status === 'APPROVED';
+        const isRejected = updatedLeave.status === 'REJECTED';
+        const approverName = updatedLeave.rejectedBy || updatedLeave.approvedBy || updatedLeave.adminApprovedBy || updatedLeave.hrApprovedBy || 'Admin';
+
+        if (isApproved) {
+          triggerToast(`🎉 Your leave request was approved by ${approverName}!`);
+          addAppNotificationRef.current({
+            title: 'Leave Request Approved! ✅',
+            body: `Your leave for ${updatedLeave.fromDate} (${updatedLeave.totalDays || 1} day) was approved by ${approverName}.`,
+            category: 'leave',
+            targetTab: 'leaves',
+          });
+        } else if (isRejected) {
+          triggerToast(`❌ Your leave request was declined by ${approverName}`);
+          addAppNotificationRef.current({
+            title: 'Leave Request Declined ❌',
+            body: `Your leave for ${updatedLeave.fromDate} was declined by ${approverName}.${updatedLeave.rejectionReason ? ` Reason: "${updatedLeave.rejectionReason}"` : ''}`,
+            category: 'leave',
+            targetTab: 'leaves',
+          });
+        } else {
+          triggerToast(`📋 Leave status: ${updatedLeave.approvalStage || updatedLeave.status}`);
+          addAppNotificationRef.current({
+            title: 'Leave Status Updated',
+            body: `Your leave application is now ${updatedLeave.approvalStage || updatedLeave.status}.`,
+            category: 'leave',
+            targetTab: 'leaves',
+          });
+        }
+      }
+    });
+
+    socket.on('leave:deleted', ({ id }: { id: string }) => {
+      setLeaveRequests((prev) => prev.filter((l) => l.id !== id));
+      refreshResources(['teamMembers', 'profile']);
+    });
+
     return () => {
       socket.disconnect();
       socketRef.current = null;
@@ -1411,15 +1501,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
   }, [setActiveTab]);
 
-  // Manual one-tap refresh triggered from headers across all 4 panels
+  // Manual one-tap refresh triggered from headers and pull-to-refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
   const refreshAllData = useCallback(async () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
     try {
-      const keys = getActiveScreenResourceKeys(currentRole, activeTab);
-      await refreshResources(keys);
-      triggerToast('✓ Synced with server');
+      const activeKeys = getActiveScreenResourceKeys(currentRole, activeTab);
+      const vitalKeys: ResourceKey[] = [
+        'leaveRequests',
+        'attendanceLogs',
+        'teamMembers',
+        'paymentVerifications',
+        'assignedLeads',
+        'stats',
+        'profile',
+        'teamMeetings',
+      ];
+      const combinedKeys = Array.from(new Set([...activeKeys, ...vitalKeys]));
+      await refreshResources(combinedKeys);
+      triggerToast('✓ Refreshed all data');
     } catch (e) {
       console.error('Failed to sync data:', e);
       triggerToast('⚠ Error syncing with server');

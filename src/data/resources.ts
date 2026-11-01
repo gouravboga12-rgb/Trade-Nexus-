@@ -166,28 +166,28 @@ export function getActiveScreenResourceKeys(role: string, tab?: string): readonl
   const cleanTab = (tab || '').toLowerCase();
 
   if (normRole === 'telecaller' || normRole === 'employee') {
-    if (cleanTab === 'leads' || cleanTab === 'calling') return ['assignedLeads', 'callLogs', 'stats', 'profile'];
+    if (cleanTab === 'leads' || cleanTab === 'calling') return ['assignedLeads', 'callLogs', 'stats', 'profile', 'leaveRequests'];
     if (cleanTab === 'attendance') return ['attendanceLogs', 'leaveRequests', 'companyHolidays', 'calendarSettings'];
-    return ['profile', 'attendanceLogs', 'stats', 'assignedLeads', 'callLogs', 'teamMeetings', 'paymentVerifications'];
+    return ['profile', 'attendanceLogs', 'leaveRequests', 'stats', 'assignedLeads', 'callLogs', 'teamMeetings', 'paymentVerifications'];
   }
 
   if (normRole === 'team_leader') {
-    if (cleanTab === 'team' || cleanTab === 'attendance') return ['teamMembers', 'attendanceLogs', 'teamGroups', 'teamMeetings'];
-    if (cleanTab === 'leads') return ['assignedLeads', 'callLogs', 'stats'];
-    return ['profile', 'attendanceLogs', 'teamMembers', 'teamGroups', 'paymentVerifications', 'callLogs'];
+    if (cleanTab === 'team' || cleanTab === 'attendance') return ['teamMembers', 'attendanceLogs', 'leaveRequests', 'teamGroups', 'teamMeetings'];
+    if (cleanTab === 'leads') return ['assignedLeads', 'callLogs', 'stats', 'leaveRequests'];
+    return ['profile', 'attendanceLogs', 'leaveRequests', 'teamMembers', 'teamGroups', 'paymentVerifications', 'callLogs'];
   }
 
   if (normRole === 'hr') {
     if (cleanTab === 'attendance') return ['attendanceLogs', 'leaveRequests', 'teamMembers', 'companyHolidays'];
-    if (cleanTab === 'team') return ['teamMembers', 'teamGroups', 'paymentVerifications'];
+    if (cleanTab === 'team') return ['teamMembers', 'teamGroups', 'paymentVerifications', 'leaveRequests'];
     if (cleanTab === 'approvals') return ['leaveRequests', 'paymentVerifications'];
-    return ['teamMembers', 'paymentVerifications', 'attendanceLogs', 'leaveRequests', 'teamGroups'];
+    return ['teamMembers', 'paymentVerifications', 'attendanceLogs', 'leaveRequests', 'teamGroups', 'companyHolidays'];
   }
 
   // Admin
-  if (cleanTab === 'attendance' || cleanTab === 'attendance_verification') return ['attendanceLogs', 'teamMembers', 'companyHolidays'];
-  if (cleanTab === 'leads') return ['assignedLeads', 'leadBatches', 'stats'];
-  if (cleanTab === 'revenue' || cleanTab === 'approvals') return ['paymentVerifications', 'teamMembers', 'teamGroups'];
-  if (cleanTab === 'people' || cleanTab === 'manage_employees') return ['teamMembers', 'teamGroups'];
-  return ['teamMembers', 'paymentVerifications', 'attendanceLogs', 'stats', 'teamGroups', 'teamMeetings'];
+  if (cleanTab === 'attendance' || cleanTab === 'attendance_verification') return ['attendanceLogs', 'leaveRequests', 'teamMembers', 'companyHolidays'];
+  if (cleanTab === 'leads') return ['assignedLeads', 'leadBatches', 'stats', 'leaveRequests'];
+  if (cleanTab === 'revenue' || cleanTab === 'approvals') return ['paymentVerifications', 'leaveRequests', 'teamMembers', 'teamGroups'];
+  if (cleanTab === 'people' || cleanTab === 'manage_employees') return ['teamMembers', 'leaveRequests', 'teamGroups'];
+  return ['leaveRequests', 'teamMembers', 'paymentVerifications', 'attendanceLogs', 'stats', 'teamGroups', 'teamMeetings', 'companyHolidays'];
 }

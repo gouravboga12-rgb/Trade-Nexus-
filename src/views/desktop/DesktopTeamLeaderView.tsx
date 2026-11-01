@@ -312,7 +312,7 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
     <div className="space-y-6 max-w-7xl mx-auto">
 
       {/* Rejected Leave Notification Banner */}
-      <RejectedLeaveBanner className="mb-2" />
+
 
       {/* --- TAB: HOME / OVERVIEW --- */}
       {activeTab === 'home' && (

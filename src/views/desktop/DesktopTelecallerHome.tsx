@@ -159,7 +159,7 @@ export const DesktopTelecallerHome: React.FC = () => {
     <div className="space-y-6 max-w-7xl mx-auto">
       
       {/* Rejected Leave Notification Banner */}
-      <RejectedLeaveBanner className="mb-2" />
+
 
       {/* 1. Page Header with Greeting & Quick Log Call CTA */}
       <div className="flex items-center justify-between">
