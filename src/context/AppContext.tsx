@@ -156,7 +156,7 @@ interface AppContextType {
   reassignLead: (leadId: string, newAssigneeName: string) => void;
   deleteAssignedLead: (leadId: string) => Promise<void>;
   deletePaymentVerification: (paymentId: string) => Promise<void>;
-  deleteLeadBatch: (batchId: string, mode?: 'delete_leads' | 'unassign_leads') => Promise<void>;
+  deleteLeadBatch: (batchId: string, mode?: 'delete_leads' | 'unassign_leads', fileName?: string) => Promise<void>;
   reclaimAssignedLeads: (params: { employeeId?: string; batchId?: string; leadIds?: string[]; onlyFresh?: boolean }) => Promise<void>;
   bulkDeleteAssignedLeads: (params: { leadIds?: string[]; employeeId?: string; batchId?: string; onlyFresh?: boolean }) => Promise<void>;
   /** Move a telecaller's leads to someone else, optionally limited to a count, or specific lead IDs. */
@@ -1753,11 +1753,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     triggerToast(`✓ Successfully allocated ${leads.length} leads to ${targetEmployeeName}!`);
 
     try {
-      const res = await api.bulkImportAssignedLeads(fileName, targetEmployeeId, targetEmployeeName, newAssignedItems);
+      const res = await api.bulkImportAssignedLeads(fileName, targetEmployeeId, targetEmployeeName, newAssignedItems, batchId);
+      if (res?.batch) {
+        setLeadBatches(prev => [res.batch, ...prev.filter(b => b.id !== batchId && b.id !== res.batch.id)]);
+      }
       if (res?.leads && res.leads.length > 0) {
+        const actualBatchId = res.batch?.id || batchId;
         setAssignedLeads(prev => [
           ...res.leads,
-          ...prev.filter(l => l.batchId !== batchId)
+          ...prev.filter(l => l.batchId !== batchId && l.batchId !== actualBatchId)
         ]);
       }
     } catch (err) {
@@ -3060,15 +3064,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const deleteLeadBatch = async (batchId: string, mode: 'delete_leads' | 'unassign_leads' = 'delete_leads') => {
+  const deleteLeadBatch = async (batchId: string, mode: 'delete_leads' | 'unassign_leads' = 'delete_leads', fileName?: string) => {
     try {
       const matchedBatch = leadBatches.find((b) => b.id === batchId);
-      const batchName = matchedBatch?.fileName || batchId;
+      const batchName = fileName || matchedBatch?.fileName || batchId;
 
-      await api.deleteLeadBatch(batchId, mode);
-      setLeadBatches((prev) => prev.filter((b) => b.id !== batchId));
+      await api.deleteLeadBatch(batchId, mode, batchName);
+      setLeadBatches((prev) => prev.filter((b) => b.id !== batchId && b.fileName !== batchName));
       if (mode === 'delete_leads') {
-        setAssignedLeads((prev) => prev.filter((l) => l.batchId !== batchId));
+        setAssignedLeads((prev) => prev.filter((l) => l.batchId !== batchId && !l.notes?.includes(batchName)));
       } else {
         setAssignedLeads((prev) =>
           prev.map((l) => (l.batchId === batchId ? { ...l, assignedToEmployeeId: '', assignedToEmployeeName: 'Unassigned' } : l))

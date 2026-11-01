@@ -47,6 +47,18 @@ export function getISTHourMinute(dateObj: Date = new Date()): { hours: number; m
   };
 }
 
+export function minutesOfDay(t?: string | null): number | null {
+  if (!t) return null;
+  const m = String(t).trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  if (!m) return null;
+  let hours = parseInt(m[1], 10);
+  if (m[3]) {
+    hours %= 12;
+    if (m[3].toUpperCase() === 'PM') hours += 12;
+  }
+  return hours * 60 + parseInt(m[2], 10);
+}
+
 // Safely extracts YYYY-MM-DD in IST from any lead record, handling 'Today' strings & missing timestamps
 export function getLeadDate(lead?: { assignedDate?: string; createdAt?: string; updatedAt?: string } | null): string {
   if (!lead) return getTodayDateIST();

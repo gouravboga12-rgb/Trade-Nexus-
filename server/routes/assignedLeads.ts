@@ -176,8 +176,8 @@ router.post('/', (req: Request, res: Response) => {
 // POST /api/assigned-leads/bulk (For importing Excel / CSV leads)
 router.post('/bulk', (req: Request, res: Response) => {
   try {
-    const { fileName, targetEmployeeId, targetEmployeeName, leads } = req.body;
-    const batchId = `batch-${Date.now()}`;
+    const { id, batchId: clientBatchId, fileName, targetEmployeeId, targetEmployeeName, leads } = req.body;
+    const batchId = clientBatchId || id || `batch-${Date.now()}`;
 
     // 1. Create batch
     db.prepare(`

@@ -55,7 +55,7 @@ import { TeamGroup } from '../../types';
 import { Employee360ProfileView } from '../Employee360ProfileView';
 import { AdminCalendarConfig } from '../../components/common/AdminCalendarConfig';
 import { AdminScheduleMeetingModal } from '../../components/modals/AdminScheduleMeetingModal';
-import { getTodayDateIST, getLeadDate, isDateInPeriodIST, formatLeadAssignmentDateTime } from '../../utils/dateUtils';
+import { getTodayDateIST, getLeadDate, isDateInPeriodIST, formatLeadAssignmentDateTime, minutesOfDay, getISTHourMinute } from '../../utils/dateUtils';
 import { isTelecallerOrCallingEmployee, isLeadUnassigned } from '../../utils/teamUtils';
 import {
   downloadCsvBlob,
@@ -282,11 +282,37 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
   const isTodayHoliday = Boolean(todayHoliday);
   const isNonWorkingDay = isTodayWeeklyOff || isTodayHoliday;
 
-  // Things that need a decision from the Admin today (suppressed on scheduled rest days)
-  const awayWithoutLeave = isNonWorkingDay ? [] : teamMembers.filter((m) => m.attendanceStatus === 'ABSENT');
-  const idleToday = isNonWorkingDay ? [] : teamMembers.filter(
-    (m) => m.attendanceStatus === 'PRESENT' && (m.dialsToday || 0) === 0
-  );
+  const approvedLeaveEmpIds = useMemo(() => {
+    const ids = new Set<string>();
+    leaveRequests.forEach((l) => {
+      const from = l.fromDate || (l as any).startDate;
+      const to = l.toDate || (l as any).endDate || from;
+      if (l.status === 'APPROVED' && (!from || from <= todayCalendarDateStr) && (!to || to >= todayCalendarDateStr)) {
+        if (l.employeeId) ids.add(l.employeeId);
+        if (l.employeeCode) ids.add(l.employeeCode);
+      }
+    });
+    return ids;
+  }, [leaveRequests, todayCalendarDateStr]);
+
+  // Evaluate if current time in IST is past the shift start time + grace period (dynamic according to admin shift settings)
+  const isPastShiftStartTime = useMemo(() => {
+    const shiftStart = calendarSettings?.shiftStartTime || '09:00 AM';
+    const shiftStartMin = minutesOfDay(shiftStart);
+    if (shiftStartMin === null) return true;
+    const graceMin = Number(calendarSettings?.gracePeriodMinutes) || 5;
+    const { hours, minutes } = getISTHourMinute();
+    const currentMin = hours * 60 + minutes;
+    return currentMin >= (shiftStartMin + graceMin);
+  }, [calendarSettings?.shiftStartTime, calendarSettings?.gracePeriodMinutes]);
+
+  // Things that need a decision from the Admin today (suppressed on scheduled rest days or before shift starts)
+  const awayWithoutLeave = (isNonWorkingDay || !isPastShiftStartTime) 
+    ? [] 
+    : teamMembers.filter((m) => m.attendanceStatus === 'ABSENT' && !approvedLeaveEmpIds.has(m.id) && !approvedLeaveEmpIds.has(m.empCode));
+  const idleToday = (isNonWorkingDay || !isPastShiftStartTime) 
+    ? [] 
+    : teamMembers.filter((m) => m.attendanceStatus === 'PRESENT' && (m.dialsToday || 0) === 0);
 
   const nonAdminMembers = teamMembers.filter(
     (m) => m.portal !== 'admin' && m.empCode !== 'TNX-AD01' && !(m.role || '').toLowerCase().includes('admin')

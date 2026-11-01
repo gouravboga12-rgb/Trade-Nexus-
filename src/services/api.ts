@@ -416,10 +416,10 @@ export const api = {
     }>('/assigned-leads/stats'),
   createAssignedLead: (data: Omit<AssignedLead, 'id'> & { id?: string }) => 
     request<AssignedLead>('/assigned-leads', { method: 'POST', body: JSON.stringify(data) }),
-  bulkImportAssignedLeads: (fileName: string, targetEmployeeId: string, targetEmployeeName: string, leads: any[]) => 
+  bulkImportAssignedLeads: (fileName: string, targetEmployeeId: string, targetEmployeeName: string, leads: any[], batchId?: string) => 
     request<{ batch: LeadBatch; leads: AssignedLead[] }>('/assigned-leads/bulk', {
       method: 'POST',
-      body: JSON.stringify({ fileName, targetEmployeeId, targetEmployeeName, leads }),
+      body: JSON.stringify({ fileName, targetEmployeeId, targetEmployeeName, leads, batchId }),
     }),
   updateAssignedLead: (id: string, data: Partial<AssignedLead>) => 
     request<AssignedLead>(`/assigned-leads/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -450,10 +450,13 @@ export const api = {
   getLeadBatches: () => request<LeadBatch[]>('/lead-batches'),
   createLeadBatch: (data: Omit<LeadBatch, 'id'> & { id?: string }) => 
     request<LeadBatch>('/lead-batches', { method: 'POST', body: JSON.stringify(data) }),
-  deleteLeadBatch: (id: string, mode?: 'delete_leads' | 'unassign_leads') =>
-    request<{ success: boolean; deletedBatchId: string; mode?: string }>(`/lead-batches/${id}${mode ? `?mode=${mode}` : ''}`, {
-      method: 'DELETE',
-    }),
+  deleteLeadBatch: (id: string, mode?: 'delete_leads' | 'unassign_leads', fileName?: string) =>
+    request<{ success: boolean; deletedBatchId: string; mode?: string }>(
+      `/lead-batches/${encodeURIComponent(id)}?mode=${mode || 'delete_leads'}${fileName ? `&fileName=${encodeURIComponent(fileName)}` : ''}`, 
+      {
+        method: 'DELETE',
+      }
+    ),
 
   // Biometrics
   getBiometrics: () => request<FaceBiometricProfile[]>('/biometrics'),

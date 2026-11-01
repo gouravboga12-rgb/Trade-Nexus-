@@ -421,7 +421,7 @@ export const RecentLeadUploadsLedger: React.FC<RecentLeadUploadsLedgerProps> = (
                     type="button"
                     onClick={async () => {
                       if (window.confirm(`Return uncalled leads from batch "${b.fileName}" back to the Unassigned Pool? (Won deals remain preserved)`)) {
-                        await deleteLeadBatch(b.id, 'unassign_leads');
+                        await deleteLeadBatch(b.id, 'unassign_leads', b.fileName);
                       }
                     }}
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl active:scale-95 transition-all"
@@ -434,7 +434,7 @@ export const RecentLeadUploadsLedger: React.FC<RecentLeadUploadsLedgerProps> = (
                     type="button"
                     onClick={async () => {
                       if (window.confirm(`Permanently delete batch "${b.fileName}" and remove all its uncontacted leads? (Won deals remain preserved)`)) {
-                        await deleteLeadBatch(b.id, 'delete_leads');
+                        await deleteLeadBatch(b.id, 'delete_leads', b.fileName);
                       }
                     }}
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl active:scale-95 transition-all"

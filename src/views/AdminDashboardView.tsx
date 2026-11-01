@@ -80,7 +80,7 @@ import { ManageEmployeesTab } from './admin/ManageEmployeesTab';
 import { InvoicesLedger } from '../components/common/InvoicesLedger';
 import { scrollToTop } from '../utils/scrollUtils';
 import { RecentLeadUploadsLedger } from '../components/common/RecentLeadUploadsLedger';
-import { getTodayDateIST, getLeadDate, isDateInPeriodIST, formatLeadAssignmentDateTime } from '../utils/dateUtils';
+import { getTodayDateIST, getLeadDate, isDateInPeriodIST, formatLeadAssignmentDateTime, minutesOfDay, getISTHourMinute } from '../utils/dateUtils';
 import {
   downloadCsvBlob,
   exportEmployeesRosterCsv,
@@ -439,13 +439,37 @@ export const AdminDashboardView: React.FC = () => {
     return ids;
   }, [leaveRequests, todayStr]);
 
+  // Check if today is an official Weekly Off day or Holiday
+  const todayDateObj = new Date();
+  const todayDayOfWeek = todayDateObj.getDay();
+  const dayOfMonth = todayDateObj.getDate();
+  const satIndex = Math.ceil(dayOfMonth / 7);
+  const isAltSatOff = calendarSettings?.weekendPolicy === 'ALTERNATE_SATURDAY' && todayDayOfWeek === 6 && (satIndex === 2 || satIndex === 4);
+  const isTodayWeeklyOff = (weeklyOffDays || [0]).includes(todayDayOfWeek) || isAltSatOff;
+  const todayHoliday = (companyHolidays || []).find((h) => h.date === todayStr);
+  const isTodayHoliday = Boolean(todayHoliday);
+  const isNonWorkingDay = isTodayWeeklyOff || isTodayHoliday;
+
+  // Evaluate if current time in IST is past the shift start time + grace period (dynamic according to admin shift settings)
+  const isPastShiftStartTime = useMemo(() => {
+    const shiftStart = calendarSettings?.shiftStartTime || '09:00 AM';
+    const shiftStartMin = minutesOfDay(shiftStart);
+    if (shiftStartMin === null) return true;
+    const graceMin = Number(calendarSettings?.gracePeriodMinutes) || 5;
+    const { hours, minutes } = getISTHourMinute();
+    const currentMin = hours * 60 + minutes;
+    return currentMin >= (shiftStartMin + graceMin);
+  }, [calendarSettings?.shiftStartTime, calendarSettings?.gracePeriodMinutes]);
+
   const unapprovedAbsents = useMemo(() => {
+    // Suppress absence alerts if it's a non-working day OR if the shift has not started yet
+    if (isNonWorkingDay || !isPastShiftStartTime) return [];
     return teamMembers.filter((m) => 
       m.attendanceStatus === 'ABSENT' && 
       !approvedLeaveEmpIds.has(m.id) && 
       !approvedLeaveEmpIds.has(m.empCode)
     );
-  }, [teamMembers, approvedLeaveEmpIds]);
+  }, [teamMembers, approvedLeaveEmpIds, isNonWorkingDay, isPastShiftStartTime]);
   
   // Deduplicate won deal payment verifications to avoid double cards in Needs Your Attention & Ledger
   const uniquePayments = useMemo<PaymentVerificationItem[]>(() => {
@@ -505,22 +529,15 @@ export const AdminDashboardView: React.FC = () => {
   );
   const leadsDueToday = clients.filter((c) => c.status === 'Due Today');
 
-  // Check if today is an official Weekly Off day or Holiday
-  const todayDateObj = new Date();
-  const todayDayOfWeek = todayDateObj.getDay();
-  const dayOfMonth = todayDateObj.getDate();
-  const satIndex = Math.ceil(dayOfMonth / 7);
-  const isAltSatOff = calendarSettings?.weekendPolicy === 'ALTERNATE_SATURDAY' && todayDayOfWeek === 6 && (satIndex === 2 || satIndex === 4);
-  const isTodayWeeklyOff = (weeklyOffDays || [0]).includes(todayDayOfWeek) || isAltSatOff;
-  const todayHoliday = (companyHolidays || []).find((h) => h.date === todayYMD);
-  const isTodayHoliday = Boolean(todayHoliday);
-  const isNonWorkingDay = isTodayWeeklyOff || isTodayHoliday;
+  // isNonWorkingDay already computed above
 
-  // On scheduled weekly offs and holidays, unpunched staff are on rest — suppress absent & zero-dial floor alerts
-  const awayWithoutLeave = isNonWorkingDay ? [] : teamMembers.filter((m) => m.attendanceStatus === 'ABSENT');
-  const idleToday = isNonWorkingDay ? [] : teamMembers.filter(
-    (m) => m.attendanceStatus === 'PRESENT' && (m.dialsToday || 0) === 0
-  );
+  // On scheduled weekly offs, holidays, or before shift starts, unpunched staff are on rest — suppress absent & zero-dial floor alerts
+  const awayWithoutLeave = (isNonWorkingDay || !isPastShiftStartTime) 
+    ? [] 
+    : teamMembers.filter((m) => m.attendanceStatus === 'ABSENT' && !approvedLeaveEmpIds.has(m.id) && !approvedLeaveEmpIds.has(m.empCode));
+  const idleToday = (isNonWorkingDay || !isPastShiftStartTime) 
+    ? [] 
+    : teamMembers.filter((m) => m.attendanceStatus === 'PRESENT' && (m.dialsToday || 0) === 0);
 
   const nonAdminMembers = teamMembers.filter(
     (m) => m.portal !== 'admin' && m.empCode !== 'TNX-AD01' && !(m.role || '').toLowerCase().includes('admin')

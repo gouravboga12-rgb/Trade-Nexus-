@@ -40,8 +40,39 @@ router.delete('/:id', (req: Request, res: Response) => {
     const { id } = req.params;
     const mode = (String(req.query.mode || req.body?.mode || 'delete_leads')).toLowerCase();
 
-    const batch = db.prepare('SELECT * FROM lead_batches WHERE id = ?').get(id) as any;
-    const batchLeads = db.prepare('SELECT id, phone, status FROM assigned_leads WHERE batchId = ?').all(id) as any[];
+    // 1. First try exact match by id
+    let batch = db.prepare('SELECT * FROM lead_batches WHERE id = ?').get(id) as any;
+    let targetBatchId = id;
+
+    // 2. Fallback: if not found by id, try matching by fileName (or close timestamp)
+    if (!batch) {
+      const fileNameMatch = req.query.fileName ? String(req.query.fileName) : null;
+      if (fileNameMatch) {
+        batch = db.prepare('SELECT * FROM lead_batches WHERE fileName = ? ORDER BY createdAt DESC').get(fileNameMatch) as any;
+      }
+      if (!batch && id.startsWith('batch-')) {
+        const ts = id.replace('batch-', '');
+        // Search if any batch was created within 5 seconds of the client timestamp
+        const tsNum = Number(ts);
+        if (!isNaN(tsNum)) {
+          const candidates = db.prepare("SELECT * FROM lead_batches WHERE id LIKE 'batch-%'").all() as any[];
+          const closeCandidate = candidates.find(c => {
+            const cTs = Number(c.id.replace('batch-', ''));
+            return !isNaN(cTs) && Math.abs(cTs - tsNum) < 10000;
+          });
+          if (closeCandidate) {
+            batch = closeCandidate;
+            targetBatchId = closeCandidate.id;
+          }
+        }
+      }
+    }
+
+    if (batch) {
+      targetBatchId = batch.id;
+    }
+
+    const batchLeads = db.prepare('SELECT id, phone, status FROM assigned_leads WHERE batchId = ?').all(targetBatchId) as any[];
 
     if (!batch && batchLeads.length === 0) {
       return res.status(404).json({ error: 'Lead batch not found' });
@@ -54,7 +85,7 @@ router.delete('/:id', (req: Request, res: Response) => {
           UPDATE assigned_leads 
           SET assignedToEmployeeId = '', assignedToEmployeeName = 'Unassigned', updatedAt = CURRENT_TIMESTAMP
           WHERE batchId = ?
-        `).run(id);
+        `).run(targetBatchId);
       } else {
         // Permanent delete: fetch lead ids in this batch
         for (const lead of batchLeads) {
@@ -74,16 +105,16 @@ router.delete('/:id', (req: Request, res: Response) => {
           } catch (_) { }
         }
         // Delete the leads
-        db.prepare('DELETE FROM assigned_leads WHERE batchId = ?').run(id);
+        db.prepare('DELETE FROM assigned_leads WHERE batchId = ?').run(targetBatchId);
       }
 
       // Delete the batch record
-      db.prepare('DELETE FROM lead_batches WHERE id = ?').run(id);
+      db.prepare('DELETE FROM lead_batches WHERE id = ?').run(targetBatchId);
     });
 
     deleteBatchTx();
 
-    return res.status(200).json({ success: true, deletedBatchId: id, mode });
+    return res.status(200).json({ success: true, deletedBatchId: targetBatchId, mode });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }
