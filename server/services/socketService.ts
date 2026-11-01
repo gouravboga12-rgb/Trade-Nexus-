@@ -83,3 +83,4 @@ export function emitSocketEvent(eventName: string, data: any, rooms?: string | s
     console.warn(`[Socket.IO] Failed to emit ${eventName}:`, err);
   }
 }
+

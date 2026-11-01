@@ -242,10 +242,10 @@ router.get('/floor-pulse', (req: Request, res: Response) => {
 // POST /api/team-members
 router.post('/', (req: Request, res: Response) => {
   try {
-    const { 
-      id, empCode, name, avatar, role, group, phone, 
-      attendanceStatus, checkInTime, checkInMethod, 
-      dialsToday, goalCalls, connected, interested, 
+    const {
+      id, empCode, name, avatar, role, group, phone,
+      attendanceStatus, checkInTime, checkInMethod,
+      dialsToday, goalCalls, connected, interested,
       salesAchieved, salesTarget, conversionRate, portal, email, password,
       bankName, bankAccountNumber, bankIfscCode,
       panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl,
@@ -267,8 +267,8 @@ router.post('/', (req: Request, res: Response) => {
       const existingEmailUser = db.prepare('SELECT id, email, name, role, empCode FROM users WHERE LOWER(email) = LOWER(?)').get(finalEmail) as any;
       if (existingEmailMember || existingEmailUser) {
         const match = existingEmailMember || existingEmailUser;
-        return res.status(400).json({ 
-          error: `Cannot create employee: Email "${finalEmail}" is already registered to ${match.name} (${match.empCode || 'Existing Account'}). Please use a different email address.` 
+        return res.status(400).json({
+          error: `Cannot create employee: Email "${finalEmail}" is already registered to ${match.name} (${match.empCode || 'Existing Account'}). Please use a different email address.`
         });
       }
     }
@@ -281,8 +281,8 @@ router.post('/', (req: Request, res: Response) => {
         WHERE replace(replace(replace(replace(replace(phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') LIKE '%' || ?
       `).get(phoneLast10) as any;
       if (existingPhoneMember) {
-        return res.status(400).json({ 
-          error: `Cannot create employee: Phone number "${finalPhone}" is already registered to ${existingPhoneMember.name} (${existingPhoneMember.empCode}). Please use a different phone number.` 
+        return res.status(400).json({
+          error: `Cannot create employee: Phone number "${finalPhone}" is already registered to ${existingPhoneMember.name} (${existingPhoneMember.empCode}). Please use a different phone number.`
         });
       }
     }
@@ -469,12 +469,12 @@ router.put('/:id', (req: Request, res: Response) => {
       }
     }
 
-    const targetGroup = req.body.group !== undefined 
-      ? req.body.group 
+    const targetGroup = req.body.group !== undefined
+      ? req.body.group
       : (req.body.groupName !== undefined ? req.body.groupName : (existing.group || 'Unassigned'));
 
-    const finalEmployeeType = req.body.employeeType !== undefined 
-      ? req.body.employeeType 
+    const finalEmployeeType = req.body.employeeType !== undefined
+      ? req.body.employeeType
       : (req.body.empType !== undefined ? req.body.empType : (existing.employeeType || 'Full Time'));
 
     const finalEmergencyPhone = req.body.emergencyPhone !== undefined
@@ -496,9 +496,9 @@ router.put('/:id', (req: Request, res: Response) => {
     const finalSignatoryName = req.body.signatoryName !== undefined ? req.body.signatoryName : (existing.signatoryName || null);
     const finalSignatoryRole = req.body.signatoryRole !== undefined ? req.body.signatoryRole : (existing.signatoryRole || null);
 
-    const merged = { 
-      ...existing, 
-      ...req.body, 
+    const merged = {
+      ...existing,
+      ...req.body,
       group: targetGroup,
       employeeType: finalEmployeeType,
       emergencyPhone: finalEmergencyPhone,
@@ -560,7 +560,7 @@ router.put('/:id', (req: Request, res: Response) => {
         SET name = ?, roleTitle = ?, department = ?, teamName = ?, email = ?, phone = ?, joinDate = coalesce(?, joinDate), bloodGroup = coalesce(?, bloodGroup), dob = coalesce(?, dob), avatar = coalesce(?, avatar), emergencyPhone = coalesce(?, emergencyPhone)
         WHERE id = ? OR empCode = ?
       `).run(merged.name, merged.role, targetGroup, targetGroup, merged.email, merged.phone, merged.joiningDate || null, finalBloodGroup, finalDob, merged.avatar || null, finalEmergencyPhone, existing.id, existing.empCode);
-    } catch {}
+    } catch { }
 
     // Synchronize squad member counts in team_groups
     try {
@@ -572,7 +572,7 @@ router.put('/:id', (req: Request, res: Response) => {
           AND team_members.active = 1
         )
       `).run();
-    } catch (_) {}
+    } catch (_) { }
 
     // Sync password to users table if a new plain-text password was provided
     if (req.body.password) {
@@ -593,7 +593,7 @@ router.put('/:id', (req: Request, res: Response) => {
             `).run(newHash, merged.name, cleanTargetEmail);
           }
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     // Sync targets to telecaller_stats if salesTarget or goalCalls were updated
@@ -623,7 +623,7 @@ router.put('/:id', (req: Request, res: Response) => {
           existing.id,
           existing.empCode
         );
-      } catch (_) {}
+      } catch (_) { }
     }
 
     const updated = db.prepare(`
@@ -669,9 +669,9 @@ router.delete('/:id', (req: Request, res: Response) => {
     }
 
     // Safety: Protect Super Admin accounts from deletion
-    const isSuperAdmin = 
-      existing.portal === 'admin' || 
-      existing.empCode === 'TNX-AD01' || 
+    const isSuperAdmin =
+      existing.portal === 'admin' ||
+      existing.empCode === 'TNX-AD01' ||
       (existing.email && existing.email.toLowerCase() === 'sagarsuchi26@gmail.com') ||
       (user && (user.employeeId === existing.id || user.empCode === existing.empCode));
 
@@ -701,12 +701,12 @@ router.delete('/:id', (req: Request, res: Response) => {
       // 4. Delete face biometric profiles
       try {
         db.prepare('DELETE FROM face_biometric_profiles WHERE employeeId = ? OR employeeName = ?').run(empId, name);
-      } catch (_) {}
+      } catch (_) { }
 
       // 5. Delete employee documents
       try {
         db.prepare('DELETE FROM employee_documents WHERE employeeId = ?').run(empId);
-      } catch (_) {}
+      } catch (_) { }
 
       // 6. PRESERVE call logs: Client interaction history must NEVER be lost
       // (Call logs are retained with historical attribution to the closing rep)
@@ -714,7 +714,7 @@ router.delete('/:id', (req: Request, res: Response) => {
       // 7. Delete daily attendance records for this employee (optional cleanup)
       try {
         db.prepare(`DELETE FROM attendance_records WHERE employeeId = ? OR employeeId = ? OR LOWER(employeeName) = LOWER(?)`).run(empId, empCode, name);
-      } catch (_) {}
+      } catch (_) { }
 
       // 8. PRESERVE payment verifications: Company revenue, audited won deals & financials must NEVER be deleted!
       // (Payment records remain in the sales ledger permanently attributed to this rep)
@@ -722,7 +722,7 @@ router.delete('/:id', (req: Request, res: Response) => {
       // 9. Delete leave requests submitted by this employee
       try {
         db.prepare(`DELETE FROM leave_requests WHERE LOWER(employeeName) = LOWER(?) OR employeeCode = ?`).run(name, empCode);
-      } catch (_) {}
+      } catch (_) { }
 
       // 10. Safely handle assigned leads:
       // - Converted / Won leads remain permanently intact with client data preserved
@@ -734,7 +734,7 @@ router.delete('/:id', (req: Request, res: Response) => {
           WHERE (assignedToEmployeeId = ? OR assignedToEmployeeId = ? OR LOWER(assignedToEmployeeName) = LOWER(?))
             AND (status = 'PENDING' OR callCount = 0)
         `).run(empId, empCode, name);
-      } catch (_) {}
+      } catch (_) { }
 
       // 11. If this person is a Team Leader of any team, clear the leader in team_groups
       try {
@@ -743,7 +743,7 @@ router.delete('/:id', (req: Request, res: Response) => {
           SET leaderName = '', leaderEmpCode = '' 
           WHERE leaderEmpCode = ? OR LOWER(leaderName) = LOWER(?)
         `).run(empCode, name);
-      } catch (_) {}
+      } catch (_) { }
 
       // 12. Delete offer letters belonging to this candidate/employee
       try {
@@ -751,7 +751,7 @@ router.delete('/:id', (req: Request, res: Response) => {
           DELETE FROM offer_letters 
           WHERE LOWER(candidateName) = LOWER(?) OR (candidateEmail IS NOT NULL AND LOWER(candidateEmail) = LOWER(?))
         `).run(name, email || '');
-      } catch (_) {}
+      } catch (_) { }
 
       // 13. Delete payslips belonging to this employee
       try {
@@ -759,7 +759,7 @@ router.delete('/:id', (req: Request, res: Response) => {
           DELETE FROM payslips 
           WHERE employeeId = ? OR empCode = ? OR LOWER(employeeName) = LOWER(?)
         `).run(empId, empCode, name);
-      } catch (_) {}
+      } catch (_) { }
 
       // 14. Update team groups member count
       try {
@@ -769,7 +769,7 @@ router.delete('/:id', (req: Request, res: Response) => {
             SELECT COUNT(*) FROM team_members WHERE LOWER(groupName) = LOWER(team_groups.name)
           )
         `).run();
-      } catch (_) {}
+      } catch (_) { }
     });
 
     deleteAtomic();
