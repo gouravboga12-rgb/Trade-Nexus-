@@ -41,11 +41,19 @@ router.get('/', (req: Request, res: Response) => {
     const formatMember = (m: any) => {
       const hasPanDoc = Boolean(m.panDocumentUrl && m.panDocumentUrl.length > 0);
       const hasAadhaarDoc = Boolean(m.aadhaarDocumentUrl && m.aadhaarDocumentUrl.length > 0);
+      let out: any;
       if (includeDocuments) {
-        return { ...m, hasPanDoc, hasAadhaarDoc };
+        out = { ...m, hasPanDoc, hasAadhaarDoc };
+      } else {
+        const { panDocumentUrl, aadhaarDocumentUrl, ...rest } = m;
+        out = { ...rest, hasPanDoc, hasAadhaarDoc };
       }
-      const { panDocumentUrl, aadhaarDocumentUrl, ...rest } = m;
-      return { ...rest, hasPanDoc, hasAadhaarDoc };
+
+      // Security Lockdown: Never expose Super Admin credentials to non-admin accounts (e.g. HR)
+      if (user && user.role !== 'admin' && (m.portal === 'admin' || m.role === 'admin' || m.empCode === 'ADM-01')) {
+        delete out.password;
+      }
+      return out;
     };
 
     // Team Leader: Scoped strictly to employees belonging to their assigned squad/team

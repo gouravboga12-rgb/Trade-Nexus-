@@ -29,6 +29,7 @@ import { PayslipDetailModal } from './components/modals/PayslipDetailModal';
 import { RecentPayslipsModal } from './components/modals/RecentPayslipsModal';
 import { DevSettingsModal } from './components/common/DevSettingsModal';
 import { LiveVideoRoomModal } from './components/modals/LiveVideoRoomModal';
+import { NotificationDrawer } from './components/layout/NotificationDrawer';
 
 // Mobile Views
 import { TelecallerHomeView } from './views/TelecallerHomeView';
@@ -227,6 +228,7 @@ export const App: React.FC = () => {
       <RecentPayslipsModal />
       <DevSettingsModal />
       <LiveVideoRoomModal />
+      <NotificationDrawer />
     </div>
   );
 };

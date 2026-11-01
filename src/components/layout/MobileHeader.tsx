@@ -4,7 +4,16 @@ import { TradeNexusLogo } from '../common/TradeNexusLogo';
 import { Bell, LogOut, RotateCw } from 'lucide-react';
 
 export const MobileHeader: React.FC = () => {
-  const { triggerToast, currentUser, profile, currentRole, logout, isRefreshing, refreshAllData } = useApp();
+  const { 
+    currentUser, 
+    profile, 
+    currentRole, 
+    logout, 
+    isRefreshing, 
+    refreshAllData, 
+    setIsNotificationDrawerOpen, 
+    unreadNotificationCount 
+  } = useApp();
 
   const activeName = currentUser?.name || profile?.name;
   const initials = activeName
@@ -77,11 +86,18 @@ export const MobileHeader: React.FC = () => {
         </button>
 
         <button
-          onClick={() => triggerToast(`👤 Signed in as ${activeName || 'User'} (${roleLabel})`)}
-          className="relative w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-[#0A2540] shadow-2xs active:scale-95 transition-all flex-shrink-0"
+          onClick={() => setIsNotificationDrawerOpen(true)}
+          title="Open In-App Notifications"
+          className="relative w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 hover:border-[#00C9A7]/50 flex items-center justify-center text-slate-600 hover:text-[#0A2540] shadow-2xs active:scale-95 transition-all flex-shrink-0 cursor-pointer"
         >
           <Bell className="w-3.5 h-3.5" />
-          <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+          {unreadNotificationCount > 0 ? (
+            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#00C9A7] text-[#0A2540] text-[9px] font-black flex items-center justify-center ring-2 ring-white">
+              {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+            </span>
+          ) : (
+            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+          )}
         </button>
       </div>
       </div>

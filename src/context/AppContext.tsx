@@ -34,6 +34,7 @@ import {
 } from '../types';
 import { api, getStoredAuthUser, setStoredAuthUser, getAuthToken, setAuthToken } from '../services/api';
 import { io, Socket } from 'socket.io-client';
+import { buzzer } from '../utils/buzzer';
 import { getTodayDateIST, getCurrentTimeIST } from '../utils/dateUtils';
 import {
   ALL_RESOURCE_KEYS,
@@ -69,6 +70,16 @@ import {
   INITIAL_COMPANY_HOLIDAYS,
 } from '../data/mockData';
 import { isTelecallerOrCallingEmployee, isLeadUnassigned } from '../utils/teamUtils';
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  body: string;
+  timestamp: string;
+  read: boolean;
+  targetTab?: string;
+  category?: 'leads' | 'payment' | 'attendance' | 'meeting' | 'leave' | 'system';
+}
 
 interface AppContextType {
   currentRole: UserRole;
@@ -371,6 +382,21 @@ interface AppContextType {
   verifyAttendanceRecord: (recordId: string, employeeId: string) => Promise<void>;
   clearAttendanceRecords: (params?: { date?: string; startDate?: string; endDate?: string; month?: string; year?: string; all?: boolean }) => Promise<void>;
   deleteAttendanceRecord: (id: string) => Promise<void>;
+
+  // Real-Time In-App & External Notifications
+  notifications: AppNotification[];
+  unreadNotificationCount: number;
+  isNotificationDrawerOpen: boolean;
+  setIsNotificationDrawerOpen: (open: boolean) => void;
+  markNotificationAsRead: (id: string) => void;
+  markAllNotificationsAsRead: () => void;
+  clearAllNotifications: () => void;
+  addAppNotification: (notif: {
+    title: string;
+    body: string;
+    targetTab?: string;
+    category?: 'leads' | 'payment' | 'attendance' | 'meeting' | 'leave' | 'system';
+  }) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -429,6 +455,89 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         email: user.email || prev.email,
       }));
     }
+  }, []);
+
+  // Real-Time In-App & External Notifications
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
+    try {
+      const stored = localStorage.getItem('tnx_notifications');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
+
+  const unreadNotificationCount = useMemo(() => {
+    return notifications.filter((n) => !n.read).length;
+  }, [notifications]);
+
+  const addAppNotification = useCallback((notif: {
+    title: string;
+    body: string;
+    targetTab?: string;
+    category?: 'leads' | 'payment' | 'attendance' | 'meeting' | 'leave' | 'system';
+  }) => {
+    const newNotif: AppNotification = {
+      id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      title: notif.title,
+      body: notif.body,
+      timestamp: 'Just now',
+      read: false,
+      targetTab: notif.targetTab,
+      category: notif.category,
+    };
+
+    // Instant zero-polling Web Audio alert chime
+    buzzer.playBuzzer();
+
+    // Trigger local push notification in native Android shell if running in WebView
+    if (typeof window !== 'undefined' && (window as any).ReactNativeWebView) {
+      try {
+        (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'TRIGGER_NOTIFICATION',
+          title: notif.title,
+          body: notif.body,
+          targetTab: notif.targetTab || 'home',
+          category: notif.category,
+        }));
+      } catch (_) {}
+    }
+
+    setNotifications((prev) => {
+      const updated = [newNotif, ...prev.slice(0, 49)];
+      try {
+        localStorage.setItem('tnx_notifications', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
+
+  const markNotificationAsRead = useCallback((id: string) => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => (n.id === id ? { ...n, read: true } : n));
+      try {
+        localStorage.setItem('tnx_notifications', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
+
+  const markAllNotificationsAsRead = useCallback(() => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => ({ ...n, read: true }));
+      try {
+        localStorage.setItem('tnx_notifications', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
+
+  const clearAllNotifications = useCallback(() => {
+    setNotifications([]);
+    try {
+      localStorage.removeItem('tnx_notifications');
+    } catch {}
   }, []);
 
 
@@ -1008,27 +1117,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const isDataLoading = ALL_RESOURCE_KEYS.some((k) => resourceStatus[k] === 'loading');
 
-  // Only the selected portal is remembered locally; domain data is never cached
-  // so the screens always reflect what is actually in SQLite.
+  useEffect(() => {
+    (window as any).__switchTradeNexusTab = (targetTab: NavTab) => {
+      setActiveTab(targetTab);
+    };
+  }, []);
+
+  // Sync role and active tab with localStorage & native mobile security shell
   useEffect(() => {
     try {
       localStorage.setItem('tnx_currentRole', currentRole);
+      localStorage.setItem('tnx_activeTab', activeTab);
+
+      // Enforce native Android FLAG_SECURE on Leads screen for restricted roles
+      if (typeof window !== 'undefined' && (window as any).ReactNativeWebView) {
+        const isRestrictedRole = currentRole === 'telecaller' || currentRole === 'team_leader' || (currentRole as string) === 'employee';
+        const isLeadsPage = activeTab === 'calling';
+        (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'SET_SCREEN_SECURITY',
+          secure: isRestrictedRole && isLeadsPage,
+          role: currentRole,
+          tab: activeTab,
+        }));
+      }
     } catch {
       // Ignore storage errors (private windows, blocked site data)
     }
-  }, [currentRole]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('tnx_authStep', authStep);
-    } catch {}
-  }, [authStep]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('tnx_activeTab', activeTab);
-    } catch {}
-  }, [activeTab]);
+  }, [currentRole, activeTab]);
 
   useEffect(() => {
     try {
@@ -1092,6 +1207,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (prev.some((p) => p.id === newPay.id)) return prev;
         return [newPay, ...prev];
       });
+      const amt = Number(newPay.dealAmount || (newPay as any).amount || 0);
+      addAppNotification({
+        title: 'New Payment Submitted',
+        body: `${newPay.leadName || newPay.companyName || 'Customer'} submitted ₹${amt.toLocaleString('en-IN')} for verification`,
+        category: 'payment',
+        targetTab: 'approvals',
+      });
     });
 
     socket.on('payment:updated', (updatedPay: PaymentVerificationItem) => {
@@ -1107,6 +1229,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return prev.map((p) => (p.id === verifiedPay.id ? verifiedPay : p));
       });
       refreshResources(['teamMembers', 'teamGroups', 'stats']);
+      const amt = Number(verifiedPay.dealAmount || (verifiedPay as any).amount || 0);
+      addAppNotification({
+        title: 'Payment Verified',
+        body: `${verifiedPay.leadName || verifiedPay.companyName || 'Customer'} payment of ₹${amt.toLocaleString('en-IN')} has been approved`,
+        category: 'payment',
+        targetTab: 'revenue',
+      });
     });
 
     socket.on('payment:deleted', ({ id }: { id: string }) => {
@@ -1121,6 +1250,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return [punch, ...filtered];
       });
       refreshResources(['teamMembers', 'teamGroups']);
+      addAppNotification({
+        title: 'Attendance Punch-in',
+        body: `${punch.employeeName || 'Staff'} registered biometric attendance`,
+        category: 'attendance',
+        targetTab: 'attendance',
+      });
     });
 
     // Real-time lead conversions and allocations
@@ -1136,6 +1271,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     socket.on('leads:distributed', () => {
       refreshResources(['assignedLeads', 'stats']);
       triggerToast('⚡ Leads updated from server');
+      addAppNotification({
+        title: 'New Leads Distributed',
+        body: 'Fresh calling leads have been allocated to the calling pool',
+        category: 'leads',
+        targetTab: 'calling',
+      });
     });
 
     // Real-time call logs
@@ -1148,6 +1289,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     socket.on('meeting:created', (meeting: TeamMeeting) => {
       setTeamMeetings((prev) => [meeting, ...prev.filter((m) => m.id !== meeting.id)]);
       triggerToast(`📅 Meeting scheduled: ${meeting.title}`);
+      addAppNotification({
+        title: 'Team Meeting Scheduled',
+        body: meeting.title,
+        category: 'meeting',
+        targetTab: 'home',
+      });
     });
 
     socket.on('meeting:deleted', ({ id }: { id: string }) => {
@@ -3908,6 +4055,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         verifyAttendanceRecord,
         clearAttendanceRecords,
         deleteAttendanceRecord,
+        notifications,
+        unreadNotificationCount,
+        isNotificationDrawerOpen,
+        setIsNotificationDrawerOpen,
+        markNotificationAsRead,
+        markAllNotificationsAsRead,
+        clearAllNotifications,
+        addAppNotification,
       }}
     >
       {children}

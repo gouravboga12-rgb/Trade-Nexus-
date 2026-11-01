@@ -713,6 +713,24 @@ export async function downloadFile(
   }
 
   const blob = await res.blob();
+
+  // If running inside Trade Nexus Mobile App (react-native-webview), bridge base64 to native FileSystem & Sharing
+  if (typeof window !== 'undefined' && (window as any).ReactNativeWebView) {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const resultStr = reader.result as string;
+      const base64Data = resultStr && resultStr.includes(',') ? resultStr.split(',')[1] : (resultStr || '');
+      (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'DOWNLOAD_FILE',
+        filename,
+        base64: base64Data,
+        mimeType: res.headers.get('content-type') || 'application/pdf',
+      }));
+    };
+    reader.readAsDataURL(blob);
+    return;
+  }
+
   const blobUrl = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = blobUrl;
