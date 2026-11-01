@@ -4,56 +4,60 @@ import { RotateCw, ArrowDown } from 'lucide-react';
 
 interface PullToRefreshProps {
   children: React.ReactNode;
+  containerId?: string;
 }
 
-export const PullToRefresh: React.FC<PullToRefreshProps> = ({ children }) => {
+export const PullToRefresh: React.FC<PullToRefreshProps> = ({ children, containerId = 'main-scroll-container' }) => {
   const { isRefreshing, refreshAllData } = useApp();
   const [pullDistance, setPullDistance] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const startYRef = useRef(0);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const isTrackingRef = useRef(false);
 
   const THRESHOLD = 65;
 
   useEffect(() => {
-    const el = containerRef.current;
+    const el = document.getElementById(containerId) || (typeof window !== 'undefined' ? window : null);
     if (!el) return;
 
-    let touchStartY = 0;
-    let isTracking = false;
+    const getScrollTop = (): number => {
+      const containerEl = document.getElementById(containerId);
+      if (containerEl) return containerEl.scrollTop;
+      return window.scrollY || document.documentElement.scrollTop || 0;
+    };
 
     const handleTouchStart = (e: TouchEvent) => {
-      // Check if we are at the top of the scroll container and window
-      const scrollTop = el.scrollTop || window.scrollY || 0;
-      if (scrollTop <= 1) {
-        touchStartY = e.touches[0].clientY;
-        startYRef.current = touchStartY;
-        isTracking = true;
+      // ONLY start tracking if scrolled to the absolute top of the container AND document
+      const scrollTop = getScrollTop();
+      if (scrollTop <= 0 && e.touches.length === 1) {
+        startYRef.current = e.touches[0].clientY;
+        isTrackingRef.current = true;
       } else {
-        isTracking = false;
+        isTrackingRef.current = false;
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (!isTracking || isRefreshing) return;
+      if (!isTrackingRef.current || isRefreshing) return;
       const currentY = e.touches[0].clientY;
-      const diff = currentY - touchStartY;
+      const diff = currentY - startYRef.current;
+      const scrollTop = getScrollTop();
 
-      const scrollTop = el.scrollTop || window.scrollY || 0;
-      if (diff > 0 && scrollTop <= 1) {
-        // Apply resistance curve
-        const pull = Math.min(90, Math.pow(diff, 0.85) * 1.5);
+      // Only handle downward pull if strictly at the top
+      if (diff > 12 && scrollTop <= 0) {
+        const pull = Math.min(80, Math.pow(diff, 0.82) * 1.3);
         setPullDistance(pull);
         setIsPulling(true);
-      } else {
+      } else if (diff <= 0 || scrollTop > 0) {
+        isTrackingRef.current = false;
         setPullDistance(0);
         setIsPulling(false);
       }
     };
 
     const handleTouchEnd = async () => {
-      if (!isTracking) return;
-      isTracking = false;
+      if (!isTrackingRef.current) return;
+      isTrackingRef.current = false;
 
       if (pullDistance >= THRESHOLD && !isRefreshing) {
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -74,29 +78,29 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ children }) => {
       }
     };
 
-    el.addEventListener('touchstart', handleTouchStart, { passive: true });
-    el.addEventListener('touchmove', handleTouchMove, { passive: true });
-    el.addEventListener('touchend', handleTouchEnd, { passive: true });
+    el.addEventListener('touchstart', handleTouchStart as EventListener, { passive: true });
+    el.addEventListener('touchmove', handleTouchMove as EventListener, { passive: true });
+    el.addEventListener('touchend', handleTouchEnd as EventListener, { passive: true });
 
     return () => {
-      el.removeEventListener('touchstart', handleTouchStart);
-      el.removeEventListener('touchmove', handleTouchMove);
-      el.removeEventListener('touchend', handleTouchEnd);
+      el.removeEventListener('touchstart', handleTouchStart as EventListener);
+      el.removeEventListener('touchmove', handleTouchMove as EventListener);
+      el.removeEventListener('touchend', handleTouchEnd as EventListener);
     };
-  }, [pullDistance, isRefreshing, refreshAllData]);
+  }, [containerId, pullDistance, isRefreshing, refreshAllData]);
 
-  const showIndicator = pullDistance > 10 || isRefreshing;
+  const showIndicator = pullDistance > 12 || isRefreshing;
   const isTriggered = pullDistance >= THRESHOLD;
 
   return (
-    <div ref={containerRef} className="flex-1 flex flex-col overflow-y-auto relative overscroll-y-contain">
+    <div className="relative w-full">
       {/* Visual Pull-to-refresh Pill */}
       {showIndicator && (
         <div 
-          style={{ transform: `translateY(${Math.max(0, pullDistance - 45)}px)` }}
-          className="absolute top-2 left-0 right-0 z-40 flex justify-center pointer-events-none transition-transform duration-75 ease-out"
+          style={{ transform: `translateY(${Math.max(0, pullDistance - 40)}px)` }}
+          className="fixed top-14 left-0 right-0 z-40 flex justify-center pointer-events-none transition-transform duration-75 ease-out"
         >
-          <div className="bg-[#0A2540]/90 backdrop-blur-md text-white border border-[#00C9A7]/40 px-3.5 py-1.5 rounded-full shadow-lg flex items-center gap-2 text-xs font-bold animate-in fade-in">
+          <div className="bg-[#0A2540]/95 backdrop-blur-md text-white border border-[#00C9A7]/40 px-3.5 py-1.5 rounded-full shadow-lg flex items-center gap-2 text-xs font-bold animate-in fade-in">
             {isRefreshing ? (
               <>
                 <RotateCw className="w-3.5 h-3.5 text-[#00C9A7] animate-spin" />
@@ -110,7 +114,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ children }) => {
             ) : (
               <>
                 <ArrowDown className="w-3.5 h-3.5 text-slate-300 animate-bounce" />
-                <span className="text-slate-200">Pull to refresh</span>
+                <span className="text-slate-200">Pull down to refresh</span>
               </>
             )}
           </div>
@@ -121,4 +125,3 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ children }) => {
     </div>
   );
 };
-

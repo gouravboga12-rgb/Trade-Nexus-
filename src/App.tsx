@@ -191,8 +191,8 @@ export const App: React.FC = () => {
         <HeaderNotificationBanner />
 
         {/* Scrollable Page Body */}
-        <main id="main-scroll-container" className="flex-1 flex flex-col overflow-hidden print:hidden">
-          <PullToRefresh>
+        <main id="main-scroll-container" data-scroll-container="true" className="flex-1 overflow-y-auto overscroll-y-contain print:hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <PullToRefresh containerId="main-scroll-container">
             {renderActiveView()}
           </PullToRefresh>
         </main>
