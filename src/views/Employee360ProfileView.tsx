@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { TeamMember, AssignedLead, UserRole } from '../types';
 import { getTodayDateIST } from '../utils/dateUtils';
 import { isTelecallerOrCallingEmployee } from '../utils/teamUtils';
+import { EmployeeMonthlyHistoryCard } from '../components/common/EmployeeMonthlyHistoryCard';
 import { 
   ArrowLeft, 
   Clock, 
@@ -569,10 +570,10 @@ const Employee360ProfileContent: React.FC<Omit<Employee360ProfileViewProps, 'mem
 
           <div className="bg-slate-50/90 rounded-xl py-1 px-1 border border-slate-100">
             <strong className="text-xs font-display font-black text-[#00A88B] block leading-tight">
-              {formatInLakhs(Math.max(member.salesAchieved || 0, memberLeads.filter(l => l.status === 'CONVERTED').reduce((sum, l) => sum + (l.dealValue || 0), 0)))}
+              {formatInLakhs(member.salesAchieved || 0)}
             </strong>
             <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block mt-0.5">
-              Sales
+              Month Sales
             </span>
           </div>
 
@@ -664,6 +665,14 @@ const Employee360ProfileContent: React.FC<Omit<Employee360ProfileViewProps, 'mem
 
         return (
           <div className="space-y-3">
+            {/* Monthly Leads & Sales Target History Breakdown */}
+            <EmployeeMonthlyHistoryCard
+              employeeId={member.id}
+              empCode={member.empCode}
+              employeeName={member.name}
+              salesTarget={member.salesTarget}
+            />
+
             {/* 1. Universal Date Range Selector Bar */}
             <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-2xs space-y-2.5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">

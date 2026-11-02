@@ -3,6 +3,7 @@ import db from '../db/connection.js';
 import { requireRole } from '../middleware/auth.js';
 import { emitSocketEvent } from '../services/socketService.js';
 import { sendPushNotification } from '../services/notificationService.js';
+import { getTodayDateIST, getCurrentTimeIST } from '../utils/dateUtils.js';
 
 const router = Router();
 
@@ -128,6 +129,10 @@ router.post('/', (req: Request, res: Response) => {
       return res.status(200).json(updated);
     }
 
+    const finalTimestamp = (timestamp && /^\d{4}-\d{2}-\d{2}/.test(String(timestamp)))
+      ? String(timestamp)
+      : `${getTodayDateIST()} ${getCurrentTimeIST()}`;
+
     db.prepare(`
       INSERT INTO payment_verifications (
         id, leadName, companyName, telecallerName, dealAmount, utrNumber, paymentMode, timestamp, status, receiptUrl,
@@ -137,7 +142,7 @@ router.post('/', (req: Request, res: Response) => {
     `).run(
       payId, leadName || customerName || 'Client', cleanCompany, callerName,
       amount, utrNumber || `TXN${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-      paymentMode || (customerUpiId ? 'UPI Transfer' : 'Online Bank Transfer'), timestamp || 'Just now',
+      paymentMode || (customerUpiId ? 'UPI Transfer' : 'Online Bank Transfer'), finalTimestamp,
       status || 'PENDING_HR_AUDIT', receiptUrl || null,
       customerName || leadName || null, custPhone || null, customerBankName || null, customerAccountNumber || null,
       customerIfscCode || null, customerUpiId || null
@@ -215,6 +220,8 @@ router.put('/:id', requireRole('admin', 'hr'), (req: Request, res: Response) => 
 
     const updated = db.prepare('SELECT * FROM payment_verifications WHERE id = ?').get(id) as any;
     emitSocketEvent('payment:updated', updated);
+    emitSocketEvent('resource:invalidated', { resource: 'teamMembers' });
+    emitSocketEvent('resource:invalidated', { resource: 'teamGroups' });
     if (updated?.status === 'VERIFIED') {
       emitSocketEvent('payment:verified', updated);
       sendPushNotification({

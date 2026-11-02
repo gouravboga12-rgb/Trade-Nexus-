@@ -92,6 +92,7 @@ import {
 } from '../utils/csvExportUtils';
 
 import { isLeadUnassigned, isTelecallerOrCallingEmployee } from '../utils/teamUtils';
+import { getPaymentDateIST, sumVerifiedRevenue } from '../utils/revenueUtils';
 
 type AdminTab = 'home' | 'people' | 'attendance' | 'leads' | 'revenue' | 'more' | 'approvals' | 'reports' | 'attendance_verification' | 'manage_employees' | 'invoices' | 'company_calendar';
 
@@ -506,8 +507,12 @@ export const AdminDashboardView: React.FC = () => {
   // SOURCE OF TRUTH: Only count revenue from VERIFIED payment records
   const totalVerifiedRevenue = useMemo(() => verifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0), [verifiedPayments]);
   const totalPendingRevenue = useMemo(() => pendingPaymentsList.reduce((sum, p) => sum + (p.dealAmount || 0), 0), [pendingPaymentsList]);
-  // salesAchieved = verified payments only (not teamSalesTotal estimates or lead dealValues)
-  const salesAchieved = totalVerifiedRevenue;
+  // salesAchieved = verified payments strictly in the current IST calendar month (resets on the 1st of each month)
+  const monthlyVerifiedRevenue = useMemo(
+    () => sumVerifiedRevenue(uniquePayments, { mode: 'THIS_MONTH' }),
+    [uniquePayments]
+  );
+  const salesAchieved = monthlyVerifiedRevenue;
 
   const totalRosterTarget = useMemo(() => teamMembers.reduce((sum, m) => sum + (m.salesTarget || 0), 0), [teamMembers]);
   const totalGroupTarget = useMemo(() => (teamGroups || []).reduce((sum, g) => sum + (g.monthlyTarget || 0), 0), [teamGroups]);
@@ -518,13 +523,13 @@ export const AdminDashboardView: React.FC = () => {
   // todaySales = strictly verified payments with today's date; ₹0 if none
   const todaySales = useMemo(() =>
     verifiedPayments
-      .filter(p => (p.timestamp || '').slice(0, 10) === todayYMD)
+      .filter(p => getPaymentDateIST(p) === todayYMD)
       .reduce((sum: number, p: PaymentVerificationItem) => sum + (p.dealAmount || 0), 0),
     [verifiedPayments, todayYMD]
   );
   // todayDealsCount = only verified deals closed today
   const todayDealsCount = useMemo(() =>
-    verifiedPayments.filter(p => (p.timestamp || '').slice(0, 10) === todayYMD).length,
+    verifiedPayments.filter(p => getPaymentDateIST(p) === todayYMD).length,
     [verifiedPayments, todayYMD]
   );
   const leadsDueToday = clients.filter((c) => c.status === 'Due Today');

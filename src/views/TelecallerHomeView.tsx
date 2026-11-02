@@ -26,6 +26,7 @@ import { RejectedLeaveBanner } from '../components/common/RejectedLeaveBanner';
 import { sumVerifiedRevenue } from '../utils/revenueUtils';
 import { dialPhoneNumber } from '../utils/phoneCaller';
 import { TopPerformersShowcase } from '../components/common/TopPerformersShowcase';
+import { EmployeeMonthlyHistoryCard } from '../components/common/EmployeeMonthlyHistoryCard';
 
 export const TelecallerHomeView: React.FC = () => {
   const { 
@@ -104,11 +105,13 @@ export const TelecallerHomeView: React.FC = () => {
   const followUpCount = userLeads.filter((l: AssignedLead) => l.status === 'CALLBACK').length;
   const toCallCount = userLeads.filter((l: AssignedLead) => l.status === 'PENDING').length;
 
-  // Revenue = this employee's VERIFIED payments only — the exact same rule used by
-  // Admin, HR and Team Leader dashboards, so every role sees the same number.
-  // (Summing lead.dealValue over-counted duplicate / unverified conversions.)
+  // Revenue = this employee's VERIFIED payments scoped to THIS_MONTH for monthly sales target
   const wonDealsRevenue = useMemo(
-    () => sumVerifiedRevenue(paymentVerifications, { employeeName: empName }),
+    () => sumVerifiedRevenue(paymentVerifications, { employeeName: empName, mode: 'THIS_MONTH' }),
+    [paymentVerifications, empName]
+  );
+  const allTimeWonDealsRevenue = useMemo(
+    () => sumVerifiedRevenue(paymentVerifications, { employeeName: empName, mode: 'ALL' }),
     [paymentVerifications, empName]
   );
 
@@ -583,7 +586,7 @@ export const TelecallerHomeView: React.FC = () => {
             </h4>
 
             <div className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200/70 mt-0.5">
-              <span>{inr(wonDealsRevenue)}</span>
+              <span>This Month: {inr(wonDealsRevenue)}{allTimeWonDealsRevenue > wonDealsRevenue ? ` · Total: ${inr(allTimeWonDealsRevenue)}` : ''}</span>
             </div>
           </div>
         </div>
@@ -630,6 +633,15 @@ export const TelecallerHomeView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* 5b. Monthly Leads & Sales History Breakdown */}
+      <EmployeeMonthlyHistoryCard
+        employeeId={empId}
+        empCode={empCode}
+        employeeName={empName}
+        salesTarget={effectiveMonthlyTarget}
+        compact
+      />
 
       {/* 6. Clean Primary Log Call Action */}
       <button

@@ -57,6 +57,7 @@ import { AdminCalendarConfig } from '../../components/common/AdminCalendarConfig
 import { AdminScheduleMeetingModal } from '../../components/modals/AdminScheduleMeetingModal';
 import { getTodayDateIST, getLeadDate, isDateInPeriodIST, formatLeadAssignmentDateTime, minutesOfDay, getISTHourMinute } from '../../utils/dateUtils';
 import { isTelecallerOrCallingEmployee, isLeadUnassigned } from '../../utils/teamUtils';
+import { sumVerifiedRevenue } from '../../utils/revenueUtils';
 import {
   downloadCsvBlob,
   exportEmployeesRosterCsv,
@@ -258,8 +259,12 @@ export const DesktopAdminView: React.FC<DesktopAdminViewProps> = ({
   const verifiedPayments = useMemo(() => uniquePayments.filter(p => p.status === 'VERIFIED'), [uniquePayments]);
   const pendingPaymentsList = useMemo(() => uniquePayments.filter(p => p.status === 'PENDING_HR_AUDIT'), [uniquePayments]);
   const totalVerifiedRevenue = useMemo(() => verifiedPayments.reduce((sum, p) => sum + (p.dealAmount || 0), 0), [verifiedPayments]);
-  // SOURCE OF TRUTH: only verified payment records drive salesAchieved
-  const salesAchieved = totalVerifiedRevenue;
+  const monthlyVerifiedRevenue = useMemo(
+    () => sumVerifiedRevenue(uniquePayments, { mode: 'THIS_MONTH' }),
+    [uniquePayments]
+  );
+  // SOURCE OF TRUTH: only current-month verified payment records drive monthly salesAchieved
+  const salesAchieved = monthlyVerifiedRevenue;
 
   const totalRosterTarget = useMemo(() => teamMembers.reduce((sum, m) => sum + (m.salesTarget || 0), 0), [teamMembers]);
   const totalGroupTarget = useMemo(() => (teamGroups || []).reduce((sum, g) => sum + (g.monthlyTarget || 0), 0), [teamGroups]);

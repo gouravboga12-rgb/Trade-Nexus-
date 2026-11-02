@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
 import { requireRole } from '../middleware/auth.js';
+import { computeVerifiedSalesMaps } from '../utils/revenueUtils.js';
 
 const router = Router();
 
@@ -8,6 +9,33 @@ const router = Router();
 router.get('/', (req: Request, res: Response) => {
   try {
     const user = req.user;
+    const salesMaps = computeVerifiedSalesMaps(db);
+    const allRoster = db.prepare('SELECT name, groupName FROM team_members').all() as any[];
+
+    const enrichGroup = (g: any) => {
+      const gNameLower = (g.name || '').trim().toLowerCase();
+      const lNameLower = (g.leaderName || '').trim().toLowerCase();
+      let monthlyAchieved = 0;
+      let allTimeAchieved = 0;
+
+      for (const m of allRoster) {
+        const mGroup = (m.groupName || '').trim().toLowerCase();
+        const mName = (m.name || '').trim().toLowerCase();
+        if (
+          (gNameLower && (mGroup === gNameLower || mGroup.includes(gNameLower))) ||
+          (lNameLower && mName === lNameLower)
+        ) {
+          monthlyAchieved += salesMaps.monthlyByCaller.get(mName) ?? 0;
+          allTimeAchieved += salesMaps.allTimeByCaller.get(mName) ?? 0;
+        }
+      }
+
+      return {
+        ...g,
+        achieved: monthlyAchieved,
+        allTimeAchieved,
+      };
+    };
 
     // Team Leader: Scoped to their assigned squad/team
     if (user && user.role === 'team_leader') {
@@ -28,8 +56,8 @@ router.get('/', (req: Request, res: Response) => {
                g.monthlyTarget, g.achieved, g.color, g.createdAt
         FROM team_groups g 
         WHERE LOWER(g.leaderName) = LOWER(?) OR LOWER(g.name) = LOWER(?)
-      `).all(leaderName, squadName);
-      return res.status(200).json(groups);
+      `).all(leaderName, squadName) as any[];
+      return res.status(200).json(groups.map(enrichGroup));
     }
 
     const groups = db.prepare(`
@@ -37,8 +65,8 @@ router.get('/', (req: Request, res: Response) => {
              (SELECT COUNT(*) FROM team_members m WHERE LOWER(m.groupName) = LOWER(g.name) AND m.active = 1) AS memberCount,
              g.monthlyTarget, g.achieved, g.color, g.createdAt
       FROM team_groups g
-    `).all();
-    return res.status(200).json(groups);
+    `).all() as any[];
+    return res.status(200).json(groups.map(enrichGroup));
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }

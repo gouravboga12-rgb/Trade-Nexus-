@@ -317,6 +317,40 @@ export const api = {
     request<TeamMember[]>(`/team-members${includeDocuments ? '?includeDocuments=true' : ''}`),
   getTeamMemberDocument: (id: string, type: 'pan' | 'aadhaar') =>
     request<{ id: string; name: string; type: string; docName: string; docUrl: string }>(`/team-members/${id}/document/${type}`),
+  getEmployeeMonthlyHistory: (id: string) =>
+    request<{
+      employeeId: string;
+      empCode: string;
+      employeeName: string;
+      currentMonth: string;
+      salesTarget: number;
+      totalAllTimeLeads: number;
+      totalAllTimeSales: number;
+      months: Array<{
+        month: string;
+        label: string;
+        fullLabel: string;
+        isCurrentMonth: boolean;
+        leadsAssigned: number;
+        leadsCalled: number;
+        leadsPending: number;
+        interestedCount: number;
+        callbackCount: number;
+        wonCount: number;
+        verifiedDealsCount: number;
+        totalDials: number;
+        salesAchieved: number;
+        salesTarget: number;
+        targetPercent: number;
+        batchesCount: number;
+        batches: Array<{
+          id: string;
+          fileName: string;
+          uploadedAt: string;
+          leadsCount: number;
+        }>;
+      }>;
+    }>(`/team-members/${encodeURIComponent(id)}/monthly-history`),
   createTeamMember: (data: Omit<TeamMember, 'id'> & { id?: string }) => 
     request<TeamMember>('/team-members', { method: 'POST', body: JSON.stringify(data) }),
   updateTeamMember: (id: string, data: Partial<TeamMember>) => 

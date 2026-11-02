@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
 import { getTodayDateIST } from '../utils/dateUtils.js';
+import { computeVerifiedSalesMaps } from '../utils/revenueUtils.js';
 
 const router = Router();
 
@@ -82,11 +83,11 @@ router.get('/', (req: Request, res: Response) => {
     );
     const avgSec = Math.round(dialMetrics?.avgSec ?? stats?.averageCallDurationSec ?? 0);
 
-    const achievedRevenue = Math.max(
-      Number(leadMetrics?.totalRevenue || 0),
-      Number(roster?.salesAchieved || 0),
-      Number(stats?.monthlySalesAchieved || 0)
-    );
+    // Current month verified revenue strictly scoped to the current IST calendar month
+    const salesMaps = computeVerifiedSalesMaps(db);
+    const callerKey = (roster?.name || user?.name || '').trim().toLowerCase();
+    const achievedRevenue = callerKey ? (salesMaps.monthlyByCaller.get(callerKey) ?? 0) : 0;
+    const allTimeRevenue = callerKey ? (salesMaps.allTimeByCaller.get(callerKey) ?? 0) : 0;
 
     const goalCalls = (roster?.goalCalls && Number(roster.goalCalls) > 0)
       ? Number(roster.goalCalls)
@@ -108,6 +109,7 @@ router.get('/', (req: Request, res: Response) => {
       averageCallDurationSec: avgSec,
       monthlySalesTarget: monthlySalesTarget,
       monthlySalesAchieved: achievedRevenue,
+      allTimeSalesAchieved: allTimeRevenue,
     });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });

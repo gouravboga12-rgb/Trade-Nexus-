@@ -3,6 +3,7 @@ import db from '../db/connection.js';
 import { hashPassword } from '../db/authUtils.js';
 import { syncDailyRosterStatus } from '../services/attendanceLifecycle.js';
 import { getSocketService } from '../services/socketService.js';
+import { computeVerifiedSalesMaps, extractDateIST, getPaymentDateIST, getCurrentMonthPrefixIST } from '../utils/revenueUtils.js';
 
 const router = Router();
 
@@ -37,16 +38,36 @@ router.get('/', (req: Request, res: Response) => {
     syncDailyRosterStatus();
     const user = req.user;
     const includeDocuments = req.query.includeDocuments === 'true';
+    const requestedMonth = typeof req.query.month === 'string' && /^\d{4}-\d{2}$/.test(req.query.month)
+      ? req.query.month
+      : undefined;
+    const salesMaps = computeVerifiedSalesMaps(db, requestedMonth);
 
     const formatMember = (m: any) => {
       const hasPanDoc = Boolean(m.panDocumentUrl && m.panDocumentUrl.length > 0);
       const hasAadhaarDoc = Boolean(m.aadhaarDocumentUrl && m.aadhaarDocumentUrl.length > 0);
+      const callerKey = (m.name || '').trim().toLowerCase();
+      const monthlySalesAchieved = salesMaps.monthlyByCaller.get(callerKey) ?? 0;
+      const allTimeSalesAchieved = salesMaps.allTimeByCaller.get(callerKey) ?? 0;
+
       let out: any;
       if (includeDocuments) {
-        out = { ...m, hasPanDoc, hasAadhaarDoc };
+        out = {
+          ...m,
+          salesAchieved: monthlySalesAchieved,
+          allTimeSalesAchieved,
+          hasPanDoc,
+          hasAadhaarDoc,
+        };
       } else {
         const { panDocumentUrl, aadhaarDocumentUrl, ...rest } = m;
-        out = { ...rest, hasPanDoc, hasAadhaarDoc };
+        out = {
+          ...rest,
+          salesAchieved: monthlySalesAchieved,
+          allTimeSalesAchieved,
+          hasPanDoc,
+          hasAadhaarDoc,
+        };
       }
 
       // Security Lockdown: Never expose login credentials/passwords to non-admin accounts (e.g. HR, TL, Telecallers)
@@ -146,18 +167,14 @@ router.get('/floor-pulse', (req: Request, res: Response) => {
     }
 
     // 1. Live Floor Attendance: Active telecallers with dynamic punctuality and metrics
-    const activeMembers = squadParam
+    const salesMaps = computeVerifiedSalesMaps(db);
+    const rawActiveMembers = squadParam
       ? db.prepare(`
           SELECT id, empCode, name, avatar, role, groupName as "group", phone, 
                  attendanceStatus, checkInTime, dialsToday, goalCalls, connected, 
                  interested, salesAchieved, salesTarget
           FROM team_members 
           WHERE active = 1 AND LOWER(groupName) = LOWER(?)
-          ORDER BY 
-            (CASE WHEN attendanceStatus = 'PRESENT' THEN 1 WHEN attendanceStatus = 'LATE' THEN 2 ELSE 3 END),
-            salesAchieved DESC,
-            dialsToday DESC
-          LIMIT 6
         `).all(squadParam) as any[]
       : db.prepare(`
           SELECT id, empCode, name, avatar, role, groupName as "group", phone, 
@@ -165,12 +182,25 @@ router.get('/floor-pulse', (req: Request, res: Response) => {
                  interested, salesAchieved, salesTarget
           FROM team_members 
           WHERE active = 1
-          ORDER BY 
-            (CASE WHEN attendanceStatus = 'PRESENT' THEN 1 WHEN attendanceStatus = 'LATE' THEN 2 ELSE 3 END),
-            salesAchieved DESC,
-            dialsToday DESC
-          LIMIT 6
         `).all() as any[];
+
+    const activeMembers = rawActiveMembers
+      .map((m) => {
+        const callerKey = (m.name || '').trim().toLowerCase();
+        return {
+          ...m,
+          salesAchieved: salesMaps.monthlyByCaller.get(callerKey) ?? 0,
+          allTimeSalesAchieved: salesMaps.allTimeByCaller.get(callerKey) ?? 0,
+        };
+      })
+      .sort((a, b) => {
+        const rankA = a.attendanceStatus === 'PRESENT' ? 1 : a.attendanceStatus === 'LATE' ? 2 : 3;
+        const rankB = b.attendanceStatus === 'PRESENT' ? 1 : b.attendanceStatus === 'LATE' ? 2 : 3;
+        if (rankA !== rankB) return rankA - rankB;
+        if (b.salesAchieved !== a.salesAchieved) return b.salesAchieved - a.salesAchieved;
+        return (b.dialsToday || 0) - (a.dialsToday || 0);
+      })
+      .slice(0, 6);
 
     // 2. Live Working Leads Pulse: Most recent active lead touchpoints
     const recentLeads = squadParam
@@ -242,6 +272,219 @@ router.get('/floor-pulse', (req: Request, res: Response) => {
       activeMembers,
       pulseLeads,
       timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// GET /api/team-members/:id/monthly-history
+// Returns month-by-month breakdown of Leads Received, Excel Batches, Called, Interested, Won Deals, Dials, and Verified Sales vs Target
+router.get('/:id/monthly-history', (req: Request, res: Response) => {
+  try {
+    const rawId = (req.params.id || '').trim();
+    const member = db.prepare(`
+      SELECT id, empCode, name, role, groupName as "group", salesTarget, goalCalls, joiningDate
+      FROM team_members
+      WHERE id = ? OR empCode = ? OR LOWER(name) = LOWER(?)
+      LIMIT 1
+    `).get(rawId, rawId, rawId) as any;
+
+    if (!member) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    const empId = member.id;
+    const empCode = member.empCode || '';
+    const empName = (member.name || '').trim();
+    const empNameLower = empName.toLowerCase();
+    const salesTarget = Number(member.salesTarget) > 0 ? Number(member.salesTarget) : 200000;
+
+    // 1. Fetch all assigned leads for this employee
+    const leads = db.prepare(`
+      SELECT id, batchId, status, dealValue, callCount, assignedDate, updatedAt, createdAt
+      FROM assigned_leads
+      WHERE assignedToEmployeeId = ? OR assignedToEmployeeId = ? OR LOWER(assignedToEmployeeName) = LOWER(?)
+    `).all(empId, empCode, empName) as any[];
+
+    // 2. Fetch all lead_batches so we can map batchId -> batch metadata
+    const allBatches = db.prepare(`
+      SELECT id, fileName, uploadedBy, uploadedAt, totalLeads, assignedTo
+      FROM lead_batches
+    `).all() as any[];
+    const batchMap = new Map<string, any>();
+    for (const b of allBatches) {
+      batchMap.set(b.id, b);
+    }
+
+    // 3. Fetch call_logs for this employee
+    const callLogs = db.prepare(`
+      SELECT id, outcome, durationSec, date, timestamp, createdAt
+      FROM call_logs
+      WHERE employeeId = ? OR employeeId = ? OR LOWER(clientName) = LOWER(?)
+    `).all(empId, empCode, empName) as any[];
+
+    // 4. Fetch deduplicated verified payments for this employee
+    const salesMaps = computeVerifiedSalesMaps(db);
+    const empVerifiedPayments = salesMaps.uniqueRows.filter(
+      (p) => (p.telecallerName || '').trim().toLowerCase() === empNameLower
+    );
+
+    // 5. Build list of months (at least last 6 calendar months in IST + any month with data)
+    const monthSet = new Set<string>();
+    const currentYM = getCurrentMonthPrefixIST();
+    const [curY, curM] = currentYM.split('-').map(Number);
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(Date.UTC(curY, curM - 1 - i, 1));
+      const ym = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      monthSet.add(ym);
+    }
+
+    // Bucket structures per YYYY-MM
+    interface MonthBucket {
+      leadsAssigned: number;
+      leadsCalled: number;
+      leadsPending: number;
+      interestedLeads: number;
+      callbackLeads: number;
+      convertedLeads: number;
+      leadDialsSum: number;
+      callLogsCount: number;
+      interestedCalls: number;
+      verifiedDealsCount: number;
+      verifiedRevenue: number;
+      batchCounts: Map<string, number>;
+    }
+
+    const createBucket = (): MonthBucket => ({
+      leadsAssigned: 0,
+      leadsCalled: 0,
+      leadsPending: 0,
+      interestedLeads: 0,
+      callbackLeads: 0,
+      convertedLeads: 0,
+      leadDialsSum: 0,
+      callLogsCount: 0,
+      interestedCalls: 0,
+      verifiedDealsCount: 0,
+      verifiedRevenue: 0,
+      batchCounts: new Map<string, number>(),
+    });
+
+    const buckets = new Map<string, MonthBucket>();
+    const getBucket = (ym: string) => {
+      monthSet.add(ym);
+      let b = buckets.get(ym);
+      if (!b) {
+        b = createBucket();
+        buckets.set(ym, b);
+      }
+      return b;
+    };
+
+    for (const l of leads) {
+      const dateStr = extractDateIST(l.assignedDate) || extractDateIST(l.createdAt) || currentYM + '-01';
+      const ym = dateStr.slice(0, 7);
+      const b = getBucket(ym);
+      b.leadsAssigned += 1;
+      const status = (l.status || 'PENDING').toUpperCase();
+      const calls = Number(l.callCount) || 0;
+      if (status !== 'PENDING' || calls > 0) {
+        b.leadsCalled += 1;
+      } else {
+        b.leadsPending += 1;
+      }
+      if (status === 'INTERESTED') b.interestedLeads += 1;
+      if (status === 'CALLBACK') b.callbackLeads += 1;
+      if (status === 'CONVERTED') b.convertedLeads += 1;
+      b.leadDialsSum += calls > 0 ? calls : (status !== 'PENDING' ? 1 : 0);
+
+      if (l.batchId && l.batchId !== 'crm-pipeline') {
+        b.batchCounts.set(l.batchId, (b.batchCounts.get(l.batchId) || 0) + 1);
+      }
+    }
+
+    for (const c of callLogs) {
+      const dateStr = extractDateIST(c.date) || extractDateIST(c.createdAt) || extractDateIST(c.timestamp);
+      if (!dateStr) continue;
+      const ym = dateStr.slice(0, 7);
+      const b = getBucket(ym);
+      b.callLogsCount += 1;
+      if ((c.outcome || '').toUpperCase() === 'INTERESTED') {
+        b.interestedCalls += 1;
+      }
+    }
+
+    for (const p of empVerifiedPayments) {
+      const dateStr = getPaymentDateIST(p);
+      if (!dateStr) continue;
+      const ym = dateStr.slice(0, 7);
+      const b = getBucket(ym);
+      b.verifiedDealsCount += 1;
+      b.verifiedRevenue += Number(p.dealAmount) || 0;
+    }
+
+    const sortedMonths = Array.from(monthSet).sort((a, b) => b.localeCompare(a));
+
+    const formatMonthLabels = (ym: string) => {
+      const [y, m] = ym.split('-').map(Number);
+      const d = new Date(Date.UTC(y, (m || 1) - 1, 1));
+      const shortMonth = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+      const longMonth = d.toLocaleString('en-US', { month: 'long', timeZone: 'UTC' });
+      return {
+        label: `${shortMonth} ${y}`,
+        fullLabel: `${longMonth} ${y}`,
+      };
+    };
+
+    const months = sortedMonths.map((ym) => {
+      const b = buckets.get(ym) || createBucket();
+      const { label, fullLabel } = formatMonthLabels(ym);
+      const batches = Array.from(b.batchCounts.entries()).map(([batchId, count]) => {
+        const meta = batchMap.get(batchId);
+        return {
+          id: batchId,
+          fileName: meta?.fileName || `Lead Batch (${batchId})`,
+          uploadedAt: meta?.uploadedAt || ym,
+          leadsCount: count,
+        };
+      });
+
+      const totalDials = Math.max(b.callLogsCount, b.leadDialsSum);
+      const interestedCount = Math.max(b.interestedLeads, b.interestedCalls);
+      const wonCount = Math.max(b.verifiedDealsCount, b.convertedLeads);
+      const targetPercent = salesTarget > 0 ? Math.round((b.verifiedRevenue / salesTarget) * 100) : 0;
+
+      return {
+        month: ym,
+        label,
+        fullLabel,
+        isCurrentMonth: ym === currentYM,
+        leadsAssigned: b.leadsAssigned,
+        leadsCalled: b.leadsCalled,
+        leadsPending: b.leadsPending,
+        interestedCount,
+        callbackCount: b.callbackLeads,
+        wonCount,
+        verifiedDealsCount: b.verifiedDealsCount,
+        totalDials,
+        salesAchieved: b.verifiedRevenue,
+        salesTarget,
+        targetPercent,
+        batchesCount: batches.length,
+        batches,
+      };
+    });
+
+    return res.status(200).json({
+      employeeId: empId,
+      empCode,
+      employeeName: empName,
+      currentMonth: currentYM,
+      salesTarget,
+      totalAllTimeLeads: leads.length,
+      totalAllTimeSales: salesMaps.allTimeByCaller.get(empNameLower) ?? 0,
+      months,
     });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
@@ -431,7 +674,8 @@ router.put('/targets/batch', (req: Request, res: Response) => {
 
     const updatedCount = runBatch(targets);
 
-    const allMembers = db.prepare(`
+    const salesMaps = computeVerifiedSalesMaps(db);
+    const allMembers = (db.prepare(`
       SELECT id, empCode, name, avatar, role, groupName as "group", phone, emergencyPhone, dob, employeeType, 
              attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, 
              salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, 
@@ -439,7 +683,14 @@ router.put('/targets/batch', (req: Request, res: Response) => {
              aadhaarDocumentName, aadhaarDocumentUrl, salary, joiningDate, address, bloodGroup,
              companyAddress, companyPhone, companyEmail, companyWebsite, signatoryName, signatoryRole 
       FROM team_members
-    `).all();
+    `).all() as any[]).map((m) => {
+      const callerKey = (m.name || '').trim().toLowerCase();
+      return {
+        ...m,
+        salesAchieved: salesMaps.monthlyByCaller.get(callerKey) ?? 0,
+        allTimeSalesAchieved: salesMaps.allTimeByCaller.get(callerKey) ?? 0,
+      };
+    });
 
     return res.status(200).json({ success: true, updatedCount, members: allMembers });
   } catch (error) {
@@ -641,7 +892,7 @@ router.put('/:id', (req: Request, res: Response) => {
       } catch (_) { }
     }
 
-    const updated = db.prepare(`
+    const rawUpdated = db.prepare(`
       SELECT id, empCode, name, avatar, role, groupName as "group", phone, emergencyPhone, dob, employeeType, 
              attendanceStatus, checkInTime, checkInMethod, dialsToday, goalCalls, connected, interested, 
              salesAchieved, salesTarget, conversionRate, portal, email, password, active, deactivatedOn, 
@@ -650,7 +901,15 @@ router.put('/:id', (req: Request, res: Response) => {
              companyAddress, companyPhone, companyEmail, companyWebsite, signatoryName, signatoryRole 
       FROM team_members 
       WHERE id = ? OR empCode = ?
-    `).get(existing.id, merged.empCode || existing.empCode);
+    `).get(existing.id, merged.empCode || existing.empCode) as any;
+    const salesMaps = computeVerifiedSalesMaps(db);
+    const updated = rawUpdated
+      ? {
+          ...rawUpdated,
+          salesAchieved: salesMaps.monthlyByCaller.get((rawUpdated.name || '').trim().toLowerCase()) ?? 0,
+          allTimeSalesAchieved: salesMaps.allTimeByCaller.get((rawUpdated.name || '').trim().toLowerCase()) ?? 0,
+        }
+      : null;
     if (updated) {
       try {
         getSocketService().emitToAll('team_member:updated', updated);

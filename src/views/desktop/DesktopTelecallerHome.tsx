@@ -28,6 +28,7 @@ import { RejectedLeaveBanner } from '../../components/common/RejectedLeaveBanner
 import { getTodayDateIST } from '../../utils/dateUtils';
 import { sumVerifiedRevenue } from '../../utils/revenueUtils';
 import { dialPhoneNumber } from '../../utils/phoneCaller';
+import { EmployeeMonthlyHistoryCard } from '../../components/common/EmployeeMonthlyHistoryCard';
 
 export const DesktopTelecallerHome: React.FC = () => {
   const { 
@@ -92,9 +93,13 @@ export const DesktopTelecallerHome: React.FC = () => {
   const followUpCount = userLeads.filter((l: AssignedLead) => l.status === 'CALLBACK').length;
   const toCallCount = userLeads.filter((l: AssignedLead) => l.status === 'PENDING').length;
 
-  // Revenue = this employee's VERIFIED payments only (same rule as Admin / HR / Team Leader)
+  // Revenue = this employee's VERIFIED payments scoped to THIS_MONTH for monthly sales target
   const wonDealsRevenue = useMemo(
-    () => sumVerifiedRevenue(paymentVerifications, { employeeName: currentUser?.name || profile?.name }),
+    () => sumVerifiedRevenue(paymentVerifications, { employeeName: currentUser?.name || profile?.name, mode: 'THIS_MONTH' }),
+    [paymentVerifications, currentUser, profile]
+  );
+  const allTimeWonDealsRevenue = useMemo(
+    () => sumVerifiedRevenue(paymentVerifications, { employeeName: currentUser?.name || profile?.name, mode: 'ALL' }),
     [paymentVerifications, currentUser, profile]
   );
 
@@ -499,7 +504,7 @@ export const DesktopTelecallerHome: React.FC = () => {
               </h4>
 
               <div className="inline-flex items-center gap-1 text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200/70 mt-1">
-                <span>{inr(wonDealsRevenue)}</span>
+                <span>This Month: {inr(wonDealsRevenue)}{allTimeWonDealsRevenue > wonDealsRevenue ? ` · Total: ${inr(allTimeWonDealsRevenue)}` : ''}</span>
               </div>
             </div>
           </div>
@@ -545,6 +550,14 @@ export const DesktopTelecallerHome: React.FC = () => {
         </div>
 
       </div>
+
+      {/* Monthly Leads & Sales History Breakdown */}
+      <EmployeeMonthlyHistoryCard
+        employeeId={empId}
+        empCode={empCode}
+        employeeName={currentUser?.name || profile?.name || 'Sales Rep'}
+        salesTarget={effectiveMonthlyTarget}
+      />
 
       {/* 4. Bottom Section: Today's Calling History Full-Width Table */}
       <div className="nexus-card p-6 bg-white border border-slate-200 shadow-sm space-y-4">
