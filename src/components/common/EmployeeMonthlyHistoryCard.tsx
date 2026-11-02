@@ -113,10 +113,11 @@ export const EmployeeMonthlyHistoryCard: React.FC<EmployeeMonthlyHistoryCardProp
   const [serverMonths, setServerMonths] = useState<MonthHistoryItem[] | null>(null);
   const [showAllMonthsTable, setShowAllMonthsTable] = useState<boolean>(true);
 
-  // Generate Year options dynamically from 1996 to currentYearNum
+  // Generate Year options dynamically from 1996 through future planning years (up to currentYear + 5, including 2027, 2028, 2030, etc.)
   const availableYears = useMemo(() => {
     const years: number[] = [];
-    for (let y = currentYearNum; y >= 1996; y--) {
+    const maxFutureYear = Math.max(currentYearNum + 5, 2031);
+    for (let y = maxFutureYear; y >= 1996; y--) {
       years.push(y);
     }
     return years;
