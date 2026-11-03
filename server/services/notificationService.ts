@@ -1,5 +1,6 @@
 import db from '../db/connection.js';
-import admin from 'firebase-admin';
+import { initializeApp, cert, type App } from 'firebase-admin/app';
+import { getMessaging } from 'firebase-admin/messaging';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -8,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Initialize Firebase Admin with Service Account JSON if available
-let firebaseApp: admin.app.App | null = null;
+let firebaseApp: App | null = null;
 try {
   const serviceAccountPaths = [
     path.resolve(__dirname, '../firebase-service-account.json'),
@@ -28,8 +29,8 @@ try {
   if (serviceAccountKeyPath) {
     const raw = fs.readFileSync(serviceAccountKeyPath, 'utf8');
     const serviceAccount = JSON.parse(raw);
-    firebaseApp = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
+    firebaseApp = initializeApp({
+      credential: cert(serviceAccount)
     }, 'trade-nexus-fcm');
     console.log('[Firebase Admin] Successfully initialized FCM v1 engine with project:', serviceAccount.project_id);
   } else {
@@ -222,7 +223,8 @@ export async function sendPushNotification(payload: PushNotificationPayload): Pr
       const directFcmTokens = tokens.filter(t => !t.startsWith('ExponentPushToken['));
       if (directFcmTokens.length > 0) {
         try {
-          const fcmResponse = await firebaseApp.messaging().sendEachForMulticast({
+          const messaging = getMessaging(firebaseApp);
+          const fcmResponse = await messaging.sendEachForMulticast({
             tokens: directFcmTokens,
             notification: {
               title: payload.title,
