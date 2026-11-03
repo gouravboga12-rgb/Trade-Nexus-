@@ -78,7 +78,7 @@ export interface AppNotification {
   timestamp: string;
   read: boolean;
   targetTab?: string;
-  category?: 'leads' | 'payment' | 'attendance' | 'meeting' | 'leave' | 'system';
+  category?: 'leads' | 'payment' | 'attendance' | 'meeting' | 'leave' | 'system' | 'birthday' | 'target_alert' | 'announcement';
 }
 
 interface AppContextType {
@@ -397,7 +397,7 @@ interface AppContextType {
     title: string;
     body: string;
     targetTab?: string;
-    category?: 'leads' | 'payment' | 'attendance' | 'meeting' | 'leave' | 'system';
+    category?: 'leads' | 'payment' | 'attendance' | 'meeting' | 'leave' | 'system' | 'birthday' | 'target_alert' | 'announcement';
   }) => void;
 }
 
@@ -483,7 +483,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     title: string;
     body: string;
     targetTab?: string;
-    category?: 'leads' | 'payment' | 'attendance' | 'meeting' | 'leave' | 'system';
+    category?: 'leads' | 'payment' | 'attendance' | 'meeting' | 'leave' | 'system' | 'birthday' | 'target_alert' | 'announcement';
   }) => {
     const newNotif: AppNotification = {
       id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -1475,6 +1475,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           });
         }
       }
+    });
+
+    // Real-time custom announcements, birthday alerts, and target reminders from Admin / HR
+    socket.on('broadcast:received', (broadcast: any) => {
+      if (!broadcast) return;
+      const cat = (broadcast.category || 'ANNOUNCEMENT').toLowerCase();
+      let notifCat: any = 'announcement';
+      if (cat.includes('birthday')) notifCat = 'birthday';
+      else if (cat.includes('target') || cat.includes('performance')) notifCat = 'target_alert';
+
+      addAppNotificationRef.current({
+        title: broadcast.title || 'Trade Nexus Announcement',
+        body: broadcast.body || broadcast.message || '',
+        category: notifCat,
+        targetTab: broadcast.targetTab || 'home',
+      });
     });
 
     socket.on('leave:deleted', ({ id }: { id: string }) => {

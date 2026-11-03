@@ -60,6 +60,12 @@ export const HeaderNotificationBanner: React.FC = () => {
         return <Clock className="w-4 h-4 text-indigo-400" />;
       case 'leave':
         return <Award className="w-4 h-4 text-amber-400" />;
+      case 'birthday':
+        return <span className="text-sm">🎂</span>;
+      case 'target_alert':
+        return <span className="text-sm">🎯</span>;
+      case 'announcement':
+        return <span className="text-sm">📢</span>;
       default:
         return <Sparkles className="w-4 h-4 text-[#00C9A7]" />;
     }

@@ -1,4 +1,43 @@
 import db from '../db/connection.js';
+import admin from 'firebase-admin';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Initialize Firebase Admin with Service Account JSON if available
+let firebaseApp: admin.app.App | null = null;
+try {
+  const serviceAccountPaths = [
+    path.resolve(__dirname, '../firebase-service-account.json'),
+    path.resolve(process.cwd(), 'server/firebase-service-account.json'),
+    path.resolve('/home/ubuntu/tradex/server/firebase-service-account.json'),
+    path.resolve(__dirname, '../../trade-nexus-trade-smart-f7ab1-firebase-adminsdk-fbsvc-057e43752b.json')
+  ];
+
+  let serviceAccountKeyPath = '';
+  for (const p of serviceAccountPaths) {
+    if (fs.existsSync(p)) {
+      serviceAccountKeyPath = p;
+      break;
+    }
+  }
+
+  if (serviceAccountKeyPath) {
+    const raw = fs.readFileSync(serviceAccountKeyPath, 'utf8');
+    const serviceAccount = JSON.parse(raw);
+    firebaseApp = admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    }, 'trade-nexus-fcm');
+    console.log('[Firebase Admin] Successfully initialized FCM v1 engine with project:', serviceAccount.project_id);
+  } else {
+    console.warn('[Firebase Admin] Service account JSON not found. Will use Expo Push fallback.');
+  }
+} catch (fcmInitErr: any) {
+  console.warn('[Firebase Admin Initialization Notice]:', fcmInitErr.message);
+}
 
 export interface PushNotificationPayload {
   targetUserId?: string | string[];
@@ -171,10 +210,44 @@ export async function sendPushNotification(payload: PushNotificationPayload): Pr
         if (!response.ok) {
           console.warn('[Push Notification] Expo Push API warning/error:', resData);
         } else {
-          console.log(`[Push Notification Delivered] Successfully sent ${chunk.length} notification(s)`);
+          console.log(`[Push Notification Delivered] Successfully sent ${chunk.length} notification(s) via Expo`);
         }
       } catch (chunkErr) {
         console.error('[Push Notification Network Error]', chunkErr);
+      }
+    }
+
+    // Direct FCM V1 dispatch if native FCM tokens exist or firebaseApp is initialized
+    if (firebaseApp) {
+      const directFcmTokens = tokens.filter(t => !t.startsWith('ExponentPushToken['));
+      if (directFcmTokens.length > 0) {
+        try {
+          const fcmResponse = await firebaseApp.messaging().sendEachForMulticast({
+            tokens: directFcmTokens,
+            notification: {
+              title: payload.title,
+              body: payload.body,
+            },
+            android: {
+              priority: 'high',
+              notification: {
+                sound: 'default',
+                channelId: payload.channelId || 'default',
+                priority: 'max',
+                visibility: 'public',
+              }
+            },
+            data: {
+              ...(payload.data ? Object.fromEntries(Object.entries(payload.data).map(([k, v]) => [k, String(v)])) : {}),
+              title: payload.title,
+              body: payload.body,
+              targetTab: String(payload.data?.targetTab || 'home'),
+            }
+          });
+          console.log(`[Firebase Admin FCM V1] Dispatched: ${fcmResponse.successCount} success, ${fcmResponse.failureCount} failed`);
+        } catch (fcmSendErr: any) {
+          console.error('[Firebase Admin FCM Send Error]', fcmSendErr.message);
+        }
       }
     }
 

@@ -16,19 +16,33 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ children, containe
   const THRESHOLD = 65;
 
   useEffect(() => {
+    // Listen for custom trigger from mobile app shell bridge
+    const handleNativeBridgeRefresh = () => {
+      if (!isRefreshing) {
+        refreshAllData().catch(console.warn);
+      }
+    };
+    window.addEventListener('tnx:native-pull-refresh', handleNativeBridgeRefresh);
+    (window as any).__triggerTradeNexusResume = handleNativeBridgeRefresh;
+
     const el = document.getElementById(containerId) || (typeof window !== 'undefined' ? window : null);
-    if (!el) return;
+    if (!el) {
+      return () => {
+        window.removeEventListener('tnx:native-pull-refresh', handleNativeBridgeRefresh);
+      };
+    }
 
     const getScrollTop = (): number => {
       const containerEl = document.getElementById(containerId);
-      if (containerEl) return containerEl.scrollTop;
-      return window.scrollY || document.documentElement.scrollTop || 0;
+      const docTop = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+      if (containerEl && containerEl.scrollTop > 0) return containerEl.scrollTop;
+      return docTop;
     };
 
     const handleTouchStart = (e: TouchEvent) => {
-      // ONLY start tracking if scrolled to the absolute top of the container AND document
+      // ONLY start tracking if scrolled to the absolute top of both container AND document
       const scrollTop = getScrollTop();
-      if (scrollTop <= 0 && e.touches.length === 1) {
+      if (scrollTop <= 1 && e.touches.length === 1) {
         startYRef.current = e.touches[0].clientY;
         isTrackingRef.current = true;
       } else {
@@ -43,10 +57,10 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ children, containe
       const scrollTop = getScrollTop();
 
       // Only handle downward pull if strictly at the top
-      if (diff > 12 && scrollTop <= 0) {
-        const pull = Math.min(80, Math.pow(diff, 0.82) * 1.3);
+      if (diff > 8 && scrollTop <= 1) {
+        const pull = Math.min(85, Math.pow(diff, 0.8) * 1.35);
         setPullDistance(pull);
-      } else if (diff <= 0 || scrollTop > 0) {
+      } else if (diff <= 0 || scrollTop > 1) {
         isTrackingRef.current = false;
         setPullDistance(0);
       }
@@ -76,11 +90,18 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ children, containe
     el.addEventListener('touchstart', handleTouchStart as EventListener, { passive: true });
     el.addEventListener('touchmove', handleTouchMove as EventListener, { passive: true });
     el.addEventListener('touchend', handleTouchEnd as EventListener, { passive: true });
+    window.addEventListener('touchstart', handleTouchStart as EventListener, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove as EventListener, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd as EventListener, { passive: true });
 
     return () => {
+      window.removeEventListener('tnx:native-pull-refresh', handleNativeBridgeRefresh);
       el.removeEventListener('touchstart', handleTouchStart as EventListener);
       el.removeEventListener('touchmove', handleTouchMove as EventListener);
       el.removeEventListener('touchend', handleTouchEnd as EventListener);
+      window.removeEventListener('touchstart', handleTouchStart as EventListener);
+      window.removeEventListener('touchmove', handleTouchMove as EventListener);
+      window.removeEventListener('touchend', handleTouchEnd as EventListener);
     };
   }, [containerId, pullDistance, isRefreshing, refreshAllData]);
 

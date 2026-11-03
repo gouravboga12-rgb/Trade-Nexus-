@@ -740,6 +740,24 @@ export const api = {
     request<TopPerformer>('/top-performers', { method: 'POST', body: JSON.stringify(data) }),
   deleteTopPerformer: (id: string) =>
     request<{ success: boolean; message: string }>(`/top-performers/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  // Broadcasts & Push Notifications
+  sendBroadcast: (data: {
+    senderId?: string;
+    senderName?: string;
+    senderRole?: string;
+    category: 'ANNOUNCEMENT' | 'BIRTHDAY' | 'TARGET_ALERT' | 'PERFORMANCE' | 'GENERAL';
+    targetScope: 'ALL' | 'ROLE' | 'CUSTOM';
+    targetRoles?: string[];
+    targetUserIds?: string[];
+    title: string;
+    message: string;
+    actionUrl?: string;
+  }) => request<{ success: boolean; broadcastId: string; deliveredDevices: number }>('/notifications/broadcast', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  getBroadcasts: () => request<{ broadcasts: any[] }>('/notifications/broadcasts'),
 };
 
 /**

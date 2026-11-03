@@ -65,6 +65,7 @@ import { OfferLetterModal } from '../components/modals/OfferLetterModal';
 import { GenerateOfferLetterModal } from '../components/modals/GenerateOfferLetterModal';
 import { DigitalIdCardModal } from '../components/modals/DigitalIdCardModal';
 import { FaceRegistrationModal } from '../components/modals/FaceRegistrationModal';
+import { SendBroadcastModal } from '../components/modals/SendBroadcastModal';
 import { Employee360ProfileView } from './Employee360ProfileView';
 import { EmployeeAvatar } from '../components/common/EmployeeAvatar';
 import { MeetingTimePicker } from '../components/common/MeetingTimePicker';
@@ -214,6 +215,9 @@ export const HrDashboardView: React.FC = () => {
 
   // Modals
   const [isAddEmployeeModalOpen, setIsAddEmployeeModalOpen] = useState(false);
+  const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
+  const [broadcastCategory, setBroadcastCategory] = useState<'ANNOUNCEMENT' | 'BIRTHDAY' | 'TARGET_ALERT' | 'PERFORMANCE' | 'GENERAL'>('ANNOUNCEMENT');
+  const [broadcastPrefilledEmp, setBroadcastPrefilledEmp] = useState<any>(null);
   const [isGenerateOfferLetterModalOpen, setIsGenerateOfferLetterModalOpen] = useState(false);
   const [isInterviewModalOpen, setIsInterviewModalOpen] = useState(false);
   const [isPayslipGenModalOpen, setIsPayslipGenModalOpen] = useState(false);
@@ -341,6 +345,27 @@ export const HrDashboardView: React.FC = () => {
 
   const pendingPaymentsCount = paymentVerifications.filter((p) => p.status === 'PENDING_HR_AUDIT').length;
   const pendingApprovalsCount = pendingLeavesCount + pendingPaymentsCount;
+
+  // Detect employees who have birthdays today or upcoming
+  const todayBirthdays = useMemo(() => {
+    const today = getTodayDateIST();
+    const mmdd = today.slice(5, 10); // MM-DD
+    return teamMembers.filter((m) => {
+      const rawDob = (m as any).dob;
+      if (!rawDob) return false;
+      // Handle YYYY-MM-DD or DD/MM/YYYY
+      if (rawDob.includes('-') && rawDob.length >= 10) {
+        return rawDob.slice(5, 10) === mmdd;
+      }
+      if (rawDob.includes('/') && rawDob.length >= 10) {
+        const parts = rawDob.split('/');
+        // parts[0] is DD, parts[1] is MM
+        const formatted = `${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        return formatted === mmdd;
+      }
+      return false;
+    });
+  }, [teamMembers]);
 
   // Leave Section View Mode: Team Approvals vs Personal Leaves
   const [leaveSectionMode, setLeaveSectionMode] = useState<'approvals' | 'my_leaves'>('approvals');
@@ -519,8 +544,58 @@ export const HrDashboardView: React.FC = () => {
                 </p>
               </div>
 
-
+              {/* Broadcast Alert & Push Notification Action Button */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBroadcastCategory('ANNOUNCEMENT');
+                    setBroadcastPrefilledEmp(null);
+                    setIsBroadcastModalOpen(true);
+                  }}
+                  className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-black text-xs rounded-xl flex items-center gap-2 shadow-sm border border-amber-400 active:scale-95 transition-all cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-200" />
+                  <span>Send Broadcast Alert</span>
+                </button>
+              </div>
             </div>
+
+            {/* 🎂 Birthday Celebration Spotlight Banner if any employee has birthday today */}
+            {todayBirthdays.length > 0 && (
+              <div className="bg-gradient-to-r from-amber-50 via-rose-50 to-amber-50 border-2 border-amber-300 rounded-3xl p-4 shadow-sm space-y-2 animate-in slide-in-from-top-2">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-400 text-amber-950 flex items-center justify-center text-xl flex-shrink-0 shadow-sm">
+                      🎂
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-[#0A2540] uppercase tracking-wider flex items-center gap-1.5">
+                        <span>Birthday Celebration Today!</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 font-black">
+                          {todayBirthdays.length} Member{todayBirthdays.length > 1 ? 's' : ''}
+                        </span>
+                      </h4>
+                      <p className="text-xs text-slate-600 font-semibold mt-0.5">
+                        {todayBirthdays.map(m => m.name).join(', ')} {todayBirthdays.length > 1 ? 'are' : 'is'} celebrating their birthday today!
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBroadcastCategory('BIRTHDAY');
+                      setBroadcastPrefilledEmp(todayBirthdays[0]);
+                      setIsBroadcastModalOpen(true);
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#00C9A7] to-[#00A88B] text-[#0A2540] font-black text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                  >
+                    <span>🎉 Send Birthday Announcement</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* ⚠️ Suspicious Attendance Dispute Alert Banner */}
             {isAttendanceDisputed && (
@@ -3378,6 +3453,14 @@ export const HrDashboardView: React.FC = () => {
         </div>
       )}
 
+      {/* HR Broadcast & Push Notification Hub Modal */}
+      <SendBroadcastModal
+        isOpen={isBroadcastModalOpen}
+        onClose={() => setIsBroadcastModalOpen(false)}
+        defaultCategory={broadcastCategory}
+        prefilledEmployee={broadcastPrefilledEmp}
+      />
+
       {/* HR Zoom Meeting Scheduler Modal (Mobile Optimized) */}
       {isHrMeetingModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
@@ -3577,6 +3660,14 @@ export const HrDashboardView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* HR Broadcast & Push Notification Hub Modal */}
+      <SendBroadcastModal
+        isOpen={isBroadcastModalOpen}
+        onClose={() => setIsBroadcastModalOpen(false)}
+        defaultCategory={broadcastCategory}
+        prefilledEmployee={broadcastPrefilledEmp}
+      />
 
     </div>
   );

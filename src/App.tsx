@@ -30,6 +30,7 @@ import { PayslipDetailModal } from './components/modals/PayslipDetailModal';
 import { RecentPayslipsModal } from './components/modals/RecentPayslipsModal';
 import { DevSettingsModal } from './components/common/DevSettingsModal';
 import { HeaderNotificationBanner } from './components/common/HeaderNotificationBanner';
+import { PullToRefresh } from './components/common/PullToRefresh';
 
 import { LiveVideoRoomModal } from './components/modals/LiveVideoRoomModal';
 import { NotificationDrawer } from './components/layout/NotificationDrawer';
@@ -192,9 +193,9 @@ export const App: React.FC = () => {
 
         {/* Scrollable Page Body */}
         <main id="main-scroll-container" className="flex-1 w-full print:hidden">
-
+          <PullToRefresh containerId="main-scroll-container">
             {renderActiveView()}
-
+          </PullToRefresh>
         </main>
 
         {/* Bottom Navigation only for Telecaller (Sticky on mobile, Floating Island Dock on desktop) */}

@@ -66,6 +66,7 @@ import { DeleteTeamModal } from '../components/modals/DeleteTeamModal';
 import { ManageTeamMembersModal } from '../components/modals/ManageTeamMembersModal';
 import { AdminTargetSettingsModal } from '../components/modals/AdminTargetSettingsModal';
 import { AdminScheduleMeetingModal } from '../components/modals/AdminScheduleMeetingModal';
+import { SendBroadcastModal } from '../components/modals/SendBroadcastModal';
 import { GeofenceLocationModal } from '../components/modals/GeofenceLocationModal';
 import { InAppLiveMapModal } from '../components/modals/InAppLiveMapModal';
 import { TopPerformersModal } from '../components/modals/TopPerformersModal';
@@ -262,6 +263,8 @@ export const AdminDashboardView: React.FC = () => {
 
   // Target control, Approvals subtab, Meeting scheduling, and Inspection voucher states
   const [isScheduleMeetingOpen, setIsScheduleMeetingOpen] = useState(false);
+  const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
+  const [broadcastPrefilledEmp, setBroadcastPrefilledEmp] = useState<any>(null);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
   const [approvalSubTab, setApprovalSubTab] = useState<'PAYMENTS' | 'LEAVES'>('PAYMENTS');
   const [revenueFilter, setRevenueFilter] = useState<'today' | 'week' | 'month' | 'all'>('all');
@@ -849,11 +852,24 @@ export const AdminDashboardView: React.FC = () => {
             )}
 
             {/* Executive Quick Actions Bar */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  setBroadcastPrefilledEmp(null);
+                  setIsBroadcastModalOpen(true);
+                }}
+                className="flex-1 py-2.5 px-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm border border-amber-400 active:scale-95 transition-all cursor-pointer min-w-[140px]"
+              >
+                <Sparkles className="w-4 h-4 text-amber-200" />
+                <span>Send Alert &amp; Push</span>
+                <span className="text-[9px] bg-white text-amber-900 font-black px-1.5 py-0.5 rounded uppercase">Live</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setIsScheduleMeetingOpen(true)}
-                className="flex-1 py-2.5 px-3 bg-gradient-to-r from-[#0A2540] to-teal-950 text-[#00C9A7] font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm border border-[#00C9A7]/40 active:scale-95 transition-all cursor-pointer"
+                className="flex-1 py-2.5 px-3 bg-gradient-to-r from-[#0A2540] to-teal-950 text-[#00C9A7] font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm border border-[#00C9A7]/40 active:scale-95 transition-all cursor-pointer min-w-[140px]"
               >
                 <Video className="w-4 h-4 text-[#00C9A7]" />
                 <span>Schedule Zoom Call</span>
@@ -5197,6 +5213,13 @@ export const AdminDashboardView: React.FC = () => {
       <AdminScheduleMeetingModal
         isOpen={isScheduleMeetingOpen}
         onClose={() => setIsScheduleMeetingOpen(false)}
+      />
+
+      {/* Admin & HR Broadcast / Push Notification Hub Modal */}
+      <SendBroadcastModal
+        isOpen={isBroadcastModalOpen}
+        onClose={() => setIsBroadcastModalOpen(false)}
+        prefilledEmployee={broadcastPrefilledEmp}
       />
 
       {/* Geofence & Office Location Modal */}

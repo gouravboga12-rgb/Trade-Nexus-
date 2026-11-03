@@ -67,6 +67,15 @@ export const MobileHeader: React.FC = () => {
 
         {/* Small Exit Account / Logout Button beside Profile Badge */}
         <button
+          onClick={() => refreshAllData()}
+          disabled={isRefreshing}
+          title="Refresh All Data"
+          className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-[#00A88B] flex items-center justify-center shadow-2xs active:scale-95 transition-all flex-shrink-0 cursor-pointer"
+        >
+          <RotateCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+        </button>
+
+        <button
           onClick={logout}
           title="Exit Panel / Logout"
           className="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200/80 text-rose-600 flex items-center justify-center shadow-2xs active:scale-95 transition-all flex-shrink-0 cursor-pointer"

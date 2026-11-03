@@ -42,3 +42,5 @@ server/db/data/*.sqlite*
 templates errors/
 scratch/
 
+
+server/firebase-service-account.json
