@@ -47,6 +47,7 @@ import { AllModulesMenuView } from './views/AllModulesMenuView';
 import { TeamLeaderDashboardView } from './views/TeamLeaderDashboardView';
 import { HrDashboardView } from './views/HrDashboardView';
 import { AdminDashboardView } from './views/AdminDashboardView';
+import { LegalTermsAndPrivacyView } from './views/LegalTermsAndPrivacyView';
 
 import { 
   Home, 
@@ -115,13 +116,25 @@ export const App: React.FC = () => {
     invalidateAll,
     triggerToast,
     isRefreshing,
-    refreshAllData
+    refreshAllData,
+    legalViewTab,
+    closeLegalView
   } = useApp();
 
   // Reset scroll to top on tab/role switch
   useEffect(() => {
     scrollToTop();
-  }, [activeTab, currentRole]);
+  }, [activeTab, currentRole, legalViewTab]);
+
+  // If viewing Legal Terms & Conditions or Privacy Policy, display the dedicated charter view
+  if (legalViewTab) {
+    return (
+      <LegalTermsAndPrivacyView 
+        initialTab={legalViewTab} 
+        onBack={closeLegalView} 
+      />
+    );
+  }
 
   const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
 

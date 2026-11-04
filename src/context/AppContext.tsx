@@ -330,6 +330,12 @@ interface AppContextType {
 
   updateEmployeeAvatar: (empId: string, photoDataUrl: string) => void;
 
+  // Legal Policies
+  legalViewTab: 'privacy' | 'terms' | null;
+  setLegalViewTab: (tab: 'privacy' | 'terms' | null) => void;
+  openLegalView: (tab: 'privacy' | 'terms') => void;
+  closeLegalView: () => void;
+
   // Top Performers Showcase State & Actions
   topPerformers: TopPerformer[];
   isTopPerformersModalOpen: boolean;
@@ -812,6 +818,56 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Modals & UI State
+  const getInitialLegalTab = (): 'privacy' | 'terms' | null => {
+    if (typeof window === 'undefined') return null;
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    if (path === '/privacy' || path.startsWith('/privacy') || hash === '#/privacy' || hash === '#privacy') {
+      return 'privacy';
+    }
+    if (path === '/terms' || path.startsWith('/terms') || hash === '#/terms' || hash === '#terms') {
+      return 'terms';
+    }
+    return null;
+  };
+
+  const [legalViewTab, setLegalViewTab] = useState<'privacy' | 'terms' | null>(getInitialLegalTab);
+
+  useEffect(() => {
+    const handleUrlChange = () => {
+      const detected = getInitialLegalTab();
+      setLegalViewTab(detected);
+    };
+
+    window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('hashchange', handleUrlChange);
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('hashchange', handleUrlChange);
+    };
+  }, []);
+
+  const openLegalView = useCallback((tab: 'privacy' | 'terms') => {
+    setLegalViewTab(tab);
+    if (typeof window !== 'undefined') {
+      window.location.hash = `#/${tab}`;
+    }
+  }, []);
+
+  const closeLegalView = useCallback(() => {
+    setLegalViewTab(null);
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.toLowerCase();
+      if (hash === '#/terms' || hash === '#terms' || hash === '#/privacy' || hash === '#privacy') {
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          window.location.hash = '';
+        }
+      }
+    }
+  }, []);
+
   const [isFaceIdModalOpen, setIsFaceIdModalOpen] = useState(false);
   const [faceIdModalMode, setFaceIdModalMode] = useState<'CHECK_IN' | 'CHECK_OUT'>('CHECK_IN');
 
@@ -4576,6 +4632,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         clearAllNotifications,
         deleteNotification,
         addAppNotification,
+        legalViewTab,
+        setLegalViewTab,
+        openLegalView,
+        closeLegalView,
       }}
     >
       {children}

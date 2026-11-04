@@ -11,12 +11,13 @@ import {
   FileSpreadsheet, 
   Settings, 
   ChevronRight, 
-  Shield 
+  Shield,
+  ShieldCheck 
 } from 'lucide-react';
 import { NavTab } from '../types';
 
 export const AllModulesMenuView: React.FC = () => {
-  const { profile, setActiveTab, triggerToast } = useApp();
+  const { profile, setActiveTab, triggerToast, openLegalView } = useApp();
 
   useScreenData('modulesMenu');
 
@@ -28,6 +29,7 @@ export const AllModulesMenuView: React.FC = () => {
     { title: 'Performance & Targets (TGT)', subtitle: 'Sales quota achievement & conversion rate', icon: Target, tab: 'home' as NavTab },
     { title: 'Payslip & ID Cards', subtitle: 'Download salary slips & official identity card', icon: CreditCard, tab: 'profile' as NavTab },
     { title: 'Reports & Analytics', subtitle: 'Weekly & monthly production statements', icon: FileSpreadsheet, action: () => triggerToast('📊 Reports center available in Admin console') },
+    { title: 'Privacy Policy & Terms', subtitle: 'Play Store legal charter, permissions & data rights', icon: ShieldCheck, action: () => openLegalView('privacy') },
     { title: 'Profile Settings', subtitle: 'Security, password & personal contact info', icon: Settings, tab: 'profile' as NavTab },
   ];
 

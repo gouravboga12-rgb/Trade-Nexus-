@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 export const AdminLoginView: React.FC = () => {
-  const { setAuthStep, triggerToast, setCurrentUser, invalidateAll, currentRole, setCurrentRole } = useApp();
+  const { setAuthStep, triggerToast, setCurrentUser, invalidateAll, currentRole, setCurrentRole, openLegalView } = useApp();
   
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -191,7 +191,22 @@ export const AdminLoginView: React.FC = () => {
           </form>
 
           <p className="text-[10px] text-slate-400 text-center leading-relaxed pt-1">
-            Authorized administrator access only. All sessions are cryptographically logged.
+            By logging in, you agree to our{' '}
+            <a 
+              href="#/terms" 
+              onClick={(e) => { e.preventDefault(); openLegalView('terms'); }} 
+              className="underline text-slate-600 hover:text-[#00C9A7] font-semibold transition-colors"
+            >
+              Terms &amp; Conditions
+            </a>{' '}
+            and{' '}
+            <a 
+              href="#/privacy" 
+              onClick={(e) => { e.preventDefault(); openLegalView('privacy'); }} 
+              className="underline text-slate-600 hover:text-[#00C9A7] font-semibold transition-colors"
+            >
+              Privacy Policy
+            </a>.
           </p>
         </div>
       </div>

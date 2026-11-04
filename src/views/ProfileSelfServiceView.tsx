@@ -20,7 +20,8 @@ import {
   Briefcase,
   CreditCard,
   Video,
-  Eye
+  Eye,
+  ShieldCheck
 } from 'lucide-react';
 import { OfferLetterData, ExperienceCertData, RelievingLetterData } from '../types';
 
@@ -52,7 +53,8 @@ export const ProfileSelfServiceView: React.FC<ProfileSelfServiceViewProps> = ({ 
     setIsNotificationDrawerOpen,
     unreadNotificationCount,
     logout, 
-    triggerToast 
+    triggerToast,
+    openLegalView 
   } = useApp();
 
   const myOfferLetter = offerLetters.find(o => 
@@ -663,6 +665,38 @@ export const ProfileSelfServiceView: React.FC<ProfileSelfServiceViewProps> = ({ 
             ))}
           </div>
         )}
+      </div>
+
+      {/* 6.5. Legal, Privacy & Compliance Charter */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-[#00C9A7]" />
+            <h4 className="text-xs font-black text-[#0A2540] uppercase tracking-wider">Legal &amp; Compliance</h4>
+          </div>
+          <span className="text-[10px] font-bold text-slate-400">Play Store Verified</span>
+        </div>
+        <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+          Review Trade Nexus official employment terms, biometric data handling policy, and Play Store permission disclosures.
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => openLegalView('terms')}
+            className="py-2.5 px-3 rounded-xl border border-slate-200 hover:border-[#00C9A7] bg-slate-50 hover:bg-white text-xs font-bold text-[#0A2540] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+          >
+            <FileText className="w-3.5 h-3.5 text-slate-500" />
+            <span>Terms of Service</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => openLegalView('privacy')}
+            className="py-2.5 px-3 rounded-xl border border-slate-200 hover:border-[#00C9A7] bg-slate-50 hover:bg-white text-xs font-bold text-[#0A2540] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-[#00C9A7]" />
+            <span>Privacy Policy</span>
+          </button>
+        </div>
       </div>
 
       {/* 7. Sign Out / Logout Button */}
