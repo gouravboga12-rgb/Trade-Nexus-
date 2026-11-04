@@ -280,17 +280,17 @@ export const ProfileSelfServiceView: React.FC<ProfileSelfServiceViewProps> = ({ 
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-[#D4F6ED] flex items-center justify-center text-[#0A2540] font-display font-black text-lg flex-shrink-0 shadow-2xs">
-              {profile.name ? profile.name.trim().split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() : 'EM'}
+              {(profile.name || currentUser?.name || 'TN').trim().split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase()}
             </div>
             <div>
               <h2 className="font-display font-black text-base text-[#0A2540] tracking-tight">
-                {profile.name || 'Employee Profile'}
+                {profile.name || currentUser?.name || 'Staff Member'}
               </h2>
               <p className="text-xs font-bold text-[#00A88B]">
                 {profile.roleTitle ? profile.roleTitle.replace(/telecaller/gi, currentRole === 'team_leader' ? 'Team Leader' : 'Sales Executive') : (currentRole === 'team_leader' ? 'Team Leader' : 'Sales Executive')}
               </p>
               <p className="text-[10px] text-slate-400 font-medium">
-                {profile.department || (currentRole === 'team_leader' ? 'Leadership & Sales' : 'Sales')}
+                {profile.department || (currentRole === 'team_leader' ? 'Leadership & Sales' : 'Operations')}
               </p>
             </div>
           </div>

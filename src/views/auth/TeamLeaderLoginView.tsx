@@ -196,16 +196,18 @@ export const TeamLeaderLoginView: React.FC = () => {
           <p className="text-[10px] text-slate-400 text-center leading-relaxed pt-1">
             By logging in, you agree to our{' '}
             <a 
-              href="#/terms" 
-              onClick={(e) => { e.preventDefault(); openLegalView('terms'); }} 
+              href="/terms" 
+              target="_blank" 
+              rel="noopener noreferrer"
               className="underline text-slate-600 hover:text-[#00C9A7] font-semibold transition-colors"
             >
               Terms &amp; Conditions
             </a>{' '}
             and{' '}
             <a 
-              href="#/privacy" 
-              onClick={(e) => { e.preventDefault(); openLegalView('privacy'); }} 
+              href="/privacy" 
+              target="_blank" 
+              rel="noopener noreferrer"
               className="underline text-slate-600 hover:text-[#00C9A7] font-semibold transition-colors"
             >
               Privacy Policy

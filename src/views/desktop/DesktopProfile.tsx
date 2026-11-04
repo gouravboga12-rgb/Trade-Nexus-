@@ -38,6 +38,7 @@ export const DesktopProfile: React.FC = () => {
     offerLetters,
     experienceCerts,
     relievingLetters,
+    currentUser,
     triggerToast
   } = useApp();
 
@@ -190,7 +191,7 @@ export const DesktopProfile: React.FC = () => {
                 <div className="w-full h-full rounded-[14px] bg-[#0A2540] flex items-center justify-center font-display font-black text-2xl text-[#00C9A7]">{(profile.name || 'Employee').trim().split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase()}</div>
               </div>
               <div>
-                <h3 className="font-display font-black text-xl text-white">{profile.name || 'Employee Profile'}</h3>
+                <h3 className="font-display font-black text-xl text-white">{profile.name || currentUser?.name || 'Staff Member'}</h3>
                 <span className="text-xs font-bold text-[#38E1B7] block mt-0.5">{profile.roleTitle || 'Sales Executive'}</span>
                 <span className="text-[11px] font-mono text-slate-300 font-semibold">{profile.empCode || '—'}</span>
               </div>

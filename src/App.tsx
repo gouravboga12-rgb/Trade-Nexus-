@@ -126,12 +126,21 @@ export const App: React.FC = () => {
     scrollToTop();
   }, [activeTab, currentRole, legalViewTab]);
 
-  // If viewing Legal Terms & Conditions or Privacy Policy, display the dedicated charter view
-  if (legalViewTab) {
+  // Check for direct clean URLs /privacy and /terms (clean URLs without #, completely public, no login required)
+  const pathname = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
+  if (pathname === '/privacy' || pathname.startsWith('/privacy') || legalViewTab === 'privacy') {
     return (
       <LegalTermsAndPrivacyView 
-        initialTab={legalViewTab} 
-        onBack={closeLegalView} 
+        initialTab="privacy" 
+        onBack={() => { window.location.href = '/'; }} 
+      />
+    );
+  }
+  if (pathname === '/terms' || pathname.startsWith('/terms') || legalViewTab === 'terms') {
+    return (
+      <LegalTermsAndPrivacyView 
+        initialTab="terms" 
+        onBack={() => { window.location.href = '/'; }} 
       />
     );
   }

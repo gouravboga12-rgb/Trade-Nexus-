@@ -439,16 +439,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return 'TO_CALL';
     }
   });
+  const [currentUser, setCurrentUserState] = useState<AuthUser | null>(() => {
+    return getStoredAuthUser();
+  });
+
   const [authStep, setAuthStep] = useState<AuthStep>(() => {
     try {
-      return (localStorage.getItem('tnx_authStep') as AuthStep) || 'LOGIN';
+      const storedStep = (localStorage.getItem('tnx_authStep') as AuthStep) || 'LOGIN';
+      const storedUser = getStoredAuthUser();
+      const storedToken = getAuthToken();
+      if (!storedUser || !storedToken) {
+        return 'LOGIN';
+      }
+      return storedStep;
     } catch {
       return 'LOGIN';
     }
-  });
-
-  const [currentUser, setCurrentUserState] = useState<AuthUser | null>(() => {
-    return getStoredAuthUser();
   });
 
   const setCurrentUser = useCallback((user: AuthUser | null) => {
@@ -848,21 +854,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const openLegalView = useCallback((tab: 'privacy' | 'terms') => {
-    setLegalViewTab(tab);
     if (typeof window !== 'undefined') {
-      window.location.hash = `#/${tab}`;
+      window.open(`/${tab}`, '_blank');
     }
   }, []);
 
   const closeLegalView = useCallback(() => {
     setLegalViewTab(null);
     if (typeof window !== 'undefined') {
-      const hash = window.location.hash.toLowerCase();
-      if (hash === '#/terms' || hash === '#terms' || hash === '#/privacy' || hash === '#privacy') {
-        if (window.history.length > 1) {
-          window.history.back();
-        } else {
-          window.location.hash = '';
+      if (window.location.pathname.toLowerCase().includes('privacy') || window.location.pathname.toLowerCase().includes('terms')) {
+        window.location.href = '/';
+      } else {
+        const hash = window.location.hash.toLowerCase();
+        if (hash.includes('terms') || hash.includes('privacy')) {
+          if (window.history.length > 1) {
+            window.history.back();
+          } else {
+            window.location.hash = '';
+          }
         }
       }
     }
