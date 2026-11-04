@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { api, setAuthToken } from '../../services/api';
 import { ForgotPasswordModal } from '../../components/modals/ForgotPasswordModal';
+import { DownloadAppCard } from '../../components/common/DownloadAppCard';
 import { 
   Mail, 
   Smartphone, 
@@ -212,6 +213,9 @@ export const HrLoginView: React.FC = () => {
               Privacy Policy
             </a>.
           </p>
+
+          {/* Download App Option (PWA / Android / iOS) */}
+          <DownloadAppCard />
         </div>
       </div>
 
