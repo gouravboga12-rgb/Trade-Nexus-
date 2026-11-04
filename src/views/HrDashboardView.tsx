@@ -2,7 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useListDefault } from '../hooks/useListDefault';
 import { useScreenData } from '../hooks/useScreenData';
-import { getTodayDateIST } from '../utils/dateUtils';
+import { getTodayDateIST, normalizeDateToYMD } from '../utils/dateUtils';
+import { evaluateMemberAttendanceForDate } from '../utils/attendanceUtils';
 import { 
   Menu,
   Bell,
@@ -139,6 +140,9 @@ export const HrDashboardView: React.FC = () => {
     setIsNotificationDrawerOpen,
     unreadNotificationCount,
     sendPayslipEmailToEmployee,
+    calendarSettings,
+    weeklyOffDays,
+    companyHolidays,
   } = useApp();
 
   const [emailingPayslipId, setEmailingPayslipId] = useState<string | null>(null);
@@ -199,6 +203,7 @@ export const HrDashboardView: React.FC = () => {
   // Search & Filter for Team Roster
   const [searchQuery, setSearchQuery] = useState('');
   const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'ON_LEAVE'>('ALL');
+  const [selectedAttendanceDate, setSelectedAttendanceDate] = useState<string>(() => getTodayDateIST());
 
   // Dedicated More Tab: Assets, Credentials & History Registry
   const [moreSubTab, setMoreSubTab] = useState<'id_cards' | 'payslips' | 'meetings' | 'offers' | 'hr_account' | 'onboard' | 'credentials' | 'interviews' | 'invoices'>('payslips');
@@ -256,15 +261,34 @@ export const HrDashboardView: React.FC = () => {
   // Filtered members for Team Roster
   const filteredMembers = useMemo(() => {
     return teamMembers.filter((m) => {
+      const ev = evaluateMemberAttendanceForDate(
+        m,
+        selectedAttendanceDate,
+        attendanceLogs,
+        leaveRequests,
+        calendarSettings,
+        weeklyOffDays,
+        companyHolidays
+      );
       const matchSearch =
         m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         m.empCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (m.group && m.group.toLowerCase().includes(searchQuery.toLowerCase()));
+        (m.group && m.group.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (ev.leave?.leaveType && ev.leave.leaveType.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (ev.leave?.reason && ev.leave.reason.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchFilter =
-        attendanceFilter === 'ALL' || m.attendanceStatus === attendanceFilter;
+        attendanceFilter === 'ALL'
+          ? true
+          : attendanceFilter === 'PRESENT'
+          ? (ev.status === 'PRESENT' || ev.status === 'LATE')
+          : attendanceFilter === 'LATE'
+          ? ev.status === 'LATE'
+          : attendanceFilter === 'ON_LEAVE'
+          ? ev.status === 'ON_LEAVE'
+          : ev.status === attendanceFilter;
       return matchSearch && matchFilter;
     });
-  }, [teamMembers, searchQuery, attendanceFilter]);
+  }, [teamMembers, searchQuery, attendanceFilter, selectedAttendanceDate, attendanceLogs, leaveRequests, calendarSettings, weeklyOffDays, companyHolidays]);
 
   // Set of active employee names (lower-cased) for filtering docs belonging to deleted accounts
   const activeEmpNames = useMemo(() => new Set(teamMembers.map(m => m.name.toLowerCase())), [teamMembers]);
@@ -281,17 +305,48 @@ export const HrDashboardView: React.FC = () => {
     });
   }, [payslips, activeEmpNames, activeEmpCodes]);
 
-  // Org stats derived from live backend data
+  // Org stats derived from evaluated attendance on selected date
   const totalTeams = teamGroups.length;
   const totalEmployees = teamMembers.length;
-  const onLeaveCount = teamMembers.filter((m) => m.attendanceStatus === 'ON_LEAVE').length;
-  const presentCount = teamMembers.filter((m) => m.attendanceStatus === 'PRESENT').length;
-  const lateCount = teamMembers.filter((m) => m.attendanceStatus === 'LATE').length;
-  const absentCount = teamMembers.filter((m) => m.attendanceStatus === 'ABSENT').length;
+
+  const { onLeaveCount, presentCount, lateCount, absentCount } = useMemo(() => {
+    let onLeave = 0;
+    let present = 0;
+    let late = 0;
+    let absent = 0;
+    teamMembers.forEach((m) => {
+      const ev = evaluateMemberAttendanceForDate(
+        m,
+        selectedAttendanceDate,
+        attendanceLogs,
+        leaveRequests,
+        calendarSettings,
+        weeklyOffDays,
+        companyHolidays
+      );
+      if (ev.status === 'ON_LEAVE') onLeave++;
+      else if (ev.status === 'LATE') late++;
+      else if (ev.status === 'PRESENT') present++;
+      else absent++;
+    });
+    return { onLeaveCount: onLeave, presentCount: present, lateCount: late, absentCount: absent };
+  }, [teamMembers, selectedAttendanceDate, attendanceLogs, leaveRequests, calendarSettings, weeklyOffDays, companyHolidays]);
+
   const attendancePercent = Math.round((presentCount / Math.max(1, totalEmployees)) * 100);
 
-  const lateEmployees = useMemo(() => teamMembers.filter((m) => m.attendanceStatus === 'LATE'), [teamMembers]);
-  const onLeaveEmployees = useMemo(() => teamMembers.filter((m) => m.attendanceStatus === 'ON_LEAVE'), [teamMembers]);
+  const lateEmployees = useMemo(() => {
+    return teamMembers.filter((m) => {
+      const ev = evaluateMemberAttendanceForDate(m, selectedAttendanceDate, attendanceLogs, leaveRequests, calendarSettings, weeklyOffDays, companyHolidays);
+      return ev.status === 'LATE';
+    });
+  }, [teamMembers, selectedAttendanceDate, attendanceLogs, leaveRequests, calendarSettings, weeklyOffDays, companyHolidays]);
+
+  const onLeaveEmployees = useMemo(() => {
+    return teamMembers.filter((m) => {
+      const ev = evaluateMemberAttendanceForDate(m, selectedAttendanceDate, attendanceLogs, leaveRequests, calendarSettings, weeklyOffDays, companyHolidays);
+      return ev.status === 'ON_LEAVE';
+    });
+  }, [teamMembers, selectedAttendanceDate, attendanceLogs, leaveRequests, calendarSettings, weeklyOffDays, companyHolidays]);
 
   const totalActivities = teamMembers.reduce((sum, m) => sum + (m.dialsToday || 0), 0);
   const totalGoalCalls = teamMembers.reduce((sum, m) => sum + (m.goalCalls || 0), 0);
@@ -1203,6 +1258,30 @@ export const HrDashboardView: React.FC = () => {
               </button>
             </div>
 
+            {/* Date-Wise Selector for HR Attendance */}
+            <div className="flex items-center justify-between gap-2.5 bg-slate-50/80 p-2.5 rounded-2xl border border-slate-200/80">
+              <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
+                <Calendar className="w-4 h-4 text-[#00C9A7]" />
+                <span className="text-xs font-bold text-slate-500">Date:</span>
+                <input
+                  type="date"
+                  value={selectedAttendanceDate}
+                  max={todayYMD}
+                  onChange={(e) => setSelectedAttendanceDate(e.target.value)}
+                  className="text-xs font-bold text-[#0A2540] bg-transparent focus:outline-none cursor-pointer"
+                />
+              </div>
+              {selectedAttendanceDate !== todayYMD && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedAttendanceDate(todayYMD)}
+                  className="text-xs font-bold px-3 py-1.5 rounded-xl bg-[#00C9A7]/20 text-[#00897B] hover:bg-[#00C9A7]/30 transition-all cursor-pointer shadow-2xs"
+                >
+                  Back to Today
+                </button>
+              )}
+            </div>
+
             {/* Compact 2x2 Attendance Action Filter Buttons (Just Name & Numbers, No Icons) */}
             <div className="grid grid-cols-2 gap-2">
               {/* Tile 1: Present */}
@@ -1294,19 +1373,29 @@ export const HrDashboardView: React.FC = () => {
             {/* Attendance Register Roster (Image 1 Squircle Container & Full Content) */}
             <div className="space-y-3">
               {filteredMembers.map((member) => {
-                const isPresent = member.attendanceStatus === 'PRESENT';
-                const isLate = member.attendanceStatus === 'LATE';
-                const isLeave = member.attendanceStatus === 'ON_LEAVE';
+                const ev = evaluateMemberAttendanceForDate(
+                  member,
+                  selectedAttendanceDate,
+                  attendanceLogs,
+                  leaveRequests,
+                  calendarSettings,
+                  weeklyOffDays,
+                  companyHolidays
+                );
+                const isPresent = ev.status === 'PRESENT';
+                const isLate = ev.status === 'LATE';
+                const isLeave = ev.status === 'ON_LEAVE';
 
                 // Image 1 Squircle Container Style Matching
                 const squircleContainerStyle = isPresent
                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80'
                   : isLate
                   ? 'bg-amber-50 text-amber-700 border border-amber-200/80'
-                  : 'bg-purple-50 text-purple-700 border border-purple-200/80';
+                  : isLeave
+                  ? 'bg-purple-50 text-purple-700 border border-purple-200/80'
+                  : 'bg-rose-50 text-rose-700 border border-rose-200/80';
 
-                const todayIso = getTodayDateIST();
-                const rec = attendanceLogs.find((a) => (a.employeeId === member.id || a.employeeId === member.empCode) && a.date === todayIso);
+                const rec = ev.record || attendanceLogs.find((a) => (a.employeeId === member.id || a.employeeId === member.empCode) && normalizeDateToYMD(a.date) === selectedAttendanceDate);
 
                 return (
                   <div
@@ -1325,7 +1414,7 @@ export const HrDashboardView: React.FC = () => {
                           {/* Corner micro-indicator */}
                           <span
                             className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
-                              isPresent ? 'bg-emerald-500' : isLate ? 'bg-amber-500' : 'bg-purple-500'
+                              isPresent ? 'bg-emerald-500' : isLate ? 'bg-amber-500' : isLeave ? 'bg-purple-500' : 'bg-rose-500'
                             }`}
                           />
                         </div>
@@ -1353,13 +1442,15 @@ export const HrDashboardView: React.FC = () => {
                             ? 'bg-[#E6FAF6] text-[#00A88B] border border-[#00C9A7]/40'
                             : isLate
                             ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                            : 'bg-purple-50 text-purple-800 border border-purple-200'
+                            : isLeave
+                            ? 'bg-purple-50 text-purple-800 border border-purple-200'
+                            : 'bg-rose-50 text-rose-700 border border-rose-200'
                         }`}
                       >
                         {isPresent && <span className="w-1.5 h-1.5 rounded-full bg-[#00C9A7] animate-pulse" />}
                         {isLate && <Clock className="w-3 h-3 text-amber-600" />}
                         {isLeave && <Calendar className="w-3 h-3 text-purple-600" />}
-                        <span>{member.attendanceStatus.replace('_', ' ')}</span>
+                        <span>{ev.badgeLabel}</span>
                       </span>
                     </div>
 
@@ -1369,9 +1460,9 @@ export const HrDashboardView: React.FC = () => {
                         <Clock className={`w-3.5 h-3.5 flex-shrink-0 ${isLate ? 'text-amber-500' : isPresent ? 'text-[#00A88B]' : 'text-purple-500'}`} />
                         <span className="font-semibold text-slate-700 font-mono text-[11px] truncate">
                           {isLeave
-                            ? 'Approved Leave for Today'
-                            : (rec?.checkIn || member.checkInTime)
-                            ? `Punch In: ${rec?.checkIn || member.checkInTime} ${isLate ? '(Late Flag • After 09:30)' : '(On Time)'}`
+                            ? `Approved Leave: ${ev.leave?.leaveType || 'Leave'} (${ev.leave?.fromDate || ''} - ${ev.leave?.toDate || ''})`
+                            : (rec?.checkIn || ev.checkIn || (selectedAttendanceDate === todayYMD ? member.checkInTime : undefined))
+                            ? `Punch In: ${rec?.checkIn || ev.checkIn || member.checkInTime} ${isLate ? `(Late Flag • ${ev.lateMinutes || 0}m Late)` : '(On Time)'}`
                             : 'Punch In: Not Logged'}
                         </span>
                       </div>

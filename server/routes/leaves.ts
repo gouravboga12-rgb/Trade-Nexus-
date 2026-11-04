@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
 import { emitSocketEvent } from '../services/socketService.js';
 import { sendPushNotification } from '../services/notificationService.js';
+import { syncDailyRosterStatus } from '../services/attendanceLifecycle.js';
 
 const router = Router();
 
@@ -175,6 +176,7 @@ router.post('/', (req: Request, res: Response) => {
 
     const created = db.prepare('SELECT * FROM leave_requests WHERE id = ?').get(leaveId);
     emitSocketEvent('leave:created', created);
+    syncDailyRosterStatus(true);
 
     // Send external push notification to Admin & HR
     sendPushNotification({
@@ -280,6 +282,7 @@ router.put('/:id', (req: Request, res: Response) => {
 
     const updated = db.prepare('SELECT * FROM leave_requests WHERE id = ?').get(id) as any;
     emitSocketEvent('leave:updated', updated);
+    syncDailyRosterStatus(true);
 
     // Send external push notification directly to the applicant
     if (updated) {

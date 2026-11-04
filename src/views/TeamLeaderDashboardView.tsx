@@ -2,7 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useScreenData } from '../hooks/useScreenData';
 import { api } from '../services/api';
-import { getTodayDateIST, getLeadDate, isDateInPeriodIST, getDateRangeIST } from '../utils/dateUtils';
+import { getTodayDateIST, getLeadDate, isDateInPeriodIST, getDateRangeIST, normalizeDateToYMD } from '../utils/dateUtils';
+import { evaluateMemberAttendanceForDate } from '../utils/attendanceUtils';
 import { getPaymentDateIST, isPaymentInPeriod, paymentBelongsTo } from '../utils/revenueUtils';
 import { dialPhoneNumber } from '../utils/phoneCaller';
 import { 
@@ -73,6 +74,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
     unreadNotificationCount,
     companyHolidays,
     weeklyOffDays,
+    calendarSettings,
     callLogs,
     paymentVerifications,
     openCallModalForLead,
@@ -219,6 +221,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
   const [calendarMonthOffset, setCalendarMonthOffset] = useState(0);
   const [approvalsFilter, setApprovalsFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'ON_LEAVE'>('ALL');
+  const [selectedRosterDate, setSelectedRosterDate] = useState<string>(() => getTodayDateIST());
   const [reportsTimeframe, setReportsTimeframe] = useState<'today' | 'week' | 'month' | 'custom'>('today');
   const [reportsFrom, setReportsFrom] = useState<string>(() => getTodayDateIST());
   const [reportsTo, setReportsTo] = useState<string>(() => getTodayDateIST());
@@ -282,9 +285,31 @@ export const TeamLeaderDashboardView: React.FC = () => {
 
   // Dynamic Live Computations from Active Squad State
   const totalTeamStrength = mySquadMembers.length;
-  const presentCount = mySquadMembers.filter(m => m.attendanceStatus === 'PRESENT').length;
-  const lateCount = mySquadMembers.filter(m => m.attendanceStatus === 'LATE').length;
-  const onLeaveCount = mySquadMembers.filter(m => m.attendanceStatus === 'ON_LEAVE').length;
+
+  const squadAttendanceCounts = useMemo(() => {
+    let present = 0;
+    let late = 0;
+    let onLeave = 0;
+    mySquadMembers.forEach(m => {
+      const ev = evaluateMemberAttendanceForDate(
+        m,
+        selectedRosterDate,
+        attendanceLogs,
+        leaveRequests,
+        calendarSettings,
+        weeklyOffDays,
+        companyHolidays
+      );
+      if (ev.status === 'PRESENT') present++;
+      if (ev.status === 'LATE') late++;
+      if (ev.status === 'ON_LEAVE') onLeave++;
+    });
+    return { present, late, onLeave, total: mySquadMembers.length };
+  }, [mySquadMembers, selectedRosterDate, attendanceLogs, leaveRequests, calendarSettings, weeklyOffDays, companyHolidays]);
+
+  const presentCount = squadAttendanceCounts.present + squadAttendanceCounts.late;
+  const lateCount = squadAttendanceCounts.late;
+  const onLeaveCount = squadAttendanceCounts.onLeave;
   const totalActivities = mySquadMembers.reduce((sum, m) => sum + (m.dialsToday || 0), 0);
   const totalGoalCalls = mySquadMembers.reduce((sum, m) => sum + (m.goalCalls || 0), 0);
   const totalConnectedCalls = mySquadMembers.reduce((sum, m) => sum + (m.connected || 0), 0);
@@ -694,10 +719,31 @@ export const TeamLeaderDashboardView: React.FC = () => {
   };
 
   const filteredMembers = mySquadMembers.filter(m => {
-    const matchesAttendance = attendanceFilter === 'ALL' || m.attendanceStatus === attendanceFilter;
+    const ev = evaluateMemberAttendanceForDate(
+      m,
+      selectedRosterDate,
+      attendanceLogs,
+      leaveRequests,
+      calendarSettings,
+      weeklyOffDays,
+      companyHolidays
+    );
+    const matchesAttendance =
+      attendanceFilter === 'ALL'
+        ? true
+        : attendanceFilter === 'PRESENT'
+        ? (ev.status === 'PRESENT' || ev.status === 'LATE')
+        : attendanceFilter === 'LATE'
+        ? ev.status === 'LATE'
+        : attendanceFilter === 'ON_LEAVE'
+        ? ev.status === 'ON_LEAVE'
+        : ev.status === attendanceFilter;
+
     const matchesSearch = !searchQuery.trim() || 
       m.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      m.empCode.toLowerCase().includes(searchQuery.toLowerCase());
+      m.empCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (ev.leave?.leaveType && ev.leave.leaveType.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (ev.leave?.reason && ev.leave.reason.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesAttendance && matchesSearch;
   });
 
@@ -1603,6 +1649,30 @@ export const TeamLeaderDashboardView: React.FC = () => {
               />
             </div>
 
+            {/* Date-Wise Selector for Squad */}
+            <div className="flex items-center justify-between gap-2.5 bg-slate-50/80 p-2.5 rounded-2xl border border-slate-200/80">
+              <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
+                <Calendar className="w-4 h-4 text-[#00C9A7]" />
+                <span className="text-xs font-bold text-slate-500">Date:</span>
+                <input
+                  type="date"
+                  value={selectedRosterDate}
+                  max={todayStr}
+                  onChange={(e) => setSelectedRosterDate(e.target.value)}
+                  className="text-xs font-bold text-[#0A2540] bg-transparent focus:outline-none cursor-pointer"
+                />
+              </div>
+              {selectedRosterDate !== todayStr && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedRosterDate(todayStr)}
+                  className="text-xs font-bold px-3 py-1.5 rounded-xl bg-[#00C9A7]/20 text-[#00897B] hover:bg-[#00C9A7]/30 transition-all cursor-pointer shadow-2xs"
+                >
+                  Back to Today
+                </button>
+              )}
+            </div>
+
             {/* Filter Pills with real numbers (Placed below search bar as requested) */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
               <button
@@ -1614,7 +1684,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
                     : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                All ({teamMembers.length})
+                All ({mySquadMembers.length})
               </button>
 
               <button
@@ -1657,8 +1727,18 @@ export const TeamLeaderDashboardView: React.FC = () => {
             {/* List of Telecallers - Native Touch Cards with Clear UI Highlights */}
             <div className="space-y-3">
               {filteredMembers.map((member) => {
-                const isPresent = member.attendanceStatus === 'PRESENT';
-                const isLate = member.attendanceStatus === 'LATE';
+                const ev = evaluateMemberAttendanceForDate(
+                  member,
+                  selectedRosterDate,
+                  attendanceLogs,
+                  leaveRequests,
+                  calendarSettings,
+                  weeklyOffDays,
+                  companyHolidays
+                );
+                const isPresent = ev.status === 'PRESENT';
+                const isLate = ev.status === 'LATE';
+                const isLeave = ev.status === 'ON_LEAVE';
 
                 return (
                   <div 
@@ -1675,12 +1755,14 @@ export const TeamLeaderDashboardView: React.FC = () => {
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80' 
                               : isLate 
                               ? 'bg-amber-50 text-amber-700 border border-amber-200/80' 
-                              : 'bg-purple-50 text-purple-700 border border-purple-200/80'
+                              : isLeave
+                              ? 'bg-purple-50 text-purple-700 border border-purple-200/80'
+                              : 'bg-rose-50 text-rose-700 border border-rose-200/80'
                           } flex items-center justify-center font-display font-black text-xs shadow-2xs group-hover:scale-105 transition-transform overflow-hidden`}>
                             <EmployeeAvatar avatar={member.avatar} name={member.name} className="w-full h-full" fallbackClassName="font-display font-black text-xs" />
                           </div>
                           <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
-                            isPresent ? 'bg-emerald-500' : isLate ? 'bg-amber-500' : 'bg-purple-500'
+                            isPresent ? 'bg-emerald-500' : isLate ? 'bg-amber-500' : isLeave ? 'bg-purple-500' : 'bg-rose-500'
                           }`} />
                         </div>
 
@@ -1693,21 +1775,33 @@ export const TeamLeaderDashboardView: React.FC = () => {
                               {member.group}
                             </span>
                           </div>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {member.empCode} • {member.role ? member.role.replace(/telecaller/gi, 'Sales Executive') : 'Sales Executive'}
-                          </span>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {member.empCode} • {member.role ? member.role.replace(/telecaller/gi, 'Sales Executive') : 'Sales Executive'}
+                            </span>
+                            {isLate && (
+                              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200/60">
+                                Late by {ev.lateMinutes || 0}m
+                              </span>
+                            )}
+                            {isLeave && (
+                              <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200/60">
+                                {ev.leave?.leaveType || 'Leave'}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
                       <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
                         isPresent ? 'bg-emerald-100/90 text-emerald-800 border border-emerald-200/80' :
                         isLate ? 'bg-amber-100/90 text-amber-800 border border-amber-200/80' :
-                        member.attendanceStatus === 'ON_LEAVE' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
-                        member.attendanceStatus === 'WEEKLY_OFF' ? 'bg-slate-100 text-slate-700 border border-slate-200' :
-                        member.attendanceStatus === 'HOLIDAY' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' :
+                        isLeave ? 'bg-purple-100 text-purple-800 border border-purple-200' :
+                        ev.status === 'WEEKLY_OFF' ? 'bg-slate-100 text-slate-700 border border-slate-200' :
+                        ev.status === 'HOLIDAY' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' :
                         'bg-rose-100/90 text-rose-800 border border-rose-200/80'
                       }`}>
-                        {member.attendanceStatus.replace('_', ' ')}
+                        {ev.badgeLabel}
                       </span>
                     </div>
 
@@ -1731,7 +1825,7 @@ export const TeamLeaderDashboardView: React.FC = () => {
                     <div className="flex items-center justify-between text-[10px] pt-1.5 border-t border-slate-100">
                       <span className="text-slate-500 font-mono flex items-center gap-1">
                         <Clock className="w-3 h-3 text-slate-400" />
-                        In: {member.checkInTime || '—'}
+                        In: {ev.checkIn || (selectedRosterDate === todayStr ? member.checkInTime : undefined) || '—'}
                       </span>
                       <span className="px-2.5 py-1 rounded-xl bg-[#E6FAF6] text-[#00A88B] font-bold group-hover:bg-[#00C9A7] group-hover:text-[#0A2540] transition-colors flex items-center gap-1 shadow-2xs">
                         <span>View Profile</span>

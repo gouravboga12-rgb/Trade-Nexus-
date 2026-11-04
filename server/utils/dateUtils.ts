@@ -35,3 +35,25 @@ export function minutesOfDay(t?: string | null): number | null {
   }
   return hours * 60 + parseInt(m[2], 10);
 }
+
+// Safely normalizes any date representation (e.g. "04 Nov 2026", "2026-11-04", ISO timestamp, Date object) to YYYY-MM-DD in IST
+export function normalizeDateToYMD(raw?: string | Date | null): string {
+  if (!raw) return '';
+  if (raw instanceof Date) {
+    return getTodayDateIST(raw);
+  }
+  const trimmed = String(raw).trim();
+  if (!trimmed) return '';
+  if (trimmed.toLowerCase() === 'today') return getTodayDateIST();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+    return trimmed.slice(0, 10);
+  }
+  const parsed = new Date(trimmed);
+  if (!isNaN(parsed.getTime())) {
+    return getTodayDateIST(parsed);
+  }
+  return trimmed;
+}

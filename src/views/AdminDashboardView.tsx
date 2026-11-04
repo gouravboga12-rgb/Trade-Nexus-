@@ -83,7 +83,8 @@ import { ManageEmployeesTab } from './admin/ManageEmployeesTab';
 import { InvoicesLedger } from '../components/common/InvoicesLedger';
 import { scrollToTop } from '../utils/scrollUtils';
 import { RecentLeadUploadsLedger } from '../components/common/RecentLeadUploadsLedger';
-import { getTodayDateIST, getLeadDate, isDateInPeriodIST, formatLeadAssignmentDateTime, minutesOfDay, getISTHourMinute } from '../utils/dateUtils';
+import { getTodayDateIST, getLeadDate, isDateInPeriodIST, formatLeadAssignmentDateTime, minutesOfDay, getISTHourMinute, normalizeDateToYMD } from '../utils/dateUtils';
+import { evaluateMemberAttendanceForDate } from '../utils/attendanceUtils';
 import {
   downloadCsvBlob,
   exportEmployeesRosterCsv,
@@ -203,6 +204,8 @@ export const AdminDashboardView: React.FC = () => {
   const [adminPeopleMode, setAdminPeopleMode] = useState<'TEAMS' | 'ALL'>('TEAMS');
   const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'ON_LEAVE'>('ALL');
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'EMPLOYEE' | 'LEADER' | 'HR'>('ALL');
+  const [selectedRosterDate, setSelectedRosterDate] = useState<string>(() => getTodayDateIST());
+  const [selectedAttendanceDate, setSelectedAttendanceDate] = useState<string>(() => getTodayDateIST());
   const [leadsDateFilter, setLeadsDateFilter] = useState<'ALL' | 'TODAY' | 'YESTERDAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'CUSTOM'>('ALL');
   const [leadsCustomStart, setLeadsCustomStart] = useState<string>(getTodayDateIST());
   const [leadsCustomEnd, setLeadsCustomEnd] = useState<string>(getTodayDateIST());
@@ -440,15 +443,38 @@ export const AdminDashboardView: React.FC = () => {
   const approvedLeaveEmpIds = useMemo(() => {
     const ids = new Set<string>();
     leaveRequests.forEach((l) => {
-      const from = l.fromDate || (l as any).startDate;
-      const to = l.toDate || (l as any).endDate || from;
-      if (l.status === 'APPROVED' && (!from || from <= todayStr) && (!to || to >= todayStr)) {
-        if (l.employeeId) ids.add(l.employeeId);
-        if (l.employeeCode) ids.add(l.employeeCode);
+      const isApproved = l.status === 'APPROVED' || (l as any).approvalStage === 'APPROVED';
+      if (!isApproved) return;
+      const from = normalizeDateToYMD(l.fromDate || (l as any).startDate);
+      const to = normalizeDateToYMD(l.toDate || (l as any).endDate || from);
+      const start = from || to;
+      const end = to || from;
+      const [minD, maxD] = start <= end ? [start, end] : [end, start];
+      if ((!minD || minD <= todayStr) && (!maxD || maxD >= todayStr)) {
+        if (l.employeeId) ids.add(String(l.employeeId).trim().toLowerCase());
+        if (l.employeeCode) ids.add(String(l.employeeCode).trim().toLowerCase());
+        if (l.employeeName) ids.add(String(l.employeeName).trim().toLowerCase());
       }
     });
     return ids;
   }, [leaveRequests, todayStr]);
+
+  const membersOnApprovedLeaveToday = useMemo(() => {
+    return teamMembers
+      .map((member) => {
+        const ev = evaluateMemberAttendanceForDate(
+          member,
+          todayStr,
+          attendanceLogs,
+          leaveRequests,
+          calendarSettings,
+          weeklyOffDays,
+          companyHolidays
+        );
+        return ev.status === 'ON_LEAVE' ? { member, leave: ev.leave } : null;
+      })
+      .filter(Boolean) as { member: TeamMember; leave?: LeaveRequest }[];
+  }, [teamMembers, todayStr, attendanceLogs, leaveRequests, calendarSettings, weeklyOffDays, companyHolidays]);
 
   // Check if today is an official Weekly Off day or Holiday
   const todayDateObj = new Date();
@@ -475,11 +501,17 @@ export const AdminDashboardView: React.FC = () => {
   const unapprovedAbsents = useMemo(() => {
     // Suppress absence alerts if it's a non-working day OR if the shift has not started yet
     if (isNonWorkingDay || !isPastShiftStartTime) return [];
-    return teamMembers.filter((m) => 
-      m.attendanceStatus === 'ABSENT' && 
-      !approvedLeaveEmpIds.has(m.id) && 
-      !approvedLeaveEmpIds.has(m.empCode)
-    );
+    return teamMembers.filter((m) => {
+      const mId = m.id ? String(m.id).trim().toLowerCase() : '';
+      const mCode = m.empCode ? String(m.empCode).trim().toLowerCase() : '';
+      const mName = m.name ? String(m.name).trim().toLowerCase() : '';
+      const hasApprovedLeave =
+        approvedLeaveEmpIds.has(mId) ||
+        approvedLeaveEmpIds.has(mCode) ||
+        approvedLeaveEmpIds.has(mName) ||
+        m.attendanceStatus === 'ON_LEAVE';
+      return m.attendanceStatus === 'ABSENT' && !hasApprovedLeave;
+    });
   }, [teamMembers, approvedLeaveEmpIds, isNonWorkingDay, isPastShiftStartTime]);
   
   // Deduplicate won deal payment verifications to avoid double cards in Needs Your Attention & Ledger
@@ -660,7 +692,17 @@ export const AdminDashboardView: React.FC = () => {
   // On scheduled weekly offs, holidays, or before shift starts, unpunched staff are on rest — suppress absent & zero-dial floor alerts
   const awayWithoutLeave = (isNonWorkingDay || !isPastShiftStartTime) 
     ? [] 
-    : teamMembers.filter((m) => m.attendanceStatus === 'ABSENT' && !approvedLeaveEmpIds.has(m.id) && !approvedLeaveEmpIds.has(m.empCode));
+    : teamMembers.filter((m) => {
+        const mId = m.id ? String(m.id).trim().toLowerCase() : '';
+        const mCode = m.empCode ? String(m.empCode).trim().toLowerCase() : '';
+        const mName = m.name ? String(m.name).trim().toLowerCase() : '';
+        const hasApprovedLeave =
+          approvedLeaveEmpIds.has(mId) ||
+          approvedLeaveEmpIds.has(mCode) ||
+          approvedLeaveEmpIds.has(mName) ||
+          m.attendanceStatus === 'ON_LEAVE';
+        return m.attendanceStatus === 'ABSENT' && !hasApprovedLeave;
+      });
   const idleToday = (isNonWorkingDay || !isPastShiftStartTime) 
     ? [] 
     : teamMembers.filter((m) => m.attendanceStatus === 'PRESENT' && (m.dialsToday || 0) === 0);
@@ -689,9 +731,26 @@ export const AdminDashboardView: React.FC = () => {
   }).length;
 
   const filteredPeople = nonAdminMembers.filter((m) => {
+    const evalAtt = evaluateMemberAttendanceForDate(
+      m,
+      selectedRosterDate,
+      attendanceLogs,
+      leaveRequests,
+      calendarSettings,
+      weeklyOffDays,
+      companyHolidays
+    );
+
     const matchesAttendance =
-      attendanceFilter === 'ALL' ||
-      m.attendanceStatus === attendanceFilter;
+      attendanceFilter === 'ALL'
+        ? true
+        : attendanceFilter === 'PRESENT'
+        ? (evalAtt.status === 'PRESENT' || evalAtt.status === 'LATE')
+        : attendanceFilter === 'LATE'
+        ? evalAtt.status === 'LATE'
+        : attendanceFilter === 'ON_LEAVE'
+        ? evalAtt.status === 'ON_LEAVE'
+        : evalAtt.status === attendanceFilter;
 
     const portalStr = (m.portal || '').toLowerCase();
     const roleStr = (m.role || '').toLowerCase();
@@ -714,7 +773,9 @@ export const AdminDashboardView: React.FC = () => {
       m.empCode.toLowerCase().includes(q) ||
       roleStr.includes(q) ||
       (m.group ?? '').toLowerCase().includes(q) ||
-      portalStr.includes(q);
+      portalStr.includes(q) ||
+      (evalAtt.leave?.leaveType && evalAtt.leave.leaveType.toLowerCase().includes(q)) ||
+      (evalAtt.leave?.reason && evalAtt.leave.reason.toLowerCase().includes(q));
 
     return matchesAttendance && matchesRole && matchesSearch;
   });
@@ -1339,6 +1400,32 @@ export const AdminDashboardView: React.FC = () => {
                       </div>
                     </div>
                   ))}
+
+                  {/* On Approved Leave Today */}
+                  {membersOnApprovedLeaveToday.length > 0 && (
+                    <div className="space-y-2">
+                      {membersOnApprovedLeaveToday.map(({ member, leave }) => (
+                        <div key={member.id} className="bg-purple-50/60 border border-purple-200 rounded-2xl p-3 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0">
+                              <CalendarCheck className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <strong className="text-xs font-bold text-purple-950">{member.name}</strong>
+                                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-purple-200/80 text-purple-800">
+                                  On Approved Leave
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-purple-700 font-medium">
+                                {leave?.leaveType || 'Leave'} · {leave?.fromDate} to {leave?.toDate} {leave?.reason ? `(${leave.reason})` : ''}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1841,8 +1928,18 @@ export const AdminDashboardView: React.FC = () => {
                       return matchSearch && matchFilter;
                     })
                     .map((member) => {
-                      const isPresent = member.attendanceStatus === 'PRESENT';
-                      const isLate = member.attendanceStatus === 'LATE';
+                      const evalAtt = evaluateMemberAttendanceForDate(
+                        member,
+                        selectedRosterDate,
+                        attendanceLogs,
+                        leaveRequests,
+                        calendarSettings,
+                        weeklyOffDays,
+                        companyHolidays
+                      );
+                      const isPresent = evalAtt.status === 'PRESENT';
+                      const isLate = evalAtt.status === 'LATE';
+                      const isLeave = evalAtt.status === 'ON_LEAVE';
 
                       return (
                         <div
@@ -1856,6 +1953,8 @@ export const AdminDashboardView: React.FC = () => {
                                 ? 'bg-gradient-to-r from-emerald-400 to-[#00C9A7]'
                                 : isLate
                                 ? 'bg-gradient-to-r from-amber-400 to-amber-500'
+                                : isLeave
+                                ? 'bg-gradient-to-r from-purple-400 to-purple-600'
                                 : 'bg-gradient-to-r from-rose-400 to-rose-500'
                             }`}
                           />
@@ -1872,6 +1971,8 @@ export const AdminDashboardView: React.FC = () => {
                                       ? 'bg-emerald-500'
                                       : isLate
                                       ? 'bg-amber-500'
+                                      : isLeave
+                                      ? 'bg-purple-500'
                                       : 'bg-rose-500'
                                   }`}
                                 />
@@ -1886,9 +1987,21 @@ export const AdminDashboardView: React.FC = () => {
                                     {member.group}
                                   </span>
                                 </div>
-                                <span className="text-[10px] text-slate-400 font-mono">
-                                  {member.empCode} • {member.role ? member.role.replace(/telecaller/gi, 'Sales Executive') : 'Sales Executive'}
-                                </span>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[10px] text-slate-400 font-mono">
+                                    {member.empCode} • {member.role ? member.role.replace(/telecaller/gi, 'Sales Executive') : 'Sales Executive'}
+                                  </span>
+                                  {isLate && (
+                                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200/60">
+                                      Late by {evalAtt.lateMinutes || 0}m
+                                    </span>
+                                  )}
+                                  {isLeave && (
+                                    <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200/60">
+                                      {evalAtt.leave?.leaveType || 'Leave'}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
 
@@ -1898,16 +2011,16 @@ export const AdminDashboardView: React.FC = () => {
                                   ? 'bg-emerald-100/90 text-emerald-800 border border-emerald-200/80'
                                   : isLate
                                   ? 'bg-amber-100/90 text-amber-800 border border-amber-200/80'
-                                  : member.attendanceStatus === 'ON_LEAVE'
+                                  : isLeave
                                   ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                                  : member.attendanceStatus === 'WEEKLY_OFF'
+                                  : evalAtt.status === 'WEEKLY_OFF'
                                   ? 'bg-slate-100 text-slate-700 border border-slate-200'
-                                  : member.attendanceStatus === 'HOLIDAY'
+                                  : evalAtt.status === 'HOLIDAY'
                                   ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
                                   : 'bg-rose-100/90 text-rose-800 border border-rose-200/80'
                               }`}
                             >
-                              {member.attendanceStatus.replace('_', ' ')}
+                              {evalAtt.badgeLabel}
                             </span>
                           </div>
 
@@ -1929,7 +2042,7 @@ export const AdminDashboardView: React.FC = () => {
                           <div className="flex items-center justify-between text-[10px] pt-1.5 border-t border-slate-100">
                             <span className="text-slate-500 font-mono flex items-center gap-1">
                               <Clock className="w-3 h-3 text-slate-400" />
-                              In: {member.checkInTime || '—'}
+                              In: {evalAtt.checkIn || (selectedRosterDate === todayStr ? member.checkInTime : undefined) || '—'}
                             </span>
                             <div className="flex items-center gap-1.5">
                               {member.portal !== 'admin' && member.empCode !== 'TNX-AD01' && !(member.role || '').toLowerCase().includes('admin') && (
@@ -1995,24 +2108,73 @@ export const AdminDashboardView: React.FC = () => {
                   ))}
                 </div>
 
-                {/* Filter Pills */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-                    {(['ALL', 'PRESENT', 'LATE', 'ON_LEAVE'] as const).map((f) => (
+                {/* Date Selector & Filter Pills */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-slate-50/80 p-2 rounded-2xl border border-slate-200/80">
+                  {/* Date Selector */}
+                  <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
+                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                    <input
+                      type="date"
+                      value={selectedRosterDate}
+                      max={todayStr}
+                      onChange={(e) => setSelectedRosterDate(e.target.value)}
+                      className="text-xs font-bold text-[#0A2540] bg-transparent focus:outline-none cursor-pointer"
+                    />
+                    {selectedRosterDate !== todayStr && (
                       <button
-                        key={f}
-                        onClick={() => setAttendanceFilter(f)}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                          attendanceFilter === f ? 'bg-[#00C9A7] text-[#0A2540] shadow-xs' : 'text-slate-500 hover:text-slate-800'
-                        }`}
+                        type="button"
+                        onClick={() => setSelectedRosterDate(todayStr)}
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#00C9A7]/20 text-[#00897B] hover:bg-[#00C9A7]/30 transition-all cursor-pointer"
                       >
-                        {f === 'ALL' ? 'All' : f === 'ON_LEAVE' ? 'Leave' : f}
+                        Today
                       </button>
-                    ))}
+                    )}
                   </div>
-                  <span className="text-[11px] text-slate-400 font-mono font-bold">
-                    {filteredPeople.length} Showing
-                  </span>
+
+                  {/* Filter Pills */}
+                  <div className="flex items-center justify-between sm:justify-end gap-2">
+                    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                      {(['ALL', 'PRESENT', 'LATE', 'ON_LEAVE'] as const).map((f) => {
+                        const count = nonAdminMembers.filter((m) => {
+                          const ev = evaluateMemberAttendanceForDate(
+                            m,
+                            selectedRosterDate,
+                            attendanceLogs,
+                            leaveRequests,
+                            calendarSettings,
+                            weeklyOffDays,
+                            companyHolidays
+                          );
+                          if (f === 'ALL') return true;
+                          if (f === 'PRESENT') return ev.status === 'PRESENT' || ev.status === 'LATE';
+                          if (f === 'LATE') return ev.status === 'LATE';
+                          if (f === 'ON_LEAVE') return ev.status === 'ON_LEAVE';
+                          return ev.status === f;
+                        }).length;
+
+                        return (
+                          <button
+                            key={f}
+                            type="button"
+                            onClick={() => setAttendanceFilter(f)}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                              attendanceFilter === f ? 'bg-[#00C9A7] text-[#0A2540] shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                            }`}
+                          >
+                            <span>{f === 'ALL' ? 'All' : f === 'ON_LEAVE' ? 'Leave' : f}</span>
+                            <span className={`text-[9px] px-1 py-0.2 rounded-full font-mono ${
+                              attendanceFilter === f ? 'bg-[#0A2540] text-[#00C9A7]' : 'bg-slate-200/80 text-slate-600'
+                            }`}>
+                              {count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-mono font-bold whitespace-nowrap">
+                      {filteredPeople.length} Showing
+                    </span>
+                  </div>
                 </div>
 
                 {/* Mobile Search Bar */}
@@ -2032,8 +2194,18 @@ export const AdminDashboardView: React.FC = () => {
                 ) : (
                   <div className="space-y-3">
                     {filteredPeople.map((member) => {
-                      const isPresent = member.attendanceStatus === 'PRESENT';
-                      const isLate = member.attendanceStatus === 'LATE';
+                      const evalAtt = evaluateMemberAttendanceForDate(
+                        member,
+                        selectedRosterDate,
+                        attendanceLogs,
+                        leaveRequests,
+                        calendarSettings,
+                        weeklyOffDays,
+                        companyHolidays
+                      );
+                      const isPresent = evalAtt.status === 'PRESENT';
+                      const isLate = evalAtt.status === 'LATE';
+                      const isLeave = evalAtt.status === 'ON_LEAVE';
 
                       return (
                         <div
@@ -2047,6 +2219,8 @@ export const AdminDashboardView: React.FC = () => {
                                 ? 'bg-gradient-to-r from-emerald-400 to-[#00C9A7]'
                                 : isLate
                                 ? 'bg-gradient-to-r from-amber-400 to-amber-500'
+                                : isLeave
+                                ? 'bg-gradient-to-r from-purple-400 to-purple-600'
                                 : 'bg-gradient-to-r from-rose-400 to-rose-500'
                             }`}
                           />
@@ -2063,6 +2237,8 @@ export const AdminDashboardView: React.FC = () => {
                                       ? 'bg-emerald-500'
                                       : isLate
                                       ? 'bg-amber-500'
+                                      : isLeave
+                                      ? 'bg-purple-500'
                                       : 'bg-rose-500'
                                   }`}
                                 />
@@ -2097,9 +2273,21 @@ export const AdminDashboardView: React.FC = () => {
                                     </span>
                                   )}
                                 </div>
-                                <span className="text-[10px] text-slate-400 font-mono">
-                                  {member.empCode} • {member.role || 'Telecaller Executive'}
-                                </span>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[10px] text-slate-400 font-mono">
+                                    {member.empCode} • {member.role || 'Telecaller Executive'}
+                                  </span>
+                                  {isLate && (
+                                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200/60">
+                                      Late by {evalAtt.lateMinutes || 0}m
+                                    </span>
+                                  )}
+                                  {isLeave && (
+                                    <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200/60">
+                                      {evalAtt.leave?.leaveType || 'Leave'}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
 
@@ -2109,16 +2297,16 @@ export const AdminDashboardView: React.FC = () => {
                                   ? 'bg-emerald-100/90 text-emerald-800 border border-emerald-200/80'
                                   : isLate
                                   ? 'bg-amber-100/90 text-amber-800 border border-amber-200/80'
-                                  : member.attendanceStatus === 'ON_LEAVE'
+                                  : isLeave
                                   ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                                  : member.attendanceStatus === 'WEEKLY_OFF'
+                                  : evalAtt.status === 'WEEKLY_OFF'
                                   ? 'bg-slate-100 text-slate-700 border border-slate-200'
-                                  : member.attendanceStatus === 'HOLIDAY'
+                                  : evalAtt.status === 'HOLIDAY'
                                   ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
                                   : 'bg-rose-100/90 text-rose-800 border border-rose-200/80'
                               }`}
                             >
-                              {member.attendanceStatus.replace('_', ' ')}
+                              {evalAtt.badgeLabel}
                             </span>
                           </div>
 
@@ -2140,7 +2328,7 @@ export const AdminDashboardView: React.FC = () => {
                           <div className="flex items-center justify-between text-[10px] pt-1.5 border-t border-slate-100">
                             <span className="text-slate-500 font-mono flex items-center gap-1">
                               <Clock className="w-3 h-3 text-slate-400" />
-                              In: {member.checkInTime || '—'}
+                              In: {evalAtt.checkIn || (selectedRosterDate === todayStr ? member.checkInTime : undefined) || '—'}
                             </span>
                             <div className="flex items-center gap-1.5">
                               {member.portal !== 'admin' && member.empCode !== 'TNX-AD01' && !(member.role || '').toLowerCase().includes('admin') && (
@@ -2278,6 +2466,30 @@ export const AdminDashboardView: React.FC = () => {
               </div>
             </div>
 
+            {/* Date-Wise Selector for Attendance Register */}
+            <div className="flex items-center justify-between gap-2.5 bg-slate-50/80 p-2.5 rounded-2xl border border-slate-200/80">
+              <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
+                <Calendar className="w-4 h-4 text-[#00C9A7]" />
+                <span className="text-xs font-bold text-slate-500">Date:</span>
+                <input
+                  type="date"
+                  value={selectedAttendanceDate}
+                  max={todayStr}
+                  onChange={(e) => setSelectedAttendanceDate(e.target.value)}
+                  className="text-xs font-bold text-[#0A2540] bg-transparent focus:outline-none cursor-pointer"
+                />
+              </div>
+              {selectedAttendanceDate !== todayStr && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedAttendanceDate(todayStr)}
+                  className="text-xs font-bold px-3 py-1.5 rounded-xl bg-[#00C9A7]/20 text-[#00897B] hover:bg-[#00C9A7]/30 transition-all cursor-pointer shadow-2xs"
+                >
+                  Back to Today
+                </button>
+              )}
+            </div>
+
             {/* Compact 2x2 Attendance Action Filter Buttons (Just Name & Numbers, No Icons) */}
             <div className="grid grid-cols-2 gap-2">
               {/* Tile 1: Present */}
@@ -2292,7 +2504,10 @@ export const AdminDashboardView: React.FC = () => {
               >
                 <span className="text-xs font-bold text-[#0A2540]">Present</span>
                 <span className={`text-base font-black font-display ${attendanceFilter === 'PRESENT' ? 'text-[#00A88B]' : 'text-slate-800'}`}>
-                  {presentToday}
+                  {teamMembers.filter((m) => {
+                    const ev = evaluateMemberAttendanceForDate(m, selectedAttendanceDate, attendanceLogs, leaveRequests, calendarSettings, weeklyOffDays, companyHolidays);
+                    return ev.status === 'PRESENT' || ev.status === 'LATE';
+                  }).length}
                 </span>
               </button>
 
@@ -2308,7 +2523,10 @@ export const AdminDashboardView: React.FC = () => {
               >
                 <span className="text-xs font-bold text-[#0A2540]">Late</span>
                 <span className={`text-base font-black font-display ${attendanceFilter === 'LATE' ? 'text-amber-600' : 'text-slate-800'}`}>
-                  {teamMembers.filter((m) => m.attendanceStatus === 'LATE').length}
+                  {teamMembers.filter((m) => {
+                    const ev = evaluateMemberAttendanceForDate(m, selectedAttendanceDate, attendanceLogs, leaveRequests, calendarSettings, weeklyOffDays, companyHolidays);
+                    return ev.status === 'LATE';
+                  }).length}
                 </span>
               </button>
 
@@ -2324,7 +2542,10 @@ export const AdminDashboardView: React.FC = () => {
               >
                 <span className="text-xs font-bold text-[#0A2540]">On Leave</span>
                 <span className={`text-base font-black font-display ${attendanceFilter === 'ON_LEAVE' ? 'text-purple-600' : 'text-slate-800'}`}>
-                  {teamMembers.filter((m) => m.attendanceStatus === 'ON_LEAVE').length}
+                  {teamMembers.filter((m) => {
+                    const ev = evaluateMemberAttendanceForDate(m, selectedAttendanceDate, attendanceLogs, leaveRequests, calendarSettings, weeklyOffDays, companyHolidays);
+                    return ev.status === 'ON_LEAVE';
+                  }).length}
                 </span>
               </button>
 
@@ -2370,12 +2591,31 @@ export const AdminDashboardView: React.FC = () => {
             <div className="space-y-3">
               {(() => {
                 const filteredAttendance = teamMembers.filter((m) => {
+                  const ev = evaluateMemberAttendanceForDate(
+                    m,
+                    selectedAttendanceDate,
+                    attendanceLogs,
+                    leaveRequests,
+                    calendarSettings,
+                    weeklyOffDays,
+                    companyHolidays
+                  );
                   const matchSearch =
                     m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     m.empCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    (m.group && m.group.toLowerCase().includes(searchQuery.toLowerCase()));
+                    (m.group && m.group.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                    (ev.leave?.leaveType && ev.leave.leaveType.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                    (ev.leave?.reason && ev.leave.reason.toLowerCase().includes(searchQuery.toLowerCase()));
                   const matchFilter =
-                    attendanceFilter === 'ALL' || m.attendanceStatus === attendanceFilter;
+                    attendanceFilter === 'ALL'
+                      ? true
+                      : attendanceFilter === 'PRESENT'
+                      ? (ev.status === 'PRESENT' || ev.status === 'LATE')
+                      : attendanceFilter === 'LATE'
+                      ? ev.status === 'LATE'
+                      : attendanceFilter === 'ON_LEAVE'
+                      ? ev.status === 'ON_LEAVE'
+                      : ev.status === attendanceFilter;
                   return matchSearch && matchFilter;
                 });
 
@@ -2388,18 +2628,28 @@ export const AdminDashboardView: React.FC = () => {
                 }
 
                 return filteredAttendance.map((member) => {
-                  const isPresent = member.attendanceStatus === 'PRESENT';
-                  const isLate = member.attendanceStatus === 'LATE';
-                  const isLeave = member.attendanceStatus === 'ON_LEAVE';
+                  const ev = evaluateMemberAttendanceForDate(
+                    member,
+                    selectedAttendanceDate,
+                    attendanceLogs,
+                    leaveRequests,
+                    calendarSettings,
+                    weeklyOffDays,
+                    companyHolidays
+                  );
+                  const isPresent = ev.status === 'PRESENT';
+                  const isLate = ev.status === 'LATE';
+                  const isLeave = ev.status === 'ON_LEAVE';
 
                   const squircleContainerStyle = isPresent
                     ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80'
                     : isLate
                     ? 'bg-amber-50 text-amber-700 border border-amber-200/80'
-                    : 'bg-purple-50 text-purple-700 border border-purple-200/80';
+                    : isLeave
+                    ? 'bg-purple-50 text-purple-700 border border-purple-200/80'
+                    : 'bg-rose-50 text-rose-700 border border-rose-200/80';
 
-                  const todayIso = getTodayDateIST();
-                  const rec = attendanceLogs.find((a) => a.employeeId === member.id && a.date === todayIso);
+                  const rec = ev.record || attendanceLogs.find((a) => (a.employeeId === member.id || a.employeeId === member.empCode) && normalizeDateToYMD(a.date) === selectedAttendanceDate);
                   const locLabel =
                     rec?.locationStatus === 'AT_OFFICE' ? 'At office'
                     : rec?.locationStatus === 'AWAY'
@@ -2462,9 +2712,9 @@ export const AdminDashboardView: React.FC = () => {
                               ? 'bg-amber-50 text-amber-800 border border-amber-200'
                               : isLeave
                               ? 'bg-purple-50 text-purple-800 border border-purple-200'
-                              : member.attendanceStatus === 'WEEKLY_OFF'
+                              : ev.status === 'WEEKLY_OFF'
                               ? 'bg-slate-100 text-slate-700 border border-slate-200'
-                              : member.attendanceStatus === 'HOLIDAY'
+                              : ev.status === 'HOLIDAY'
                               ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
                               : 'bg-rose-50 text-rose-700 border border-rose-200'
                           }`}
@@ -2472,7 +2722,7 @@ export const AdminDashboardView: React.FC = () => {
                           {isPresent && <span className="w-1.5 h-1.5 rounded-full bg-[#00C9A7] animate-pulse" />}
                           {isLate && <Clock className="w-3 h-3 text-amber-600" />}
                           {isLeave && <Calendar className="w-3 h-3 text-purple-600" />}
-                          <span>{member.attendanceStatus.replace('_', ' ')}</span>
+                          <span>{ev.badgeLabel}</span>
                         </span>
                       </div>
 
@@ -2483,9 +2733,9 @@ export const AdminDashboardView: React.FC = () => {
                             <Clock className={`w-3.5 h-3.5 flex-shrink-0 ${isLate ? 'text-amber-500' : isPresent ? 'text-[#00A88B]' : 'text-purple-500'}`} />
                             <span className="font-semibold text-slate-700 font-mono text-[11px] truncate">
                               {isLeave
-                                ? 'Approved Leave for Today'
-                                : (rec?.checkIn || member.checkInTime)
-                                ? `Punch In: ${rec?.checkIn || member.checkInTime} ${isLate ? '(Late Flag • After 09:30)' : '(On Time)'}`
+                                ? `Approved Leave: ${ev.leave?.leaveType || 'Leave'} (${ev.leave?.fromDate || ''} - ${ev.leave?.toDate || ''})`
+                                : (rec?.checkIn || ev.checkIn || (selectedAttendanceDate === todayStr ? member.checkInTime : undefined))
+                                ? `Punch In: ${rec?.checkIn || ev.checkIn || member.checkInTime} ${isLate ? `(Late Flag • ${ev.lateMinutes || 0}m Late)` : '(On Time)'}`
                                 : 'Punch In: Not Logged'}
                             </span>
                           </div>

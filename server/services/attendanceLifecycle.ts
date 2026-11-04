@@ -1,5 +1,5 @@
 import db from '../db/connection.js';
-import { getTodayDateIST } from '../utils/dateUtils.js';
+import { getTodayDateIST, normalizeDateToYMD } from '../utils/dateUtils.js';
 
 interface CalendarSettingsRow {
   shiftStartTime?: string;
@@ -144,18 +144,25 @@ export function syncDailyRosterStatus(force = false): void {
       WHERE date = ?
     `).all(today) as any[];
 
-    // Approved leaves covering today
-    const activeLeaves = db.prepare(`
-      SELECT employeeName, employeeCode
+    // Approved leaves covering today (with robust date normalization for both YYYY-MM-DD and DD Mon YYYY formats)
+    const allApprovedLeaves = db.prepare(`
+      SELECT employeeId, employeeCode, employeeName, fromDate, toDate, status, approvalStage
       FROM leave_requests
-      WHERE status = 'APPROVED' AND fromDate <= ? AND toDate >= ?
-    `).all(today, today) as any[];
+      WHERE status = 'APPROVED' OR approvalStage = 'APPROVED'
+    `).all() as any[];
 
     const activeLeaveCodes = new Set<string>();
     const activeLeaveNames = new Set<string>();
-    for (const l of activeLeaves) {
-      if (l.employeeCode) activeLeaveCodes.add(l.employeeCode.toLowerCase());
-      if (l.employeeName) activeLeaveNames.add(l.employeeName.toLowerCase());
+    const activeLeaveIds = new Set<string>();
+
+    for (const l of allApprovedLeaves) {
+      const fromYMD = normalizeDateToYMD(l.fromDate || l.startDate);
+      const toYMD = normalizeDateToYMD(l.toDate || l.endDate || l.fromDate || l.startDate);
+      if ((!fromYMD || fromYMD <= today) && (!toYMD || toYMD >= today)) {
+        if (l.employeeId) activeLeaveIds.add(String(l.employeeId).trim().toLowerCase());
+        if (l.employeeCode) activeLeaveCodes.add(String(l.employeeCode).trim().toLowerCase());
+        if (l.employeeName) activeLeaveNames.add(String(l.employeeName).trim().toLowerCase());
+      }
     }
 
     const todayAttByEmp = new Map<string, any>();
@@ -183,8 +190,10 @@ export function syncDailyRosterStatus(force = false): void {
           updateStatus.run(effective, att.checkIn || null, m.id);
         }
       } else if (
-        (m.empCode && activeLeaveCodes.has(m.empCode.toLowerCase())) ||
-        (m.name && activeLeaveNames.has(m.name.toLowerCase()))
+        (m.id && activeLeaveIds.has(String(m.id).trim().toLowerCase())) ||
+        (m.empCode && activeLeaveCodes.has(String(m.empCode).trim().toLowerCase())) ||
+        (m.empCode && activeLeaveIds.has(String(m.empCode).trim().toLowerCase())) ||
+        (m.name && activeLeaveNames.has(String(m.name).trim().toLowerCase()))
       ) {
         // On approved leave today
         if (m.attendanceStatus !== 'ON_LEAVE' || m.checkInTime) {
