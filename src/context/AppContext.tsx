@@ -870,9 +870,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     triggerToast('✓ Employee photo updated & saved');
   };
 
+  const sanitizeOfferLetter = (l: OfferLetterData): OfferLetterData => ({
+    ...l,
+    companyName: (!l.companyName || l.companyName === 'Trade Nexus') ? 'Trade nexus trade Smart' : l.companyName,
+    companyAddress: (!l.companyAddress || l.companyAddress.includes('Business Avenue') || l.companyAddress.includes('Your City'))
+      ? 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102'
+      : l.companyAddress,
+    companyPhone: (!l.companyPhone || l.companyPhone.includes('98765') || l.companyPhone.includes('8333909139'))
+      ? '+919483001083'
+      : l.companyPhone,
+    companyEmail: (!l.companyEmail || l.companyEmail.toLowerCase().includes('tradenexus.com'))
+      ? 'hr@tradenexustradesmart.in'
+      : l.companyEmail,
+    companyWebsite: (!l.companyWebsite || l.companyWebsite.includes('tradenexustradesmart.com') || l.companyWebsite.includes('tradenexus.com'))
+      ? 'tradenexustradesmart.co.in'
+      : l.companyWebsite,
+    signatoryName: l.signatoryName || 'T. Vidhya Sagar',
+    signatoryRole: l.signatoryRole || 'Chief Executive Officer',
+  });
+
   const openOfferLetterModal = (letter?: OfferLetterData) => {
     if (letter) {
-      setSelectedOfferLetter(letter);
+      setSelectedOfferLetter(sanitizeOfferLetter(letter));
     } else {
       const matched = offerLetters.find(o => o.candidateName.toLowerCase() === profile.name.toLowerCase()) || {
         id: `off-${profile.empCode}`,
@@ -887,8 +906,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         reportingManager: profile.teamLeaderName || 'Team Leader',
         location: 'Bengaluru Corporate HQ',
         issuedDate: profile.joinDate || '',
+        companyName: 'Trade nexus trade Smart',
+        companyAddress: 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102',
+        companyPhone: '+919483001083',
+        companyEmail: 'hr@tradenexustradesmart.in',
+        companyWebsite: 'tradenexustradesmart.co.in',
+        signatoryName: 'T. Vidhya Sagar',
+        signatoryRole: 'Chief Executive Officer',
       };
-      setSelectedOfferLetter(matched);
+      setSelectedOfferLetter(sanitizeOfferLetter(matched));
     }
     setIsOfferLetterModalOpen(true);
   };
@@ -2495,6 +2521,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       dob: data.dob,
       emergencyPhone: data.emergencyPhone || data.phone,
       employeeType: data.employeeType,
+      companyAddress: 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102',
+      companyPhone: '+919483001083',
+      companyEmail: 'hr@tradenexustradesmart.in',
+      companyWebsite: 'tradenexustradesmart.co.in',
+      signatoryName: 'T. Vidhya Sagar',
+      signatoryRole: 'Chief Executive Officer',
     };
     setTeamMembers(prev => [newMember, ...prev]);
 
@@ -2564,7 +2596,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         dob: data.dob || '05/11/1997',
         phone: data.phone || '9876543210',
         empType: data.employeeType || 'Full - Time',
-        address: data.address || 'Flat 204, Highrise Apts, Hyd',
+        address: 'RR westbrook, 6th main HSR layout, beside pizza artistry, Bengaluru 102',
+        email: 'hr@tradenexustradesmart.in',
+        website: 'tradenexustradesmart.co.in',
+        companyPhone: '+919483001083',
+        signatoryName: 'T. Vidhya Sagar',
+        signatoryRole: 'Chief Executive Officer',
         avatar: data.avatar || undefined,
       }).catch(console.warn);
       api.generateOfferLetter(empId, newOfferLetter).catch(console.warn);

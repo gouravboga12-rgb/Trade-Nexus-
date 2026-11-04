@@ -144,6 +144,25 @@ router.get('/', (req: Request, res: Response) => {
         };
       }
 
+      const finalCompanyAddress = (m.companyAddress && m.companyAddress !== 'HSR Layout' && !m.companyAddress.includes('Business Avenue') && !m.companyAddress.includes('Your City'))
+        ? m.companyAddress
+        : 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102';
+      const finalCompanyPhone = (m.companyPhone && !m.companyPhone.includes('8333909139') && !m.companyPhone.includes('98765'))
+        ? m.companyPhone
+        : '+919483001083';
+      const finalCompanyEmail = (m.companyEmail && !m.companyEmail.toLowerCase().includes('tradenexus.com'))
+        ? m.companyEmail
+        : 'hr@tradenexustradesmart.in';
+      const finalCompanyWebsite = (m.companyWebsite && !m.companyWebsite.includes('tradenexustradesmart.com') && !m.companyWebsite.includes('tradenexus.com'))
+        ? m.companyWebsite
+        : 'tradenexustradesmart.co.in';
+      out.companyAddress = finalCompanyAddress;
+      out.companyPhone = finalCompanyPhone;
+      out.companyEmail = finalCompanyEmail;
+      out.companyWebsite = finalCompanyWebsite;
+      out.signatoryName = m.signatoryName || 'T. Vidhya Sagar';
+      out.signatoryRole = m.signatoryRole || 'Chief Executive Officer';
+
       // Security Lockdown: Never expose login credentials/passwords to non-admin accounts (e.g. HR, TL, Telecallers)
       if (user && user.role !== 'admin') {
         delete out.password;
@@ -622,6 +641,13 @@ router.post('/', (req: Request, res: Response) => {
       const finalEmployeeType = req.body.employeeType || 'Full Time';
       const finalAvatar = avatar || req.body.avatar || 'TM';
 
+      const finalCompanyAddress = req.body.companyAddress || 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102';
+      const finalCompanyPhone = req.body.companyPhone || '+919483001083';
+      const finalCompanyEmail = req.body.companyEmail || 'hr@tradenexustradesmart.in';
+      const finalCompanyWebsite = req.body.companyWebsite || 'tradenexustradesmart.co.in';
+      const finalSignatoryName = req.body.signatoryName || 'T. Vidhya Sagar';
+      const finalSignatoryRole = req.body.signatoryRole || 'Chief Executive Officer';
+
       db.prepare(`
         INSERT INTO team_members (
           id, empCode, name, avatar, role, groupName, phone, attendanceStatus, 
@@ -629,9 +655,10 @@ router.post('/', (req: Request, res: Response) => {
           salesAchieved, salesTarget, conversionRate, portal, email, password,
           bankName, bankAccountNumber, bankIfscCode,
           panDocumentName, panDocumentUrl, aadhaarDocumentName, aadhaarDocumentUrl,
-          salary, joiningDate, address, bloodGroup, dob, emergencyPhone, employeeType
+          salary, joiningDate, address, bloodGroup, dob, emergencyPhone, employeeType,
+          companyAddress, companyPhone, companyEmail, companyWebsite, signatoryName, signatoryRole
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         memberId, finalEmpCode, finalName,
         finalAvatar, finalRole, finalGroup,
@@ -645,7 +672,9 @@ router.post('/', (req: Request, res: Response) => {
         panDocumentName || null, panDocumentUrl || null,
         aadhaarDocumentName || null, aadhaarDocumentUrl || null,
         salary ? Number(salary) : null, joiningDate || null, address || null,
-        finalBloodGroup, finalDob, finalEmergencyPhone, finalEmployeeType
+        finalBloodGroup, finalDob, finalEmergencyPhone, finalEmployeeType,
+        finalCompanyAddress, finalCompanyPhone, finalCompanyEmail, finalCompanyWebsite,
+        finalSignatoryName, finalSignatoryRole
       );
 
       // 2. Insert Employee Profile

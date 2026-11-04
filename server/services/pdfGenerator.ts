@@ -188,11 +188,28 @@ export async function generateOfferLetterPdf(data: {
   });
 
   // Company Brand & Contact block (Upper Left under banner)
-  const companyName = (data as any).companyName || 'Trade nexus trade Smart';
-  const companyAddress = (data as any).companyAddress || 'RR westbrook, 6th main HSR layout, beside pizza artistry, Bengaluru 102';
-  const companyPhone = (data as any).companyPhone || '+919483001083';
-  const companyEmail = (data as any).companyEmail || 'hr@tradenexustradesmart.in';
-  const companyWebsite = (data as any).companyWebsite || 'tradenexustradesmart.co.in';
+  const rawCompanyName = (data as any).companyName;
+  const companyName = (!rawCompanyName || rawCompanyName === 'Trade Nexus') ? 'Trade nexus trade Smart' : rawCompanyName;
+
+  const rawCompanyAddress = (data as any).companyAddress;
+  const companyAddress = (!rawCompanyAddress || rawCompanyAddress.includes('Business Avenue') || rawCompanyAddress.includes('Your City'))
+    ? 'RR westbrook, 6th main HSR layout, beside pizza artistry, Bengaluru 102'
+    : rawCompanyAddress;
+
+  const rawCompanyPhone = (data as any).companyPhone;
+  const companyPhone = (!rawCompanyPhone || rawCompanyPhone.includes('98765') || rawCompanyPhone.includes('8333909139'))
+    ? '+919483001083'
+    : rawCompanyPhone;
+
+  const rawCompanyEmail = (data as any).companyEmail;
+  const companyEmail = (!rawCompanyEmail || rawCompanyEmail.toLowerCase().includes('tradenexus.com'))
+    ? 'hr@tradenexustradesmart.in'
+    : rawCompanyEmail;
+
+  const rawCompanyWebsite = (data as any).companyWebsite;
+  const companyWebsite = (!rawCompanyWebsite || rawCompanyWebsite.includes('tradenexustradesmart.com') || rawCompanyWebsite.includes('tradenexus.com'))
+    ? 'tradenexustradesmart.co.in'
+    : rawCompanyWebsite;
 
   doc.fontSize(11.5).font('Helvetica-Bold').fillColor('#041026').text(companyName, leftX, currentY);
   currentY += 16;
@@ -376,7 +393,7 @@ export async function generateExperienceCertPdf(employee: any, cert: any): Promi
   const endDate     = cert.endDate         || '01 January 2025';
   const refNum      = cert.refNumber       || `TNX/EXP/${new Date().getFullYear()}/${empCode}`;
   const issuedDate  = cert.issuedDate      || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-  const companyName = cert.companyName     || 'Trade nexus trade Smart';
+  const companyName = (!cert.companyName || cert.companyName === 'Trade Nexus') ? 'Trade nexus trade Smart' : cert.companyName;
   const sigName     = cert.signatoryName   || 'T. Vidhya Sagar';
   const sigRole     = cert.signatoryRole   || 'Chief Executive Officer';
 
@@ -539,7 +556,7 @@ export async function generateRelievingLetterPdf(employee: any, relievingLetter:
     currentY += 36;
 
     doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text(
-      `We take this opportunity to thank you for your committed service and valuable contributions during your association with Trade Nexus, and wish you all the very best for your future personal and career endeavors.`,
+      `We take this opportunity to thank you for your committed service and valuable contributions during your association with Trade nexus trade Smart, and wish you all the very best for your future personal and career endeavors.`,
       leftX,
       currentY,
       { width: contentW, lineGap: 4 }
@@ -1027,13 +1044,25 @@ export async function generateIdCardPdf(employee: any, cardData?: any): Promise<
 
   const phone = (cardData?.phone || cardData?.cell || cardData?.emergencyPhone || employee?.phone || employee?.emergencyPhone || '0000XXXX97').trim();
 
-  // Custom contact details (default to official template values)
-  const address = cardData?.address || employee?.address || 'RR westbrook, 6th main HSR layout, beside pizza artistry, Bengaluru 102';
-  const email = cardData?.email || employee?.email || 'hr@tradenexustradesmart.in';
-  const website = cardData?.website || employee?.website || 'tradenexustradesmart.co.in';
-  const companyPhone = cardData?.companyPhone || employee?.companyPhone || '+919483001083';
-  const signatoryName = cardData?.signatoryName || 'T.Vidhya Sagar';
-  const signatoryRole = cardData?.signatoryRole || 'Chief executive Officer';
+  // Corporate contact details (always ensure official template values unless explicitly valid custom)
+  const rawAddress = cardData?.companyAddress || cardData?.address || employee?.companyAddress || '';
+  const address = (rawAddress && rawAddress !== 'HSR Layout' && !rawAddress.includes('Business Avenue') && !rawAddress.includes('Flat') && !rawAddress.includes('Highrise') && !rawAddress.includes('Your City'))
+    ? rawAddress
+    : 'RR westbrook, 6th main HSR layout, beside pizza artistry, Bengaluru 102';
+  const rawEmail = cardData?.companyEmail || cardData?.email || employee?.companyEmail || '';
+  const email = (rawEmail && !rawEmail.toLowerCase().includes('tradenexus.com'))
+    ? rawEmail
+    : 'hr@tradenexustradesmart.in';
+  const rawWebsite = cardData?.companyWebsite || cardData?.website || employee?.companyWebsite || '';
+  const website = (rawWebsite && !rawWebsite.includes('tradenexustradesmart.com') && !rawWebsite.includes('tradenexus.com'))
+    ? rawWebsite
+    : 'tradenexustradesmart.co.in';
+  const rawCompanyPhone = cardData?.companyPhone || employee?.companyPhone || '';
+  const companyPhone = (rawCompanyPhone && !rawCompanyPhone.includes('8333909139') && !rawCompanyPhone.includes('98765'))
+    ? rawCompanyPhone
+    : '+919483001083';
+  const signatoryName = cardData?.signatoryName || employee?.signatoryName || 'T. Vidhya Sagar';
+  const signatoryRole = cardData?.signatoryRole || employee?.signatoryRole || 'Chief Executive Officer';
 
   const isCustomContact = (
     address !== 'RR westbrook, 6th main HSR layout, beside pizza artistry, Bengaluru 102' ||

@@ -306,7 +306,7 @@ export const ExperienceCertModal: React.FC = () => {
                       <strong className="text-[#00A88B] font-bold">Mr. / Ms. {formData.employeeName}</strong>
                       {formData.guardianName ? <>, son/daughter of <strong className="text-[#00A88B] font-bold">{formData.guardianName}</strong>,</> : null}{' '}
                       bearing Employee Identification Number <strong className="font-mono font-bold text-slate-900">{formData.empCode}</strong>, was bona fide employed with{' '}
-                      <strong className="text-[#0A2540] font-bold">{formData.companyName || 'Trade nexus trade Smart'}</strong> from{' '}
+                      <strong className="text-[#0A2540] font-bold">{(!formData.companyName || formData.companyName === 'Trade Nexus') ? 'Trade nexus trade Smart' : formData.companyName}</strong> from{' '}
                       <strong className="text-[#00A88B] font-bold">{formData.startDate}</strong> to{' '}
                       <strong className="text-[#00A88B] font-bold">{formData.endDate}</strong>.
                     </>
@@ -316,7 +316,7 @@ export const ExperienceCertModal: React.FC = () => {
                 <p>
                   {formData.roleParagraph || (
                     <>
-                      During the period of tenure with <strong className="text-[#0A2540] font-bold">{formData.companyName || 'Trade nexus trade Smart'}</strong>, {formData.employeeName} served in the professional capacity of <strong className="text-[#00A88B] font-bold">{formData.designation}</strong> within the {formData.department} department.
+                      During the period of tenure with <strong className="text-[#0A2540] font-bold">{(!formData.companyName || formData.companyName === 'Trade Nexus') ? 'Trade nexus trade Smart' : formData.companyName}</strong>, {formData.employeeName} served in the professional capacity of <strong className="text-[#00A88B] font-bold">{formData.designation}</strong> within the {formData.department} department.
                     </>
                   )}
                 </p>
@@ -339,7 +339,7 @@ export const ExperienceCertModal: React.FC = () => {
               {/* Sign-off matching 2.png */}
               <div className="pt-6 space-y-1">
                 <p className="text-xs sm:text-sm font-semibold text-slate-700">Sincerely,</p>
-                <p className="font-bold text-xs sm:text-sm text-[#0A2540]">For {formData.companyName || 'Trade nexus trade Smart'} Corporate Services,</p>
+                <p className="font-bold text-xs sm:text-sm text-[#0A2540]">For {(!formData.companyName || formData.companyName === 'Trade Nexus') ? 'Trade nexus trade Smart' : formData.companyName} Corporate Services,</p>
                 
                 {/* Authentic Signature matching 2.png */}
                 <div className="py-2">

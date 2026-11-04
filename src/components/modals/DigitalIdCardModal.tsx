@@ -57,18 +57,48 @@ export const DigitalIdCardModal: React.FC = () => {
   const [customDob, setCustomDob] = useState('05/11/1997');
   const [customPhone, setCustomPhone] = useState('0000XXXX97');
 
+  // Helper to sanitize company info from legacy/stale values
+  const sanitizeCompanyAddress = (addr?: string | null) => {
+    if (!addr || addr === 'HSR Layout' || addr.includes('Business Avenue') || addr.includes('Your City')) {
+      return DEFAULT_COMPANY_ADDRESS;
+    }
+    return addr;
+  };
+  const sanitizeCompanyPhone = (ph?: string | null) => {
+    if (!ph || ph.includes('8333909139') || ph.includes('98765')) {
+      return DEFAULT_COMPANY_PHONE;
+    }
+    return ph;
+  };
+  const sanitizeCompanyEmail = (em?: string | null) => {
+    if (!em || em.toLowerCase().includes('tradenexus.com')) {
+      return DEFAULT_COMPANY_EMAIL;
+    }
+    return em;
+  };
+  const sanitizeCompanyWebsite = (web?: string | null) => {
+    if (!web || web.includes('tradenexustradesmart.com') || web.includes('tradenexus.com')) {
+      return DEFAULT_COMPANY_WEBSITE;
+    }
+    return web;
+  };
+
   // Editable company contact & signatory fields (cached in localStorage + saved in SQLite)
   const [customCompanyAddress, setCustomCompanyAddress] = useState(() => {
-    return (typeof window !== 'undefined' && localStorage.getItem('tnx_idCard_companyAddress')) || DEFAULT_COMPANY_ADDRESS;
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('tnx_idCard_companyAddress') : null;
+    return sanitizeCompanyAddress(stored);
   });
   const [customCompanyEmail, setCustomCompanyEmail] = useState(() => {
-    return (typeof window !== 'undefined' && localStorage.getItem('tnx_idCard_companyEmail')) || DEFAULT_COMPANY_EMAIL;
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('tnx_idCard_companyEmail') : null;
+    return sanitizeCompanyEmail(stored);
   });
   const [customCompanyWebsite, setCustomCompanyWebsite] = useState(() => {
-    return (typeof window !== 'undefined' && localStorage.getItem('tnx_idCard_companyWebsite')) || DEFAULT_COMPANY_WEBSITE;
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('tnx_idCard_companyWebsite') : null;
+    return sanitizeCompanyWebsite(stored);
   });
   const [customCompanyPhone, setCustomCompanyPhone] = useState(() => {
-    return (typeof window !== 'undefined' && localStorage.getItem('tnx_idCard_companyPhone')) || DEFAULT_COMPANY_PHONE;
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('tnx_idCard_companyPhone') : null;
+    return sanitizeCompanyPhone(stored);
   });
   const [customSignatoryName, setCustomSignatoryName] = useState(() => {
     return (typeof window !== 'undefined' && localStorage.getItem('tnx_idCard_signatoryName')) || DEFAULT_SIGNATORY_NAME;
@@ -94,10 +124,10 @@ export const DigitalIdCardModal: React.FC = () => {
     if (isIdCardModalOpen) {
       api.getCompanySettings().then((settings) => {
         if (settings) {
-          if (settings.companyAddress) setCustomCompanyAddress(settings.companyAddress);
-          if (settings.companyEmail) setCustomCompanyEmail(settings.companyEmail);
-          if (settings.companyWebsite) setCustomCompanyWebsite(settings.companyWebsite);
-          if (settings.companyPhone) setCustomCompanyPhone(settings.companyPhone);
+          if (settings.companyAddress) setCustomCompanyAddress(sanitizeCompanyAddress(settings.companyAddress));
+          if (settings.companyEmail) setCustomCompanyEmail(sanitizeCompanyEmail(settings.companyEmail));
+          if (settings.companyWebsite) setCustomCompanyWebsite(sanitizeCompanyWebsite(settings.companyWebsite));
+          if (settings.companyPhone) setCustomCompanyPhone(sanitizeCompanyPhone(settings.companyPhone));
           if (settings.signatoryName) setCustomSignatoryName(settings.signatoryName);
           if (settings.signatoryRole) setCustomSignatoryRole(settings.signatoryRole);
         }
@@ -117,10 +147,10 @@ export const DigitalIdCardModal: React.FC = () => {
       setCustomDob((matched as any).dob || '05/11/1997');
       setCustomPhone((matched as any).emergencyPhone || matched.phone || '0000XXXX97');
       setCustomPhotoUrl(matched.avatar ? matched.avatar : null);
-      if ((matched as any).companyAddress) setCustomCompanyAddress((matched as any).companyAddress);
-      if ((matched as any).companyEmail) setCustomCompanyEmail((matched as any).companyEmail);
-      if ((matched as any).companyWebsite) setCustomCompanyWebsite((matched as any).companyWebsite);
-      if ((matched as any).companyPhone) setCustomCompanyPhone((matched as any).companyPhone);
+      if ((matched as any).companyAddress) setCustomCompanyAddress(sanitizeCompanyAddress((matched as any).companyAddress));
+      if ((matched as any).companyEmail) setCustomCompanyEmail(sanitizeCompanyEmail((matched as any).companyEmail));
+      if ((matched as any).companyWebsite) setCustomCompanyWebsite(sanitizeCompanyWebsite((matched as any).companyWebsite));
+      if ((matched as any).companyPhone) setCustomCompanyPhone(sanitizeCompanyPhone((matched as any).companyPhone));
       if ((matched as any).signatoryName) setCustomSignatoryName((matched as any).signatoryName);
       if ((matched as any).signatoryRole) setCustomSignatoryRole((matched as any).signatoryRole);
     } else if (profile) {
@@ -147,10 +177,10 @@ export const DigitalIdCardModal: React.FC = () => {
       setCustomDob((matched as any).dob || '05/11/1997');
       setCustomPhone((matched as any).emergencyPhone || matched.phone || '0000XXXX97');
       setCustomPhotoUrl(matched.avatar ? matched.avatar : null);
-      if ((matched as any).companyAddress) setCustomCompanyAddress((matched as any).companyAddress);
-      if ((matched as any).companyEmail) setCustomCompanyEmail((matched as any).companyEmail);
-      if ((matched as any).companyWebsite) setCustomCompanyWebsite((matched as any).companyWebsite);
-      if ((matched as any).companyPhone) setCustomCompanyPhone((matched as any).companyPhone);
+      if ((matched as any).companyAddress) setCustomCompanyAddress(sanitizeCompanyAddress((matched as any).companyAddress));
+      if ((matched as any).companyEmail) setCustomCompanyEmail(sanitizeCompanyEmail((matched as any).companyEmail));
+      if ((matched as any).companyWebsite) setCustomCompanyWebsite(sanitizeCompanyWebsite((matched as any).companyWebsite));
+      if ((matched as any).companyPhone) setCustomCompanyPhone(sanitizeCompanyPhone((matched as any).companyPhone));
       if ((matched as any).signatoryName) setCustomSignatoryName((matched as any).signatoryName);
       if ((matched as any).signatoryRole) setCustomSignatoryRole((matched as any).signatoryRole);
     }

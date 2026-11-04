@@ -456,23 +456,23 @@ export const OfferLetterModal: React.FC = () => {
               <div className="flex justify-between items-start gap-2 border-b border-slate-100 pb-3 text-[11px] sm:text-xs">
                 <div className="space-y-1.5 text-slate-700">
                   <p className="font-display font-extrabold text-xs sm:text-sm text-[#0A2540]">
-                    {formData.companyName || 'Trade nexus trade Smart'}
+                    {(!formData.companyName || formData.companyName === 'Trade Nexus') ? 'Trade nexus trade Smart' : formData.companyName}
                   </p>
                   <p className="flex items-center gap-2 text-slate-600">
                     <img src={iconPin} alt="Location" className="w-4 h-4 object-contain flex-shrink-0" />
-                    <span>{formData.companyAddress || 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102'}</span>
+                    <span>{(!formData.companyAddress || formData.companyAddress.includes('Business Avenue') || formData.companyAddress.includes('Your City')) ? 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102' : formData.companyAddress}</span>
                   </p>
                   <p className="flex items-center gap-2 text-slate-600">
                     <img src={iconPhone} alt="Phone" className="w-4 h-4 object-contain flex-shrink-0" />
-                    <span>{formData.companyPhone || '+919483001083'}</span>
+                    <span>{(!formData.companyPhone || formData.companyPhone.includes('98765')) ? '+919483001083' : formData.companyPhone}</span>
                   </p>
                   <p className="flex items-center gap-2 text-slate-600">
                     <img src={iconMail} alt="Email" className="w-4 h-4 object-contain flex-shrink-0" />
-                    <span>{formData.companyEmail || 'hr@tradenexustradesmart.in'}</span>
+                    <span>{(!formData.companyEmail || formData.companyEmail.toLowerCase().includes('tradenexus.com')) ? 'hr@tradenexustradesmart.in' : formData.companyEmail}</span>
                   </p>
                   <p className="flex items-center gap-2 text-slate-600">
                     <img src={iconGlobe} alt="Website" className="w-4 h-4 object-contain flex-shrink-0" />
-                    <span>{formData.companyWebsite || 'tradenexustradesmart.co.in'}</span>
+                    <span>{(!formData.companyWebsite || formData.companyWebsite.includes('tradenexus.com')) ? 'tradenexustradesmart.co.in' : formData.companyWebsite}</span>
                   </p>
                 </div>
 
@@ -542,7 +542,7 @@ export const OfferLetterModal: React.FC = () => {
                     {formData.signatoryName || signatory}
                   </p>
                   <p className="text-[10px] sm:text-xs font-semibold text-slate-700">{formData.signatoryRole || signatoryRole}</p>
-                  <p className="text-[10px] sm:text-xs text-slate-500">{formData.companyName || 'Trade nexus trade Smart'}</p>
+                  <p className="text-[10px] sm:text-xs text-slate-500">{(!formData.companyName || formData.companyName === 'Trade Nexus') ? 'Trade nexus trade Smart' : formData.companyName}</p>
                 </div>
               </div>
 

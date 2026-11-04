@@ -918,11 +918,34 @@ router.get('/company-settings', (_req: Request, res: Response) => {
       companyPhone: '+919483001083',
       companyEmail: 'hr@tradenexustradesmart.in',
       companyWebsite: 'tradenexustradesmart.co.in',
-      signatoryName: 'T.Vidhya Sagar',
-      signatoryRole: 'Chief executive Officer',
+      signatoryName: 'T. Vidhya Sagar',
+      signatoryRole: 'Chief Executive Officer',
     };
 
-    return res.status(200).json(row || defaultSettings);
+    const finalAddress = (row?.companyAddress && row.companyAddress !== 'HSR Layout' && !row.companyAddress.includes('Business Avenue') && !row.companyAddress.includes('Your City'))
+      ? row.companyAddress
+      : defaultSettings.companyAddress;
+
+    const finalPhone = (row?.companyPhone && !row.companyPhone.includes('8333909139') && !row.companyPhone.includes('98765'))
+      ? row.companyPhone
+      : defaultSettings.companyPhone;
+
+    const finalEmail = (row?.companyEmail && !row.companyEmail.toLowerCase().includes('tradenexus.com'))
+      ? row.companyEmail
+      : defaultSettings.companyEmail;
+
+    const finalWebsite = (row?.companyWebsite && !row.companyWebsite.includes('tradenexustradesmart.com') && !row.companyWebsite.includes('tradenexus.com'))
+      ? row.companyWebsite
+      : defaultSettings.companyWebsite;
+
+    return res.status(200).json({
+      companyAddress: finalAddress,
+      companyPhone: finalPhone,
+      companyEmail: finalEmail,
+      companyWebsite: finalWebsite,
+      signatoryName: row?.signatoryName || defaultSettings.signatoryName,
+      signatoryRole: row?.signatoryRole || defaultSettings.signatoryRole,
+    });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }

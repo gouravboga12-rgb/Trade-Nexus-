@@ -44,13 +44,38 @@ export async function verifySmtpConnection(): Promise<{ success: boolean; messag
   }
 }
 
+const OFFICIAL_COMPANY_NAME = 'Trade nexus trade Smart';
+const OFFICIAL_COMPANY_ADDRESS = 'RR westbrook, 6th main HSR layout, beside pizza artistry, Bengaluru 102';
+const OFFICIAL_COMPANY_PHONE = '+919483001083';
+const OFFICIAL_COMPANY_EMAIL = 'hr@tradenexustradesmart.in';
+const OFFICIAL_COMPANY_WEBSITE = 'tradenexustradesmart.co.in';
+
+function getEmailFooterHtml(): string {
+  return `
+    <div style="background: #f8fafc; padding: 20px 24px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11.5px; color: #64748b; line-height: 1.6;">
+      <div style="font-weight: 800; color: #0A2540; font-size: 13px; letter-spacing: 0.5px;">${OFFICIAL_COMPANY_NAME}</div>
+      <div style="color: #475569; margin-top: 3px;">${OFFICIAL_COMPANY_ADDRESS}</div>
+      <div style="margin-top: 3px;">
+        Phone: <a href="tel:+919483001083" style="color: #00A88B; text-decoration: none; font-weight: 600;">${OFFICIAL_COMPANY_PHONE}</a> &bull; 
+        Email: <a href="mailto:${OFFICIAL_COMPANY_EMAIL}" style="color: #00A88B; text-decoration: none; font-weight: 600;">${OFFICIAL_COMPANY_EMAIL}</a> &bull; 
+        Web: <a href="https://${OFFICIAL_COMPANY_WEBSITE}" style="color: #00A88B; text-decoration: none; font-weight: 600;">${OFFICIAL_COMPANY_WEBSITE}</a>
+      </div>
+      <div style="margin-top: 8px; font-size: 10.5px; color: #94a3b8;">&copy; ${new Date().getFullYear()} ${OFFICIAL_COMPANY_NAME}. All rights reserved.</div>
+    </div>
+  `;
+}
+
+function getEmailFooterText(): string {
+  return `\n\n--\n${OFFICIAL_COMPANY_NAME}\n${OFFICIAL_COMPANY_ADDRESS}\nPhone: ${OFFICIAL_COMPANY_PHONE} | Email: ${OFFICIAL_COMPANY_EMAIL} | Web: ${OFFICIAL_COMPANY_WEBSITE}`;
+}
+
 // ── 1. Password Reset OTP Email Dispatcher ──
 export async function sendPasswordResetOtpEmail(
   toEmail: string,
   otp: string,
   userName?: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const companyName = process.env.COMPANY_NAME || 'TRADE NEXUS';
+  const companyName = process.env.COMPANY_NAME || OFFICIAL_COMPANY_NAME;
   const fromAddress = process.env.SMTP_FROM || `"${companyName}" <sagarsuchi26@gmail.com>`;
 
   const htmlContent = `
@@ -73,7 +98,6 @@ export async function sendPasswordResetOtpEmail(
         .otp-code { font-family: 'Courier New', Courier, monospace; font-size: 32px; font-weight: 900; letter-spacing: 8px; color: #0A2540; margin: 0; }
         .otp-caption { font-size: 11px; color: #64748b; font-weight: 600; margin-top: 6px; text-transform: uppercase; }
         .warning { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px 14px; border-radius: 8px; font-size: 12px; color: #92400e; margin-top: 20px; line-height: 1.5; }
-        .footer { background: #f8fafc; padding: 16px 24px; text-align: center; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8; }
       </style>
     </head>
     <body>
@@ -98,9 +122,7 @@ export async function sendPasswordResetOtpEmail(
             ⚠️ <strong>Security Notice:</strong> This code is valid for <strong>10 minutes</strong>. Never share this code with anyone.
           </div>
         </div>
-        <div class="footer">
-          &copy; ${new Date().getFullYear()} ${companyName}. All rights reserved. Automated security notification.
-        </div>
+        ${getEmailFooterHtml()}
       </div>
     </body>
     </html>
@@ -111,8 +133,9 @@ export async function sendPasswordResetOtpEmail(
     const info = await transporter.sendMail({
       from: fromAddress,
       to: toEmail,
+      replyTo: OFFICIAL_COMPANY_EMAIL,
       subject: `[${companyName}] Password Reset Verification Code: ${otp}`,
-      text: `Your ${companyName} password reset verification code is: ${otp}. It is valid for 10 minutes.`,
+      text: `Your ${companyName} password reset verification code is: ${otp}. It is valid for 10 minutes.${getEmailFooterText()}`,
       html: htmlContent,
     });
 
@@ -253,9 +276,7 @@ export async function sendCustomerInvoiceEmail(
           </div>
         </div>
 
-        <div class="footer">
-          &copy; ${new Date().getFullYear()} ${companyName}. All rights reserved. Download the attached PDF for official accounting records.
-        </div>
+        ${getEmailFooterHtml()}
       </div>
     </body>
     </html>
@@ -266,8 +287,9 @@ export async function sendCustomerInvoiceEmail(
     const mailOptions: any = {
       from: fromAddress,
       to: toEmail,
+      replyTo: OFFICIAL_COMPANY_EMAIL,
       subject: `[${companyName}] Commercial Tax Invoice #${invoice.invoiceNumber} for ${invoice.clientName}`,
-      text: `Hello ${invoice.clientName},\n\nPlease find attached your commercial invoice #${invoice.invoiceNumber} for ₹${Number(invoice.grandTotal || 0).toLocaleString('en-IN')}.\nDue Date: ${invoice.dueDate || 'Upon Receipt'}.\n\nPlease download the attached PDF for your records.\n\nThank you for choosing ${companyName}.`,
+      text: `Hello ${invoice.clientName},\n\nPlease find attached your commercial invoice #${invoice.invoiceNumber} for ₹${Number(invoice.grandTotal || 0).toLocaleString('en-IN')}.\nDue Date: ${invoice.dueDate || 'Upon Receipt'}.\n\nPlease download the attached PDF for your records.\n\nThank you for choosing ${companyName}.${getEmailFooterText()}`,
       html: htmlContent,
     };
 
@@ -434,9 +456,7 @@ export async function sendEmployeeOnboardingEmail(
             Please log in to your employee self-service portal to review your digital employee ID card, access daily desk assignments, and complete onboarding.
           </p>
         </div>
-        <div class="footer">
-          &copy; ${new Date().getFullYear()} ${companyName}. Confidential Corporate Human Resources Communication.
-        </div>
+        ${getEmailFooterHtml()}
       </div>
     </body>
     </html>
@@ -444,13 +464,13 @@ export async function sendEmployeeOnboardingEmail(
 
   try {
     const transporter = getTransporter();
-    const replyTo = process.env.SMTP_REPLY_TO || 'info@tradenexustradesmart.co.in';
+    const replyTo = process.env.SMTP_REPLY_TO || OFFICIAL_COMPANY_EMAIL;
     const mailOptions: any = {
       from: fromAddress,
       to: toEmail,
       replyTo,
       subject: `Official Employment Offer Letter & Onboarding Package - ${employee.name} (${empCode})`,
-      text: `Welcome to ${companyName}, ${employee.name}!\n\nYour Employee Code is ${empCode}.\nYou can access the staff portal at https://tradenexustradesmart.co.in using your email (${toEmail}) and temporary access key (${defaultPassword}).\n\nYour Official Job Offer Letter and Digital Employee ID Card PDFs are attached to this email.\n\nWarm regards,\nTrade Nexus Human Resources`,
+      text: `Welcome to ${companyName}, ${employee.name}!\n\nYour Employee Code is ${empCode}.\nYou can access the staff portal at https://tradenexustradesmart.co.in using your email (${toEmail}) and temporary access key (${defaultPassword}).\n\nYour Official Job Offer Letter and Digital Employee ID Card PDFs are attached to this email.${getEmailFooterText()}`,
       html: htmlContent,
       headers: {
         'X-Entity-Ref-ID': `tnx-onboard-${empCode}-${Date.now()}`,
@@ -561,9 +581,7 @@ export async function sendEmployeePayslipEmail(
           </div>
         </div>
 
-        <div class="footer">
-          &copy; ${new Date().getFullYear()} ${companyName}. This is an authentic digitally generated payroll slip.
-        </div>
+        ${getEmailFooterHtml()}
       </div>
     </body>
     </html>
@@ -574,8 +592,9 @@ export async function sendEmployeePayslipEmail(
     const mailOptions: any = {
       from: fromAddress,
       to: toEmail,
+      replyTo: OFFICIAL_COMPANY_EMAIL,
       subject: `[${companyName}] Salary Payslip for ${payslip.month} ${payslip.year} - ${displayName}`,
-      text: `Hello ${displayName},\n\nYour salary statement for ${payslip.month} ${payslip.year} has been processed.\nNet Salary: ₹${netPay.toLocaleString('en-IN')}.\n\nPlease download your attached official Payslip PDF for your records.\n\nThank you for your valuable contributions to ${companyName}.`,
+      text: `Hello ${displayName},\n\nYour salary statement for ${payslip.month} ${payslip.year} has been processed.\nNet Salary: ₹${netPay.toLocaleString('en-IN')}.\n\nPlease download your attached official Payslip PDF for your records.\n\nThank you for your valuable contributions to ${companyName}.${getEmailFooterText()}`,
       html: htmlContent,
     };
 
@@ -667,9 +686,7 @@ export async function sendEmployeeRelievingLetterEmail(
           </p>
         </div>
 
-        <div class="footer">
-          &copy; ${new Date().getFullYear()} ${companyName}. Formal Certificate of Release.
-        </div>
+        ${getEmailFooterHtml()}
       </div>
     </body>
     </html>
@@ -680,8 +697,9 @@ export async function sendEmployeeRelievingLetterEmail(
     const mailOptions: any = {
       from: fromAddress,
       to: toEmail,
+      replyTo: OFFICIAL_COMPANY_EMAIL,
       subject: `[${companyName}] Official Relieving Letter for ${employee.name}`,
-      text: `Dear ${employee.name},\n\nPlease find attached your formal Relieving Certificate from ${companyName}.\nEffective Last Working Day: ${relievingLetter.lastWorkingDay || 'Exit Date'}.\n\nWe wish you all the best in your career.`,
+      text: `Dear ${employee.name},\n\nPlease find attached your formal Relieving Certificate from ${companyName}.\nEffective Last Working Day: ${relievingLetter.lastWorkingDay || 'Exit Date'}.\n\nWe wish you all the best in your career.${getEmailFooterText()}`,
       html: htmlContent,
     };
 
@@ -784,9 +802,7 @@ export async function sendEmployeeExperienceCertEmail(
           </p>
         </div>
 
-        <div class="footer">
-          &copy; ${new Date().getFullYear()} ${companyName}. Verified Digital Corporate Certificate.
-        </div>
+        ${getEmailFooterHtml()}
       </div>
     </body>
     </html>
@@ -797,8 +813,9 @@ export async function sendEmployeeExperienceCertEmail(
     const mailOptions: any = {
       from: fromAddress,
       to: toEmail,
+      replyTo: OFFICIAL_COMPANY_EMAIL,
       subject: `[${companyName}] Official Experience Certificate for ${employee.name}`,
-      text: `Dear ${employee.name},\n\nPlease find attached your official Certificate of Experience and Service Verification from ${companyName}.\n\nWe wish you all the best in your career.`,
+      text: `Dear ${employee.name},\n\nPlease find attached your official Certificate of Experience and Service Verification from ${companyName}.\n\nWe wish you all the best in your career.${getEmailFooterText()}`,
       html: htmlContent,
     };
 
@@ -892,9 +909,7 @@ export async function sendEmployeeIdCardEmail(
           </p>
         </div>
 
-        <div class="footer">
-          &copy; ${new Date().getFullYear()} ${companyName}. Corporate Security &amp; Identity Administration.
-        </div>
+        ${getEmailFooterHtml()}
       </div>
     </body>
     </html>
@@ -905,8 +920,9 @@ export async function sendEmployeeIdCardEmail(
     const mailOptions: any = {
       from: fromAddress,
       to: toEmail,
+      replyTo: OFFICIAL_COMPANY_EMAIL,
       subject: `[${companyName}] Official Employee Identity Card Badge - ${empName} (${empCode})`,
-      text: `Hello ${empName},\n\nPlease find attached your official Trade Nexus Employee ID Card Badge PDF (Emp Code: ${empCode}).\n\nYou can download and save this on your mobile device or print it for facility access.\n\nTrade Nexus Corporate Security`,
+      text: `Hello ${empName},\n\nPlease find attached your official Trade Nexus Employee ID Card Badge PDF (Emp Code: ${empCode}).\n\nYou can download and save this on your mobile device or print it for facility access.${getEmailFooterText()}`,
       html: htmlContent,
     };
 

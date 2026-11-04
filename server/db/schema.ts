@@ -318,11 +318,11 @@ export function initializeDatabaseSchema() {
       signatoryRole TEXT DEFAULT 'Chief executive Officer',
       employeeType TEXT DEFAULT 'Full-Time',
       salaryType TEXT DEFAULT 'Monthly Salary',
-      companyName TEXT DEFAULT 'Trade Nexus',
-      companyAddress TEXT DEFAULT '123 Business Avenue, Financial District, Your City, 500001',
-      companyPhone TEXT DEFAULT '+91 98765 43210',
-      companyEmail TEXT DEFAULT 'info@tradenexus.com',
-      companyWebsite TEXT DEFAULT 'www.tradenexus.com',
+      companyName TEXT DEFAULT 'Trade nexus trade Smart',
+      companyAddress TEXT DEFAULT 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102',
+      companyPhone TEXT DEFAULT '+919483001083',
+      companyEmail TEXT DEFAULT 'hr@tradenexustradesmart.in',
+      companyWebsite TEXT DEFAULT 'tradenexustradesmart.co.in',
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -563,7 +563,7 @@ function runMigrations() {
       endDate TEXT NOT NULL,
       refNumber TEXT NOT NULL,
       issuedDate TEXT NOT NULL,
-      companyName TEXT DEFAULT 'Trade Nexus',
+      companyName TEXT DEFAULT 'Trade nexus trade Smart',
       introParagraph TEXT,
       roleParagraph TEXT,
       conductRemarks TEXT,
@@ -591,7 +591,7 @@ function runMigrations() {
       lastWorkingDate TEXT NOT NULL,
       joiningDate TEXT NOT NULL,
       issuedDate TEXT NOT NULL,
-      companyName TEXT DEFAULT 'Trade Nexus',
+      companyName TEXT DEFAULT 'Trade nexus trade Smart',
       refNumber TEXT,
       bodyParagraph1 TEXT,
       bodyParagraph2 TEXT,
@@ -815,11 +815,11 @@ function runMigrations() {
     { table: 'offer_letters', column: 'signatoryRole',      definition: "TEXT DEFAULT 'Chief executive Officer'" },
     { table: 'offer_letters', column: 'employeeType',       definition: "TEXT DEFAULT 'Full-Time'" },
     { table: 'offer_letters', column: 'salaryType',         definition: "TEXT DEFAULT 'Monthly Salary'" },
-    { table: 'offer_letters', column: 'companyName',        definition: "TEXT DEFAULT 'Trade Nexus'" },
-    { table: 'offer_letters', column: 'companyAddress',     definition: "TEXT DEFAULT '123 Business Avenue, Financial District, Your City, 500001'" },
-    { table: 'offer_letters', column: 'companyPhone',       definition: "TEXT DEFAULT '+91 98765 43210'" },
-    { table: 'offer_letters', column: 'companyEmail',       definition: "TEXT DEFAULT 'info@tradenexus.com'" },
-    { table: 'offer_letters', column: 'companyWebsite',     definition: "TEXT DEFAULT 'www.tradenexus.com'" },
+    { table: 'offer_letters', column: 'companyName',        definition: "TEXT DEFAULT 'Trade nexus trade Smart'" },
+    { table: 'offer_letters', column: 'companyAddress',     definition: "TEXT DEFAULT 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102'" },
+    { table: 'offer_letters', column: 'companyPhone',       definition: "TEXT DEFAULT '+919483001083'" },
+    { table: 'offer_letters', column: 'companyEmail',       definition: "TEXT DEFAULT 'hr@tradenexustradesmart.in'" },
+    { table: 'offer_letters', column: 'companyWebsite',     definition: "TEXT DEFAULT 'tradenexustradesmart.co.in'" },
     // Team members custom company contact
     { table: 'team_members', column: 'companyAddress',      definition: "TEXT" },
     { table: 'team_members', column: 'companyPhone',        definition: "TEXT" },
@@ -945,6 +945,46 @@ function runMigrations() {
       CREATE INDEX IF NOT EXISTS idx_push_tokens_emp ON device_push_tokens(empCode);
       CREATE INDEX IF NOT EXISTS idx_push_tokens_role ON device_push_tokens(role);
     `);
+
+    // Migrate & update official company details across all existing accounts and templates
+    try {
+      db.prepare(`
+        UPDATE team_members
+        SET companyAddress = 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102',
+            companyPhone = '+919483001083',
+            companyEmail = 'hr@tradenexustradesmart.in',
+            companyWebsite = 'tradenexustradesmart.co.in',
+            signatoryName = 'T. Vidhya Sagar',
+            signatoryRole = 'Chief Executive Officer';
+      `).run();
+
+      db.prepare(`
+        UPDATE offer_letters
+        SET companyName = 'Trade nexus trade Smart',
+            companyAddress = 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102',
+            companyPhone = '+919483001083',
+            companyEmail = 'hr@tradenexustradesmart.in',
+            companyWebsite = 'tradenexustradesmart.co.in',
+            signatoryName = 'T. Vidhya Sagar',
+            signatoryRole = 'Chief Executive Officer';
+      `).run();
+
+      db.prepare(`
+        UPDATE experience_certificates
+        SET companyName = 'Trade nexus trade Smart',
+            signatoryName = 'T. Vidhya Sagar',
+            signatoryRole = 'Chief Executive Officer';
+      `).run();
+
+      db.prepare(`
+        UPDATE relieving_letters
+        SET companyName = 'Trade nexus trade Smart',
+            signatoryName = 'T. Vidhya Sagar',
+            signatoryRole = 'Chief Executive Officer';
+      `).run();
+    } catch (migErr) {
+      console.warn('[SQLite DB] Company details migration notice:', migErr);
+    }
   } catch (e) {
     console.error('[SQLite DB] Failed to create tables:', e);
   }

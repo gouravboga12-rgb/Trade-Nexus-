@@ -54,19 +54,45 @@ export const ProfileSelfServiceView: React.FC = () => {
     (o.candidateEmail && o.candidateEmail.toLowerCase() === (profile.email || '').toLowerCase())
   );
 
-  const effectiveOfferLetter: OfferLetterData = myOfferLetter || {
+  const rawOfferLetter: OfferLetterData = myOfferLetter || {
     id: `off-${profile.empCode || '001'}`,
     candidateName: profile.name || 'Trade Nexus Employee',
-    candidateEmail: profile.email || 'employee@tradenexus.com',
-    candidatePhone: profile.phone || '+91 98765 43210',
+    candidateEmail: profile.email || 'hr@tradenexustradesmart.in',
+    candidatePhone: profile.phone || '+919483001083',
     roleTitle: profile.roleTitle || (profile as any).role || 'Sales Executive',
     department: profile.department || 'Client Acquisition',
     annualCtc: 420000,
     monthlyGross: 35000,
     joiningDate: profile.joinDate || '01 Jan 2024',
-    reportingManager: profile.teamLeaderName || 'Ramesh Sharma (TL)',
+    reportingManager: profile.teamLeaderName || 'Team Leader',
     location: 'Bengaluru Corporate HQ',
     issuedDate: profile.joinDate || '01 Jan 2024',
+    companyName: 'Trade nexus trade Smart',
+    companyAddress: 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102',
+    companyPhone: '+919483001083',
+    companyEmail: 'hr@tradenexustradesmart.in',
+    companyWebsite: 'tradenexustradesmart.co.in',
+    signatoryName: 'T. Vidhya Sagar',
+    signatoryRole: 'Chief Executive Officer',
+  };
+
+  const effectiveOfferLetter: OfferLetterData = {
+    ...rawOfferLetter,
+    companyName: (!rawOfferLetter.companyName || rawOfferLetter.companyName === 'Trade Nexus') ? 'Trade nexus trade Smart' : rawOfferLetter.companyName,
+    companyAddress: (!rawOfferLetter.companyAddress || rawOfferLetter.companyAddress.includes('Business Avenue') || rawOfferLetter.companyAddress.includes('Your City'))
+      ? 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102'
+      : rawOfferLetter.companyAddress,
+    companyPhone: (!rawOfferLetter.companyPhone || rawOfferLetter.companyPhone.includes('98765') || rawOfferLetter.companyPhone.includes('8333909139'))
+      ? '+919483001083'
+      : rawOfferLetter.companyPhone,
+    companyEmail: (!rawOfferLetter.companyEmail || rawOfferLetter.companyEmail.toLowerCase().includes('tradenexus.com'))
+      ? 'hr@tradenexustradesmart.in'
+      : rawOfferLetter.companyEmail,
+    companyWebsite: (!rawOfferLetter.companyWebsite || rawOfferLetter.companyWebsite.includes('tradenexustradesmart.com') || rawOfferLetter.companyWebsite.includes('tradenexus.com'))
+      ? 'tradenexustradesmart.co.in'
+      : rawOfferLetter.companyWebsite,
+    signatoryName: rawOfferLetter.signatoryName || 'T. Vidhya Sagar',
+    signatoryRole: rawOfferLetter.signatoryRole || 'Chief Executive Officer',
   };
 
   const myExperienceCert = experienceCerts.find(c => 
@@ -97,8 +123,14 @@ export const ProfileSelfServiceView: React.FC = () => {
           bloodGroup: profile.bloodGroup || 'O+ ve',
           dob: (profile as any).dob || '05/11/1997',
           empType: 'Full - Time',
-          phone: profile.phone || '9876543210',
+          phone: profile.phone || '',
           avatar: profile.avatar,
+          address: 'RR westbrook, 6th main HSR layout, beside pizza artistry, Bengaluru 102',
+          email: 'hr@tradenexustradesmart.in',
+          website: 'tradenexustradesmart.co.in',
+          companyPhone: '+919483001083',
+          signatoryName: 'T. Vidhya Sagar',
+          signatoryRole: 'Chief Executive Officer',
         }
       );
       triggerToast(`✓ Official ID Card PDF downloaded successfully!`);

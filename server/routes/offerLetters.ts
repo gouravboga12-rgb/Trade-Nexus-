@@ -6,8 +6,24 @@ const router = Router();
 // GET /api/offer-letters
 router.get('/', (req: Request, res: Response) => {
   try {
-    const letters = db.prepare('SELECT * FROM offer_letters ORDER BY createdAt DESC').all();
-    return res.status(200).json(letters);
+    const letters = db.prepare('SELECT * FROM offer_letters ORDER BY createdAt DESC').all() as any[];
+    const sanitized = letters.map(l => ({
+      ...l,
+      companyName: (!l.companyName || l.companyName === 'Trade Nexus') ? 'Trade nexus trade Smart' : l.companyName,
+      companyAddress: (!l.companyAddress || l.companyAddress.includes('Business Avenue') || l.companyAddress.includes('Your City'))
+        ? 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102'
+        : l.companyAddress,
+      companyPhone: (!l.companyPhone || l.companyPhone.includes('98765') || l.companyPhone.includes('8333909139'))
+        ? '+919483001083'
+        : l.companyPhone,
+      companyEmail: (!l.companyEmail || l.companyEmail.toLowerCase().includes('tradenexus.com'))
+        ? 'hr@tradenexustradesmart.in'
+        : l.companyEmail,
+      companyWebsite: (!l.companyWebsite || l.companyWebsite.includes('tradenexustradesmart.com') || l.companyWebsite.includes('tradenexus.com'))
+        ? 'tradenexustradesmart.co.in'
+        : l.companyWebsite,
+    }));
+    return res.status(200).json(sanitized);
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }
