@@ -404,12 +404,12 @@ export const TeamLeaderDashboardView: React.FC = () => {
     const ranking = [...teamMembers].map(m => {
       // Find calls logged for this employee in timeframe
       const empCalls = filteredCalls.filter(c =>
-        c.employeeId === m.id || c.employeeId === m.empCode || (c.clientName && c.clientName.toLowerCase() === m.name.toLowerCase())
+        c.employeeId === m.id || c.employeeId === m.empCode || (c.employeeName && c.employeeName.toLowerCase() === m.name.toLowerCase())
       ).length;
       
       // If timeframe is today and no granular call logs found, fall back to m.dialsToday
       const callerDials = reportsTimeframe === 'today'
-        ? Math.max(empCalls, m.dialsToday || 0)
+        ? (empCalls > 0 ? empCalls : (m.dialsToday || 0))
         : empCalls;
 
       // Authentic sales for this caller in timeframe = their verified payments only

@@ -46,40 +46,51 @@ router.get('/', (req: Request, res: Response) => {
       dialMetrics = db.prepare(`
         SELECT 
           COUNT(*) as dialsMade,
-          SUM(CASE WHEN outcome = 'CONNECTED' THEN 1 ELSE 0 END) as connected,
+          SUM(CASE WHEN outcome = 'CONNECTED' OR outcome = 'DEAL_CLOSED' OR durationSec > 0 THEN 1 ELSE 0 END) as connected,
           SUM(CASE WHEN outcome = 'INTERESTED' THEN 1 ELSE 0 END) as interested,
-          SUM(CASE WHEN outcome = 'NOT_INTERESTED' OR outcome = 'REJECTED' THEN 1 ELSE 0 END) as rejected,
+          SUM(CASE WHEN outcome = 'NOT_INTERESTED' OR outcome = 'REJECTED' OR outcome = 'BUSY' THEN 1 ELSE 0 END) as rejected,
           AVG(durationSec) as avgSec
         FROM call_logs
-        WHERE (employeeId = ? OR employeeId = ? OR LOWER(clientName) = LOWER(?))
+        WHERE (employeeId = ? OR employeeId = ? OR (employeeName IS NOT NULL AND LOWER(employeeName) = LOWER(?)))
           AND (date = ? OR createdAt LIKE ?)
       `).get(targetId, targetEmpCode, user?.name || '', todayStr, `${todayStr}%`) as any;
     }
 
-    // 4. Look up baseline stats row strictly for this employee
+    // 4. Calculate unique leads completed today from assigned_leads
+    let todayLeadsCompleted = 0;
+    if (targetId || targetEmpCode || user?.name) {
+      try {
+        const leadRow = db.prepare(`
+          SELECT COUNT(*) as completedCount
+          FROM assigned_leads
+          WHERE (assignedToEmployeeId = ? OR assignedToEmployeeId = ? OR (assignedToEmployeeName IS NOT NULL AND LOWER(assignedToEmployeeName) = LOWER(?)))
+            AND status != 'PENDING'
+            AND (updatedAt LIKE ? OR lastCallTimestamp LIKE ? OR assignedDate = ?)
+        `).get(targetId, targetEmpCode, user?.name || '', `${todayStr}%`, `${todayStr}%`, todayStr) as any;
+        todayLeadsCompleted = Number(leadRow?.completedCount || 0);
+      } catch (_) {}
+    }
+
+    // 5. Look up baseline stats row strictly for this employee
     let stats = targetId
       ? (db.prepare('SELECT * FROM telecaller_stats WHERE id = ? OR id = ?').get(`stat-${targetId}`, targetId) as any)
       : null;
 
-    const dialsToday = Math.max(
-      Number(leadMetrics?.totalDials || 0),
-      Number(dialMetrics?.dialsMade || 0),
-      Number(stats?.dialsMade || 0)
-    );
+    // Today's live dial count: strictly today's calls, falling back to leads completed today
+    const liveCallsToday = Number(dialMetrics?.dialsMade || 0);
+    const dialsToday = liveCallsToday > 0 ? liveCallsToday : todayLeadsCompleted;
+
     const connected = Math.max(
       Number(dialMetrics?.connected || 0),
-      Number(leadMetrics?.wonCount || 0),
-      Number(stats?.connected || 0)
+      Number(leadMetrics?.wonCount || 0)
     );
     const interested = Math.max(
       Number(leadMetrics?.interested || 0),
-      Number(dialMetrics?.interested || 0),
-      Number(stats?.interested || 0)
+      Number(dialMetrics?.interested || 0)
     );
     const rejected = Math.max(
       Number(leadMetrics?.rejected || 0),
-      Number(dialMetrics?.rejected || 0),
-      Number(stats?.rejected || 0)
+      Number(dialMetrics?.rejected || 0)
     );
     const avgSec = Math.round(dialMetrics?.avgSec ?? stats?.averageCallDurationSec ?? 0);
 
@@ -102,6 +113,8 @@ router.get('/', (req: Request, res: Response) => {
       todayGoalCalls: goalCalls,
       dialsMade: dialsToday,
       dialsToday: dialsToday,
+      leadsCompletedToday: todayLeadsCompleted,
+      lifetimeDials: Number(leadMetrics?.totalDials || 0),
       dailyTarget: goalCalls,
       connected: connected,
       interested: interested,

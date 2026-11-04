@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
 import { emitSocketEvent } from '../services/socketService.js';
+import { getTodayDateIST } from '../utils/dateUtils.js';
 
 const router = Router();
 
@@ -106,20 +107,38 @@ router.get('/', (req: Request, res: Response) => {
 // POST /api/call-logs
 router.post('/', (req: Request, res: Response) => {
   try {
-    const { id, clientName, companyName, phoneNumber, timestamp, durationSec, outcome, notes, followUpDate, employeeId } = req.body;
+    const { id, clientName, companyName, phoneNumber, timestamp, durationSec, outcome, notes, followUpDate, employeeId, employeeName, date } = req.body;
     const logId = id || `call-${Date.now()}`;
     const duration = durationSec !== undefined ? Number(durationSec) : 0;
     const time = timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const empId = employeeId || req.user?.employeeId || req.user?.id || null;
+    const todayDate = date || getTodayDateIST();
+
+    let empName = employeeName || req.user?.name || null;
+    if (!empName && empId) {
+      const row = db.prepare('SELECT name FROM team_members WHERE id = ? OR empCode = ? LIMIT 1').get(empId, empId) as any;
+      if (row?.name) empName = row.name;
+    }
 
     db.prepare(`
-      INSERT INTO call_logs (id, clientName, companyName, phoneNumber, timestamp, durationSec, outcome, notes, followUpDate, employeeId)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO call_logs (id, clientName, companyName, phoneNumber, timestamp, durationSec, outcome, notes, followUpDate, employeeId, employeeName, date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       logId, clientName || 'Unknown Client', companyName || 'Company', phoneNumber || '',
       time, duration, outcome || 'CONNECTED', notes || '', followUpDate || null,
-      empId
+      empId, empName, todayDate
     );
+
+    // Sync team_members dialsToday live
+    if (empId || empName) {
+      try {
+        db.prepare(`
+          UPDATE team_members
+          SET dialsToday = dialsToday + 1
+          WHERE id = ? OR empCode = ? OR (name IS NOT NULL AND LOWER(name) = LOWER(?))
+        `).run(empId, empId, empName || '');
+      } catch (_) {}
+    }
 
     const created = db.prepare('SELECT * FROM call_logs WHERE id = ?').get(logId);
     emitSocketEvent('call:logged', created);

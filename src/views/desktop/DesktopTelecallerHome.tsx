@@ -123,8 +123,8 @@ export const DesktopTelecallerHome: React.FC = () => {
 
     return (callLogs || []).filter((c) => {
       const matchId = validIds.has(c.employeeId);
-      const matchClient = validName && c.clientName && c.clientName.toLowerCase() === validName;
-      return Boolean(matchId || matchClient);
+      const matchEmp = validName && c.employeeName && c.employeeName.toLowerCase() === validName;
+      return Boolean(matchId || matchEmp);
     });
   }, [callLogs, currentUser, profile]);
 

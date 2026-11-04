@@ -4,6 +4,7 @@ import { hashPassword } from '../db/authUtils.js';
 import { syncDailyRosterStatus } from '../services/attendanceLifecycle.js';
 import { getSocketService } from '../services/socketService.js';
 import { computeVerifiedSalesMaps, extractDateIST, getPaymentDateIST, getCurrentMonthPrefixIST } from '../utils/revenueUtils.js';
+import { getTodayDateIST } from '../utils/dateUtils.js';
 
 const router = Router();
 
@@ -42,6 +43,57 @@ router.get('/', (req: Request, res: Response) => {
       ? req.query.month
       : undefined;
     const salesMaps = computeVerifiedSalesMaps(db, requestedMonth);
+    const todayStr = getTodayDateIST();
+
+    // Live daily metrics: Aggregate today's call logs from call_logs per telecaller
+    const todayCallStats = new Map<string, { dials: number; connected: number; interested: number }>();
+    try {
+      const callRows = db.prepare(`
+        SELECT 
+          employeeId,
+          LOWER(COALESCE(employeeName, '')) as empName,
+          COUNT(*) as dialsCount,
+          SUM(CASE WHEN outcome = 'CONNECTED' OR outcome = 'DEAL_CLOSED' OR durationSec > 0 THEN 1 ELSE 0 END) as connectedCount,
+          SUM(CASE WHEN outcome = 'INTERESTED' THEN 1 ELSE 0 END) as interestedCount
+        FROM call_logs
+        WHERE (date = ? OR createdAt LIKE ?)
+        GROUP BY employeeId, empName
+      `).all(todayStr, `${todayStr}%`) as any[];
+
+      for (const row of callRows) {
+        const statsObj = {
+          dials: Number(row.dialsCount || 0),
+          connected: Number(row.connectedCount || 0),
+          interested: Number(row.interestedCount || 0),
+        };
+        if (row.employeeId) todayCallStats.set(row.employeeId, statsObj);
+        if (row.empName) todayCallStats.set(row.empName, statsObj);
+      }
+    } catch (_) {}
+
+    // Live daily metrics: Aggregate unique leads completed today from assigned_leads
+    const todayLeadStats = new Map<string, { completed: number; interested: number }>();
+    try {
+      const leadRows = db.prepare(`
+        SELECT 
+          assignedToEmployeeId,
+          LOWER(COALESCE(assignedToEmployeeName, '')) as empName,
+          COUNT(*) as completedCount,
+          SUM(CASE WHEN status = 'INTERESTED' THEN 1 ELSE 0 END) as interestedCount
+        FROM assigned_leads
+        WHERE status != 'PENDING' AND (updatedAt LIKE ? OR lastCallTimestamp LIKE ? OR assignedDate = ?)
+        GROUP BY assignedToEmployeeId, empName
+      `).all(`${todayStr}%`, `${todayStr}%`, todayStr) as any[];
+
+      for (const row of leadRows) {
+        const lObj = {
+          completed: Number(row.completedCount || 0),
+          interested: Number(row.interestedCount || 0),
+        };
+        if (row.assignedToEmployeeId) todayLeadStats.set(row.assignedToEmployeeId, lObj);
+        if (row.empName) todayLeadStats.set(row.empName, lObj);
+      }
+    } catch (_) {}
 
     const formatMember = (m: any) => {
       const hasPanDoc = Boolean(m.panDocumentUrl && m.panDocumentUrl.length > 0);
@@ -50,10 +102,28 @@ router.get('/', (req: Request, res: Response) => {
       const monthlySalesAchieved = salesMaps.monthlyByCaller.get(callerKey) ?? 0;
       const allTimeSalesAchieved = salesMaps.allTimeByCaller.get(callerKey) ?? 0;
 
+      const idKey = m.id;
+      const codeKey = m.empCode;
+      const nameKey = (m.name || '').trim().toLowerCase();
+
+      const callStat = (idKey && todayCallStats.get(idKey)) || (codeKey && todayCallStats.get(codeKey)) || (nameKey && todayCallStats.get(nameKey));
+      const leadStat = (idKey && todayLeadStats.get(idKey)) || (codeKey && todayLeadStats.get(codeKey)) || (nameKey && todayLeadStats.get(nameKey));
+
+      const liveCalls = callStat?.dials ?? 0;
+      const completedLeads = leadStat?.completed ?? 0;
+      // Live dials today: actual calls made today, falling back to unique leads completed today
+      const liveDialsToday = liveCalls > 0 ? liveCalls : completedLeads;
+      const liveConnected = callStat?.connected ?? 0;
+      const liveInterested = (callStat?.interested || 0) + (leadStat?.interested || 0);
+
       let out: any;
       if (includeDocuments) {
         out = {
           ...m,
+          dialsToday: liveDialsToday,
+          completedLeadsToday: completedLeads,
+          connected: liveConnected > 0 ? liveConnected : (m.connected || 0),
+          interested: liveInterested > 0 ? liveInterested : (m.interested || 0),
           salesAchieved: monthlySalesAchieved,
           allTimeSalesAchieved,
           hasPanDoc,
@@ -63,6 +133,10 @@ router.get('/', (req: Request, res: Response) => {
         const { panDocumentUrl, aadhaarDocumentUrl, ...rest } = m;
         out = {
           ...rest,
+          dialsToday: liveDialsToday,
+          completedLeadsToday: completedLeads,
+          connected: liveConnected > 0 ? liveConnected : (m.connected || 0),
+          interested: liveInterested > 0 ? liveInterested : (m.interested || 0),
           salesAchieved: monthlySalesAchieved,
           allTimeSalesAchieved,
           hasPanDoc,

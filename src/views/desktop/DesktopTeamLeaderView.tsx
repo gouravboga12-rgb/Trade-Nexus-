@@ -1154,10 +1154,10 @@ export const DesktopTeamLeaderView: React.FC<DesktopTeamLeaderViewProps> = ({
 
         const memberReportRows = teamMembers.map(member => {
           const empCalls = filteredCalls.filter(c =>
-            c.employeeId === member.id || c.employeeId === member.empCode || (c.clientName && c.clientName.toLowerCase() === member.name.toLowerCase())
+            c.employeeId === member.id || c.employeeId === member.empCode || (c.employeeName && c.employeeName.toLowerCase() === member.name.toLowerCase())
           ).length;
 
-          const memberDials = isToday ? Math.max(empCalls, member.dialsToday || 0) : empCalls;
+          const memberDials = isToday ? (empCalls > 0 ? empCalls : (member.dialsToday || 0)) : empCalls;
 
           // Revenue = verified payments only (no lead.dealValue double-counting)
           const empPayments = verifiedPayments.filter(p => paymentBelongsTo(p, member.name));

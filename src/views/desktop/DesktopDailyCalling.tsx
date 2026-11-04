@@ -324,7 +324,7 @@ export const DesktopDailyCalling: React.FC = () => {
                   />
                 </div>
                 <span className="text-xs font-semibold font-mono text-slate-400 block mt-2">
-                  {dialsDone} / {totalAssigned} dials completed
+                  {dialsDone} / {totalAssigned} leads called
                 </span>
               </div>
             </button>
