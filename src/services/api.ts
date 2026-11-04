@@ -491,6 +491,29 @@ export const api = {
         method: 'DELETE',
       }
     ),
+  getBatchCleanupPreview: (batchId: string, fileName?: string) =>
+    request<{
+      batchId: string;
+      total: number;
+      notInterestedCount: number;
+      wonCount: number;
+      interestedCount: number;
+      pendingCount: number;
+      otherCount: number;
+      protectedCount: number;
+      callLogsCount: number;
+    }>(`/lead-batches/${encodeURIComponent(batchId)}/cleanup-preview${fileName ? `?fileName=${encodeURIComponent(fileName)}` : ''}`),
+  cleanMonthlyLeads: (batchId: string, fileName?: string) =>
+    request<{
+      success: boolean;
+      batchId: string;
+      purgedCount: number;
+      deletedLeadIds: string[];
+      message: string;
+    }>(`/lead-batches/${encodeURIComponent(batchId)}/monthly-cleanup`, {
+      method: 'POST',
+      body: JSON.stringify({ fileName }),
+    }),
 
   // Biometrics
   getBiometrics: () => request<FaceBiometricProfile[]>('/biometrics'),

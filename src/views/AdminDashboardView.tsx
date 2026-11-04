@@ -43,6 +43,7 @@ import {
   Trash2,
   LogOut,
   Edit2,
+  Database,
   Eye,
   Camera,
   AlertTriangle,
@@ -71,6 +72,7 @@ import { GeofenceLocationModal } from '../components/modals/GeofenceLocationModa
 import { InAppLiveMapModal } from '../components/modals/InAppLiveMapModal';
 import { TopPerformersModal } from '../components/modals/TopPerformersModal';
 import { TopPerformersShowcase } from '../components/common/TopPerformersShowcase';
+import { AdminMonthlyLeadCleanupModal } from '../components/modals/AdminMonthlyLeadCleanupModal';
 import { OfficeSettings, TeamGroup, TeamMember, UserRole, LeaveRequest, PaymentVerificationItem, AttendanceRecord } from '../types';
 import { api } from '../services/api';
 import { Employee360ProfileView } from './Employee360ProfileView';
@@ -225,6 +227,7 @@ export const AdminDashboardView: React.FC = () => {
   const [employeeToDelete, setEmployeeToDelete] = useState<TeamMember | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false);
+  const [isMonthlyCleanupModalOpen, setIsMonthlyCleanupModalOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<TeamGroup | null>(null);
   const [deletingTeam, setDeletingTeam] = useState<TeamGroup | null>(null);
   const [verifySelectedDate, setVerifySelectedDate] = useState<string>(getTodayDateIST());
@@ -3612,6 +3615,32 @@ export const AdminDashboardView: React.FC = () => {
                 </div>
               </div>
 
+              {/* Monthly Lead Storage Cleanup & Optimization */}
+              <div
+                onClick={() => setIsMonthlyCleanupModalOpen(true)}
+                className="bg-white border border-slate-200/90 hover:border-rose-400 rounded-2xl p-4 shadow-2xs flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
+                    <Database className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-sm text-[#0A2540] group-hover:text-rose-600 transition-colors">
+                        Monthly Lead Storage Cleanup
+                      </h4>
+                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 font-mono">
+                        Storage Tool
+                      </span>
+                    </div>
+                    <span className="text-xs text-slate-500">
+                      Safely purge 'Not Interested' leads while 100% retaining Won, Interested, Callbacks &amp; Unseen leads
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-rose-600 transition-colors" />
+              </div>
+
               {/* Create Team Squad */}
               <div
                 onClick={() => setIsCreateTeamOpen(true)}
@@ -5684,6 +5713,12 @@ export const AdminDashboardView: React.FC = () => {
       <TopPerformersModal
         isOpen={isTopPerformersModalOpen}
         onClose={() => setIsTopPerformersModalOpen(false)}
+      />
+
+      {/* Monthly Lead Storage Cleanup & Optimization Modal */}
+      <AdminMonthlyLeadCleanupModal
+        isOpen={isMonthlyCleanupModalOpen}
+        onClose={() => setIsMonthlyCleanupModalOpen(false)}
       />
 
     </div>

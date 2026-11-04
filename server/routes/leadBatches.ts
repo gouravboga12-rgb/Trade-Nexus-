@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/connection.js';
+import { emitSocketEvent } from '../services/socketService.js';
 
 const router = Router();
 
@@ -29,6 +30,134 @@ router.post('/', (req: Request, res: Response) => {
 
     const created = db.prepare('SELECT * FROM lead_batches WHERE id = ?').get(batchId);
     return res.status(201).json(created);
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// GET /api/lead-batches/:id/cleanup-preview
+// Pre-calculates exact protected vs purge counts before admin confirms
+router.get('/:id/cleanup-preview', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const isAll = id.toLowerCase() === 'all';
+
+    let condition = '1=1';
+    let params: any[] = [];
+
+    if (!isAll) {
+      // Find batch or match by filename
+      let targetBatchId = id;
+      const batch = db.prepare('SELECT * FROM lead_batches WHERE id = ?').get(id) as any;
+      if (!batch && req.query.fileName) {
+        const fileBatch = db.prepare('SELECT * FROM lead_batches WHERE fileName = ? ORDER BY createdAt DESC').get(String(req.query.fileName)) as any;
+        if (fileBatch) targetBatchId = fileBatch.id;
+      }
+      condition = 'batchId = ?';
+      params = [targetBatchId];
+    }
+
+    const counts = db.prepare(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status IN ('NOT_INTERESTED', 'REJECTED') AND id NOT IN (SELECT DISTINCT leadId FROM payment_verifications WHERE leadId IS NOT NULL) THEN 1 ELSE 0 END) as notInterestedCount,
+        SUM(CASE WHEN status IN ('CONVERTED', 'WON') THEN 1 ELSE 0 END) as wonCount,
+        SUM(CASE WHEN status IN ('INTERESTED', 'CALLBACK') THEN 1 ELSE 0 END) as interestedCount,
+        SUM(CASE WHEN status = 'PENDING' AND (callCount = 0 OR callCount IS NULL) THEN 1 ELSE 0 END) as pendingCount,
+        SUM(CASE WHEN status NOT IN ('NOT_INTERESTED', 'REJECTED', 'CONVERTED', 'WON', 'INTERESTED', 'CALLBACK', 'PENDING') THEN 1 ELSE 0 END) as otherCount
+      FROM assigned_leads
+      WHERE ${condition}
+    `).get(...params) as any;
+
+    // Get number of call logs associated with these leads to show work credit guarantee
+    const callLogsCount = db.prepare(`
+      SELECT COUNT(*) as count FROM call_logs 
+      WHERE leadId IN (SELECT id FROM assigned_leads WHERE ${condition})
+    `).get(...params) as any;
+
+    return res.status(200).json({
+      batchId: id,
+      total: Number(counts?.total || 0),
+      notInterestedCount: Number(counts?.notInterestedCount || 0),
+      wonCount: Number(counts?.wonCount || 0),
+      interestedCount: Number(counts?.interestedCount || 0),
+      pendingCount: Number(counts?.pendingCount || 0),
+      otherCount: Number(counts?.otherCount || 0),
+      protectedCount: Number(counts?.wonCount || 0) + Number(counts?.interestedCount || 0) + Number(counts?.pendingCount || 0),
+      callLogsCount: Number(callLogsCount?.count || 0)
+    });
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// POST /api/lead-batches/:id/monthly-cleanup
+// Safely purges only NOT_INTERESTED leads while 100% protecting Won, Interested, Callbacks, and Unseen leads
+router.post('/:id/monthly-cleanup', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const isAll = id.toLowerCase() === 'all';
+
+    let condition = '1=1';
+    let params: any[] = [];
+    let targetBatchId = id;
+
+    if (!isAll) {
+      const batch = db.prepare('SELECT * FROM lead_batches WHERE id = ?').get(id) as any;
+      if (!batch && req.body?.fileName) {
+        const fileBatch = db.prepare('SELECT * FROM lead_batches WHERE fileName = ? ORDER BY createdAt DESC').get(String(req.body.fileName)) as any;
+        if (fileBatch) targetBatchId = fileBatch.id;
+      }
+      condition = 'batchId = ?';
+      params = [targetBatchId];
+    }
+
+    // Identify target leads for safe removal
+    const targetLeads = db.prepare(`
+      SELECT id FROM assigned_leads
+      WHERE ${condition}
+        AND status IN ('NOT_INTERESTED', 'REJECTED')
+        AND id NOT IN (SELECT DISTINCT leadId FROM payment_verifications WHERE leadId IS NOT NULL)
+    `).all(...params) as { id: string }[];
+
+    const deletedLeadIds = targetLeads.map(l => l.id);
+
+    if (deletedLeadIds.length > 0) {
+      const cleanupTx = db.transaction(() => {
+        // Delete in safe chunks of 500
+        const chunkSize = 500;
+        for (let i = 0; i < deletedLeadIds.length; i += chunkSize) {
+          const chunk = deletedLeadIds.slice(i, i + chunkSize);
+          const placeholders = chunk.map(() => '?').join(',');
+          db.prepare(`DELETE FROM assigned_leads WHERE id IN (${placeholders})`).run(...chunk);
+        }
+      });
+
+      cleanupTx();
+
+      // Physical disk reclamation
+      try {
+        db.pragma('wal_checkpoint(TRUNCATE)');
+        db.prepare('VACUUM').run();
+      } catch (vacuumErr) {
+        console.warn('[monthly-cleanup] Vacuum notice:', vacuumErr);
+      }
+
+      // Broadcast real-time update to all panels
+      emitSocketEvent('leads:cleaned', {
+        batchId: targetBatchId,
+        purgedCount: deletedLeadIds.length,
+        deletedLeadIds
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      batchId: targetBatchId,
+      purgedCount: deletedLeadIds.length,
+      deletedLeadIds,
+      message: `Successfully purged ${deletedLeadIds.length} 'Not Interested' leads. Won deals, Interested, Callbacks, and Unseen leads are 100% preserved.`
+    });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }

@@ -159,6 +159,7 @@ interface AppContextType {
   deleteAssignedLead: (leadId: string) => Promise<void>;
   deletePaymentVerification: (paymentId: string) => Promise<void>;
   deleteLeadBatch: (batchId: string, mode?: 'delete_leads' | 'unassign_leads', fileName?: string) => Promise<void>;
+  cleanMonthlyLeads: (batchId: string, fileName?: string) => Promise<{ success: boolean; purgedCount: number; deletedLeadIds: string[]; message: string }>;
   reclaimAssignedLeads: (params: { employeeId?: string; batchId?: string; leadIds?: string[]; onlyFresh?: boolean }) => Promise<void>;
   bulkDeleteAssignedLeads: (params: { leadIds?: string[]; employeeId?: string; batchId?: string; onlyFresh?: boolean }) => Promise<void>;
   /** Move a telecaller's leads to someone else, optionally limited to a count, or specific lead IDs. */
@@ -1341,6 +1342,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           targetTab: 'leads',
         });
       }
+    });
+
+    socket.on('leads:cleaned', (payload: { batchId: string; purgedCount: number; deletedLeadIds: string[] }) => {
+      if (Array.isArray(payload?.deletedLeadIds) && payload.deletedLeadIds.length > 0) {
+        const idSet = new Set(payload.deletedLeadIds);
+        setAssignedLeads((prev) => prev.filter((l) => !idSet.has(l.id)));
+      }
+      refreshResources(['assignedLeads', 'stats', 'teamMembers']);
     });
 
     socket.on('calendar:settings-updated', () => {
@@ -3210,6 +3219,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const cleanMonthlyLeads = async (batchId: string, fileName?: string) => {
+    try {
+      const res = await api.cleanMonthlyLeads(batchId, fileName);
+      if (Array.isArray(res.deletedLeadIds) && res.deletedLeadIds.length > 0) {
+        const idSet = new Set(res.deletedLeadIds);
+        setAssignedLeads((prev) => prev.filter((l) => !idSet.has(l.id)));
+      }
+      triggerToast(`✓ ${res.message || `Purged ${res.purgedCount} Not-Interested leads.`}`);
+      refreshResources(['assignedLeads', 'stats', 'teamMembers', 'leadBatches']);
+      return res;
+    } catch (err: any) {
+      console.warn('Failed to clean monthly leads:', err);
+      triggerToast(`✗ ${err.message || 'Failed to clean monthly leads'}`);
+      throw err;
+    }
+  };
+
   const reclaimAssignedLeads = async (params: { employeeId?: string; batchId?: string; leadIds?: string[]; onlyFresh?: boolean }) => {
     try {
       const res = await api.reclaimAssignedLeads(params);
@@ -4278,6 +4304,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         deleteAssignedLead,
         deletePaymentVerification,
         deleteLeadBatch,
+        cleanMonthlyLeads,
         reclaimAssignedLeads,
         bulkDeleteAssignedLeads,
         reassignLeadsBetween,
