@@ -79,6 +79,8 @@ export interface AppNotification {
   read: boolean;
   targetTab?: string;
   category?: 'leads' | 'payment' | 'attendance' | 'meeting' | 'leave' | 'system' | 'birthday' | 'target_alert' | 'announcement';
+  createdAt?: string;
+  senderName?: string;
 }
 
 interface AppContextType {
@@ -393,11 +395,14 @@ interface AppContextType {
   markNotificationAsRead: (id: string) => void;
   markAllNotificationsAsRead: () => void;
   clearAllNotifications: () => void;
+  deleteNotification: (id: string) => void;
   addAppNotification: (notif: {
     title: string;
     body: string;
     targetTab?: string;
     category?: 'leads' | 'payment' | 'attendance' | 'meeting' | 'leave' | 'system' | 'birthday' | 'target_alert' | 'announcement';
+    createdAt?: string;
+    senderName?: string;
   }) => void;
 }
 
@@ -484,7 +489,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     body: string;
     targetTab?: string;
     category?: 'leads' | 'payment' | 'attendance' | 'meeting' | 'leave' | 'system' | 'birthday' | 'target_alert' | 'announcement';
+    createdAt?: string;
+    senderName?: string;
   }) => {
+    const isoDate = notif.createdAt || new Date().toISOString();
     const newNotif: AppNotification = {
       id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       title: notif.title,
@@ -493,6 +501,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       read: false,
       targetTab: notif.targetTab,
       category: notif.category,
+      createdAt: isoDate,
+      senderName: notif.senderName,
     };
 
     // Instant zero-polling Web Audio alert chime
@@ -548,6 +558,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       localStorage.removeItem('tnx_notifications');
     } catch {}
+  }, []);
+
+  const deleteNotification = useCallback((id: string) => {
+    setNotifications((prev) => {
+      const updated = prev.filter((n) => n.id !== id);
+      try {
+        localStorage.setItem('tnx_notifications', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
   }, []);
 
 
@@ -1647,7 +1667,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
 
       if (unseenList.length > 0) {
-        unseenList.forEach((b: any) => {
+        // Reverse so that older items are inserted first and newest items end up at top
+        const ordered = [...unseenList].reverse();
+        ordered.forEach((b: any) => {
           seenIds.add(b.id);
           const cat = (b.category || 'ANNOUNCEMENT').toLowerCase();
           let notifCat: any = 'announcement';
@@ -1659,6 +1681,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             body: b.message || b.body || '',
             category: notifCat,
             targetTab: b.actionUrl || 'home',
+            createdAt: b.createdAt,
+            senderName: b.senderName,
           });
         });
 
@@ -4421,6 +4445,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         markNotificationAsRead,
         markAllNotificationsAsRead,
         clearAllNotifications,
+        deleteNotification,
         addAppNotification,
       }}
     >

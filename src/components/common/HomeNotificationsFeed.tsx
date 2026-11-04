@@ -32,8 +32,13 @@ export const HomeNotificationsFeed: React.FC<HomeNotificationsFeedProps> = ({
     joinMeeting,
   } = useApp();
 
-  // Combine top unread notifications and upcoming meetings
-  const displayItems = notifications.slice(0, maxItems);
+  // Combine top unread notifications and upcoming meetings (newest to oldest)
+  const sorted = [...notifications].sort((a, b) => {
+    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : parseInt(a.id.match(/^notif_(\d+)_/)?.[1] || '0', 10);
+    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : parseInt(b.id.match(/^notif_(\d+)_/)?.[1] || '0', 10);
+    return timeB - timeA;
+  });
+  const displayItems = sorted.slice(0, maxItems);
   const nextMeeting = teamMeetings && teamMeetings.length > 0 ? teamMeetings[0] : null;
 
   return (
