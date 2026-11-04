@@ -121,6 +121,7 @@ router.post('/broadcast', async (req: Request, res: Response) => {
       targetRole: pushRoleFilter,
       targetUserId: pushUserFilter,
       targetEmpCode: pushUserFilter,
+      isBroadcast: targetScope === 'ALL',
       title: title,
       body: message,
       channelId: 'high-priority',

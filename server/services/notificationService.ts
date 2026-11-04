@@ -44,6 +44,7 @@ export interface PushNotificationPayload {
   targetUserId?: string | string[];
   targetEmpCode?: string | string[];
   targetRole?: string | string[];
+  isBroadcast?: boolean;
   title: string;
   body: string;
   data?: Record<string, any>;
@@ -146,7 +147,20 @@ function getTargetTokens(payload: PushNotificationPayload): string[] {
       if (orParts.length > 0) {
         conditions.push(`(${orParts.join(' OR ')})`);
         params.push(...orParams);
+      } else {
+        // A specific target was intended, but evaluated to empty (e.g. undefined/empty userId)
+        // Strictly prevent falling back to company-wide broadcast!
+        console.warn('[Push Service] Specific target evaluated to empty, aborting push to prevent accidental company blast:', {
+          targetUserId: payload.targetUserId,
+          targetEmpCode: payload.targetEmpCode,
+          targetRole: payload.targetRole
+        });
+        return [];
       }
+    } else if (!payload.isBroadcast) {
+      // If neither targetUserId, targetEmpCode, targetRole nor isBroadcast: true is specified, do NOT broadcast
+      console.warn('[Push Service] Push payload has neither target nor isBroadcast=true. Aborting to protect privacy.');
+      return [];
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';

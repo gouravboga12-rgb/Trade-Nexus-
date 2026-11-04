@@ -1248,13 +1248,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (prev.some((p) => p.id === newPay.id)) return prev;
         return [newPay, ...prev];
       });
-      const amt = Number(newPay.dealAmount || (newPay as any).amount || 0);
-      addAppNotification({
-        title: 'New Payment Submitted',
-        body: `${newPay.leadName || newPay.companyName || 'Customer'} submitted ₹${amt.toLocaleString('en-IN')} for verification`,
-        category: 'payment',
-        targetTab: 'approvals',
-      });
+
+      // ONLY notify Admin & HR when a new payment is submitted for approval
+      const role = (currentRoleRef.current || '').toLowerCase();
+      if (role === 'admin' || role === 'hr') {
+        const amt = Number(newPay.dealAmount || (newPay as any).amount || 0);
+        addAppNotification({
+          title: 'New Payment Submitted',
+          body: `${newPay.leadName || newPay.companyName || 'Customer'} submitted ₹${amt.toLocaleString('en-IN')} for verification`,
+          category: 'payment',
+          targetTab: 'approvals',
+        });
+      }
     });
 
     socket.on('payment:updated', (updatedPay: PaymentVerificationItem) => {
@@ -1263,40 +1268,93 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       );
     });
 
-    socket.on('payment:verified', (verifiedPay: PaymentVerificationItem) => {
+    socket.on('payment:verified', (verifiedPay: PaymentVerificationItem & { targetEmployeeId?: string; targetEmpCode?: string }) => {
       setPaymentVerifications((prev) => {
         const exists = prev.some((p) => p.id === verifiedPay.id);
         if (!exists) return [verifiedPay, ...prev];
         return prev.map((p) => (p.id === verifiedPay.id ? verifiedPay : p));
       });
       refreshResources(['teamMembers', 'teamGroups', 'stats']);
-      const amt = Number(verifiedPay.dealAmount || (verifiedPay as any).amount || 0);
-      addAppNotification({
-        title: 'Payment Verified',
-        body: `${verifiedPay.leadName || verifiedPay.companyName || 'Customer'} payment of ₹${amt.toLocaleString('en-IN')} has been approved`,
-        category: 'payment',
-        targetTab: 'revenue',
-      });
+
+      // Scoped notification: Only notify the rep who closed the deal, and Admin / HR
+      const curUser = currentUserRef.current;
+      const curProf = profileRef.current;
+      const curEmpId = curUser?.employeeId || curUser?.id || curProf?.id;
+      const curEmpCode = curUser?.empCode || curProf?.empCode;
+      const curEmpName = (curUser?.name || curProf?.name || '').toLowerCase().trim();
+      const telecallerName = (verifiedPay.telecallerName || '').toLowerCase().trim();
+
+      const isRepWhoWonDeal = Boolean(
+        (telecallerName && curEmpName && telecallerName === curEmpName) ||
+        (verifiedPay.targetEmployeeId && verifiedPay.targetEmployeeId === curEmpId) ||
+        (verifiedPay.targetEmpCode && verifiedPay.targetEmpCode === curEmpCode)
+      );
+
+      const role = (currentRoleRef.current || '').toLowerCase();
+      const isApprover = role === 'admin' || role === 'hr';
+
+      if (isRepWhoWonDeal || isApprover) {
+        const amt = Number(verifiedPay.dealAmount || (verifiedPay as any).amount || 0);
+        addAppNotification({
+          title: isRepWhoWonDeal ? '🎉 Won Deal Approved!' : 'Payment Verified',
+          body: isRepWhoWonDeal
+            ? `Your ₹${amt.toLocaleString('en-IN')} deal for ${verifiedPay.leadName || verifiedPay.companyName || 'Client'} has been approved!`
+            : `${verifiedPay.leadName || verifiedPay.companyName || 'Customer'} payment of ₹${amt.toLocaleString('en-IN')} has been approved`,
+          category: 'payment',
+          targetTab: 'revenue',
+        });
+      }
     });
 
-    socket.on('payment:deleted', ({ id }: { id: string }) => {
-      setPaymentVerifications((prev) => prev.filter((p) => p.id !== id));
+    socket.on('payment:rejected', (rejectedPay: PaymentVerificationItem & { targetEmployeeId?: string; targetEmpCode?: string }) => {
+      setPaymentVerifications((prev) =>
+        prev.map((p) => (p.id === rejectedPay.id ? { ...p, status: 'REJECTED' } : p))
+      );
       refreshResources(['teamMembers', 'teamGroups', 'stats']);
+
+      const curUser = currentUserRef.current;
+      const curProf = profileRef.current;
+      const curEmpId = curUser?.employeeId || curUser?.id || curProf?.id;
+      const curEmpCode = curUser?.empCode || curProf?.empCode;
+      const curEmpName = (curUser?.name || curProf?.name || '').toLowerCase().trim();
+      const telecallerName = (rejectedPay.telecallerName || '').toLowerCase().trim();
+
+      const isRepWhoWonDeal = Boolean(
+        (telecallerName && curEmpName && telecallerName === curEmpName) ||
+        (rejectedPay.targetEmployeeId && rejectedPay.targetEmployeeId === curEmpId) ||
+        (rejectedPay.targetEmpCode && rejectedPay.targetEmpCode === curEmpCode)
+      );
+
+      const role = (currentRoleRef.current || '').toLowerCase();
+      const isApprover = role === 'admin' || role === 'hr';
+
+      if (isRepWhoWonDeal || isApprover) {
+        addAppNotification({
+          title: 'Payment Verification Declined',
+          body: `Payment verification for ${rejectedPay.leadName || rejectedPay.companyName || 'Customer'} was declined.`,
+          category: 'payment',
+          targetTab: 'revenue',
+        });
+      }
     });
 
-    // Real-time attendance punches
+    // Real-time attendance punches (Only notify Admin and HR, do not spam all employees)
     socket.on('attendance:punched', (punch: AttendanceRecord) => {
       setAttendanceLogs((prev) => {
         const filtered = prev.filter((a) => a.id !== punch.id && !(a.employeeId === punch.employeeId && a.date === punch.date));
         return [punch, ...filtered];
       });
       refreshResources(['teamMembers', 'teamGroups']);
-      addAppNotification({
-        title: 'Attendance Punch-in',
-        body: `${punch.employeeName || 'Staff'} registered biometric attendance`,
-        category: 'attendance',
-        targetTab: 'attendance',
-      });
+
+      const role = (currentRoleRef.current || '').toLowerCase();
+      if (role === 'admin' || role === 'hr') {
+        addAppNotification({
+          title: 'Attendance Punch-in',
+          body: `${punch.employeeName || 'Staff'} registered biometric attendance`,
+          category: 'attendance',
+          targetTab: 'attendance',
+        });
+      }
     });
 
     // Real-time lead conversions and allocations

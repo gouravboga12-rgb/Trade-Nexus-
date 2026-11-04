@@ -219,24 +219,41 @@ router.put('/:id', requireRole('admin', 'hr'), (req: Request, res: Response) => 
     syncTransaction();
 
     const updated = db.prepare('SELECT * FROM payment_verifications WHERE id = ?').get(id) as any;
-    emitSocketEvent('payment:updated', updated);
+    
+    // Resolve the exact employee who won this deal to scope notifications strictly to them
+    const member = db.prepare('SELECT id, empCode, name FROM team_members WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1').get(telecallerName) as any;
+    const targetedPayment = {
+      ...updated,
+      targetEmployeeId: member?.id || null,
+      targetEmpCode: member?.empCode || null,
+    };
+
+    emitSocketEvent('payment:updated', targetedPayment);
     emitSocketEvent('resource:invalidated', { resource: 'teamMembers' });
     emitSocketEvent('resource:invalidated', { resource: 'teamGroups' });
+
     if (updated?.status === 'VERIFIED') {
-      emitSocketEvent('payment:verified', updated);
-      sendPushNotification({
-        targetUserId: updated.employeeId,
-        title: 'Payment Verified! 💰',
-        body: `Payment of ₹${Number(updated.dealAmount || 0).toLocaleString('en-IN')} for ${updated.leadName || 'Client'} was approved.`,
-        data: { targetTab: 'clients', paymentId: id }
-      }).catch(() => {});
+      emitSocketEvent('payment:verified', targetedPayment);
+      if (member?.id || member?.empCode) {
+        sendPushNotification({
+          targetUserId: member?.id,
+          targetEmpCode: member?.empCode,
+          title: 'Payment Verified! 💰',
+          body: `Payment of ₹${Number(updated.dealAmount || 0).toLocaleString('en-IN')} for ${updated.leadName || 'Client'} was approved.`,
+          data: { targetTab: 'clients', paymentId: id }
+        }).catch(() => {});
+      }
     } else if (updated?.status === 'REJECTED') {
-      sendPushNotification({
-        targetUserId: updated.employeeId,
-        title: 'Payment Rejected ❌',
-        body: `Payment verification for ${updated.leadName || 'Client'} was declined.`,
-        data: { targetTab: 'clients', paymentId: id }
-      }).catch(() => {});
+      emitSocketEvent('payment:rejected', targetedPayment);
+      if (member?.id || member?.empCode) {
+        sendPushNotification({
+          targetUserId: member?.id,
+          targetEmpCode: member?.empCode,
+          title: 'Payment Rejected ❌',
+          body: `Payment verification for ${updated.leadName || 'Client'} was declined.`,
+          data: { targetTab: 'clients', paymentId: id }
+        }).catch(() => {});
+      }
     }
     return res.status(200).json(updated);
   } catch (error) {
