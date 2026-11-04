@@ -88,3 +88,4 @@ console.log(db.prepare('SELECT id, name, companyAddress, companyPhone, companyEm
 
 console.log('Sample verified offer_letters:');
 console.log(db.prepare('SELECT id, candidateName, companyName, companyAddress, companyPhone, companyEmail, companyWebsite FROM offer_letters LIMIT 3').all());
+

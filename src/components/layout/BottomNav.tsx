@@ -30,6 +30,7 @@ export const BottomNav: React.FC = () => {
         { id: 'approvals', label: 'Approvals', icon: CheckCircle2, badge: pendingLeaves },
         { id: 'reports', label: 'Reports', icon: TrendingUp },
         { id: 'meetings', label: 'Meetings', icon: Video },
+        { id: 'profile', label: 'My Docs', icon: User },
       ];
     }
 

@@ -12,7 +12,8 @@ export const MobileHeader: React.FC = () => {
     isRefreshing, 
     refreshAllData, 
     setIsNotificationDrawerOpen, 
-    unreadNotificationCount 
+    unreadNotificationCount,
+    setActiveTab,
   } = useApp();
 
   const activeName = currentUser?.name || profile?.name;
@@ -51,9 +52,15 @@ export const MobileHeader: React.FC = () => {
         {/* Right: Authenticated User Badge, Refresh, Exit Account Button & Notification Bell */}
         <div className="flex items-center gap-1.5 sm:gap-2">
         {activeName && (
-          <div 
-            title={`Signed in as ${activeName} (${roleLabel})`}
-            className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/90 pl-2 pr-1 py-1 rounded-xl shadow-2xs max-w-[130px]"
+          <button 
+            type="button"
+            onClick={() => {
+              if (currentRole === 'team_leader' || currentRole === 'telecaller') {
+                setActiveTab('profile');
+              }
+            }}
+            title={`Signed in as ${activeName} (${roleLabel}) — Tap to view ID Card & Official Documents`}
+            className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/90 hover:border-[#00C9A7]/50 pl-2 pr-1 py-1 rounded-xl shadow-2xs max-w-[130px] transition-all cursor-pointer active:scale-95 text-left"
           >
             <span className="text-[11px] font-bold text-[#0A2540] truncate">
               {activeName.split(' ')[0]}
@@ -61,7 +68,7 @@ export const MobileHeader: React.FC = () => {
             <span className="w-5 h-5 rounded-md bg-[#0A2540] text-[#00C9A7] font-black text-[9px] flex items-center justify-center flex-shrink-0">
               {initials}
             </span>
-          </div>
+          </button>
         )}
 
 

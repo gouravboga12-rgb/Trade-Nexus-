@@ -24,9 +24,15 @@ import {
 } from 'lucide-react';
 import { OfferLetterData, ExperienceCertData, RelievingLetterData } from '../types';
 
-export const ProfileSelfServiceView: React.FC = () => {
+interface ProfileSelfServiceViewProps {
+  onBack?: () => void;
+}
+
+export const ProfileSelfServiceView: React.FC<ProfileSelfServiceViewProps> = ({ onBack }) => {
   const { 
     profile, 
+    currentRole,
+    currentUser,
     myPayslips: payslips, 
     teamTasks, 
     teamMeetings, 
@@ -59,12 +65,12 @@ export const ProfileSelfServiceView: React.FC = () => {
     candidateName: profile.name || 'Trade Nexus Employee',
     candidateEmail: profile.email || 'hr@tradenexustradesmart.in',
     candidatePhone: profile.phone || '+919483001083',
-    roleTitle: profile.roleTitle || (profile as any).role || 'Sales Executive',
+    roleTitle: profile.roleTitle || (profile as any).role || (currentRole === 'team_leader' ? 'Team Leader' : 'Sales Executive'),
     department: profile.department || 'Client Acquisition',
     annualCtc: 420000,
     monthlyGross: 35000,
     joiningDate: profile.joinDate || '01 Jan 2024',
-    reportingManager: profile.teamLeaderName || 'Team Leader',
+    reportingManager: currentRole === 'team_leader' ? 'Operations Head' : (profile.teamLeaderName || 'Team Leader'),
     location: 'Bengaluru Corporate HQ',
     issuedDate: profile.joinDate || '01 Jan 2024',
     companyName: 'Trade nexus trade Smart',
@@ -233,7 +239,10 @@ export const ProfileSelfServiceView: React.FC = () => {
       {/* 1. Header Navigation Bar (Back, Notifications, More Options) */}
       <div className="flex items-center justify-between pt-0.5">
         <button
-          onClick={() => setActiveTab('home')}
+          onClick={() => {
+            if (onBack) onBack();
+            else setActiveTab('home');
+          }}
           className="w-8 h-8 rounded-xl bg-white border border-slate-100 shadow-[0_2px_6px_rgba(0,0,0,0.03)] flex items-center justify-center text-slate-700 hover:bg-slate-50 active:scale-95 transition-all"
         >
           <ArrowLeft className="w-4 h-4 text-slate-700" />
@@ -276,10 +285,10 @@ export const ProfileSelfServiceView: React.FC = () => {
                 {profile.name || 'Employee Profile'}
               </h2>
               <p className="text-xs font-bold text-[#00A88B]">
-                {profile.roleTitle ? profile.roleTitle.replace(/telecaller/gi, 'Sales Executive') : 'Sales Executive'}
+                {profile.roleTitle ? profile.roleTitle.replace(/telecaller/gi, currentRole === 'team_leader' ? 'Team Leader' : 'Sales Executive') : (currentRole === 'team_leader' ? 'Team Leader' : 'Sales Executive')}
               </p>
               <p className="text-[10px] text-slate-400 font-medium">
-                {profile.department || 'Sales'}
+                {profile.department || (currentRole === 'team_leader' ? 'Leadership & Sales' : 'Sales')}
               </p>
             </div>
           </div>
@@ -303,7 +312,11 @@ export const ProfileSelfServiceView: React.FC = () => {
           <div className="flex items-center gap-1 text-slate-600">
             <User className="w-3 h-3 text-[#00A88B] flex-shrink-0" />
             <span className="text-[10px] text-slate-600">
-              Team Leader: <strong className="text-slate-800 font-bold">{profile.teamLeaderName || 'Unassigned'}</strong>
+              {currentRole === 'team_leader' ? (
+                <>Role: <strong className="text-slate-800 font-bold">Team Leader / Officer</strong></>
+              ) : (
+                <>Team Leader: <strong className="text-slate-800 font-bold">{profile.teamLeaderName || 'Unassigned'}</strong></>
+              )}
             </span>
           </div>
         </div>

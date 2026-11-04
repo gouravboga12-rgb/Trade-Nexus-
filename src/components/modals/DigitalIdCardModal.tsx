@@ -137,10 +137,19 @@ export const DigitalIdCardModal: React.FC = () => {
 
   useEffect(() => {
     if (isEditing) return; // Prevent background updates from overwriting uncommitted edits
-    const matched = teamMembers.find(m => m.id === selectedEmpId || m.empCode === selectedEmpId);
+    const matched = teamMembers.find(m => 
+      m.id === selectedEmpId || 
+      m.empCode === selectedEmpId ||
+      (!canEditIdCard && (
+        (profile?.id && (m.id === profile.id || m.empCode === profile.id)) ||
+        (profile?.empCode && (m.empCode?.toLowerCase() === profile.empCode.toLowerCase() || m.id?.toLowerCase() === profile.empCode.toLowerCase())) ||
+        (profile?.email && m.email && m.email.toLowerCase() === profile.email.toLowerCase()) ||
+        (profile?.name && m.name && m.name.toLowerCase() === profile.name.toLowerCase())
+      ))
+    );
     if (matched) {
       setCustomName(matched.name || '');
-      setCustomRole(matched.role || '');
+      setCustomRole(matched.role || (currentRole === 'team_leader' ? 'Team Leader' : 'Sales Executive'));
       setCustomEmpCode(matched.empCode || '');
       setCustomEmpType((matched as any).employeeType || (matched as any).empType || 'Full - Time');
       setCustomBloodGroup((matched as any).bloodGroup || 'O+ ve');
@@ -154,16 +163,16 @@ export const DigitalIdCardModal: React.FC = () => {
       if ((matched as any).signatoryName) setCustomSignatoryName((matched as any).signatoryName);
       if ((matched as any).signatoryRole) setCustomSignatoryRole((matched as any).signatoryRole);
     } else if (profile) {
-      setCustomName(profile.name || 'Employee');
-      setCustomRole(profile.roleTitle || 'Sales Executive');
-      setCustomEmpCode(profile.empCode || '001');
+      setCustomName(profile.name || currentUser?.name || 'Employee');
+      setCustomRole(profile.roleTitle || (profile as any).role || (currentRole === 'team_leader' ? 'Team Leader' : 'Sales Executive'));
+      setCustomEmpCode(profile.empCode || currentUser?.empCode || 'TNX-001');
       setCustomEmpType('Full - Time');
       setCustomBloodGroup(profile.bloodGroup || 'O+ ve');
       setCustomDob('05/11/1997');
-      setCustomPhone(profile.phone || '0000XXXX97');
+      setCustomPhone(profile.phone || currentUser?.phone || '0000XXXX97');
       setCustomPhotoUrl(profile.avatar || null);
     }
-  }, [selectedEmpId, teamMembers, profile, isIdCardModalOpen, isEditing]);
+  }, [selectedEmpId, teamMembers, profile, currentUser, isIdCardModalOpen, isEditing, canEditIdCard, currentRole]);
 
   const handleSelectEmployee = (empId: string) => {
     setSelectedEmpId(empId);

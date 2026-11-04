@@ -13,7 +13,7 @@ export interface AuthUser {
   phone?: string;
 }
 
-export type NavTab = 'home' | 'calling' | 'clients' | 'leaves' | 'profile' | 'menu';
+export type NavTab = 'home' | 'calling' | 'clients' | 'leaves' | 'profile' | 'menu' | 'team' | 'reports' | 'meetings' | 'approvals';
 
 export type CallOutcome = 'CONNECTED' | 'BUSY' | 'CALLBACK' | 'INTERESTED' | 'NOT_INTERESTED' | 'DEAL_CLOSED';
 

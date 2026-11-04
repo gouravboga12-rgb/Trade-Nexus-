@@ -110,6 +110,10 @@ export const SCREEN_RESOURCES = {
     'calendarSettings',
     'paymentVerifications',
     'topPerformers',
+    'payslips',
+    'offerLetters',
+    'experienceCerts',
+    'relievingLetters',
   ],
 
   hrDashboard: [
