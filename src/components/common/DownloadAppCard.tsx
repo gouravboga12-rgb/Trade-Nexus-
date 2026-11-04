@@ -130,18 +130,6 @@ export const DownloadAppCard: React.FC<DownloadAppCardProps> = ({ className = ''
           <Download className="w-3.5 h-3.5" />
           <span>Download Now</span>
         </button>
-
-        {/* Small APK Direct Download Link for Android Users */}
-        <div className="mt-2 flex items-center justify-center gap-1 text-[10px] text-slate-400 font-medium">
-          <span>Or get the</span>
-          <a
-            href="/TradeNexus.apk"
-            download="TradeNexus.apk"
-            className="text-[#00A88B] hover:text-[#0A2540] font-bold underline transition-colors"
-          >
-            Direct Android APK (.apk)
-          </a>
-        </div>
       </div>
 
       {/* iOS / Device Installation Modal */}
@@ -196,27 +184,28 @@ export const DownloadAppCard: React.FC<DownloadAppCardProps> = ({ className = ''
               ) : (
                 <>
                   <p className="text-xs text-slate-600 font-medium">
-                    Install as an app on your phone, tablet, or desktop:
+                    To install this page as an app on your device:
                   </p>
                   <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200/80 space-y-2 text-xs text-slate-700">
-                    <p className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#00C9A7] flex-shrink-0" />
-                      <span>Opens in dedicated standalone app window.</span>
-                    </p>
-                    <p className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#00C9A7] flex-shrink-0" />
-                      <span>Instant launch with official Trade Nexus app icon.</span>
-                    </p>
+                    <div className="flex items-start gap-2">
+                      <div className="w-5 h-5 rounded-full bg-[#0A2540] text-white flex items-center justify-center text-[10px] font-black flex-shrink-0 mt-0.5">
+                        1
+                      </div>
+                      <p>Tap the browser menu <strong>(&#8942; or share)</strong>.</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-5 h-5 rounded-full bg-[#0A2540] text-white flex items-center justify-center text-[10px] font-black flex-shrink-0 mt-0.5">
+                        2
+                      </div>
+                      <p>Select <strong>"Install app"</strong> or <strong>"Install page as app"</strong>.</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-5 h-5 rounded-full bg-[#0A2540] text-white flex items-center justify-center text-[10px] font-black flex-shrink-0 mt-0.5">
+                        3
+                      </div>
+                      <p>Confirm to add Trade Nexus to your home screen.</p>
+                    </div>
                   </div>
-
-                  <a
-                    href="/TradeNexus.apk"
-                    download="TradeNexus.apk"
-                    className="w-full py-2.5 px-3 rounded-xl bg-[#0A2540] text-white hover:bg-[#00C9A7] hover:text-[#0A2540] font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs block text-center"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download Native Android APK (102 MB)</span>
-                  </a>
                 </>
               )}
             </div>
