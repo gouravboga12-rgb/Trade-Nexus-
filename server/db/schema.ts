@@ -683,6 +683,17 @@ function runMigrations() {
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    -- Attendance Reminder Execution Logs (Ensures zero duplicate alerts on same day)
+    CREATE TABLE IF NOT EXISTS attendance_reminder_logs (
+      id TEXT PRIMARY KEY,
+      date TEXT NOT NULL,
+      reminderType TEXT NOT NULL,
+      targetCount INTEGER NOT NULL DEFAULT 0,
+      sentAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(date, reminderType)
+    );
+    CREATE INDEX IF NOT EXISTS idx_reminder_logs_date ON attendance_reminder_logs(date);
+
     -- Media Files (Relational S3 & CloudFront media storage)
     CREATE TABLE IF NOT EXISTS media_files (
       id TEXT PRIMARY KEY,
@@ -821,6 +832,9 @@ function runMigrations() {
     { table: 'calendar_settings', column: 'punchInWindowStart',  definition: "TEXT NOT NULL DEFAULT '08:00 AM'" },
     { table: 'calendar_settings', column: 'punchInWindowEnd',    definition: "TEXT NOT NULL DEFAULT '09:30 AM'" },
     { table: 'calendar_settings', column: 'autoPunchOutTime',    definition: "TEXT NOT NULL DEFAULT '11:59 PM'" },
+    { table: 'calendar_settings', column: 'enablePunchInReminder',       definition: "INTEGER NOT NULL DEFAULT 1" },
+    { table: 'calendar_settings', column: 'punchInReminderMinutes',      definition: "INTEGER NOT NULL DEFAULT 10" },
+    { table: 'calendar_settings', column: 'punchInReminderAtWindowOpen', definition: "INTEGER NOT NULL DEFAULT 0" },
   ];
 
   for (const { table, column, definition } of columnMigrations) {

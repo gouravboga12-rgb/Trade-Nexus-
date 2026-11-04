@@ -3,6 +3,7 @@ import db from '../db/connection.js';
 import { getTodayDateIST, minutesOfDay } from '../utils/dateUtils.js';
 import { syncDailyRosterStatus } from '../services/attendanceLifecycle.js';
 import { emitSocketEvent } from '../services/socketService.js';
+import { sendManualTestPunchReminder } from '../services/attendanceReminderService.js';
 
 const router = express.Router();
 
@@ -46,6 +47,13 @@ function formatSettings(row: any) {
     punchInWindowStart: row.punchInWindowStart || '08:00 AM',
     punchInWindowEnd: row.punchInWindowEnd || row.shiftStartTime || '09:30 AM',
     autoPunchOutTime: row.autoPunchOutTime || '11:59 PM',
+    enablePunchInReminder: row.enablePunchInReminder !== undefined && row.enablePunchInReminder !== null
+      ? Boolean(Number(row.enablePunchInReminder))
+      : true,
+    punchInReminderMinutes: Number(row.punchInReminderMinutes ?? 10),
+    punchInReminderAtWindowOpen: row.punchInReminderAtWindowOpen !== undefined && row.punchInReminderAtWindowOpen !== null
+      ? Boolean(Number(row.punchInReminderAtWindowOpen))
+      : false,
     updatedAt: row.updatedAt
   };
 }
@@ -232,6 +240,9 @@ router.put('/settings', (req, res) => {
       punchInWindowStart: '08:00 AM',
       punchInWindowEnd: '09:30 AM',
       autoPunchOutTime: '11:59 PM',
+      enablePunchInReminder: true,
+      punchInReminderMinutes: 10,
+      punchInReminderAtWindowOpen: false,
     };
 
     const weeklyOffDays = req.body.weeklyOffDays !== undefined ? req.body.weeklyOffDays : current.weeklyOffDays;
@@ -247,13 +258,23 @@ router.put('/settings', (req, res) => {
     const punchInWindowStart = req.body.punchInWindowStart !== undefined ? req.body.punchInWindowStart : current.punchInWindowStart;
     const punchInWindowEnd = req.body.punchInWindowEnd !== undefined ? req.body.punchInWindowEnd : current.punchInWindowEnd;
     const autoPunchOutTime = req.body.autoPunchOutTime !== undefined ? req.body.autoPunchOutTime : current.autoPunchOutTime;
+    const enablePunchInReminder = req.body.enablePunchInReminder !== undefined
+      ? (req.body.enablePunchInReminder ? 1 : 0)
+      : (current.enablePunchInReminder ? 1 : 0);
+    const punchInReminderMinutes = req.body.punchInReminderMinutes !== undefined
+      ? Number(req.body.punchInReminderMinutes)
+      : Number(current.punchInReminderMinutes || 10);
+    const punchInReminderAtWindowOpen = req.body.punchInReminderAtWindowOpen !== undefined
+      ? (req.body.punchInReminderAtWindowOpen ? 1 : 0)
+      : (current.punchInReminderAtWindowOpen ? 1 : 0);
 
     const stmt = db.prepare(`
       INSERT OR REPLACE INTO calendar_settings (
         id, weeklyOffDays, weekendPolicy, shiftStartTime, shiftEndTime, gracePeriodMinutes,
         halfDayThresholdHours, fullDayThresholdHours, enableLateMarking,
-        punchInWindowStart, punchInWindowEnd, autoPunchOutTime, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        punchInWindowStart, punchInWindowEnd, autoPunchOutTime,
+        enablePunchInReminder, punchInReminderMinutes, punchInReminderAtWindowOpen, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     `);
 
     stmt.run(
@@ -268,7 +289,10 @@ router.put('/settings', (req, res) => {
       enableLateMarking,
       punchInWindowStart,
       punchInWindowEnd,
-      autoPunchOutTime
+      autoPunchOutTime,
+      enablePunchInReminder,
+      punchInReminderMinutes,
+      punchInReminderAtWindowOpen
     );
 
     const updated = db.prepare('SELECT * FROM calendar_settings WHERE id = ?').get('settings-default');
@@ -289,6 +313,18 @@ router.put('/settings', (req, res) => {
       ...formatted,
       recalculatedCount
     });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/calendar/test-punch-reminder
+// Allows Admin to trigger a test punch-in reminder notification in 1 click
+router.post('/test-punch-reminder', async (req, res) => {
+  try {
+    const adminName = (req as any).user?.name || 'Administrator';
+    const result = await sendManualTestPunchReminder(adminName);
+    res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

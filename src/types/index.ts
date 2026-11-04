@@ -81,6 +81,9 @@ export interface CalendarSettings {
   punchInWindowStart?: string; // e.g. "08:00 AM"
   punchInWindowEnd?: string;   // e.g. "09:30 AM" (cutoff for on-time punch-in)
   autoPunchOutTime?: string;   // e.g. "11:59 PM"
+  enablePunchInReminder?: boolean;
+  punchInReminderMinutes?: number; // e.g. 10 (minutes before shift start)
+  punchInReminderAtWindowOpen?: boolean;
   updatedAt?: string;
 }
 

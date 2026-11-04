@@ -24,9 +24,12 @@ import {
   Info,
   X,
   Maximize2,
+  Bell,
+  Send,
 } from 'lucide-react';
 import { CompanyHoliday, CalendarSettings } from '../../types';
 import confetti from 'canvas-confetti';
+import { api } from '../../services/api';
 
 interface AdminCalendarConfigProps {
   initialTab?: 'CALENDAR' | 'POLICY' | 'HOLIDAYS';
@@ -180,9 +183,56 @@ export const AdminCalendarConfig: React.FC<AdminCalendarConfigProps> = ({
   const [autoPunchOutTime, setAutoPunchOutTime] = useState(
     calendarSettings?.autoPunchOutTime || '11:59 PM'
   );
+  const [enablePunchInReminder, setEnablePunchInReminder] = useState<boolean>(
+    calendarSettings?.enablePunchInReminder !== undefined ? Boolean(calendarSettings.enablePunchInReminder) : true
+  );
+  const [punchInReminderMinutes, setPunchInReminderMinutes] = useState<number>(
+    calendarSettings?.punchInReminderMinutes ?? 10
+  );
+  const [punchInReminderAtWindowOpen, setPunchInReminderAtWindowOpen] = useState<boolean>(
+    Boolean(calendarSettings?.punchInReminderAtWindowOpen)
+  );
+  const [isSendingTestReminder, setIsSendingTestReminder] = useState(false);
   const [applyToToday, setApplyToToday] = useState(true);
   const [isSavingPolicy, setIsSavingPolicy] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
+
+  // Dynamic preview of the reminder trigger time
+  const reminderPreviewTime = useMemo(() => {
+    const parseTimeToMin = (t?: string) => {
+      if (!t) return null;
+      const m = t.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+      if (!m) return null;
+      let hours = parseInt(m[1], 10);
+      if (m[3]) {
+        hours %= 12;
+        if (m[3].toUpperCase() === 'PM') hours += 12;
+      }
+      return hours * 60 + parseInt(m[2], 10);
+    };
+
+    const startMin = parseTimeToMin(shiftStart);
+    if (startMin === null) return 'N/A';
+    const targetMin = (startMin - Number(punchInReminderMinutes) + 1440) % 1440;
+    const h = Math.floor(targetMin / 60);
+    const m = targetMin % 60;
+    const period = h >= 12 ? 'PM' : 'AM';
+    const displayH = h % 12 || 12;
+    return `${String(displayH).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
+  }, [shiftStart, punchInReminderMinutes]);
+
+  const handleSendTestReminder = async () => {
+    setIsSendingTestReminder(true);
+    try {
+      const res = await api.triggerTestPunchReminder();
+      triggerToast(`✓ ${res.message || 'Test punch-in reminder dispatched successfully!'}`);
+      confetti({ particleCount: 30, spread: 45, origin: { y: 0.6 } });
+    } catch (err: any) {
+      triggerToast(`✗ Failed to send test alert: ${err.message}`);
+    } finally {
+      setIsSendingTestReminder(false);
+    }
+  };
 
   // Synchronize form with calendarSettings from AppContext
   useEffect(() => {
@@ -197,6 +247,9 @@ export const AdminCalendarConfig: React.FC<AdminCalendarConfigProps> = ({
       setPunchInWindowStart(calendarSettings.punchInWindowStart || '08:00 AM');
       setPunchInWindowEnd(calendarSettings.punchInWindowEnd || calendarSettings.shiftStartTime || '09:30 AM');
       setAutoPunchOutTime(calendarSettings.autoPunchOutTime || '11:59 PM');
+      setEnablePunchInReminder(calendarSettings.enablePunchInReminder !== false);
+      setPunchInReminderMinutes(calendarSettings.punchInReminderMinutes ?? 10);
+      setPunchInReminderAtWindowOpen(Boolean(calendarSettings.punchInReminderAtWindowOpen));
     }
   }, [calendarSettings]);
 
@@ -228,6 +281,9 @@ export const AdminCalendarConfig: React.FC<AdminCalendarConfigProps> = ({
         autoPunchOutTime,
         weeklyOffDays,
         applyToToday,
+        enablePunchInReminder,
+        punchInReminderMinutes: Number(punchInReminderMinutes),
+        punchInReminderAtWindowOpen,
       });
 
       confetti({
@@ -1099,6 +1155,116 @@ export const AdminCalendarConfig: React.FC<AdminCalendarConfigProps> = ({
                   Immediately recalculate active punches for today
                 </span>
               </div>
+            </div>
+
+            {/* Automated Punch-In Reminders Configuration Card */}
+            <div className="bg-gradient-to-br from-emerald-50/70 via-teal-50/40 to-white p-4 sm:p-5 rounded-2xl border border-teal-200/80 shadow-2xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00C9A7] to-[#0A2540] flex items-center justify-center text-white shadow-xs flex-shrink-0 mt-0.5">
+                    <Bell className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-display font-black text-sm text-[#0A2540]">
+                        Automated Punch-In Reminder Alerts
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-teal-100 text-teal-800 border border-teal-300">
+                        {enablePunchInReminder ? 'Active' : 'Disabled'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 mt-0.5 max-w-xl">
+                      Sends automated external mobile push notifications and in-app alerts to employees who haven't punched in yet. Company holidays and weekly offs are detected and bypassed automatically.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Master Switch */}
+                <label className="relative inline-flex items-center cursor-pointer self-start sm:self-center">
+                  <input
+                    type="checkbox"
+                    checked={enablePunchInReminder}
+                    onChange={(e) => setEnablePunchInReminder(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00C9A7]"></div>
+                  <span className="ml-2.5 text-xs font-bold text-slate-700">
+                    {enablePunchInReminder ? 'Enabled' : 'Disabled'}
+                  </span>
+                </label>
+              </div>
+
+              {enablePunchInReminder && (
+                <div className="pt-3 border-t border-teal-100/80 space-y-3.5 animate-in fade-in duration-200">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+                      Trigger Timing (Minutes Before Shift Start at {shiftStart}):
+                    </label>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {[5, 10, 15, 20, 30].map((mins) => (
+                        <button
+                          key={mins}
+                          type="button"
+                          onClick={() => setPunchInReminderMinutes(mins)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                            Number(punchInReminderMinutes) === mins
+                              ? 'bg-[#0A2540] text-white border-[#0A2540] shadow-2xs'
+                              : 'bg-white hover:bg-teal-50 text-slate-700 border-slate-200 hover:border-teal-300'
+                          }`}
+                        >
+                          {mins} mins before
+                        </button>
+                      ))}
+
+                      <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1">
+                        <span className="text-[11px] text-slate-500 font-medium">Custom:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="120"
+                          value={punchInReminderMinutes}
+                          onChange={(e) => setPunchInReminderMinutes(Math.max(1, Number(e.target.value)))}
+                          className="w-14 text-xs font-bold text-slate-800 text-center focus:outline-none"
+                        />
+                        <span className="text-[11px] text-slate-400">min</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/80 p-3 rounded-xl border border-teal-100">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={punchInReminderAtWindowOpen}
+                        onChange={(e) => setPunchInReminderAtWindowOpen(e.target.checked)}
+                        className="w-4 h-4 rounded text-[#00C9A7] focus:ring-[#00C9A7]"
+                      />
+                      <span>Also send alert when Punch-In window opens ({punchInWindowStart})</span>
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={handleSendTestReminder}
+                      disabled={isSendingTestReminder}
+                      className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white transition-all shadow-2xs cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50 self-start sm:self-auto"
+                      title="Send a live test punch-in reminder to currently active unpunched users"
+                    >
+                      <Bell className={`w-3.5 h-3.5 ${isSendingTestReminder ? 'animate-bounce' : ''}`} />
+                      <span>{isSendingTestReminder ? 'Sending Test...' : 'Send Test Alert Now'}</span>
+                    </button>
+                  </div>
+
+                  {/* Schedule Indicator */}
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-2.5 flex items-center gap-2.5 text-xs text-emerald-900">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0 animate-ping" />
+                    <span className="font-medium">
+                      Daily Reminder Schedule: Next alert will fire dynamically at{' '}
+                      <strong className="font-bold underline text-[#0A2540]">{reminderPreviewTime} IST</strong>{' '}
+                      ({punchInReminderMinutes}m before {shiftStart} shift). Automatically skipped on holidays & weekly offs.
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Action Buttons Bar */}

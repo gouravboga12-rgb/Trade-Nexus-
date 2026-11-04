@@ -33,6 +33,7 @@ import employeeDocumentsRoutes from './routes/employeeDocuments.js';
 import authRoutes from './routes/auth.js';
 import calendarRoutes from './routes/calendar.js';
 import mediaRoutes from './routes/media.js';
+import { checkAndSendPunchInReminders } from './services/attendanceReminderService.js';
 import invoicesRoutes from './routes/invoices.js';
 import experienceCertsRoutes from './routes/experienceCerts.js';
 import relievingLettersRoutes from './routes/relievingLetters.js';
@@ -137,6 +138,15 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`⚡ Socket.IO real-time gateway mounted on path /api/socket.io`);
     console.log(`📊 Connected to SQLite local database.`);
     console.log(`==================================================\n`);
+
+    // Dynamic Attendance Punch-In Automated Reminder Daemon (checks live every 60s)
+    setInterval(() => {
+      try {
+        checkAndSendPunchInReminders().catch((err) => {
+          console.warn('[Punch-In Reminder Daemon Error]:', err.message);
+        });
+      } catch (_) {}
+    }, 60000);
   });
 
   const handleShutdown = (signal: string) => {

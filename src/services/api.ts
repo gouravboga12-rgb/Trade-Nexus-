@@ -655,6 +655,8 @@ export const api = {
     request<CalendarSettings & { recalculatedCount?: number }>('/calendar/settings', { method: 'PUT', body: JSON.stringify(data) }),
   reEvaluateTodayAttendance: () =>
     request<{ success: boolean; count: number; message: string }>('/attendance/re-evaluate-today', { method: 'POST' }),
+  triggerTestPunchReminder: () =>
+    request<{ success: boolean; targetCount: number; message: string }>('/calendar/test-punch-reminder', { method: 'POST' }),
 
   // Binary PDF Downloaders (True file downloads to user's device)
   downloadOfferLetter: (offerLetter: Partial<OfferLetterData>) =>
