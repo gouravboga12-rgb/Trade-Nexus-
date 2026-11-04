@@ -106,7 +106,7 @@ export const RelievingLetterModal: React.FC = () => {
         designation: emp.role,
         department: emp.group ? `${emp.group} Department` : 'Client Acquisition',
         employeeType: 'Full-Time',
-        employeeAddress: '123 Business Avenue, Financial District, Your City, 500001',
+        employeeAddress: 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102',
         joiningDate: (emp as any).joiningDate || (emp as any).joinDate || '12 January 2024',
         resignationDate: '15 July 2025',
         lastWorkingDate: '31 August 2025',
@@ -303,7 +303,7 @@ export const RelievingLetterModal: React.FC = () => {
                 <p>{formData.department}</p>
                 <p>{formData.employeeType || 'Full-Time'}</p>
                 <p>Employee ID: {formData.empCode || 'TNX-042'}</p>
-                <p className="text-slate-600 font-normal whitespace-pre-line">{formData.employeeAddress || '123 Business Avenue, Financial District, Your City, 500001'}</p>
+                <p className="text-slate-600 font-normal whitespace-pre-line">{formData.employeeAddress || 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102'}</p>
               </div>
 
               {/* Salutation */}
@@ -323,7 +323,7 @@ export const RelievingLetterModal: React.FC = () => {
                 ) : (
                   <>
                     <p>
-                      This is to formally inform you that your resignation dated <strong className="text-slate-900">{formData.resignationDate}</strong> has been accepted, and your last working day with <strong className="text-[#00A88B] font-bold">Trade Nexus</strong> was <strong className="text-slate-900">{formData.lastWorkingDate}</strong>.
+                      This is to formally inform you that your resignation dated <strong className="text-slate-900">{formData.resignationDate}</strong> has been accepted, and your last working day with <strong className="text-[#00A88B] font-bold">Trade nexus trade Smart</strong> was <strong className="text-slate-900">{formData.lastWorkingDate}</strong>.
                     </p>
 
                     <p>

@@ -16,10 +16,10 @@ import idCardTemplateFrame from '../../assets/id-card-template-frame.png';
 import defaultIdAvatar from '../../assets/default-id-avatar.png';
 import idCardFooterClean from '../../assets/id-card-footer-clean.png';
 
-const DEFAULT_COMPANY_ADDRESS = '123 Business Avenue, Financial District, Your City, 500001';
-const DEFAULT_COMPANY_EMAIL = 'info@tradenexus.com';
-const DEFAULT_COMPANY_WEBSITE = 'www.tradenexus.com';
-const DEFAULT_COMPANY_PHONE = '+91 98765 43210';
+const DEFAULT_COMPANY_ADDRESS = 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102';
+const DEFAULT_COMPANY_EMAIL = 'hr@tradenexustradesmart.in';
+const DEFAULT_COMPANY_WEBSITE = 'tradenexustradesmart.co.in';
+const DEFAULT_COMPANY_PHONE = '+919483001083';
 const DEFAULT_SIGNATORY_NAME = 'T.Vidhya Sagar';
 const DEFAULT_SIGNATORY_ROLE = 'Chief executive Officer';
 
@@ -503,7 +503,7 @@ export const DigitalIdCardModal: React.FC = () => {
                     type="text" 
                     value={customCompanyAddress} 
                     onChange={(e) => setCustomCompanyAddress(e.target.value)}
-                    placeholder="123 Business Avenue, Financial District, Your City, 500001"
+                    placeholder="RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102"
                     className="w-full bg-white border border-slate-300 focus:border-teal-500 rounded-lg px-2.5 py-1 text-slate-800 text-xs font-semibold shadow-2xs"
                   />
                 </div>

@@ -56,7 +56,7 @@ export const GenerateExperienceCertModal: React.FC<GenerateExperienceCertModalPr
   const [issuedDate, setIssuedDate] = useState(() => 
     new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   );
-  const [companyName, setCompanyName] = useState('Trade Nexus');
+  const [companyName, setCompanyName] = useState('Trade nexus trade Smart');
   const [signatoryName, setSignatoryName] = useState('T. Vidhya Sagar');
   const [signatoryRole, setSignatoryRole] = useState('Chief Executive Officer');
 

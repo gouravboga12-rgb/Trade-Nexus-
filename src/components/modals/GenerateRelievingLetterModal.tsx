@@ -48,14 +48,14 @@ export const GenerateRelievingLetterModal: React.FC<GenerateRelievingLetterModal
   const [designation, setDesignation] = useState('Digital Marketing Specialist');
   const [department, setDepartment] = useState('Marketing & Communications');
   const [employeeType, setEmployeeType] = useState('Full-Time');
-  const [employeeAddress, setEmployeeAddress] = useState('123 Business Avenue, Financial District, Hyderabad, 500081');
+  const [employeeAddress, setEmployeeAddress] = useState('RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102');
   const [resignationDate, setResignationDate] = useState('15 July 2025');
   const [lastWorkingDate, setLastWorkingDate] = useState('31 August 2025');
   const [joiningDate, setJoiningDate] = useState('12 January 2024');
   const [issuedDate, setIssuedDate] = useState(() =>
     new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   );
-  const [companyName, setCompanyName] = useState('Trade Nexus');
+  const [companyName, setCompanyName] = useState('Trade nexus trade Smart');
   const [refNumber, setRefNumber] = useState('');
   const [signatoryName, setSignatoryName] = useState('T. Vidhya Sagar');
   const [signatoryRole, setSignatoryRole] = useState('Chief Executive Officer');

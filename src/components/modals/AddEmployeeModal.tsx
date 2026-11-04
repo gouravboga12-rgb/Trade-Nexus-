@@ -90,11 +90,11 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
   const [signatoryRole, setSignatoryRole] = useState('Chief executive Officer');
   const [workLocation, setWorkLocation] = useState('Bengaluru Corporate HQ, India');
   const [salaryType, setSalaryType] = useState('Monthly Salary');
-  const [companyName, setCompanyName] = useState('Trade Nexus');
-  const [companyAddress, setCompanyAddress] = useState('123 Business Avenue, Financial District, Your City, 500001');
-  const [companyPhone, setCompanyPhone] = useState('+91 98765 43210');
-  const [companyEmail, setCompanyEmail] = useState('info@tradenexus.com');
-  const [companyWebsite, setCompanyWebsite] = useState('www.tradenexus.com');
+  const [companyName, setCompanyName] = useState('Trade nexus trade Smart');
+  const [companyAddress, setCompanyAddress] = useState('RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102');
+  const [companyPhone, setCompanyPhone] = useState('+919483001083');
+  const [companyEmail, setCompanyEmail] = useState('hr@tradenexustradesmart.in');
+  const [companyWebsite, setCompanyWebsite] = useState('tradenexustradesmart.co.in');
 
   // 10. Login Credentials & Success Modal State
   const [password, setPassword] = useState(`TNX@${Math.floor(1000 + Math.random() * 9000)}`);
@@ -360,11 +360,11 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
       signatoryRole: signatoryRole.trim(),
       issuedDate: offerLetterIssuedDate.trim(),
       salaryType,
-      companyName: companyName.trim() || 'Trade Nexus',
-      companyAddress: companyAddress.trim() || '123 Business Avenue, Financial District, Your City, 500001',
-      companyPhone: companyPhone.trim() || '+91 98765 43210',
-      companyEmail: companyEmail.trim() || 'info@tradenexus.com',
-      companyWebsite: companyWebsite.trim() || 'www.tradenexus.com',
+      companyName: companyName.trim() || 'Trade nexus trade Smart',
+      companyAddress: companyAddress.trim() || 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102',
+      companyPhone: companyPhone.trim() || '+919483001083',
+      companyEmail: companyEmail.trim() || 'hr@tradenexustradesmart.in',
+      companyWebsite: companyWebsite.trim() || 'tradenexustradesmart.co.in',
     });
 
     setCreatedCredentials({

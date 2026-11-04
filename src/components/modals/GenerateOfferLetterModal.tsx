@@ -61,11 +61,11 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
   const [signatoryRole, setSignatoryRole] = useState('Chief executive Officer');
 
   // Company Brand & Contact Header
-  const [companyName, setCompanyName] = useState('Trade Nexus');
-  const [companyAddress, setCompanyAddress] = useState('123 Business Avenue, Financial District, Your City, 500001');
-  const [companyPhone, setCompanyPhone] = useState('+91 98765 43210');
-  const [companyEmail, setCompanyEmail] = useState('info@tradenexus.com');
-  const [companyWebsite, setCompanyWebsite] = useState('www.tradenexus.com');
+  const [companyName, setCompanyName] = useState('Trade nexus trade Smart');
+  const [companyAddress, setCompanyAddress] = useState('RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102');
+  const [companyPhone, setCompanyPhone] = useState('+919483001083');
+  const [companyEmail, setCompanyEmail] = useState('hr@tradenexustradesmart.in');
+  const [companyWebsite, setCompanyWebsite] = useState('tradenexustradesmart.co.in');
 
   if (!isOpen) return null;
 
@@ -482,7 +482,7 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
                   type="text"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="Trade Nexus"
+                  placeholder="Trade nexus trade Smart"
                   className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
                 />
               </div>
@@ -493,7 +493,7 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
                   type="text"
                   value={companyPhone}
                   onChange={(e) => setCompanyPhone(e.target.value)}
-                  placeholder="+91 98765 43210"
+                  placeholder="+919483001083"
                   className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
                 />
               </div>
@@ -504,7 +504,7 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
                   type="text"
                   value={companyEmail}
                   onChange={(e) => setCompanyEmail(e.target.value)}
-                  placeholder="info@tradenexus.com"
+                  placeholder="hr@tradenexustradesmart.in"
                   className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
                 />
               </div>
@@ -515,7 +515,7 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
                   type="text"
                   value={companyWebsite}
                   onChange={(e) => setCompanyWebsite(e.target.value)}
-                  placeholder="www.tradenexus.com"
+                  placeholder="tradenexustradesmart.co.in"
                   className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
                 />
               </div>
@@ -526,7 +526,7 @@ export const GenerateOfferLetterModal: React.FC<GenerateOfferLetterModalProps> =
                   type="text"
                   value={companyAddress}
                   onChange={(e) => setCompanyAddress(e.target.value)}
-                  placeholder="123 Business Avenue, Financial District, Your City, 500001"
+                  placeholder="RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102"
                   className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-[#00C9A7]"
                 />
               </div>

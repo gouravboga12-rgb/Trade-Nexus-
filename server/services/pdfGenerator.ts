@@ -58,7 +58,7 @@ function drawCorporateFooter(
     doc.rect(0, footerY, pageWidth, footerH).fill('#081031');
     doc.rect(0, footerY, pageWidth, 2).fill('#00C9A7');
     doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#CBD5E1').text(
-      'Trade Nexus Corporate HQ  •  123 Business Avenue, Financial District, 500001  •  info@tradenexus.com  •  +91 98765 43210',
+      'Trade nexus trade Smart HQ  •  RR westbrook, 6th main HSR layout, beside pizza artistry, Bengaluru 102  •  hr@tradenexustradesmart.in  •  +919483001083',
       0,
       footerY + 18,
       { align: 'center', width: pageWidth }
@@ -188,11 +188,11 @@ export async function generateOfferLetterPdf(data: {
   });
 
   // Company Brand & Contact block (Upper Left under banner)
-  const companyName = (data as any).companyName || 'Trade Nexus';
-  const companyAddress = (data as any).companyAddress || '123 Business Avenue, Financial District, Your City, 500001';
-  const companyPhone = (data as any).companyPhone || '+91 98765 43210';
-  const companyEmail = (data as any).companyEmail || 'info@tradenexus.com';
-  const companyWebsite = (data as any).companyWebsite || 'www.tradenexus.com';
+  const companyName = (data as any).companyName || 'Trade nexus trade Smart';
+  const companyAddress = (data as any).companyAddress || 'RR westbrook, 6th main HSR layout, beside pizza artistry, Bengaluru 102';
+  const companyPhone = (data as any).companyPhone || '+919483001083';
+  const companyEmail = (data as any).companyEmail || 'hr@tradenexustradesmart.in';
+  const companyWebsite = (data as any).companyWebsite || 'tradenexustradesmart.co.in';
 
   doc.fontSize(11.5).font('Helvetica-Bold').fillColor('#041026').text(companyName, leftX, currentY);
   currentY += 16;
@@ -376,7 +376,7 @@ export async function generateExperienceCertPdf(employee: any, cert: any): Promi
   const endDate     = cert.endDate         || '01 January 2025';
   const refNum      = cert.refNumber       || `TNX/EXP/${new Date().getFullYear()}/${empCode}`;
   const issuedDate  = cert.issuedDate      || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-  const companyName = cert.companyName     || 'Trade Nexus';
+  const companyName = cert.companyName     || 'Trade nexus trade Smart';
   const sigName     = cert.signatoryName   || 'T. Vidhya Sagar';
   const sigRole     = cert.signatoryRole   || 'Chief Executive Officer';
 
@@ -469,7 +469,7 @@ export async function generateRelievingLetterPdf(employee: any, relievingLetter:
   const empCode = relievingLetter.empCode || employee.empCode || 'TNX-042';
   const role = relievingLetter.designation || employee.role || employee.roleTitle || 'Digital Marketing Specialist';
   const dept = relievingLetter.department || employee.groupName || employee.department || 'Marketing & Communications';
-  const empAddress = relievingLetter.employeeAddress || '123 Business Avenue, Financial District, Your City, 500001';
+  const empAddress = relievingLetter.employeeAddress || 'RR westbrook, 6th main HSR layout, beside pizza artistry, Bengaluru 102';
   const resignationDate = relievingLetter.resignationDate || '15 July 2025';
   const lastWorkingDate = relievingLetter.lastWorkingDate || '31 August 2025';
   const issuedDate = relievingLetter.issuedDate || new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -515,7 +515,7 @@ export async function generateRelievingLetterPdf(employee: any, relievingLetter:
     }
   } else {
     doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text(
-      `This has reference to your formal letter of resignation dated ${resignationDate}, wherein you requested to be relieved from your employment responsibilities as ${role} in the ${dept} department at Trade Nexus.`,
+      `This has reference to your formal letter of resignation dated ${resignationDate}, wherein you requested to be relieved from your employment responsibilities as ${role} in the ${dept} department at Trade nexus trade Smart.`,
       leftX,
       currentY,
       { width: contentW, lineGap: 4 }
@@ -523,7 +523,7 @@ export async function generateRelievingLetterPdf(employee: any, relievingLetter:
     currentY += 34;
 
     doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text(
-      `We wish to inform you that your resignation has been accepted by the Management, and you are officially relieved from your duties and contractual obligations with Trade Nexus with effect from the close of business working hours on ${lastWorkingDate}.`,
+      `We wish to inform you that your resignation has been accepted by the Management, and you are officially relieved from your duties and contractual obligations with Trade nexus trade Smart with effect from the close of business working hours on ${lastWorkingDate}.`,
       leftX,
       currentY,
       { width: contentW, lineGap: 4 }
@@ -781,9 +781,9 @@ export async function generatePayslipPdf(employee: any, payslip: any): Promise<B
   doc.text(':', leftX + 100, sumY + 34);
   doc.fontSize(8).font('Helvetica').fillColor('#475569').text(payMode, leftX + 112, sumY + 34);
 
-  // Right Signatory: Authorized Signatory (matching 4.png, Finance Manager – Trade Nexus / Muhammad Patel)
+  // Right Signatory: Authorized Signatory (matching 4.png, Finance Manager – Trade nexus trade Smart / Muhammad Patel)
   const sigRightX = 370;
-  const authRole = payslip.authorizedRole || 'Finance Manager – Trade Nexus';
+  const authRole = payslip.authorizedRole || 'Finance Manager – Trade nexus trade Smart';
   const authName = payslip.authorizedName || 'Muhammad Patel';
 
   const sigW = pageWidth - sigRightX - leftX;
@@ -841,9 +841,9 @@ export async function generateTaxInvoicePdf(invoice: any): Promise<Buffer> {
   const clientAddress = invoice.clientAddress || '123 Client Street, Corporate Park';
   const clientEmail = invoice.clientEmail || 'client@example.com';
 
-  const fromName = invoice.fromName || 'Trade Nexus';
-  const fromPhone = invoice.fromPhone || '+91 98765 43210';
-  const fromAddress = invoice.fromAddress || '123 Business Avenue, Financial District, 500001';
+  const fromName = invoice.fromName || 'Trade nexus trade Smart';
+  const fromPhone = invoice.fromPhone || '+919483001083';
+  const fromAddress = invoice.fromAddress || 'RR westbrook, 6th main HSR layout, beside pizza artistry, Bengaluru 102';
 
   const invNum = invoice.invoiceNumber || 'INV-2026-001';
   const invDate = invoice.date || new Date().toLocaleDateString('en-GB');
@@ -981,7 +981,7 @@ export async function generateTaxInvoicePdf(invoice: any): Promise<Buffer> {
   const bankName = invoice.bankName || 'HDFC Bank';
   const accNum = invoice.accountNumber || '50200084920194';
   const ifsc = invoice.ifscCode || '';
-  const payEmail = invoice.paymentEmail || 'billing@tradenexus.live';
+  const payEmail = invoice.paymentEmail || 'hr@tradenexustradesmart.in';
 
   const payRows: [string, string][] = [
     ['Bank', bankName],
@@ -1028,18 +1028,18 @@ export async function generateIdCardPdf(employee: any, cardData?: any): Promise<
   const phone = (cardData?.phone || cardData?.cell || cardData?.emergencyPhone || employee?.phone || employee?.emergencyPhone || '0000XXXX97').trim();
 
   // Custom contact details (default to official template values)
-  const address = cardData?.address || employee?.address || '123 Business Avenue, Financial District, Your City, 500001';
-  const email = cardData?.email || employee?.email || 'info@tradenexus.com';
-  const website = cardData?.website || employee?.website || 'www.tradenexus.com';
-  const companyPhone = cardData?.companyPhone || employee?.companyPhone || '+91 98765 43210';
+  const address = cardData?.address || employee?.address || 'RR westbrook, 6th main HSR layout, beside pizza artistry, Bengaluru 102';
+  const email = cardData?.email || employee?.email || 'hr@tradenexustradesmart.in';
+  const website = cardData?.website || employee?.website || 'tradenexustradesmart.co.in';
+  const companyPhone = cardData?.companyPhone || employee?.companyPhone || '+919483001083';
   const signatoryName = cardData?.signatoryName || 'T.Vidhya Sagar';
   const signatoryRole = cardData?.signatoryRole || 'Chief executive Officer';
 
   const isCustomContact = (
-    address !== '123 Business Avenue, Financial District, Your City, 500001' ||
-    email !== 'info@tradenexus.com' ||
-    website !== 'www.tradenexus.com' ||
-    companyPhone !== '+91 98765 43210' ||
+    address !== 'RR westbrook, 6th main HSR layout, beside pizza artistry, Bengaluru 102' ||
+    email !== 'hr@tradenexustradesmart.in' ||
+    website !== 'tradenexustradesmart.co.in' ||
+    companyPhone !== '+919483001083' ||
     signatoryName !== 'T.Vidhya Sagar' ||
     signatoryRole !== 'Chief executive Officer'
   );

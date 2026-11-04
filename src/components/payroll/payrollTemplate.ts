@@ -190,7 +190,7 @@ export function buildDraftFromEmployee(emp: TeamMember, month: string, year: num
     bankName: emp.bankName || previous?.bankName || '',
     bankAccountNumber: emp.bankAccountNumber || previous?.bankAccountNumber || '',
     paymentMode: previous?.paymentMode || 'Bank Transfer',
-    authorizedRole: previous?.authorizedRole || 'Finance Manager – Trade Nexus',
+    authorizedRole: previous?.authorizedRole || 'Finance Manager – Trade nexus trade Smart',
     authorizedName: previous?.authorizedName || 'Muhammad Patel',
     authorizedSignature: previous?.authorizedSignature || null,
     templateVersion: PAYROLL_TEMPLATE_VERSION,

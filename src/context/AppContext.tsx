@@ -947,9 +947,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         clientAddress: '123 Anywhere St., Any City',
         fromName: 'Samira Hadid',
         fromRole: 'Lead Account Executive',
-        fromPhone: '+91 98765 43210',
-        fromEmail: 'info@tradenexus.com',
-        fromAddress: '123 Business Avenue, Financial District, Your City, 500001',
+        fromPhone: '+919483001083',
+        fromEmail: 'hr@tradenexustradesmart.in',
+        fromAddress: 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102',
         items: [
           { id: 'item-1', description: 'Enterprise Trading Suite CRM License (Q2)', quantity: 1, unitPrice: 25000, total: 25000 },
           { id: 'item-2', description: 'Automated AI Lead Routing Engine Setup', quantity: 1, unitPrice: 15000, total: 15000 },
@@ -2537,11 +2537,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       signatoryRole: data.signatoryRole || 'Chief executive Officer',
       employeeType: data.employeeType || 'Full Time',
       salaryType: data.salaryType || 'Monthly Gross / Annual CTC',
-      companyName: data.companyName || 'Trade Nexus',
-      companyAddress: data.companyAddress || '123 Business Avenue, Financial District, Your City, 500001',
-      companyPhone: data.companyPhone || '+91 98765 43210',
-      companyEmail: data.companyEmail || 'info@tradenexus.com',
-      companyWebsite: data.companyWebsite || 'www.tradenexus.com',
+      companyName: data.companyName || 'Trade nexus trade Smart',
+      companyAddress: data.companyAddress || 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102',
+      companyPhone: data.companyPhone || '+919483001083',
+      companyEmail: data.companyEmail || 'hr@tradenexustradesmart.in',
+      companyWebsite: data.companyWebsite || 'tradenexustradesmart.co.in',
     };
     setOfferLetters(prev => [newOfferLetter, ...prev]);
     setSelectedOfferLetter(newOfferLetter);

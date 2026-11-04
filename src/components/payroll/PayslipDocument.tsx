@@ -159,7 +159,7 @@ export const PayslipDocument: React.FC<Props> = ({ data, className }) => {
 
         {/* Authorized by — role, optional signature image, name exactly once */}
         <Txt x={sigX} y={sumY + 34} size={8} color="#475569">Authorized by:</Txt>
-        <Txt x={sigX} y={sumY + 50} size={8.5} color={LABEL} w={PAGE_W - sigX - leftX}>{data.authorizedRole || 'Finance Manager – Trade Nexus'}</Txt>
+        <Txt x={sigX} y={sumY + 50} size={8.5} color={LABEL} w={PAGE_W - sigX - leftX}>{data.authorizedRole || 'Finance Manager – Trade nexus trade Smart'}</Txt>
         {sig && (
           <img src={sig} alt="Authorized signature" draggable={false}
             style={{ position: 'absolute', left: pt(sigX + 20), top: pt(sumY + 66), width: pt(130), height: pt(34), objectFit: 'contain' }} />

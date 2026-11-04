@@ -716,11 +716,11 @@ router.post('/generate/offer-letter', async (req: Request, res: Response) => {
       signatoryRole: offerLetter?.signatoryRole || 'Chief executive Officer',
       location: offerLetter?.location || 'Bengaluru Corporate HQ',
       issuedDate: offerLetter?.issuedDate || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      companyName: offerLetter?.companyName || 'TRADE NEXUS',
-      companyAddress: offerLetter?.companyAddress || '456 Business Avenue, Financial District, Your City, 5005001',
-      companyPhone: offerLetter?.companyPhone || '+91 98765 43210',
-      companyEmail: offerLetter?.companyEmail || 'info@tradenexus.com',
-      companyWebsite: offerLetter?.companyWebsite || 'www.tradenexus.com',
+      companyName: offerLetter?.companyName || 'Trade nexus trade Smart',
+      companyAddress: offerLetter?.companyAddress || 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102',
+      companyPhone: offerLetter?.companyPhone || '+919483001083',
+      companyEmail: offerLetter?.companyEmail || 'hr@tradenexustradesmart.in',
+      companyWebsite: offerLetter?.companyWebsite || 'tradenexustradesmart.co.in',
     };
 
     const { generateOfferLetterPdf } = await import('../services/pdfGenerator.js');
@@ -914,10 +914,10 @@ router.get('/company-settings', (_req: Request, res: Response) => {
     `).get() as any;
 
     const defaultSettings = {
-      companyAddress: '123 Business Avenue, Financial District, Your City, 500001',
-      companyPhone: '+91 98765 43210',
-      companyEmail: 'info@tradenexus.com',
-      companyWebsite: 'www.tradenexus.com',
+      companyAddress: 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102',
+      companyPhone: '+919483001083',
+      companyEmail: 'hr@tradenexustradesmart.in',
+      companyWebsite: 'tradenexustradesmart.co.in',
       signatoryName: 'T.Vidhya Sagar',
       signatoryRole: 'Chief executive Officer',
     };

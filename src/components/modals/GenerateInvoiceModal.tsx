@@ -36,11 +36,11 @@ export const GenerateInvoiceModal: React.FC<GenerateInvoiceModalProps> = ({ isOp
   const [clientPhone, setClientPhone] = useState('');
   const [clientEmail, setClientEmail] = useState('');
   const [clientAddress, setClientAddress] = useState('');
-  const [fromName, setFromName] = useState('Trade Nexus Finance');
+  const [fromName, setFromName] = useState('Trade nexus trade Smart');
   const [fromRole, setFromRole] = useState('Finance & Accounts Department');
-  const [fromPhone, setFromPhone] = useState('+91 40 4829 1000');
-  const [fromEmail, setFromEmail] = useState('billing@tradenexus.live');
-  const [fromAddress, setFromAddress] = useState('Level 12, Nexus Cyber Tower, HITEC City, Hyderabad - 500081');
+  const [fromPhone, setFromPhone] = useState('+919483001083');
+  const [fromEmail, setFromEmail] = useState('hr@tradenexustradesmart.in');
+  const [fromAddress, setFromAddress] = useState('RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102');
   
   const [items, setItems] = useState<InvoiceItem[]>([
     { id: 'item-1', description: '', quantity: 1, unitPrice: 0, total: 0 },

@@ -70,11 +70,11 @@ router.post('/', (req: Request, res: Response) => {
       signatoryRole || 'Chief executive Officer',
       employeeType || 'Full-Time',
       salaryType || 'Monthly Salary',
-      companyName || 'Trade Nexus',
-      companyAddress || '123 Business Avenue, Financial District, Your City, 500001',
-      companyPhone || '+91 98765 43210',
-      companyEmail || 'info@tradenexus.com',
-      companyWebsite || 'www.tradenexus.com'
+      companyName || 'Trade nexus trade Smart',
+      companyAddress || 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102',
+      companyPhone || '+919483001083',
+      companyEmail || 'hr@tradenexustradesmart.in',
+      companyWebsite || 'tradenexustradesmart.co.in'
     );
 
     const created = db.prepare('SELECT * FROM offer_letters WHERE id = ?').get(offId);
@@ -171,11 +171,11 @@ router.put('/:id', (req: Request, res: Response) => {
         body.signatoryRole || 'Chief executive Officer',
         body.employeeType || 'Full-Time',
         body.salaryType || 'Monthly Salary',
-        body.companyName || 'Trade Nexus',
-        body.companyAddress || '123 Business Avenue, Financial District, Your City, 500001',
-        body.companyPhone || '+91 98765 43210',
-        body.companyEmail || 'info@tradenexus.com',
-        body.companyWebsite || 'www.tradenexus.com'
+        body.companyName || 'Trade nexus trade Smart',
+        body.companyAddress || 'RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102',
+        body.companyPhone || '+919483001083',
+        body.companyEmail || 'hr@tradenexustradesmart.in',
+        body.companyWebsite || 'tradenexustradesmart.co.in'
       );
     }
 

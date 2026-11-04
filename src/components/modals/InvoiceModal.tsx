@@ -370,13 +370,13 @@ export const InvoiceModal: React.FC = () => {
                       className="w-12 h-12 object-contain flex-shrink-0"
                     />
                     <div>
-                      <h1 className="font-display font-extrabold text-2xl tracking-wider text-white">TRADE NEXUS</h1>
+                      <h1 className="font-display font-extrabold text-2xl tracking-wider text-white">TRADE NEXUS TRADE SMART</h1>
                       <p className="text-[10px] font-semibold text-[#00C9A7] tracking-widest uppercase">THE ONLY SMART WAY TO TRADE</p>
                     </div>
                   </div>
                   <p className="text-xs text-slate-300 mt-3 max-w-xs leading-relaxed">
-                    Trade Nexus Financial Technologies Pvt. Ltd.<br />
-                    Level 12, Nexus Cyber Tower, HITEC City, Hyderabad - 500081
+                    Trade nexus trade Smart<br />
+                    RR westbrook,6th main HSR layout , beside pizza artistry, Bengaluru 102
                   </p>
                 </div>
 
