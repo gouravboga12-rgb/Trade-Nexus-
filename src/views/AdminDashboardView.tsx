@@ -95,7 +95,7 @@ import {
 } from '../utils/csvExportUtils';
 
 import { isLeadUnassigned, isTelecallerOrCallingEmployee } from '../utils/teamUtils';
-import { getPaymentDateIST, sumVerifiedRevenue } from '../utils/revenueUtils';
+import { getPaymentDateIST, sumVerifiedRevenue, isPaymentInPeriod } from '../utils/revenueUtils';
 
 type AdminTab = 'home' | 'people' | 'attendance' | 'leads' | 'revenue' | 'more' | 'approvals' | 'reports' | 'attendance_verification' | 'manage_employees' | 'invoices' | 'company_calendar';
 
@@ -270,6 +270,10 @@ export const AdminDashboardView: React.FC = () => {
   const [broadcastPrefilledEmp, setBroadcastPrefilledEmp] = useState<any>(null);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
   const [approvalSubTab, setApprovalSubTab] = useState<'PAYMENTS' | 'LEAVES'>('PAYMENTS');
+  const [approvalSearchQuery, setApprovalSearchQuery] = useState('');
+  const [approvalDateFilter, setApprovalDateFilter] = useState<'ALL' | 'TODAY' | 'YESTERDAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'CUSTOM'>('ALL');
+  const [approvalCustomStart, setApprovalCustomStart] = useState<string>(getTodayDateIST());
+  const [approvalCustomEnd, setApprovalCustomEnd] = useState<string>(getTodayDateIST());
   const [revenueFilter, setRevenueFilter] = useState<'today' | 'week' | 'month' | 'all'>('all');
   const [inspectingPayment, setInspectingPayment] = useState<PaymentVerificationItem | null>(null);
   const [isDistributing, setIsDistributing] = useState(false);
@@ -525,6 +529,117 @@ export const AdminDashboardView: React.FC = () => {
   const salesTarget = Math.max(totalRosterTarget, totalGroupTarget, 500000);
 
   const pendingPayments = uniquePayments.filter((p: PaymentVerificationItem) => p.status === 'PENDING_HR_AUDIT');
+
+  const isApprovalFilterActive = Boolean(approvalSearchQuery.trim() || approvalDateFilter !== 'ALL');
+
+  const filteredPendingPayments = useMemo(() => {
+    const q = approvalSearchQuery.trim().toLowerCase();
+    return pendingPayments.filter((p) => {
+      if (approvalDateFilter !== 'ALL' && !isPaymentInPeriod(p, approvalDateFilter, approvalCustomStart, approvalCustomEnd)) {
+        return false;
+      }
+      if (q) {
+        const info = getPaymentCustomerInfo(p);
+        const match =
+          (p.leadName && p.leadName.toLowerCase().includes(q)) ||
+          (p.companyName && p.companyName.toLowerCase().includes(q)) ||
+          (p.telecallerName && p.telecallerName.toLowerCase().includes(q)) ||
+          (p.utrNumber && p.utrNumber.toLowerCase().includes(q)) ||
+          (p.paymentMode && p.paymentMode.toLowerCase().includes(q)) ||
+          (p.dealAmount && String(p.dealAmount).includes(q)) ||
+          (p.dealAmount && inr(p.dealAmount).toLowerCase().includes(q)) ||
+          (info.customerName && info.customerName.toLowerCase().includes(q)) ||
+          (info.customerPhone && info.customerPhone.includes(q)) ||
+          (info.customerAccountNumber && info.customerAccountNumber.toLowerCase().includes(q)) ||
+          (info.customerUpiId && info.customerUpiId.toLowerCase().includes(q)) ||
+          (info.customerBankName && info.customerBankName.toLowerCase().includes(q)) ||
+          (info.customerIfscCode && info.customerIfscCode.toLowerCase().includes(q));
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [pendingPayments, approvalSearchQuery, approvalDateFilter, approvalCustomStart, approvalCustomEnd, assignedLeads]);
+
+  const filteredDecidedPayments = useMemo(() => {
+    const q = approvalSearchQuery.trim().toLowerCase();
+    const decided = paymentVerifications.filter((p) => p.status !== 'PENDING_HR_AUDIT');
+    return decided.filter((p) => {
+      if (approvalDateFilter !== 'ALL' && !isPaymentInPeriod(p, approvalDateFilter, approvalCustomStart, approvalCustomEnd)) {
+        return false;
+      }
+      if (q) {
+        const info = getPaymentCustomerInfo(p);
+        const match =
+          (p.leadName && p.leadName.toLowerCase().includes(q)) ||
+          (p.companyName && p.companyName.toLowerCase().includes(q)) ||
+          (p.telecallerName && p.telecallerName.toLowerCase().includes(q)) ||
+          (p.utrNumber && p.utrNumber.toLowerCase().includes(q)) ||
+          (p.paymentMode && p.paymentMode.toLowerCase().includes(q)) ||
+          (p.dealAmount && String(p.dealAmount).includes(q)) ||
+          (p.dealAmount && inr(p.dealAmount).toLowerCase().includes(q)) ||
+          (info.customerName && info.customerName.toLowerCase().includes(q)) ||
+          (info.customerPhone && info.customerPhone.includes(q)) ||
+          (info.customerAccountNumber && info.customerAccountNumber.toLowerCase().includes(q)) ||
+          (info.customerUpiId && info.customerUpiId.toLowerCase().includes(q)) ||
+          (info.customerBankName && info.customerBankName.toLowerCase().includes(q)) ||
+          (info.customerIfscCode && info.customerIfscCode.toLowerCase().includes(q));
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [paymentVerifications, approvalSearchQuery, approvalDateFilter, approvalCustomStart, approvalCustomEnd, assignedLeads]);
+
+  const filteredPendingLeaves = useMemo(() => {
+    const q = approvalSearchQuery.trim().toLowerCase();
+    const pending = leaveRequests.filter((l) => l.status === 'PENDING' && l.approvalStage === 'PENDING_ADMIN');
+    return pending.filter((l) => {
+      if (approvalDateFilter !== 'ALL') {
+        const appliedDate = (l as any).appliedOn || (l as any).createdAt?.slice(0, 10) || l.fromDate;
+        const inPeriod =
+          isDateInPeriodIST(appliedDate, approvalDateFilter as any, approvalCustomStart, approvalCustomEnd) ||
+          isDateInPeriodIST(l.fromDate, approvalDateFilter as any, approvalCustomStart, approvalCustomEnd) ||
+          isDateInPeriodIST(l.toDate, approvalDateFilter as any, approvalCustomStart, approvalCustomEnd);
+        if (!inPeriod) return false;
+      }
+      if (q) {
+        const match =
+          (l.employeeName && l.employeeName.toLowerCase().includes(q)) ||
+          (l.employeeCode && l.employeeCode.toLowerCase().includes(q)) ||
+          (l.leaveType && l.leaveType.toLowerCase().includes(q)) ||
+          (l.reason && l.reason.toLowerCase().includes(q)) ||
+          (l.fromDate && l.fromDate.includes(q)) ||
+          (l.toDate && l.toDate.includes(q));
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [leaveRequests, approvalSearchQuery, approvalDateFilter, approvalCustomStart, approvalCustomEnd]);
+
+  const filteredDecidedLeaves = useMemo(() => {
+    const q = approvalSearchQuery.trim().toLowerCase();
+    const decided = leaveRequests.filter((l) => l.status !== 'PENDING');
+    return decided.filter((l) => {
+      if (approvalDateFilter !== 'ALL') {
+        const appliedDate = (l as any).appliedOn || (l as any).createdAt?.slice(0, 10) || l.fromDate;
+        const inPeriod =
+          isDateInPeriodIST(appliedDate, approvalDateFilter as any, approvalCustomStart, approvalCustomEnd) ||
+          isDateInPeriodIST(l.fromDate, approvalDateFilter as any, approvalCustomStart, approvalCustomEnd) ||
+          isDateInPeriodIST(l.toDate, approvalDateFilter as any, approvalCustomStart, approvalCustomEnd);
+        if (!inPeriod) return false;
+      }
+      if (q) {
+        const match =
+          (l.employeeName && l.employeeName.toLowerCase().includes(q)) ||
+          (l.employeeCode && l.employeeCode.toLowerCase().includes(q)) ||
+          (l.leaveType && l.leaveType.toLowerCase().includes(q)) ||
+          (l.reason && l.reason.toLowerCase().includes(q)) ||
+          (l.fromDate && l.fromDate.includes(q)) ||
+          (l.toDate && l.toDate.includes(q));
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [leaveRequests, approvalSearchQuery, approvalDateFilter, approvalCustomStart, approvalCustomEnd]);
   const todayYMD = getTodayDateIST();
   // todaySales = strictly verified payments with today's date; ₹0 if none
   const todaySales = useMemo(() =>
@@ -3853,14 +3968,100 @@ export const AdminDashboardView: React.FC = () => {
               <span>Back to More</span>
             </button>
 
-            <div className="flex items-start justify-between gap-2">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div>
                 <h2 className="font-display font-black text-2xl text-[#0A2540] tracking-tight">Approvals Hub</h2>
                 <p className="text-xs text-slate-500 font-medium">
                   {totalApprovalsWaiting} item{totalApprovalsWaiting === 1 ? '' : 's'} waiting for your sign-off
                 </p>
               </div>
+
+              {/* Search & Date Filter Bar */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 md:justify-end">
+                {/* Search Input (Box 1) */}
+                <div className="relative flex-1 sm:max-w-xs md:max-w-sm">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={approvalSearchQuery}
+                    onChange={(e) => setApprovalSearchQuery(e.target.value)}
+                    placeholder="Search client, employee, UTR, phone..."
+                    className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-7 py-2 text-xs text-[#0A2540] placeholder:text-slate-400 focus:outline-none focus:border-[#00C9A7] shadow-2xs"
+                  />
+                  {approvalSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setApprovalSearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Date Filter Dropdown / Quick Select (Box 2) */}
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <div className="relative">
+                    <select
+                      value={approvalDateFilter}
+                      onChange={(e) => setApprovalDateFilter(e.target.value as any)}
+                      className="appearance-none bg-white border border-slate-200 rounded-xl pl-7 pr-8 py-2 text-xs font-bold text-[#0A2540] focus:outline-none focus:border-[#00C9A7] shadow-2xs cursor-pointer"
+                    >
+                      <option value="ALL">All Dates</option>
+                      <option value="TODAY">Today</option>
+                      <option value="YESTERDAY">Yesterday</option>
+                      <option value="THIS_WEEK">This Week</option>
+                      <option value="THIS_MONTH">This Month</option>
+                      <option value="CUSTOM">Custom Range...</option>
+                    </select>
+                    <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+
+                  {isApprovalFilterActive && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setApprovalSearchQuery('');
+                        setApprovalDateFilter('ALL');
+                      }}
+                      className="text-[11px] font-bold text-slate-500 hover:text-rose-600 px-2 py-1.5 rounded-lg hover:bg-rose-50 transition-all cursor-pointer whitespace-nowrap"
+                      title="Reset all filters"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
+
+            {/* Custom Date Range Picker when CUSTOM is selected */}
+            {approvalDateFilter === 'CUSTOM' && (
+              <div className="bg-white border border-slate-200 rounded-xl p-2.5 flex flex-wrap items-center gap-3 text-xs shadow-2xs">
+                <span className="font-bold text-slate-600 text-xs flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-[#00A88B]" />
+                  <span>Custom Date Range:</span>
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 text-[11px] font-medium">From</span>
+                  <input
+                    type="date"
+                    value={approvalCustomStart}
+                    onChange={(e) => setApprovalCustomStart(e.target.value)}
+                    className="border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-[#0A2540] bg-slate-50 focus:bg-white focus:outline-none focus:border-[#00A88B]"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 text-[11px] font-medium">To</span>
+                  <input
+                    type="date"
+                    value={approvalCustomEnd}
+                    onChange={(e) => setApprovalCustomEnd(e.target.value)}
+                    className="border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-[#0A2540] bg-slate-50 focus:bg-white focus:outline-none focus:border-[#00A88B]"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Sub-tab Pill Switcher */}
             <div className="flex p-1 bg-slate-200/80 rounded-2xl">
@@ -3875,9 +4076,11 @@ export const AdminDashboardView: React.FC = () => {
               >
                 <span>Deal Payments</span>
                 <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full ${
-                  pendingPayments.length > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-500'
+                  filteredPendingPayments.length > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-500'
                 }`}>
-                  {pendingPayments.length}
+                  {isApprovalFilterActive && filteredPendingPayments.length !== pendingPayments.length
+                    ? `${filteredPendingPayments.length}/${pendingPayments.length}`
+                    : filteredPendingPayments.length}
                 </span>
               </button>
 
@@ -3892,11 +4095,13 @@ export const AdminDashboardView: React.FC = () => {
               >
                 <span>Leave Escalations</span>
                 <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full ${
-                  pendingLeavesCount > 0
+                  filteredPendingLeaves.length > 0
                     ? 'bg-sky-100 text-sky-800'
                     : 'bg-slate-100 text-slate-500'
                 }`}>
-                  {pendingLeavesCount}
+                  {isApprovalFilterActive && filteredPendingLeaves.length !== pendingLeavesCount
+                    ? `${filteredPendingLeaves.length}/${pendingLeavesCount}`
+                    : filteredPendingLeaves.length}
                 </span>
               </button>
             </div>
@@ -3906,9 +4111,11 @@ export const AdminDashboardView: React.FC = () => {
               <div className="space-y-3">
                 {!pendingPayments.length ? (
                   <Empty text="Nothing waiting. Every deal payment has been verified." />
+                ) : !filteredPendingPayments.length ? (
+                  <Empty text={`No pending deal payments match your filter${approvalSearchQuery ? ` for "${approvalSearchQuery}"` : ''}.`} />
                 ) : (
                   <div className="space-y-3">
-                    {pendingPayments.map((p) => (
+                    {filteredPendingPayments.map((p) => (
                       <div key={p.id} className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-2xs hover:border-slate-300 transition-all">
                         <div className="flex items-start justify-between gap-3">
                           <div>
@@ -4028,11 +4235,11 @@ export const AdminDashboardView: React.FC = () => {
               <div className="space-y-3">
                 {pendingLeavesCount === 0 ? (
                   <Empty text="No leave escalations waiting. All staff requests are cleared." />
+                ) : !filteredPendingLeaves.length ? (
+                  <Empty text={`No pending leave escalations match your filter${approvalSearchQuery ? ` for "${approvalSearchQuery}"` : ''}.`} />
                 ) : (
                   <div className="space-y-3">
-                    {leaveRequests
-                      .filter((l) => l.status === 'PENDING' && l.approvalStage === 'PENDING_ADMIN')
-                      .map((l) => (
+                    {filteredPendingLeaves.map((l) => (
                         <div key={l.id} className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-2xs hover:border-slate-300 transition-all">
                           <div className="flex items-start justify-between gap-3">
                             <div>
@@ -4092,11 +4299,11 @@ export const AdminDashboardView: React.FC = () => {
             {approvalSubTab === 'PAYMENTS' ? (
               paymentVerifications.filter((p) => p.status !== 'PENDING_HR_AUDIT').length === 0 ? (
                 <Empty text="No payment decisions recorded yet." />
+              ) : !filteredDecidedPayments.length ? (
+                <Empty text={`No decided payment records match your filter${approvalSearchQuery ? ` for "${approvalSearchQuery}"` : ''}.`} />
               ) : (
                 <div className="space-y-2">
-                  {paymentVerifications
-                    .filter((p) => p.status !== 'PENDING_HR_AUDIT')
-                    .map((p) => {
+                  {filteredDecidedPayments.map((p) => {
                       const info = getPaymentCustomerInfo(p);
                       return (
                         <div
@@ -4178,11 +4385,11 @@ export const AdminDashboardView: React.FC = () => {
             ) : (
               leaveRequests.filter((l) => l.status !== 'PENDING').length === 0 ? (
                 <Empty text="No leave decisions recorded yet." />
+              ) : !filteredDecidedLeaves.length ? (
+                <Empty text={`No decided leave records match your filter${approvalSearchQuery ? ` for "${approvalSearchQuery}"` : ''}.`} />
               ) : (
                 <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100 overflow-hidden shadow-2xs">
-                  {leaveRequests
-                    .filter((l) => l.status !== 'PENDING')
-                    .map((l) => (
+                  {filteredDecidedLeaves.map((l) => (
                       <div key={l.id} className="p-3 flex items-center justify-between gap-2">
                         <div className="min-w-0">
                           <span className="text-xs font-bold text-[#0A2540] block truncate">
