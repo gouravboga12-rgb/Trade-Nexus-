@@ -15,12 +15,79 @@ import {
   Award,
   Layers,
   RefreshCw,
-  Clock
+  Clock,
+  User,
+  Calendar,
+  FileSpreadsheet
 } from 'lucide-react';
+import { LeadBatch } from '../../types';
 
 interface AdminMonthlyLeadCleanupModalProps {
   isOpen: boolean;
   onClose: () => void;
+}
+
+// Helper to extract exact uploaded date, time, and relative age
+export function getBatchDateDetails(batch: LeadBatch) {
+  let dateObj: Date | null = null;
+  const match = batch.id?.match(/^batch-(\d+)/);
+  if (match) {
+    const ms = parseInt(match[1], 10);
+    if (!isNaN(ms) && ms > 0) {
+      dateObj = new Date(ms);
+    }
+  }
+  if (!dateObj && (batch as any).createdAt) {
+    const d = new Date((batch as any).createdAt);
+    if (!isNaN(d.getTime())) dateObj = d;
+  }
+
+  if (!dateObj) {
+    return {
+      fullDateTime: batch.uploadedAt || 'Recently',
+      formattedDate: 'Recent',
+      formattedTime: '',
+      timeAgo: 'Recently uploaded',
+    };
+  }
+
+  const formattedDate = dateObj.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+
+  const formattedTime = dateObj.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  // Calculate human friendly time-ago
+  const now = Date.now();
+  const diffMs = now - dateObj.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  let timeAgo = 'Just now';
+  if (diffDays > 30) {
+    const months = Math.floor(diffDays / 30);
+    timeAgo = `${months} month${months > 1 ? 's' : ''} ago`;
+  } else if (diffDays > 0) {
+    timeAgo = `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  } else if (diffHours > 0) {
+    timeAgo = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  } else if (diffMins > 0) {
+    timeAgo = `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+  }
+
+  return {
+    fullDateTime: `${formattedDate}, ${formattedTime}`,
+    formattedDate,
+    formattedTime,
+    timeAgo,
+  };
 }
 
 export const AdminMonthlyLeadCleanupModal: React.FC<AdminMonthlyLeadCleanupModalProps> = ({
@@ -61,6 +128,11 @@ export const AdminMonthlyLeadCleanupModal: React.FC<AdminMonthlyLeadCleanupModal
     if (selectedBatchId === 'all') return null;
     return leadBatches.find((b) => b.id === selectedBatchId);
   }, [selectedBatchId, leadBatches]);
+
+  const selectedBatchDateInfo = useMemo(() => {
+    if (!selectedBatch) return null;
+    return getBatchDateDetails(selectedBatch);
+  }, [selectedBatch]);
 
   // Fetch pre-check stats whenever selected batch changes
   const fetchPreview = async (batchId: string, fileName?: string) => {
@@ -158,12 +230,12 @@ export const AdminMonthlyLeadCleanupModal: React.FC<AdminMonthlyLeadCleanupModal
 
         {/* Modal Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
-          {/* Batch Selector */}
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/90 space-y-2">
+          {/* Batch Selector & Metadata Box */}
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/90 space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <Layers className="w-4 h-4 text-slate-500" />
-                <span>Select Target Lead Batch / Scope to Clean:</span>
+                <span>Select Target Uploaded Batch:</span>
               </label>
               <button
                 type="button"
@@ -172,26 +244,83 @@ export const AdminMonthlyLeadCleanupModal: React.FC<AdminMonthlyLeadCleanupModal
                 className="text-[11px] font-bold text-teal-700 hover:text-teal-800 flex items-center gap-1 cursor-pointer disabled:opacity-50"
               >
                 <RefreshCw className={`w-3 h-3 ${isLoadingPreview ? 'animate-spin' : ''}`} />
-                <span>Refresh Stats</span>
+                <span>Refresh Live Stats</span>
               </button>
             </div>
 
             <select
               value={selectedBatchId}
               onChange={(e) => setSelectedBatchId(e.target.value)}
-              className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#0A2540] focus:outline-none focus:border-[#00C9A7] shadow-2xs"
+              className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#0A2540] focus:outline-none focus:border-[#00C9A7] shadow-2xs cursor-pointer"
             >
-              <option value="all">🌐 All Uploaded Batches &amp; Lead Pools Combined</option>
-              {leadBatches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  📄 {b.fileName || `Batch (${b.id})`} • {b.totalLeads || 0} total leads • {b.uploadedAt || 'Recent'}
-                  {b.assignedToEmployeeName ? ` (Assigned to ${b.assignedToEmployeeName})` : ''}
-                </option>
-              ))}
+              <option value="all">
+                🌐 All Uploaded Batches &amp; Lead Pools Combined ({leadBatches.length} batches recorded)
+              </option>
+              {leadBatches.map((b) => {
+                const dateInfo = getBatchDateDetails(b);
+                return (
+                  <option key={b.id} value={b.id}>
+                    [{dateInfo.fullDateTime}] • 📄 {b.fileName || `Batch`} • {b.totalLeads || 0} leads ➔ Assigned to: {b.assignedToEmployeeName || 'Unassigned'}
+                  </option>
+                );
+              })}
             </select>
-            <span className="text-[11px] text-slate-500 block">
-              Tip: Run this once a month after telecallers have finished dialing older batches.
-            </span>
+
+            {/* Selected Batch Detailed Inspector Card */}
+            {selectedBatch ? (
+              <div className="bg-white p-3.5 rounded-xl border border-teal-200 shadow-2xs space-y-2 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase text-teal-800 tracking-wider flex items-center gap-1">
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-teal-600" />
+                    <span>Batch Identification &amp; Assignment Details</span>
+                  </span>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 border border-teal-200">
+                    {selectedBatchDateInfo?.timeAgo}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center gap-2 text-slate-700">
+                    <Calendar className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                    <span>Uploaded:</span>
+                    <strong className="text-[#0A2540] font-mono">
+                      {selectedBatchDateInfo?.fullDateTime}
+                    </strong>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-slate-700">
+                    <User className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" />
+                    <span>Assigned To:</span>
+                    <strong className="text-emerald-700 px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 font-bold">
+                      {selectedBatch.assignedToEmployeeName || 'Unassigned Pool'}
+                    </strong>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-slate-700">
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                    <span>File:</span>
+                    <span className="text-slate-800 font-bold truncate max-w-[200px]" title={selectedBatch.fileName}>
+                      {selectedBatch.fileName}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-slate-700">
+                    <Clock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                    <span>Original Size:</span>
+                    <strong className="text-slate-800 font-mono">
+                      {selectedBatch.totalLeads || 0} leads uploaded
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white p-3 rounded-xl border border-slate-200 text-xs text-slate-600 flex items-center justify-between">
+                <span>Scope: Evaluating all {leadBatches.length} uploaded Excel batches across all staff</span>
+                <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
+                  Global Scope
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Success Result Banner */}
@@ -211,11 +340,14 @@ export const AdminMonthlyLeadCleanupModal: React.FC<AdminMonthlyLeadCleanupModal
           {/* Live Data Breakdown & Immunity Grid */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">
-                Live Data Safety &amp; Purge Breakdown
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <span>Live Data Safety &amp; Purge Breakdown</span>
+                {isLoadingPreview && (
+                  <RefreshCw className="w-3 h-3 text-teal-600 animate-spin" />
+                )}
               </h4>
               <span className="text-xs font-bold text-slate-600">
-                Total Leads: <strong className="text-[#0A2540] font-mono">{preview.total}</strong>
+                Total Leads in Scope: <strong className="text-[#0A2540] font-mono text-sm">{preview.total}</strong>
               </span>
             </div>
 
@@ -324,7 +456,12 @@ export const AdminMonthlyLeadCleanupModal: React.FC<AdminMonthlyLeadCleanupModal
         {/* Modal Footer */}
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2.5">
           <span className="text-xs text-slate-500 font-medium order-2 sm:order-1">
-            {preview.notInterestedCount > 0 ? (
+            {isLoadingPreview ? (
+              <span className="flex items-center gap-1.5">
+                <RefreshCw className="w-3 h-3 animate-spin text-teal-600" />
+                <span>Loading batch stats...</span>
+              </span>
+            ) : preview.notInterestedCount > 0 ? (
               <span>Ready to clean {preview.notInterestedCount} dead lead(s)</span>
             ) : (
               <span>No Not-Interested leads to purge in this scope</span>

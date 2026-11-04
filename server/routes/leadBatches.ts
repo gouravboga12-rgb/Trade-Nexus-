@@ -46,21 +46,30 @@ router.get('/:id/cleanup-preview', (req: Request, res: Response) => {
     let params: any[] = [];
 
     if (!isAll) {
-      // Find batch or match by filename
       let targetBatchId = id;
+      let targetFileName = req.query.fileName ? String(req.query.fileName) : '';
       const batch = db.prepare('SELECT * FROM lead_batches WHERE id = ?').get(id) as any;
-      if (!batch && req.query.fileName) {
-        const fileBatch = db.prepare('SELECT * FROM lead_batches WHERE fileName = ? ORDER BY createdAt DESC').get(String(req.query.fileName)) as any;
+      if (batch) {
+        targetBatchId = batch.id;
+        if (!targetFileName && batch.fileName) targetFileName = batch.fileName;
+      } else if (targetFileName) {
+        const fileBatch = db.prepare('SELECT * FROM lead_batches WHERE fileName = ? ORDER BY createdAt DESC').get(targetFileName) as any;
         if (fileBatch) targetBatchId = fileBatch.id;
       }
-      condition = 'batchId = ?';
-      params = [targetBatchId];
+
+      if (targetFileName) {
+        condition = '(batchId = ? OR notes LIKE ?)';
+        params = [targetBatchId, `%${targetFileName}%`];
+      } else {
+        condition = 'batchId = ?';
+        params = [targetBatchId];
+      }
     }
 
     const counts = db.prepare(`
       SELECT 
         COUNT(*) as total,
-        SUM(CASE WHEN status IN ('NOT_INTERESTED', 'REJECTED') AND id NOT IN (SELECT DISTINCT leadId FROM payment_verifications WHERE leadId IS NOT NULL) THEN 1 ELSE 0 END) as notInterestedCount,
+        SUM(CASE WHEN status IN ('NOT_INTERESTED', 'REJECTED') AND status NOT IN ('CONVERTED', 'WON', 'INTERESTED', 'CALLBACK') THEN 1 ELSE 0 END) as notInterestedCount,
         SUM(CASE WHEN status IN ('CONVERTED', 'WON') THEN 1 ELSE 0 END) as wonCount,
         SUM(CASE WHEN status IN ('INTERESTED', 'CALLBACK') THEN 1 ELSE 0 END) as interestedCount,
         SUM(CASE WHEN status = 'PENDING' AND (callCount = 0 OR callCount IS NULL) THEN 1 ELSE 0 END) as pendingCount,
@@ -69,11 +78,16 @@ router.get('/:id/cleanup-preview', (req: Request, res: Response) => {
       WHERE ${condition}
     `).get(...params) as any;
 
-    // Get number of call logs associated with these leads to show work credit guarantee
-    const callLogsCount = db.prepare(`
-      SELECT COUNT(*) as count FROM call_logs 
-      WHERE leadId IN (SELECT id FROM assigned_leads WHERE ${condition})
-    `).get(...params) as any;
+    // Get number of call logs associated with these phone numbers to show work credit guarantee
+    let callLogsCount = { count: 0 };
+    try {
+      callLogsCount = db.prepare(`
+        SELECT COUNT(*) as count FROM call_logs 
+        WHERE phoneNumber IN (SELECT phone FROM assigned_leads WHERE ${condition} AND phone IS NOT NULL AND phone != '')
+      `).get(...params) as any;
+    } catch (cErr) {
+      console.warn('[cleanup-preview] call_logs count notice:', cErr);
+    }
 
     return res.status(200).json({
       batchId: id,
@@ -87,6 +101,7 @@ router.get('/:id/cleanup-preview', (req: Request, res: Response) => {
       callLogsCount: Number(callLogsCount?.count || 0)
     });
   } catch (error) {
+    console.error('[cleanup-preview error]:', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });
@@ -103,13 +118,23 @@ router.post('/:id/monthly-cleanup', (req: Request, res: Response) => {
     let targetBatchId = id;
 
     if (!isAll) {
+      let targetFileName = req.body?.fileName ? String(req.body.fileName) : '';
       const batch = db.prepare('SELECT * FROM lead_batches WHERE id = ?').get(id) as any;
-      if (!batch && req.body?.fileName) {
-        const fileBatch = db.prepare('SELECT * FROM lead_batches WHERE fileName = ? ORDER BY createdAt DESC').get(String(req.body.fileName)) as any;
+      if (batch) {
+        targetBatchId = batch.id;
+        if (!targetFileName && batch.fileName) targetFileName = batch.fileName;
+      } else if (targetFileName) {
+        const fileBatch = db.prepare('SELECT * FROM lead_batches WHERE fileName = ? ORDER BY createdAt DESC').get(targetFileName) as any;
         if (fileBatch) targetBatchId = fileBatch.id;
       }
-      condition = 'batchId = ?';
-      params = [targetBatchId];
+
+      if (targetFileName) {
+        condition = '(batchId = ? OR notes LIKE ?)';
+        params = [targetBatchId, `%${targetFileName}%`];
+      } else {
+        condition = 'batchId = ?';
+        params = [targetBatchId];
+      }
     }
 
     // Identify target leads for safe removal
@@ -117,7 +142,7 @@ router.post('/:id/monthly-cleanup', (req: Request, res: Response) => {
       SELECT id FROM assigned_leads
       WHERE ${condition}
         AND status IN ('NOT_INTERESTED', 'REJECTED')
-        AND id NOT IN (SELECT DISTINCT leadId FROM payment_verifications WHERE leadId IS NOT NULL)
+        AND status NOT IN ('CONVERTED', 'WON', 'INTERESTED', 'CALLBACK')
     `).all(...params) as { id: string }[];
 
     const deletedLeadIds = targetLeads.map(l => l.id);
@@ -159,6 +184,7 @@ router.post('/:id/monthly-cleanup', (req: Request, res: Response) => {
       message: `Successfully purged ${deletedLeadIds.length} 'Not Interested' leads. Won deals, Interested, Callbacks, and Unseen leads are 100% preserved.`
     });
   } catch (error) {
+    console.error('[monthly-cleanup error]:', error);
     return res.status(500).json({ error: (error as Error).message });
   }
 });
