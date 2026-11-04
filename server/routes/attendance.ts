@@ -408,6 +408,7 @@ router.post('/', (req: Request, res: Response) => {
       date: record?.date,
       checkIn: record?.checkIn,
       checkOut: record?.checkOut,
+      type: 'IN',
     });
     return res.status(201).json({
       ...record,
@@ -598,6 +599,8 @@ router.put('/:id', (req: Request, res: Response) => {
     }
 
     const updatedRec = db.prepare('SELECT * FROM attendance_records WHERE id = ?').get(targetRecordId) as any;
+    const isDisputed = req.body.disputedByAdmin !== undefined;
+    const isCheckOut = !isDisputed && Boolean(req.body.checkOut || (merged.checkOut && !existing?.checkOut));
     emitSocketEvent('attendance:punched', {
       id: updatedRec?.id,
       employeeId: updatedRec?.employeeId,
@@ -606,6 +609,7 @@ router.put('/:id', (req: Request, res: Response) => {
       date: updatedRec?.date,
       checkIn: updatedRec?.checkIn,
       checkOut: updatedRec?.checkOut,
+      type: isDisputed ? 'ADMIN_UPDATE' : (isCheckOut ? 'OUT' : 'IN'),
     });
     return res.status(200).json(updatedRec);
   } catch (error) {

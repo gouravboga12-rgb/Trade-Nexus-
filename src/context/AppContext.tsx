@@ -1339,7 +1339,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     // Real-time attendance punches (Only notify Admin and HR, do not spam all employees)
-    socket.on('attendance:punched', (punch: AttendanceRecord) => {
+    socket.on('attendance:punched', (punch: AttendanceRecord & { type?: 'IN' | 'OUT' | 'ADMIN_UPDATE' }) => {
       setAttendanceLogs((prev) => {
         const filtered = prev.filter((a) => a.id !== punch.id && !(a.employeeId === punch.employeeId && a.date === punch.date));
         return [punch, ...filtered];
@@ -1348,9 +1348,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       const role = (currentRoleRef.current || '').toLowerCase();
       if (role === 'admin' || role === 'hr') {
+        if (punch.type === 'ADMIN_UPDATE') return;
+
+        const isPunchOut = punch.type === 'OUT' || Boolean(punch.checkOut && punch.type !== 'IN');
+        const timeLabel = isPunchOut ? punch.checkOut : punch.checkIn;
+
         addAppNotification({
-          title: 'Attendance Punch-in',
-          body: `${punch.employeeName || 'Staff'} registered biometric attendance`,
+          title: isPunchOut ? 'Attendance Punch-out' : 'Attendance Punch-in',
+          body: isPunchOut
+            ? `${punch.employeeName || 'Staff'} registered shift punch-out${timeLabel ? ` at ${timeLabel}` : ''}`
+            : `${punch.employeeName || 'Staff'} registered biometric attendance${timeLabel ? ` at ${timeLabel}` : ''}`,
           category: 'attendance',
           targetTab: 'attendance',
         });
