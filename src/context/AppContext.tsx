@@ -1599,6 +1599,84 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       .catch(err => console.warn('[Push Token Registration Error]', err));
   }, [devicePushToken, authStep, currentUser]);
 
+  // Catch up on unread company announcements, birthday alerts, and target notifications missed while offline
+  const syncMissedBroadcasts = useCallback(async () => {
+    if (authStep !== 'AUTHENTICATED') return;
+    try {
+      const res = await api.getBroadcasts();
+      if (!res || !Array.isArray(res.broadcasts)) return;
+
+      const seenKey = 'tnx_seen_broadcast_ids';
+      let seenIds: Set<string>;
+      try {
+        const stored = localStorage.getItem(seenKey);
+        seenIds = new Set(stored ? JSON.parse(stored) : []);
+      } catch {
+        seenIds = new Set();
+      }
+
+      const curUser = currentUserRef.current;
+      const curProf = profileRef.current;
+      const curRole = (currentRoleRef.current || '').toLowerCase();
+      const myId = curUser?.employeeId || curUser?.id || curProf.id || '';
+      const myEmpCode = curUser?.empCode || curProf.empCode || '';
+
+      const unseenList = res.broadcasts.filter((b: any) => {
+        if (!b.id || seenIds.has(b.id)) return false;
+
+        // Verify audience scope targeting
+        if (b.targetScope === 'ALL') return true;
+
+        if (b.targetScope === 'ROLE') {
+          let roles: string[] = [];
+          try {
+            roles = Array.isArray(b.targetRoles) ? b.targetRoles : JSON.parse(b.targetRoles || '[]');
+          } catch {}
+          return roles.map(r => r.toLowerCase()).includes(curRole);
+        }
+
+        if (b.targetScope === 'CUSTOM') {
+          let userIds: string[] = [];
+          try {
+            userIds = Array.isArray(b.targetUserIds) ? b.targetUserIds : JSON.parse(b.targetUserIds || '[]');
+          } catch {}
+          return userIds.includes(myId) || (myEmpCode && userIds.includes(myEmpCode));
+        }
+
+        return false;
+      });
+
+      if (unseenList.length > 0) {
+        unseenList.forEach((b: any) => {
+          seenIds.add(b.id);
+          const cat = (b.category || 'ANNOUNCEMENT').toLowerCase();
+          let notifCat: any = 'announcement';
+          if (cat.includes('birthday')) notifCat = 'birthday';
+          else if (cat.includes('target') || cat.includes('performance')) notifCat = 'target_alert';
+
+          addAppNotificationRef.current({
+            title: b.title || 'Trade Nexus Alert',
+            body: b.message || b.body || '',
+            category: notifCat,
+            targetTab: b.actionUrl || 'home',
+          });
+        });
+
+        try {
+          localStorage.setItem(seenKey, JSON.stringify(Array.from(seenIds).slice(-100)));
+        } catch {}
+      }
+    } catch (err) {
+      console.warn('[Sync Missed Broadcasts Notice]', err);
+    }
+  }, [authStep]);
+
+  useEffect(() => {
+    if (authStep === 'AUTHENTICATED') {
+      syncMissedBroadcasts();
+    }
+  }, [authStep, syncMissedBroadcasts]);
+
   // Seamless Background-to-Foreground Resume Auto-Sync (No need to ever exit the app!)
   useEffect(() => {
     const handleResume = () => {
@@ -1610,6 +1688,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           }
         }
         refreshAllData();
+        syncMissedBroadcasts();
       }
     };
 
