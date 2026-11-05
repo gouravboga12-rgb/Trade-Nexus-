@@ -1190,6 +1190,42 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     [loadResources]
   );
 
+  // Debounced queue to prevent concurrent request stampedes across floor devices
+  const pendingRefreshKeysRef = useRef<Set<ResourceKey>>(new Set());
+  const refreshDebounceTimerRef = useRef<any>(null);
+
+  const debouncedRefreshResources = useCallback(
+    (keys: readonly ResourceKey[]) => {
+      const role = (currentRoleRef.current || '').toLowerCase();
+      const isLeadOrManager = role === 'admin' || role === 'hr' || role === 'team_leader';
+
+      // Telecallers and Employees never need 'teamMembers' or 'teamGroups'
+      const filteredKeys = keys.filter((k) => {
+        if ((k === 'teamMembers' || k === 'teamGroups') && !isLeadOrManager) {
+          return false;
+        }
+        return true;
+      });
+
+      if (filteredKeys.length === 0) return;
+
+      filteredKeys.forEach((k) => pendingRefreshKeysRef.current.add(k));
+
+      if (refreshDebounceTimerRef.current) {
+        clearTimeout(refreshDebounceTimerRef.current);
+      }
+
+      refreshDebounceTimerRef.current = setTimeout(() => {
+        const keysToFetch = Array.from(pendingRefreshKeysRef.current);
+        pendingRefreshKeysRef.current.clear();
+        if (keysToFetch.length > 0) {
+          refreshResources(keysToFetch).catch(() => {});
+        }
+      }, 3500); // 3.5s quiet window buffers rapid event bursts into 1 request
+    },
+    [refreshResources]
+  );
+
   // Hydrate session from backend /api/auth/me on app load
   useEffect(() => {
     const token = getAuthToken();
@@ -1365,7 +1401,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!exists) return [verifiedPay, ...prev];
         return prev.map((p) => (p.id === verifiedPay.id ? verifiedPay : p));
       });
-      refreshResources(['teamMembers', 'teamGroups', 'stats']);
+      debouncedRefreshResources(['teamMembers', 'teamGroups', 'stats']);
 
       // Scoped notification: Only notify the rep who closed the deal, and Admin / HR
       const curUser = currentUserRef.current;
@@ -1401,7 +1437,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setPaymentVerifications((prev) =>
         prev.map((p) => (p.id === rejectedPay.id ? { ...p, status: 'REJECTED' } : p))
       );
-      refreshResources(['teamMembers', 'teamGroups', 'stats']);
+      debouncedRefreshResources(['teamMembers', 'teamGroups', 'stats']);
 
       const curUser = currentUserRef.current;
       const curProf = profileRef.current;
@@ -1435,9 +1471,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const filtered = prev.filter((a) => a.id !== punch.id && !(a.employeeId === punch.employeeId && a.date === punch.date));
         return [punch, ...filtered];
       });
-      refreshResources(['teamMembers', 'teamGroups']);
-
       const role = (currentRoleRef.current || '').toLowerCase();
+      if (role === 'admin' || role === 'hr' || role === 'team_leader') {
+        debouncedRefreshResources(['teamMembers', 'teamGroups']);
+      }
+
       if (role === 'admin' || role === 'hr') {
         if (punch.type === 'ADMIN_UPDATE') return;
 
@@ -1458,7 +1496,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Real-time lead conversions and allocations
     socket.on('lead:converted', (lead: AssignedLead) => {
       setAssignedLeads((prev) => prev.map((l) => (l.id === lead.id ? lead : l)));
-      refreshResources(['stats', 'paymentVerifications']);
+      debouncedRefreshResources(['stats', 'paymentVerifications']);
     });
 
     socket.on('lead:updated', (lead: AssignedLead) => {
@@ -1466,7 +1504,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     socket.on('leads:distributed', () => {
-      refreshResources(['assignedLeads', 'stats']);
+      debouncedRefreshResources(['assignedLeads', 'stats']);
       triggerToast('⚡ Leads updated from server');
       addAppNotification({
         title: 'New Leads Distributed',
@@ -1477,7 +1515,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     socket.on('leads:assigned', (payload: { batchId: string; fileName: string; targetEmployeeId: string; targetEmployeeName: string; count: number }) => {
-      refreshResources(['assignedLeads', 'stats']);
+      debouncedRefreshResources(['assignedLeads', 'stats']);
       const isTarget = currentUser && (
         currentUser.id === payload.targetEmployeeId ||
         (currentUser as any).empCode === payload.targetEmployeeId ||
@@ -1505,17 +1543,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const idSet = new Set(payload.deletedLeadIds);
         setAssignedLeads((prev) => prev.filter((l) => !idSet.has(l.id)));
       }
-      refreshResources(['assignedLeads', 'stats', 'teamMembers']);
+      debouncedRefreshResources(['assignedLeads', 'stats', 'teamMembers']);
     });
 
     socket.on('calendar:settings-updated', () => {
-      refreshResources(['teamMembers', 'stats']);
+      debouncedRefreshResources(['teamMembers', 'stats']);
     });
 
     // Real-time call logs
     socket.on('call:logged', (log: CallLogItem) => {
       setCallLogs((prev) => [log, ...prev.filter((c) => c.id !== log.id)]);
-      refreshResources(['teamMembers', 'stats']);
+      const role = (currentRoleRef.current || '').toLowerCase();
+      const myId = currentUserRef.current?.id || currentUserRef.current?.employeeId || profileRef.current?.id;
+      if (log.employeeId && myId && String(log.employeeId) === String(myId)) {
+        debouncedRefreshResources(['stats']);
+      } else if (role === 'admin' || role === 'team_leader' || role === 'hr') {
+        debouncedRefreshResources(['teamMembers', 'stats']);
+      }
     });
 
     // Real-time meetings
@@ -1583,7 +1627,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     socket.on('resource:invalidated', ({ resource }: { resource: string }) => {
       if (resource === 'teamMembers') {
-        refreshResources(['teamMembers']);
+        debouncedRefreshResources(['teamMembers']);
       }
     });
 
