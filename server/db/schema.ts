@@ -371,6 +371,9 @@ export function initializeDatabaseSchema() {
     CREATE INDEX IF NOT EXISTS idx_assigned_leads_emp_created ON assigned_leads(assignedToEmployeeId, createdAt DESC);
     CREATE INDEX IF NOT EXISTS idx_assigned_leads_status ON assigned_leads(status);
     CREATE INDEX IF NOT EXISTS idx_assigned_leads_batch ON assigned_leads(batchId);
+    CREATE INDEX IF NOT EXISTS idx_assigned_leads_assigned_date ON assigned_leads(assignedDate);
+    CREATE INDEX IF NOT EXISTS idx_assigned_leads_updated_at ON assigned_leads(updatedAt);
+    CREATE INDEX IF NOT EXISTS idx_call_logs_created_at ON call_logs(createdAt);
     CREATE INDEX IF NOT EXISTS idx_team_members_group ON team_members(groupName);
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_users_emp_code ON users(empCode);
