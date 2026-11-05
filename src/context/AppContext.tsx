@@ -1753,19 +1753,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setIsRefreshing(true);
     try {
       const activeKeys = getActiveScreenResourceKeys(currentRole, activeTab);
-      const vitalKeys: ResourceKey[] = [
-        'leaveRequests',
-        'attendanceLogs',
-        'teamMembers',
-        'paymentVerifications',
-        'assignedLeads',
-        'stats',
-        'profile',
-        'teamMeetings',
-      ];
-      const combinedKeys = Array.from(new Set([...activeKeys, ...vitalKeys]));
-      await refreshResources(combinedKeys);
-      triggerToast('✓ Refreshed all data');
+      // Ensure profile and attendance logs are refreshed alongside active screen
+      const keysToRefresh = Array.from(new Set([...activeKeys, 'profile' as ResourceKey]));
+      await refreshResources(keysToRefresh);
+      triggerToast('✓ Refreshed');
     } catch (e) {
       console.error('Failed to sync data:', e);
       triggerToast('⚠ Error syncing with server');
