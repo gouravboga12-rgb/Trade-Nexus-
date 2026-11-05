@@ -74,16 +74,44 @@ export const DailyCallingView: React.FC = () => {
     });
   }, [assignedLeads, profile, currentUser]);
 
-  const uncalledLeads = myAssignedLeads.filter((l) => l.status === 'PENDING');
-  const callbackLeads = myAssignedLeads.filter((l) => l.status === 'CALLBACK');
-  const interestedLeads = myAssignedLeads.filter((l) => l.status === 'INTERESTED');
-  const busyLeads = myAssignedLeads.filter((l) => l.status === 'BUSY');
-  const notInterestedLeads = myAssignedLeads.filter((l) => l.status === 'NOT_INTERESTED');
-  const wonLeads = myAssignedLeads.filter((l) => l.status === 'CONVERTED');
-  const freshLeads = uncalledLeads;
+  // High-performance single-pass memoized status partitioning (eliminates UI lag on taps)
+  const { uncalledLeads, callbackLeads, interestedLeads, busyLeads, notInterestedLeads, wonLeads, dialsDone } = useMemo(() => {
+    const uncalled: AssignedLead[] = [];
+    const callback: AssignedLead[] = [];
+    const interested: AssignedLead[] = [];
+    const busy: AssignedLead[] = [];
+    const notInterested: AssignedLead[] = [];
+    const won: AssignedLead[] = [];
+    let dials = 0;
 
+    for (let i = 0; i < myAssignedLeads.length; i++) {
+      const l = myAssignedLeads[i];
+      if (l.status === 'PENDING') {
+        uncalled.push(l);
+      } else {
+        dials++;
+      }
+
+      if (l.status === 'CALLBACK') callback.push(l);
+      else if (l.status === 'INTERESTED') interested.push(l);
+      else if (l.status === 'BUSY') busy.push(l);
+      else if (l.status === 'NOT_INTERESTED') notInterested.push(l);
+      else if (l.status === 'CONVERTED') won.push(l);
+    }
+
+    return {
+      uncalledLeads: uncalled,
+      callbackLeads: callback,
+      interestedLeads: interested,
+      busyLeads: busy,
+      notInterestedLeads: notInterested,
+      wonLeads: won,
+      dialsDone: dials,
+    };
+  }, [myAssignedLeads]);
+
+  const freshLeads = uncalledLeads;
   const totalAssigned = myAssignedLeads.length;
-  const dialsDone = myAssignedLeads.filter((l) => l.status !== 'PENDING').length;
 
   // Local date calculation utilities
   const getLocalDateStr = (daysAgo: number = 0): string => {
@@ -104,41 +132,45 @@ export const DailyCallingView: React.FC = () => {
   type MetricFilter = 'ALL' | 'INTERESTED' | 'CALLBACK' | 'NOT_ANSWERED';
   const [selectedMetricFilter, setSelectedMetricFilter] = useState<MetricFilter>('ALL');
 
-  // Yesterday / Overdue Callbacks detector
-  const yesterdayCallbacksCount = callbackLeads.filter((l) => {
-    const d = (l.followUpDate || '').toLowerCase();
-    return d.includes('yesterday') || (l.followUpDate && l.followUpDate.split(' ')[0] < todayIso);
-  }).length;
+  // Yesterday / Overdue Callbacks detector (memoized)
+  const yesterdayCallbacksCount = useMemo(() => {
+    return callbackLeads.filter((l) => {
+      const d = (l.followUpDate || '').toLowerCase();
+      return d.includes('yesterday') || (l.followUpDate && l.followUpDate.split(' ')[0] < todayIso);
+    }).length;
+  }, [callbackLeads, todayIso]);
 
-  // Filtered queue based on active cube + search
-  const currentQueueLeads = myAssignedLeads.filter((l) => {
-    if (activeQueueFilter === 'CALLBACKS') {
-      if (l.status !== 'CALLBACK') return false;
-    } else if (activeQueueFilter === 'INTERESTED') {
-      if (l.status !== 'INTERESTED') return false;
-    } else if (activeQueueFilter === 'BUSY') {
-      if (l.status !== 'BUSY') return false;
-    } else if (activeQueueFilter === 'NOT_INTERESTED') {
-      if (l.status !== 'NOT_INTERESTED') return false;
-    } else if (activeQueueFilter === 'WON') {
-      if (l.status !== 'CONVERTED') return false;
-    } else if (activeQueueFilter === 'PENDING') {
-      if (l.status !== 'PENDING') return false;
-    } else {
-      // Fresh queue: ONLY PENDING leads
-      if (l.status !== 'PENDING') return false;
-    }
-
+  // Filtered queue based on active cube + search (memoized)
+  const currentQueueLeads = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      (l.phone && l.phone.includes(q)) ||
-      (l.name && l.name.toLowerCase().includes(q)) ||
-      (l.company && l.company.toLowerCase().includes(q)) ||
-      (l.city && l.city.toLowerCase().includes(q)) ||
-      (l.notes && l.notes.toLowerCase().includes(q))
-    );
-  });
+    return myAssignedLeads.filter((l) => {
+      if (activeQueueFilter === 'CALLBACKS') {
+        if (l.status !== 'CALLBACK') return false;
+      } else if (activeQueueFilter === 'INTERESTED') {
+        if (l.status !== 'INTERESTED') return false;
+      } else if (activeQueueFilter === 'BUSY') {
+        if (l.status !== 'BUSY') return false;
+      } else if (activeQueueFilter === 'NOT_INTERESTED') {
+        if (l.status !== 'NOT_INTERESTED') return false;
+      } else if (activeQueueFilter === 'WON') {
+        if (l.status !== 'CONVERTED') return false;
+      } else if (activeQueueFilter === 'PENDING') {
+        if (l.status !== 'PENDING') return false;
+      } else {
+        // Fresh queue: ONLY PENDING leads
+        if (l.status !== 'PENDING') return false;
+      }
+
+      if (!q) return true;
+      return (
+        (l.phone && l.phone.includes(q)) ||
+        (l.name && l.name.toLowerCase().includes(q)) ||
+        (l.company && l.company.toLowerCase().includes(q)) ||
+        (l.city && l.city.toLowerCase().includes(q)) ||
+        (l.notes && l.notes.toLowerCase().includes(q))
+      );
+    });
+  }, [myAssignedLeads, activeQueueFilter, search]);
 
   // Helper to extract local YYYY-MM-DD date from a call log item
   const getLogDateIso = (log: CallLogItem): string => {
@@ -252,6 +284,7 @@ export const DailyCallingView: React.FC = () => {
   }, [finalFilteredLogs, todayIso, yesterdayIso]);
 
   const handleCallLead = (lead: AssignedLead) => {
+    dialPhoneNumber(lead.phone);
     openCallModalForLead(lead);
   };
 

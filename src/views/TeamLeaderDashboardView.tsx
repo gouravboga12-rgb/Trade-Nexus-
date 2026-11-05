@@ -310,13 +310,37 @@ export const TeamLeaderDashboardView: React.FC = () => {
   const presentCount = squadAttendanceCounts.present + squadAttendanceCounts.late;
   const lateCount = squadAttendanceCounts.late;
   const onLeaveCount = squadAttendanceCounts.onLeave;
-  const totalActivities = mySquadMembers.reduce((sum, m) => sum + (m.dialsToday || 0), 0);
-  const totalGoalCalls = mySquadMembers.reduce((sum, m) => sum + (m.goalCalls || 0), 0);
-  const totalConnectedCalls = mySquadMembers.reduce((sum, m) => sum + (m.connected || 0), 0);
-  const connectRate = totalActivities > 0 ? Math.round((totalConnectedCalls / totalActivities) * 100) : 0;
-  const totalSales = mySquadMembers.reduce((sum, m) => sum + (m.salesAchieved || 0), 0);
-  const targetTotal = mySquadMembers.reduce((sum, m) => sum + (m.salesTarget || 0), 0);
-  const targetPercentage = targetTotal > 0 ? Math.min(100, Math.round((totalSales / targetTotal) * 100)) : 0;
+
+  // Memoized single-pass squad performance aggregation
+  const { totalActivities, totalGoalCalls, totalConnectedCalls, connectRate, totalSales, targetTotal, targetPercentage } = useMemo(() => {
+    let activities = 0;
+    let goal = 0;
+    let connected = 0;
+    let sales = 0;
+    let target = 0;
+
+    for (let i = 0; i < mySquadMembers.length; i++) {
+      const m = mySquadMembers[i];
+      activities += (m.dialsToday || 0);
+      goal += (m.goalCalls || 0);
+      connected += (m.connected || 0);
+      sales += (m.salesAchieved || 0);
+      target += (m.salesTarget || 0);
+    }
+
+    const cRate = activities > 0 ? Math.round((connected / activities) * 100) : 0;
+    const tPct = target > 0 ? Math.min(100, Math.round((sales / target) * 100)) : 0;
+
+    return {
+      totalActivities: activities,
+      totalGoalCalls: goal,
+      totalConnectedCalls: connected,
+      connectRate: cRate,
+      totalSales: sales,
+      targetTotal: target,
+      targetPercentage: tPct,
+    };
+  }, [mySquadMembers]);
 
   const todayYMD = getTodayDateIST();
   const squadMemberNames = useMemo(() => new Set(mySquadMembers.map(m => (m.name || '').trim().toLowerCase())), [mySquadMembers]);
@@ -816,153 +840,6 @@ export const TeamLeaderDashboardView: React.FC = () => {
                   Team Leader • <span className="text-[#00A88B] font-bold">{currentUser?.groupName || profile?.teamName || 'Assigned Squad'}</span>
                 </p>
               </div>
-
-              {/* Quick Actions: My ID Card & My Official Documents */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleOpenMyIdCard}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#E8FAF5] border border-slate-200/90 hover:border-[#00A88B]/60 text-[#0A2540] text-xs font-bold shadow-2xs transition-all active:scale-95 cursor-pointer"
-                >
-                  <CreditCard className="w-3.5 h-3.5 text-[#00A88B]" />
-                  <span>My ID Card</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('profile')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0A2540] hover:bg-[#103459] text-white text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
-                >
-                  <FileText className="w-3.5 h-3.5 text-[#00C9A7]" />
-                  <span>My Documents</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Officer Credentials & Official Published Documents Vault Showcase */}
-            <div className="bg-gradient-to-br from-[#06152B] via-[#0A2540] to-[#0F3258] text-white rounded-3xl p-4 sm:p-5 shadow-lg border border-[#00C9A7]/20 relative overflow-hidden space-y-3.5">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-radial from-[#00C9A7]/10 to-transparent blur-2xl pointer-events-none" />
-
-              <div className="flex items-center justify-between relative z-10">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-[#00C9A7]/20 border border-[#00C9A7]/40 flex items-center justify-center text-[#00C9A7]">
-                    <ShieldCheck className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-display font-black text-sm sm:text-base text-white tracking-tight">
-                        Officer Identity & Published Documents
-                      </h3>
-                      <span className="text-[9px] font-black uppercase tracking-wider bg-[#00C9A7] text-[#0A2540] px-2 py-0.5 rounded-full">
-                        HR Verified
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-300">
-                      Access your Digital ID Card & official documents published by HR
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('profile')}
-                  className="hidden sm:flex items-center gap-1 text-xs font-bold text-[#00C9A7] hover:text-white transition-colors cursor-pointer"
-                >
-                  <span>Open Full Vault</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* 3 Quick Action Document Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 relative z-10">
-                
-                {/* Card 1: Digital ID Card */}
-                <div 
-                  onClick={handleOpenMyIdCard}
-                  className="bg-white/10 hover:bg-white/15 border border-white/10 hover:border-[#00C9A7]/40 rounded-2xl p-3 cursor-pointer transition-all flex items-center justify-between group active:scale-[0.98]"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-[#00C9A7]/20 text-[#00C9A7] flex items-center justify-center flex-shrink-0">
-                      <QrCode className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-white group-hover:text-[#00C9A7] transition-colors">
-                        Digital ID Card
-                      </h4>
-                      <p className="text-[10px] text-slate-300 font-medium">
-                        {profile.empCode ? `Badge: ${profile.empCode}` : 'Team Leader ID'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={handleDownloadMyIdCard}
-                      title="Download Official ID Card PDF"
-                      className="w-7 h-7 rounded-lg bg-white/15 hover:bg-[#00C9A7] text-white hover:text-[#0A2540] flex items-center justify-center transition-all cursor-pointer"
-                    >
-                      <Download className="w-3 h-3" />
-                    </button>
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
-                  </div>
-                </div>
-
-                {/* Card 2: Official Offer & Contract Letter */}
-                <div 
-                  onClick={() => openOfferLetterModal(myOfferLetter)}
-                  className="bg-white/10 hover:bg-white/15 border border-white/10 hover:border-indigo-400/40 rounded-2xl p-3 cursor-pointer transition-all flex items-center justify-between group active:scale-[0.98]"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center flex-shrink-0">
-                      <FileText className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-white group-hover:text-indigo-300 transition-colors">
-                        Offer & Contract
-                      </h4>
-                      <p className="text-[10px] text-slate-300 font-medium">
-                        {myOfferLetter?.issuedDate ? `Issued: ${myOfferLetter.issuedDate}` : 'Official Appointment'}
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
-                </div>
-
-                {/* Card 3: Latest Payslip / Vault */}
-                <div 
-                  onClick={() => {
-                    if (latestPayslip) openPayslipModal(latestPayslip);
-                    else setActiveTab('profile');
-                  }}
-                  className="bg-white/10 hover:bg-white/15 border border-white/10 hover:border-emerald-400/40 rounded-2xl p-3 cursor-pointer transition-all flex items-center justify-between group active:scale-[0.98]"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center flex-shrink-0">
-                      <Award className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">
-                        Payroll & Certificates
-                      </h4>
-                      <p className="text-[10px] text-slate-300 font-medium">
-                        {latestPayslip ? `${latestPayslip.month} ${latestPayslip.year} Statement` : 'View All Vault Docs'}
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
-                </div>
-
-              </div>
-
-              {/* Mobile View Full Vault Button */}
-              <button
-                type="button"
-                onClick={() => setActiveTab('profile')}
-                className="w-full sm:hidden py-2 px-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-xs font-bold text-[#00C9A7] flex items-center justify-center gap-1.5 transition-all active:scale-[0.99] cursor-pointer"
-              >
-                <span>View Full Documents & Self-Service Vault</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
             </div>
 
             {/* 3 Top Attendance Metric Cards */}
@@ -2022,7 +1899,10 @@ export const TeamLeaderDashboardView: React.FC = () => {
 
                           <button
                             type="button"
-                            onClick={() => openCallModalForLead(lead)}
+                            onClick={() => {
+                              dialPhoneNumber(lead.phone);
+                              openCallModalForLead(lead);
+                            }}
                             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#00C9A7] hover:bg-[#00B4D8] text-[#0A2540] font-black text-xs shadow-xs active:scale-95 transition-all flex-shrink-0 cursor-pointer"
                           >
                             <Phone className="w-3.5 h-3.5 stroke-[2.5]" />

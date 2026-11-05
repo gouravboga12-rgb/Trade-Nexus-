@@ -362,9 +362,15 @@ export function initializeDatabaseSchema() {
 
     -- Indices for optimal lookup speeds
     CREATE INDEX IF NOT EXISTS idx_call_logs_timestamp ON call_logs(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_call_logs_emp_created ON call_logs(employeeId, createdAt DESC);
+    CREATE INDEX IF NOT EXISTS idx_call_logs_date ON call_logs(date);
     CREATE INDEX IF NOT EXISTS idx_client_leads_status ON client_leads(status);
     CREATE INDEX IF NOT EXISTS idx_attendance_records_date ON attendance_records(date);
+    CREATE INDEX IF NOT EXISTS idx_attendance_records_emp_date ON attendance_records(employeeId, date);
     CREATE INDEX IF NOT EXISTS idx_assigned_leads_emp ON assigned_leads(assignedToEmployeeId);
+    CREATE INDEX IF NOT EXISTS idx_assigned_leads_emp_created ON assigned_leads(assignedToEmployeeId, createdAt DESC);
+    CREATE INDEX IF NOT EXISTS idx_assigned_leads_status ON assigned_leads(status);
+    CREATE INDEX IF NOT EXISTS idx_assigned_leads_batch ON assigned_leads(batchId);
     CREATE INDEX IF NOT EXISTS idx_team_members_group ON team_members(groupName);
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_users_emp_code ON users(empCode);

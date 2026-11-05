@@ -103,17 +103,12 @@ export const SCREEN_RESOURCES = {
     'teamTasks',
     'teamMeetings',
     'leaveRequests',
-    'clients',
     'assignedLeads',
     'callLogs',
     'companyHolidays',
     'calendarSettings',
     'paymentVerifications',
     'topPerformers',
-    'payslips',
-    'offerLetters',
-    'experienceCerts',
-    'relievingLetters',
   ],
 
   hrDashboard: [

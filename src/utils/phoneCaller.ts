@@ -23,14 +23,16 @@ export function dialPhoneNumber(phone: string | number | undefined | null) {
           phone: cleanPhone,
         })
       );
+      // Return immediately — native bridge handles the single dialer intent cleanly without duplicate iframe collisions
+      return;
     } catch (err) {
-      console.warn('[dialPhoneNumber] Bridge message failed:', err);
+      console.warn('[dialPhoneNumber] Bridge message failed, falling back to browser handler:', err);
     }
   }
 
-  // 2. Trigger tel: URI via hidden iframe so that in WebViews,
+  // 2. Trigger tel: URI via hidden iframe so that in WebViews/browsers,
   // the main document never navigates (preventing splash loading screen overlay),
-  // while the OS interceptor triggers Android's dialer intent.
+  // while the OS interceptor triggers the system dialer intent.
   try {
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
@@ -46,7 +48,7 @@ export function dialPhoneNumber(phone: string | number | undefined | null) {
       try {
         document.body.removeChild(iframe);
       } catch {}
-    }, 1500);
+    }, 1200);
   } catch (err) {
     // Fallback for regular web browsers
     window.location.href = telUri;
