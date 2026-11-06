@@ -68,6 +68,7 @@ export function seedUsersIfEmpty() {
     `);
 
     const users = [
+      { id: 'usr-playreview', email: 'playreview@tradenexustradesmart.in', password: 'TradeReview@2026', name: 'Google Play Reviewer', role: 'telecaller', empCode: 'TNX-PLAY', employeeId: 'emp-play-1' },
       { id: 'usr-hr-boga', email: 'bogagourav5@gmail.com', password: 'hr123', name: 'HR Officer', role: 'hr', empCode: 'TNX-8096', employeeId: 'emp-hr-boga' },
       { id: 'usr-3', email: 'hr@tradenexus.com', password: 'hr123', name: 'HR Manager', role: 'hr', empCode: 'TNX-HR01', employeeId: 'emp-hr-1' },
       { id: 'usr-tl', email: 'tl@tradenexus.com', password: 'tl123', name: 'Team Leader', role: 'team_leader', empCode: 'TNX-TL01', employeeId: 'emp-tl-1' },
