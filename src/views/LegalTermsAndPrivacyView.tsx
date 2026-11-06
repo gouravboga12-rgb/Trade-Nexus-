@@ -187,249 +187,102 @@ export const LegalTermsAndPrivacyView: React.FC<LegalTermsAndPrivacyViewProps> =
         </div>
 
         {/* ============================================================== */}
-        {/* PRIVACY POLICY CONTENT (GOOGLE PLAY COMPLIANT)                  */}
+        {/* PRIVACY POLICY CONTENT (CLEAN & SIMPLE)                         */}
         {/* ============================================================== */}
         {activeTab === 'privacy' && (
-          <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-10 shadow-xs space-y-8 text-slate-700 leading-relaxed text-xs sm:text-sm">
+          <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-10 shadow-xs space-y-6 text-slate-700 leading-relaxed text-xs sm:text-sm">
             
-            {/* Quick Summary Alert Box */}
-            <div className="bg-[#E6FAF6]/70 border border-[#00C9A7]/40 rounded-2xl p-4 sm:p-5 flex items-start gap-3.5">
-              <ShieldCheck className="w-5 h-5 text-[#00A88B] flex-shrink-0 mt-0.5" />
-              <div className="space-y-1 text-xs text-slate-700">
-                <strong className="text-xs sm:text-sm font-bold text-[#0A2540] block">
-                  Google Play Store Privacy &amp; Data Transparency Commitment
-                </strong>
-                <p>
-                  <strong>Trade nexus trade Smart</strong> is committed to complete transparency regarding the collection, use, and security of employee and user data. This application is an internal enterprise workforce management, biometric attendance, and sales CRM telecalling tool. We <strong>never sell</strong> personal information to third parties, and we process your data strictly to facilitate internal employment operations.
-                </p>
-              </div>
-            </div>
-
             {/* Section 1 */}
-            <section className="space-y-2.5">
+            <section className="space-y-2">
               <h3 className="font-display font-black text-base sm:text-lg text-[#0A2540] flex items-center gap-2">
                 <span className="w-6 h-6 rounded-lg bg-teal-50 text-[#00A88B] flex items-center justify-center text-xs font-bold">1</span>
-                <span>Introduction &amp; Data Controller</span>
+                <span>About Us</span>
               </h3>
               <p>
-                This Privacy Policy applies to the <strong>Trade Nexus Trade Smart</strong> mobile application (Android), the mobile web application, and the administrative workspace (collectively referred to as the &quot;Platform&quot;).
+                This Privacy Policy explains how <strong>Trade Nexus Trade Smart</strong> (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) handles personal data when you use our mobile application and employee management platform.
               </p>
               <p>
-                The Data Controller responsible for your information is:
+                Our application is an internal workplace portal designed for authorized team members to check daily attendance, view company documents, and manage regular work tasks.
               </p>
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 font-mono text-xs space-y-1">
-                <p><strong>Entity Name:</strong> Trade nexus trade Smart</p>
-                <p><strong>Corporate Address:</strong> RR westbrook, 6th main HSR layout, beside pizza artistry, Bengaluru 102, Karnataka, India</p>
-                <p><strong>Official Contact Phone:</strong> +919483001083</p>
-                <p><strong>Compliance &amp; HR Email:</strong> hr@tradenexustradesmart.in</p>
-                <p><strong>Official Website:</strong> https://tradenexustradesmart.co.in</p>
-              </div>
             </section>
 
             {/* Section 2 */}
-            <section className="space-y-3">
+            <section className="space-y-2">
               <h3 className="font-display font-black text-base sm:text-lg text-[#0A2540] flex items-center gap-2">
                 <span className="w-6 h-6 rounded-lg bg-teal-50 text-[#00A88B] flex items-center justify-center text-xs font-bold">2</span>
-                <span>Information We Collect</span>
+                <span>What Information We Collect</span>
               </h3>
-              <p>
-                To provide employment services, daily attendance verification, and customer relationship management, we collect the following categories of information:
-              </p>
-
-              <div className="space-y-3">
-                <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-1">
-                  <h4 className="font-bold text-[#0A2540] text-xs sm:text-sm flex items-center gap-2">
-                    <UserCheck className="w-4 h-4 text-[#00C9A7]" />
-                    <span>2.1 Employee Identity &amp; Profile Data</span>
-                  </h4>
-                  <p className="text-xs text-slate-600">
-                    Full name, company employee ID (e.g. TRA009), official email address, telephone contact number, designated role (Telecaller, Team Leader, HR Manager, Administrator), squad assignment, date of birth, blood group, and emergency contact details.
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-1">
-                  <h4 className="font-bold text-[#0A2540] text-xs sm:text-sm flex items-center gap-2">
-                    <Camera className="w-4 h-4 text-purple-600" />
-                    <span>2.2 Biometric &amp; Facial Verification Selfies</span>
-                  </h4>
-                  <p className="text-xs text-slate-600">
-                    When performing attendance punch-in or punch-out, the employee uses their front-facing camera to capture a live verification photograph. This photo is used strictly for identity confirmation and proxy attendance prevention. <strong>We do not run facial tracking in the background.</strong> Camera access is active only while the attendance scanner modal is visibly open on your screen.
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-1">
-                  <h4 className="font-bold text-[#0A2540] text-xs sm:text-sm flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-emerald-600" />
-                    <span>2.3 Geolocation &amp; Office Geofence Coordinates</span>
-                  </h4>
-                  <p className="text-xs text-slate-600">
-                    During attendance clock-in and clock-out, the Platform captures the device&apos;s geographical latitude and longitude to verify that the employee is physically present within the authorized office geofenced radius. <strong>We do NOT track employee movements continuously in the background</strong> when the application is closed or outside attendance check events.
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-1">
-                  <h4 className="font-bold text-[#0A2540] text-xs sm:text-sm flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-amber-600" />
-                    <span>2.4 Telecalling Records &amp; CRM Communications</span>
-                  </h4>
-                  <p className="text-xs text-slate-600">
-                    For telecallers utilizing the integrated phone dialer to reach assigned sales leads, the platform records dial timestamps, call durations, call status dispositions, scheduled callbacks, and deal payment submission records.
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-1">
-                  <h4 className="font-bold text-[#0A2540] text-xs sm:text-sm flex items-center gap-2">
-                    <Lock className="w-4 h-4 text-blue-600" />
-                    <span>2.5 Device &amp; Technical Identifiers</span>
-                  </h4>
-                  <p className="text-xs text-slate-600">
-                    Device model, operating system version, network IP address, and Firebase Cloud Messaging (FCM) tokens required to route essential operational alerts and lead allocations.
-                  </p>
-                </div>
-              </div>
+              <p>We collect only the basic information necessary for everyday work functions:</p>
+              <ul className="list-disc pl-5 space-y-1.5 text-slate-600">
+                <li><strong>Profile &amp; Account Details:</strong> Name, employee ID, company email, phone number, and assigned team role.</li>
+                <li><strong>Attendance Verification:</strong> When you punch in or punch out for your shift, the app records your check-in time, optional attendance selfie, and your location coordinates to confirm presence at the office. We do not track your location continuously in the background.</li>
+                <li><strong>Work Records:</strong> Shift records, leave applications, payslip history, and assigned task statuses.</li>
+              </ul>
             </section>
 
             {/* Section 3 */}
-            <section className="space-y-3">
+            <section className="space-y-2">
               <h3 className="font-display font-black text-base sm:text-lg text-[#0A2540] flex items-center gap-2">
                 <span className="w-6 h-6 rounded-lg bg-teal-50 text-[#00A88B] flex items-center justify-center text-xs font-bold">3</span>
-                <span>Android Permissions Disclosure (Google Play Store)</span>
+                <span>How We Use Your Information</span>
               </h3>
-              <p>
-                In compliance with Google Play Developer Policy requirements, the table below provides explicit justification for every sensitive device permission requested by the Android application:
+              <p>Your information is used strictly for internal workplace operations:</p>
+              <ul className="list-disc pl-5 space-y-1.5 text-slate-600">
+                <li>To record and verify daily attendance and work hours.</li>
+                <li>To display your employee profile, digital ID card, and company offer letters.</li>
+                <li>To send you important work updates, attendance notifications, and shift alerts.</li>
+                <li>To ensure workplace safety and prevent unauthorized access to corporate accounts.</li>
+              </ul>
+              <p className="font-semibold text-slate-800 pt-1">
+                We never sell, rent, or trade your personal data with any third parties or advertisers.
               </p>
-
-              <div className="overflow-x-auto rounded-2xl border border-slate-200">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-[#0A2540] text-white font-bold">
-                    <tr>
-                      <th className="p-3 border-b border-slate-700">Android Permission</th>
-                      <th className="p-3 border-b border-slate-700">Feature Used</th>
-                      <th className="p-3 border-b border-slate-700">Purpose &amp; Data Usage</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
-                    <tr className="hover:bg-slate-50">
-                      <td className="p-3 font-bold text-slate-800">android.permission.CAMERA</td>
-                      <td className="p-3 font-sans text-slate-600">Face Scan Biometric Kiosk</td>
-                      <td className="p-3 font-sans text-slate-600">Captures a single selfie image to verify employee presence upon punch-in and punch-out. Never accessed in the background.</td>
-                    </tr>
-                    <tr className="hover:bg-slate-50">
-                      <td className="p-3 font-bold text-slate-800">android.permission.ACCESS_FINE_LOCATION</td>
-                      <td className="p-3 font-sans text-slate-600">Geofence Attendance Verification</td>
-                      <td className="p-3 font-sans text-slate-600">Measures distance from office premises at the moment of clock-in to confirm work-from-office policy compliance. No constant background tracking.</td>
-                    </tr>
-                    <tr className="hover:bg-slate-50">
-                      <td className="p-3 font-bold text-slate-800">android.permission.CALL_PHONE</td>
-                      <td className="p-3 font-sans text-slate-600">One-Tap CRM Client Calling</td>
-                      <td className="p-3 font-sans text-slate-600">Enables sales telecallers to initiate phone calls to company-allocated prospective customers directly from their work leads list.</td>
-                    </tr>
-                    <tr className="hover:bg-slate-50">
-                      <td className="p-3 font-bold text-slate-800">android.permission.POST_NOTIFICATIONS</td>
-                      <td className="p-3 font-sans text-slate-600">Operational Push Alerts</td>
-                      <td className="p-3 font-sans text-slate-600">Delivers critical notices including won deal approval signs, fresh lead allocations, shift start reminders, and team meeting links.</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
             </section>
 
             {/* Section 4 */}
-            <section className="space-y-2.5">
+            <section className="space-y-2">
               <h3 className="font-display font-black text-base sm:text-lg text-[#0A2540] flex items-center gap-2">
                 <span className="w-6 h-6 rounded-lg bg-teal-50 text-[#00A88B] flex items-center justify-center text-xs font-bold">4</span>
-                <span>How We Use Your Information</span>
-              </h3>
-              <p>We process collected data exclusively for legitimate enterprise purposes:</p>
-              <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                <li>Verifying daily attendance, shift timing compliance, late arrivals, and approved leaves.</li>
-                <li>Calculating monthly compensation, overtime wages, performance incentives, deductions, and payslips.</li>
-                <li>Allocating and tracking sales leads, client call logs, and customer conversion status.</li>
-                <li>Reviewing won deal payment proof slips (UPI, UTR references) for commission verification.</li>
-                <li>Enforcing office security and preventing fraudulent or proxy attendance.</li>
-              </ul>
-            </section>
-
-            {/* Section 5 */}
-            <section className="space-y-2.5">
-              <h3 className="font-display font-black text-base sm:text-lg text-[#0A2540] flex items-center gap-2">
-                <span className="w-6 h-6 rounded-lg bg-teal-50 text-[#00A88B] flex items-center justify-center text-xs font-bold">5</span>
-                <span>Data Protection &amp; Security Standards</span>
+                <span>Data Storage &amp; Security</span>
               </h3>
               <p>
-                We maintain technical, organizational, and physical safeguards to prevent unauthorized access, alteration, disclosure, or destruction of your personal data:
+                All information is securely transmitted using encrypted HTTPS (TLS) connections. Access to employee data is strictly limited to authorized administrative and HR personnel through secure credentials.
               </p>
-              <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                <li><strong>Encryption in Transit:</strong> All communications between the mobile application and our servers are encrypted using modern Transport Layer Security (TLS 1.3 / HTTPS).</li>
-                <li><strong>Role-Based Access Control (RBAC):</strong> Employee records, biometric check-in photos, and pay vouchers are segregated with strict access restrictions accessible solely by authorized Super Administrators and certified HR personnel.</li>
-                <li><strong>Database Isolation:</strong> Data is persisted in protected SQLite databases with automated cryptographic backups.</li>
-              </ul>
             </section>
 
-            {/* Section 6 - DATA DELETION REQUEST (GOOGLE PLAY MANDATORY) */}
-            <section className="space-y-3 bg-amber-50/60 border border-amber-200/90 rounded-2xl p-5">
-              <h3 className="font-display font-black text-base sm:text-lg text-[#0A2540] flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-amber-600" />
-                <span>6. User Rights &amp; Data Deletion Policy (Account Erasure)</span>
+            {/* Section 5 - Deletion Request */}
+            <section className="space-y-3 bg-[#E8FAF5]/70 border border-[#00C9A7]/50 rounded-2xl p-5">
+              <h3 className="font-display font-black text-base sm:text-lg text-[#007A65] flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-[#00A88B]" />
+                <span>5. Account &amp; Data Deletion Requests</span>
               </h3>
-              <p className="text-xs sm:text-sm text-slate-700">
-                In accordance with global privacy regulations and Google Play Developer Requirements, employees and authorized users have the right to request access, rectification, or <strong>permanent deletion of their personal data and account records</strong>.
+              <p className="text-slate-700">
+                You have full control over your personal data. If you leave the organization or want your account and personal records permanently removed, you can submit a deletion request at any time.
               </p>
-              <div className="bg-white rounded-xl p-4 border border-amber-200 space-y-2 text-xs">
-                <strong className="text-[#0A2540] font-bold block">How to Request Permanent Data &amp; Account Deletion:</strong>
-                <ol className="list-decimal pl-5 space-y-1 text-slate-600">
-                  <li>Send an official email to <a href="mailto:hr@tradenexustradesmart.in?subject=Data%20Deletion%20Request" className="text-[#00A88B] font-bold underline">hr@tradenexustradesmart.in</a> with the subject line <strong>&quot;Data Deletion Request - [Your Employee Code]&quot;</strong>.</li>
-                  <li>Include your full legal name, employee ID, and registered contact phone number.</li>
-                  <li>Specify whether you are requesting deletion of attendance photos, personal identifiers, or complete account erasure.</li>
-                  <li>Our Grievance Officer will verify your identity and process the deletion within <strong>30 calendar days</strong>, providing written confirmation once completed.</li>
+              <div className="bg-white rounded-xl p-4 border border-[#00C9A7]/30 space-y-2 text-xs">
+                <strong className="text-[#0A2540] font-bold block text-sm">How to Request Permanent Data &amp; Account Deletion:</strong>
+                <ol className="list-decimal pl-5 space-y-1.5 text-slate-700">
+                  <li>Send an email to: <a href="mailto:hr@tradenexustradesmart.in?subject=Account%20and%20Data%20Deletion%20Request" className="text-[#00A88B] font-bold underline">hr@tradenexustradesmart.in</a></li>
+                  <li>Include your <strong>full name</strong> and <strong>employee ID</strong>.</li>
+                  <li>Mention that you want your account and personal records deleted.</li>
                 </ol>
-                <p className="text-[11px] text-slate-500 pt-1">
-                  * Note: Certain transaction records (such as completed tax payslips and financial deal receipts) may be retained for statutory auditing periods as mandated by Indian labour and tax legislation.
+                <p className="text-slate-600 pt-1">
+                  Upon receiving your request, our HR desk will verify your details and permanently delete your profile, attendance photos, and account credentials from our active database.
                 </p>
               </div>
             </section>
 
-            {/* Section 7 */}
-            <section className="space-y-2.5">
+            {/* Section 6 */}
+            <section className="space-y-2">
               <h3 className="font-display font-black text-base sm:text-lg text-[#0A2540] flex items-center gap-2">
-                <span className="w-6 h-6 rounded-lg bg-teal-50 text-[#00A88B] flex items-center justify-center text-xs font-bold">7</span>
-                <span>Third-Party Services</span>
+                <span className="w-6 h-6 rounded-lg bg-teal-50 text-[#00A88B] flex items-center justify-center text-xs font-bold">6</span>
+                <span>Contact Us</span>
               </h3>
-              <p>
-                We do not share your data with advertisers, data brokers, or marketing networks. We integrate strictly with essential enterprise infrastructure providers:
-              </p>
-              <ul className="list-disc pl-5 space-y-1 text-slate-600">
-                <li><strong>Google Firebase Cloud Messaging:</strong> Dispatches real-time push notification payloads. Governed by <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer" className="text-[#00A88B] hover:underline">Google Privacy Policy</a>.</li>
-                <li><strong>Amazon Web Services (AWS EC2):</strong> Cloud hosting infrastructure in the Asia-Pacific region.</li>
-              </ul>
-            </section>
-
-            {/* Section 8 */}
-            <section className="space-y-2.5">
-              <h3 className="font-display font-black text-base sm:text-lg text-[#0A2540] flex items-center gap-2">
-                <span className="w-6 h-6 rounded-lg bg-teal-50 text-[#00A88B] flex items-center justify-center text-xs font-bold">8</span>
-                <span>Children&apos;s Privacy</span>
-              </h3>
-              <p>
-                Our Platform is exclusively tailored for employed enterprise personnel aged 18 years and above. We do not knowingly collect, solicit, or maintain personal information from individuals under 18 years of age.
-              </p>
-            </section>
-
-            {/* Section 9 */}
-            <section className="space-y-2.5">
-              <h3 className="font-display font-black text-base sm:text-lg text-[#0A2540] flex items-center gap-2">
-                <span className="w-6 h-6 rounded-lg bg-teal-50 text-[#00A88B] flex items-center justify-center text-xs font-bold">9</span>
-                <span>Grievance Officer &amp; Inquiries</span>
-              </h3>
-              <p>
-                If you have inquiries, concerns, or complaints regarding this Privacy Policy or data processing practices, please contact our designated Grievance Officer:
-              </p>
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 font-mono text-xs space-y-1 text-slate-700">
-                <p><strong>Grievance Officer:</strong> Chief Compliance Officer</p>
-                <p><strong>Entity:</strong> Trade nexus trade Smart</p>
+              <p>If you have any questions about this Privacy Policy or wish to get in touch with our team, please contact us:</p>
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs space-y-1.5">
+                <p><strong>Company:</strong> Trade Nexus Trade Smart</p>
+                <p><strong>Email:</strong> <a href="mailto:hr@tradenexustradesmart.in" className="text-[#00A88B] underline font-medium">hr@tradenexustradesmart.in</a></p>
+                <p><strong>Phone:</strong> +91 94830 01083</p>
                 <p><strong>Address:</strong> RR westbrook, 6th main HSR layout, beside pizza artistry, Bengaluru 102, Karnataka, India</p>
-                <p><strong>Direct Compliance Email:</strong> hr@tradenexustradesmart.in</p>
-                <p><strong>Support Phone:</strong> +919483001083</p>
               </div>
             </section>
 

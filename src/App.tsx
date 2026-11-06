@@ -126,9 +126,17 @@ export const App: React.FC = () => {
     scrollToTop();
   }, [activeTab, currentRole, legalViewTab]);
 
-  // Check for direct clean URLs /privacy and /terms (clean URLs without #, completely public, no login required)
+  // Check for direct clean URLs /privacy, /privacypolicy, /terms (clean URLs without #, completely public, no login required)
   const pathname = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
-  if (pathname === '/privacy' || pathname.startsWith('/privacy') || legalViewTab === 'privacy') {
+  if (
+    pathname === '/privacy' || 
+    pathname.startsWith('/privacy/') || 
+    pathname === '/privacypolicy' || 
+    pathname.startsWith('/privacypolicy') || 
+    pathname === '/privacy-policy' || 
+    pathname.startsWith('/privacy-policy') || 
+    legalViewTab === 'privacy'
+  ) {
     return (
       <LegalTermsAndPrivacyView 
         initialTab="privacy" 
@@ -136,7 +144,7 @@ export const App: React.FC = () => {
       />
     );
   }
-  if (pathname === '/terms' || pathname.startsWith('/terms') || legalViewTab === 'terms') {
+  if (pathname === '/terms' || pathname.startsWith('/terms') || pathname === '/terms-and-conditions' || legalViewTab === 'terms') {
     return (
       <LegalTermsAndPrivacyView 
         initialTab="terms" 
