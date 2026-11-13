@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { TeamMember, AssignedLead, UserRole } from '../types';
+import { TeamMember, AssignedLead, UserRole, AssignedLeadsRepSummary } from '../types';
+import { api } from '../services/api';
 import { getTodayDateIST } from '../utils/dateUtils';
 import { isTelecallerOrCallingEmployee } from '../utils/teamUtils';
 import { EmployeeMonthlyHistoryCard } from '../components/common/EmployeeMonthlyHistoryCard';
@@ -56,6 +57,20 @@ const Employee360ProfileContent: React.FC<Omit<Employee360ProfileViewProps, 'mem
     paymentVerifications,
     deleteEmployee,
   } = useApp();
+
+  const [repStats, setRepStats] = useState<AssignedLeadsRepSummary | null>(null);
+
+  useEffect(() => {
+    if (member?.id) {
+      api.getAssignedLeadsRepSummary({ employeeId: member.id })
+        .then((rows) => {
+          if (Array.isArray(rows) && rows.length > 0) {
+            setRepStats(rows[0]);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [member?.id]);
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -561,7 +576,7 @@ const Employee360ProfileContent: React.FC<Omit<Employee360ProfileViewProps, 'mem
         <div className="grid grid-cols-4 gap-1.5 text-center">
           <div className="bg-slate-50/90 rounded-xl py-1 px-1 border border-slate-100">
             <strong className="text-xs font-display font-black text-[#0A2540] block leading-tight">
-              {Math.max(member.dialsToday || 0, memberLeads.filter(l => l.status !== 'PENDING').length, memberCallLogs.length)} <span className="text-[9px] text-slate-400 font-normal">/{member.goalCalls || 60}</span>
+              {Math.max(member.dialsToday || 0, repStats ? (repStats.totalLeads - repStats.freshLeads) : memberLeads.filter(l => l.status !== 'PENDING').length, memberCallLogs.length)} <span className="text-[9px] text-slate-400 font-normal">/{member.goalCalls || 60}</span>
             </strong>
             <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block mt-0.5">
               Dials
@@ -579,7 +594,7 @@ const Employee360ProfileContent: React.FC<Omit<Employee360ProfileViewProps, 'mem
 
           <div className="bg-slate-50/90 rounded-xl py-1 px-1 border border-slate-100">
             <strong className="text-xs font-display font-black text-purple-700 block leading-tight">
-              {memberLeads.filter(l => l.status === 'INTERESTED').length}
+              {repStats ? (repStats.interestedLeads ?? repStats.pipelineLeads) : memberLeads.filter(l => l.status === 'INTERESTED').length}
             </strong>
             <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block mt-0.5">
               Interested
@@ -595,6 +610,18 @@ const Employee360ProfileContent: React.FC<Omit<Employee360ProfileViewProps, 'mem
             </span>
           </div>
         </div>
+
+        {/* Live Holdings Banner if Rep Stats available */}
+        {repStats && repStats.totalLeads > 0 && (
+          <div className="bg-teal-50/80 border border-teal-200/80 rounded-xl px-3 py-1.5 flex items-center justify-between text-[11px] mt-2">
+            <span className="font-bold text-[#0A2540]">
+              Total Leads: <span className="font-black text-[#00A88B]">{repStats.totalLeads.toLocaleString()}</span>
+            </span>
+            <span className="text-[10px] text-slate-500 font-medium">
+              {repStats.freshLeads.toLocaleString()} fresh · {repStats.pipelineLeads.toLocaleString()} in pipeline · {repStats.wonLeads.toLocaleString()} won
+            </span>
+          </div>
+        )}
 
       </div>
 

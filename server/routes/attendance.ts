@@ -4,8 +4,39 @@ import { getTodayDateIST, getCurrentTimeIST, minutesOfDay } from '../utils/dateU
 import { sweepUnclosedAttendance } from '../services/attendanceLifecycle.js';
 import { recalculateTodayAttendance } from './calendar.js';
 import { emitSocketEvent } from '../services/socketService.js';
+import { uploadToS3 } from '../services/s3Service.js';
 
 const router = Router();
+
+/**
+ * Uploads a base64 selfie directly to AWS S3 (tradex-media bucket) and returns the public S3 URL.
+ * If already a URL or if S3 upload fails, returns photoData gracefully so punch-in/out NEVER fails.
+ */
+async function processAttendancePhoto(
+  photoData: string | undefined | null,
+  empId: string,
+  type: 'in' | 'out'
+): Promise<string | null> {
+  if (!photoData || typeof photoData !== 'string') return null;
+  // If already an http(s) URL or empty, keep it as is
+  if (!photoData.startsWith('data:image')) {
+    return photoData;
+  }
+  try {
+    const matches = photoData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) return photoData;
+    const mimeType = matches[1];
+    const buffer = Buffer.from(matches[2], 'base64');
+    const monthFolder = new Date().toISOString().slice(0, 7); // e.g. '2026-11'
+    const cleanEmpId = (empId || 'emp').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileName = `att_${cleanEmpId}_${type}_${Date.now()}.jpg`;
+    const result = await uploadToS3(buffer, fileName, mimeType, `attendance/${monthFolder}`);
+    return result.cdnUrl || result.s3Url || photoData;
+  } catch (err) {
+    console.warn('[Attendance S3 Upload Warning]: Could not upload to S3, falling back to local storage', err);
+    return photoData;
+  }
+}
 
 interface OfficeRow {
   label: string;
@@ -268,13 +299,14 @@ router.put('/office', (req: Request, res: Response) => {
 });
 
 // POST /api/attendance — check in (optionally with photo and location)
-router.post('/', (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
     const {
       id, date, dayNumber, status, checkIn, checkOut, workHours, method,
       employeeId, employeeName, checkInPhoto, latitude, longitude, inTime, outTime
     } = req.body;
 
+    const resolvedCheckInPhoto = await processAttendancePhoto(checkInPhoto, employeeId || req.user?.empCode || 'self', 'in');
     const resolvedCheckIn = checkIn || inTime || getCurrentTimeIST();
     const resolvedCheckOut = checkOut || outTime || null;
 
@@ -383,7 +415,7 @@ router.post('/', (req: Request, res: Response) => {
     `).run(
       recId, recDate, recDay, effectiveStatus, resolvedCheckIn, resolvedCheckOut,
       workHours || 'In Progress', method || 'Face ID Biometric',
-      employeeId || null, employeeName || null, checkInPhoto || null,
+      employeeId || null, employeeName || null, resolvedCheckInPhoto || null,
       latitude ?? null, longitude ?? null, distance, locationStatus
     );
 
@@ -421,7 +453,7 @@ router.post('/', (req: Request, res: Response) => {
 });
 
 // PUT /api/attendance/:id — check out, or correct a record
-router.put('/:id', (req: Request, res: Response) => {
+router.put('/:id', async (req: Request, res: Response) => {
   try {
     const today = getTodayDateIST();
     const reqUser = (req as any).user;
@@ -472,13 +504,16 @@ router.put('/:id', (req: Request, res: Response) => {
       }
     }
 
+    const { checkOutPhoto, latitude, longitude } = req.body;
+    const resolvedEmpId = empRow?.empCode || empRow?.id || empCodeParam || empParam || 'self';
+    const resolvedCheckOutPhoto = await processAttendancePhoto(checkOutPhoto, resolvedEmpId, 'out');
+
     // If still not found and this is a check-out request, auto-create the record so punch-out never fails!
     if (!existing) {
       const finalId = req.params.id && req.params.id !== 'undefined' && req.params.id !== 'null'
         ? req.params.id
         : `att-${targetDate}-${empRow?.empCode || empCodeParam || empParam || 'self'}`;
       const timeStr = req.body.checkOut || getCurrentTimeIST();
-      const resolvedEmpId = empRow?.empCode || empRow?.id || empCodeParam || empParam || 'self';
       const resolvedEmpName = empRow?.name || empNameParam || 'Employee';
 
       db.prepare(`
@@ -497,7 +532,7 @@ router.put('/:id', (req: Request, res: Response) => {
         req.body.method || 'Face ID Biometric',
         resolvedEmpId,
         resolvedEmpName,
-        req.body.checkOutPhoto ?? null,
+        resolvedCheckOutPhoto ?? null,
         req.body.latitude ?? null,
         req.body.longitude ?? null,
         'AT_OFFICE'
@@ -507,8 +542,6 @@ router.put('/:id', (req: Request, res: Response) => {
 
     if (!existing) return res.status(404).json({ error: 'Attendance record not found' });
     const targetRecordId = existing.id;
-
-    const { checkOutPhoto, latitude, longitude } = req.body;
     const merged = { ...existing, ...req.body };
 
     // Judge the check-out position the same way as the check-in
@@ -548,7 +581,7 @@ router.put('/:id', (req: Request, res: Response) => {
        WHERE id = ?`
     ).run(
       merged.status, merged.checkIn, merged.checkOut, workHours, merged.method,
-      checkOutPhoto ?? null, latitude ?? null, longitude ?? null,
+      resolvedCheckOutPhoto ?? null, latitude ?? null, longitude ?? null,
       outDistance, outStatus,
       merged.disputedByAdmin !== undefined ? (merged.disputedByAdmin ? 1 : 0) : null,
       merged.disputeReason !== undefined ? merged.disputeReason : null,
@@ -612,6 +645,73 @@ router.put('/:id', (req: Request, res: Response) => {
       type: isDisputed ? 'ADMIN_UPDATE' : (isCheckOut ? 'OUT' : 'IN'),
     });
     return res.status(200).json(updatedRec);
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// POST /api/attendance/purge-photos (Super Admin Exclusive: Clears photo storage while preserving 100% of attendance logs)
+router.post('/purge-photos', (req: Request, res: Response) => {
+  try {
+    const reqUser = (req as any).user;
+    if (!reqUser || reqUser.role !== 'admin') {
+      return res.status(403).json({ error: 'Access Denied: Only Super Admin can manage photo storage.' });
+    }
+
+    const { cutoffDate, month, scope, startDate, endDate } = req.body;
+    let changes = 0;
+
+    if (cutoffDate) {
+      const info = db.prepare(`
+        UPDATE attendance_records
+        SET checkInPhoto = NULL,
+            checkOutPhoto = NULL,
+            photoAudited = 1
+        WHERE date < ? AND (checkInPhoto IS NOT NULL OR checkOutPhoto IS NOT NULL)
+      `).run(cutoffDate);
+      changes = info.changes;
+    } else if (month && /^\d{4}-\d{2}$/.test(month)) {
+      const info = db.prepare(`
+        UPDATE attendance_records
+        SET checkInPhoto = NULL,
+            checkOutPhoto = NULL,
+            photoAudited = 1
+        WHERE (date LIKE ? OR strftime('%Y-%m', date) = ?)
+          AND (checkInPhoto IS NOT NULL OR checkOutPhoto IS NOT NULL)
+      `).run(`${month}%`, month);
+      changes = info.changes;
+    } else if (startDate && endDate) {
+      const info = db.prepare(`
+        UPDATE attendance_records
+        SET checkInPhoto = NULL,
+            checkOutPhoto = NULL,
+            photoAudited = 1
+        WHERE date >= ? AND date <= ?
+          AND (checkInPhoto IS NOT NULL OR checkOutPhoto IS NOT NULL)
+      `).run(startDate, endDate);
+      changes = info.changes;
+    } else if (scope === 'ALL') {
+      const info = db.prepare(`
+        UPDATE attendance_records
+        SET checkInPhoto = NULL,
+            checkOutPhoto = NULL,
+            photoAudited = 1
+        WHERE checkInPhoto IS NOT NULL OR checkOutPhoto IS NOT NULL
+      `).run();
+      changes = info.changes;
+    } else {
+      return res.status(400).json({ error: 'Please specify either cutoffDate, month, date range, or scope.' });
+    }
+
+    try {
+      db.pragma('wal_checkpoint(TRUNCATE)');
+    } catch (_) {}
+
+    return res.status(200).json({
+      success: true,
+      purgedRecordsCount: changes,
+      message: `Successfully purged photos for ${changes} records. All attendance logs, timings, and leave balances are permanently retained.`
+    });
   } catch (error) {
     return res.status(500).json({ error: (error as Error).message });
   }

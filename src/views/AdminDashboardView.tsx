@@ -73,7 +73,7 @@ import { InAppLiveMapModal } from '../components/modals/InAppLiveMapModal';
 import { TopPerformersModal } from '../components/modals/TopPerformersModal';
 import { TopPerformersShowcase } from '../components/common/TopPerformersShowcase';
 import { AdminMonthlyLeadCleanupModal } from '../components/modals/AdminMonthlyLeadCleanupModal';
-import { OfficeSettings, TeamGroup, TeamMember, UserRole, LeaveRequest, PaymentVerificationItem, AttendanceRecord } from '../types';
+import { OfficeSettings, TeamGroup, TeamMember, UserRole, LeaveRequest, PaymentVerificationItem, AttendanceRecord, AssignedLeadsRepSummary } from '../types';
 import { api } from '../services/api';
 import { Employee360ProfileView } from './Employee360ProfileView';
 import { AdminCalendarConfig } from '../components/common/AdminCalendarConfig';
@@ -255,7 +255,7 @@ export const AdminDashboardView: React.FC = () => {
     if (photo) setZoomPhotoUrl(photo);
   };
   const [isClearAttendanceModalOpen, setIsClearAttendanceModalOpen] = useState(false);
-  const [clearAttendanceScope, setClearAttendanceScope] = useState<'SELECTED_DAY' | 'THIS_MONTH' | 'CUSTOM_RANGE' | 'ALL'>('SELECTED_DAY');
+  const [clearAttendanceScope, setClearAttendanceScope] = useState<'OLDER_30' | 'OLDER_15' | 'THIS_MONTH' | 'CUSTOM_RANGE' | 'ALL'>('OLDER_30');
   const [clearCustomStartDate, setClearCustomStartDate] = useState<string>(getTodayDateIST());
   const [clearCustomEndDate, setClearCustomEndDate] = useState<string>(getTodayDateIST());
   const [isClearingAttendance, setIsClearingAttendance] = useState(false);
@@ -266,6 +266,11 @@ export const AdminDashboardView: React.FC = () => {
   const [moveCount, setMoveCount] = useState('');
   const [poolAssignTarget, setPoolAssignTarget] = useState('');
   const [poolAssignCount, setPoolAssignCount] = useState<number>(1);
+
+  // Server-side indexed SQL aggregations for full 62,430+ leads parity & month filtering
+  const [repSummaryList, setRepSummaryList] = useState<AssignedLeadsRepSummary[]>([]);
+  const [backendLeadsStats, setBackendLeadsStats] = useState<any>(null);
+  const [isRepSummaryLoading, setIsRepSummaryLoading] = useState(false);
 
   // Target control, Approvals subtab, Meeting scheduling, and Inspection voucher states
   const [isScheduleMeetingOpen, setIsScheduleMeetingOpen] = useState(false);
@@ -335,6 +340,47 @@ export const AdminDashboardView: React.FC = () => {
     }
   }, [tab, refreshResources]);
 
+  // Load server-side aggregated rep summary and macro counts (evaluates entire 62,430+ lead dataset instantly)
+  useEffect(() => {
+    if (tab === 'leads' || tab === 'home' || tab === 'people') {
+      let params: any = {};
+      if (leadsDateFilter === 'TODAY') params.period = 'TODAY';
+      else if (leadsDateFilter === 'YESTERDAY') params.period = 'YESTERDAY';
+      else if (leadsDateFilter === 'THIS_WEEK') params.period = 'THIS_WEEK';
+      else if (leadsDateFilter === 'THIS_MONTH') params.period = 'THIS_MONTH';
+      else if (leadsDateFilter === 'CUSTOM') {
+        params.startDate = leadsCustomStart;
+        params.endDate = leadsCustomEnd;
+      }
+
+      setIsRepSummaryLoading(true);
+      Promise.all([
+        api.getAssignedLeadsRepSummary(params).catch(() => []),
+        api.getAssignedLeadsStats(params).catch(() => null),
+      ]).then(([repData, statsData]) => {
+        if (Array.isArray(repData)) setRepSummaryList(repData);
+        if (statsData) setBackendLeadsStats(statsData);
+      }).finally(() => {
+        setIsRepSummaryLoading(false);
+      });
+    }
+  }, [tab, leadsDateFilter, leadsCustomStart, leadsCustomEnd]);
+
+  // Memoized fast lookup map for rep leads summaries
+  const repSummaryMap = useMemo(() => {
+    const map = new Map<string, AssignedLeadsRepSummary>();
+    for (const r of repSummaryList) {
+      if (r.assignedToEmployeeId) {
+        map.set(r.assignedToEmployeeId, r);
+        map.set(r.assignedToEmployeeId.toLowerCase(), r);
+      }
+      if (r.assignedToEmployeeName) {
+        map.set(r.assignedToEmployeeName.toLowerCase().trim(), r);
+      }
+    }
+    return map;
+  }, [repSummaryList]);
+
   const isMemberOfSquad = (m: TeamMember, squadName?: string) =>
     squadName ? (m.group || '').split(',').map((s) => s.trim().toLowerCase()).includes(squadName.trim().toLowerCase()) : false;
 
@@ -380,20 +426,27 @@ export const AdminDashboardView: React.FC = () => {
   const handleConfirmClearAttendance = async () => {
     setIsClearingAttendance(true);
     try {
-      if (clearAttendanceScope === 'SELECTED_DAY') {
-        await clearAttendanceRecords({ date: verifySelectedDate });
+      let res: any;
+      if (clearAttendanceScope === 'OLDER_30') {
+        const d = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+        res = await api.purgeAttendancePhotos({ cutoffDate: d });
+      } else if (clearAttendanceScope === 'OLDER_15') {
+        const d = new Date(Date.now() - 15 * 86400000).toISOString().slice(0, 10);
+        res = await api.purgeAttendancePhotos({ cutoffDate: d });
       } else if (clearAttendanceScope === 'THIS_MONTH') {
         const d = new Date();
-        await clearAttendanceRecords({ month: String(d.getMonth() + 1), year: String(d.getFullYear()) });
+        const currentMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        res = await api.purgeAttendancePhotos({ month: currentMonth });
       } else if (clearAttendanceScope === 'CUSTOM_RANGE') {
-        await clearAttendanceRecords({ startDate: clearCustomStartDate, endDate: clearCustomEndDate });
+        res = await api.purgeAttendancePhotos({ startDate: clearCustomStartDate, endDate: clearCustomEndDate });
       } else if (clearAttendanceScope === 'ALL') {
-        await clearAttendanceRecords({ all: true });
+        res = await api.purgeAttendancePhotos({ all: true });
       }
       setIsClearAttendanceModalOpen(false);
-      triggerToast('✓ Attendance records cleared successfully');
+      await refreshResources(['attendanceLogs']);
+      triggerToast(`✓ Storage freed! ${res?.purgedCount ?? 0} photos safely cleared. Attendance data 100% retained.`);
     } catch (err: any) {
-      triggerToast(err?.message || 'Failed to clear records');
+      triggerToast(err?.message || 'Failed to purge photos');
     } finally {
       setIsClearingAttendance(false);
     }
@@ -2842,10 +2895,10 @@ export const AdminDashboardView: React.FC = () => {
             return true;
           });
 
-          const totalLeadsCount = filteredLeadsByDate.length;
-          const freshLeadsCount = filteredLeadsByDate.filter((l) => l.callCount === 0).length;
-          const pipelineLeadsCount = filteredLeadsByDate.filter((l) => l.callCount > 0 && l.status !== 'CONVERTED').length;
-          const convertedLeadsCount = filteredLeadsByDate.filter((l) => l.status === 'CONVERTED').length;
+          const totalLeadsCount = backendLeadsStats ? backendLeadsStats.total : filteredLeadsByDate.length;
+          const freshLeadsCount = backendLeadsStats ? backendLeadsStats.fresh : filteredLeadsByDate.filter((l) => l.callCount === 0).length;
+          const pipelineLeadsCount = backendLeadsStats ? backendLeadsStats.pipeline : filteredLeadsByDate.filter((l) => l.callCount > 0 && l.status !== 'CONVERTED').length;
+          const convertedLeadsCount = backendLeadsStats ? backendLeadsStats.converted : filteredLeadsByDate.filter((l) => l.status === 'CONVERTED').length;
 
           const handleAutoDistribute = async () => {
             setIsDistributing(true);
@@ -3127,6 +3180,7 @@ export const AdminDashboardView: React.FC = () => {
                     );
                   })()}
                   {telecallerMembers.map((m) => {
+                    const repStats = repSummaryMap.get(m.id) || (m.empCode ? repSummaryMap.get(m.empCode) : null) || (m.name ? repSummaryMap.get(m.name.toLowerCase().trim()) : null);
                     const mine = filteredLeadsByDate.filter(
                       (l) =>
                         l.assignedToEmployeeId === m.id ||
@@ -3134,10 +3188,11 @@ export const AdminDashboardView: React.FC = () => {
                         (l.assignedToEmployeeName &&
                           l.assignedToEmployeeName.toLowerCase() === m.name.toLowerCase())
                     );
-                    const calledCount = mine.filter((l) => (l.callCount || 0) > 0).length;
-                    const convertedCount = mine.filter((l) => l.status === 'CONVERTED').length;
-                    const freshCount = mine.filter((l) => (l.callCount || 0) === 0 && l.status !== 'CONVERTED').length;
-                    const calledPct = mine.length > 0 ? Math.round((calledCount / mine.length) * 100) : 0;
+                    const totalLeads = repStats ? repStats.totalLeads : mine.length;
+                    const calledCount = repStats ? (repStats.totalLeads - repStats.freshLeads) : mine.filter((l) => (l.callCount || 0) > 0).length;
+                    const convertedCount = repStats ? repStats.wonLeads : mine.filter((l) => l.status === 'CONVERTED').length;
+                    const freshCount = repStats ? repStats.freshLeads : mine.filter((l) => (l.callCount || 0) === 0 && l.status !== 'CONVERTED').length;
+                    const calledPct = totalLeads > 0 ? Math.round((calledCount / totalLeads) * 100) : 0;
                     const isExpanded = expandedEmployeeId === m.id;
 
                     const filteredMemberLeads = isExpanded
@@ -3187,7 +3242,7 @@ export const AdminDashboardView: React.FC = () => {
                           </div>
                           <div className="text-right flex-shrink-0">
                             <span className="font-mono-nums font-black text-lg text-[#0A2540] block leading-tight">
-                              {mine.length}
+                              {totalLeads}
                             </span>
                             <span className="text-[9px] font-mono text-slate-400">leads held</span>
                           </div>
@@ -3239,7 +3294,7 @@ export const AdminDashboardView: React.FC = () => {
                                 <span>⚡ Reclaim {freshCount}</span>
                               </button>
                             )}
-                            {mine.length > 0 && (
+                            {(totalLeads > 0 || mine.length > 0) && (
                               <button
                                 type="button"
                                 onClick={async () => {
@@ -4990,6 +5045,15 @@ export const AdminDashboardView: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    onClick={() => setIsClearAttendanceModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95"
+                    title="Purge selfie photos to free server storage while retaining 100% of attendance timings and records"
+                  >
+                    <Database className="w-3.5 h-3.5" />
+                    <span>Manage Storage</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => {
                       setIsRefreshingLogs(true);
                       refreshResources(['attendanceLogs']).finally(() => setIsRefreshingLogs(false));
@@ -5220,6 +5284,12 @@ export const AdminDashboardView: React.FC = () => {
                                   <Maximize2 className="w-4 h-4 mb-1" />
                                   <span className="text-[9px] font-bold">View Photo</span>
                                 </div>
+                              ) : rec.photoAudited ? (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-emerald-50/70 border border-emerald-100 text-emerald-800 p-2 text-center rounded-lg">
+                                  <CheckCircle2 className="w-5 h-5 mb-1 text-emerald-600" />
+                                  <span className="text-[9px] font-black uppercase text-emerald-900 leading-tight">Verified Present</span>
+                                  <span className="text-[8px] text-emerald-600 font-medium mt-0.5 leading-tight">Photo Cleared for Storage</span>
+                                </div>
                               ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
                                   <CameraOff className="w-5 h-5 mb-1 opacity-50" />
@@ -5296,6 +5366,12 @@ export const AdminDashboardView: React.FC = () => {
                                   <AlertTriangle className="w-5 h-5 mb-1 text-amber-600 animate-bounce" />
                                   <span className="text-[9px] font-black uppercase tracking-tight text-amber-900 leading-tight">Failed to Punch Out</span>
                                   <span className="text-[8px] text-amber-700 font-medium mt-0.5 leading-tight">Auto-closed at shift end (No Face Scan)</span>
+                                </div>
+                              ) : rec.photoAudited ? (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-emerald-50/70 border border-emerald-100 text-emerald-800 p-2 text-center rounded-lg">
+                                  <CheckCircle2 className="w-5 h-5 mb-1 text-emerald-600" />
+                                  <span className="text-[9px] font-black uppercase text-emerald-900 leading-tight">Verified Punch Out</span>
+                                  <span className="text-[8px] text-emerald-600 font-medium mt-0.5 leading-tight">Photo Cleared for Storage</span>
                                 </div>
                               ) : rec.checkOut ? (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
@@ -5912,18 +5988,18 @@ export const AdminDashboardView: React.FC = () => {
         </div>
       )}
 
-      {/* Clear Attendance Records Modal */}
+      {/* Manage Photo Storage (Purge Photos) Modal */}
       {isClearAttendanceModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
-                  <Trash2 className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <Database className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-display font-black text-base text-[#0A2540]">Clear Attendance Records</h3>
-                  <p className="text-xs text-slate-500">Purge concluded or verified audit logs</p>
+                  <h3 className="font-display font-black text-base text-[#0A2540]">Manage Attendance Photo Storage</h3>
+                  <p className="text-xs text-slate-500">Free server & AWS disk space safely</p>
                 </div>
               </div>
               <button
@@ -5935,19 +6011,33 @@ export const AdminDashboardView: React.FC = () => {
             </div>
 
             <div className="space-y-2.5">
-              <label className="text-xs font-bold text-slate-700 block">Select Scope to Clear:</label>
+              <label className="text-xs font-bold text-slate-700 block">Select Photo Purge Scope:</label>
               
               <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
                 <input
                   type="radio"
                   name="clearScope"
-                  checked={clearAttendanceScope === 'SELECTED_DAY'}
-                  onChange={() => setClearAttendanceScope('SELECTED_DAY')}
-                  className="text-rose-600 focus:ring-rose-500"
+                  checked={clearAttendanceScope === 'OLDER_30'}
+                  onChange={() => setClearAttendanceScope('OLDER_30')}
+                  className="text-amber-600 focus:ring-amber-500"
                 />
                 <div className="flex-1">
-                  <span className="text-xs font-bold text-[#0A2540] block">Selected Day ({verifySelectedDate})</span>
-                  <span className="text-[11px] text-slate-400">Clear all records for this specific date</span>
+                  <span className="text-xs font-bold text-[#0A2540] block">Older than 30 Days (Recommended)</span>
+                  <span className="text-[11px] text-slate-400">Purge selfie photos older than a month while keeping all records</span>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
+                <input
+                  type="radio"
+                  name="clearScope"
+                  checked={clearAttendanceScope === 'OLDER_15'}
+                  onChange={() => setClearAttendanceScope('OLDER_15')}
+                  className="text-amber-600 focus:ring-amber-500"
+                />
+                <div className="flex-1">
+                  <span className="text-xs font-bold text-[#0A2540] block">Older than 15 Days</span>
+                  <span className="text-[11px] text-slate-400">Purge selfie photos older than 15 days</span>
                 </div>
               </label>
 
@@ -5957,11 +6047,11 @@ export const AdminDashboardView: React.FC = () => {
                   name="clearScope"
                   checked={clearAttendanceScope === 'THIS_MONTH'}
                   onChange={() => setClearAttendanceScope('THIS_MONTH')}
-                  className="text-rose-600 focus:ring-rose-500"
+                  className="text-amber-600 focus:ring-amber-500"
                 />
                 <div className="flex-1">
                   <span className="text-xs font-bold text-[#0A2540] block">Current Month ({new Date().toISOString().slice(0, 7)})</span>
-                  <span className="text-[11px] text-slate-400">Clear all records in the ongoing month</span>
+                  <span className="text-[11px] text-slate-400">Clear selfie photos for the ongoing month</span>
                 </div>
               </label>
 
@@ -5971,7 +6061,7 @@ export const AdminDashboardView: React.FC = () => {
                   name="clearScope"
                   checked={clearAttendanceScope === 'CUSTOM_RANGE'}
                   onChange={() => setClearAttendanceScope('CUSTOM_RANGE')}
-                  className="text-rose-600 focus:ring-rose-500"
+                  className="text-amber-600 focus:ring-amber-500"
                 />
                 <div className="flex-1">
                   <span className="text-xs font-bold text-[#0A2540] block">Custom Date Range</span>
@@ -6002,25 +6092,25 @@ export const AdminDashboardView: React.FC = () => {
                 </div>
               )}
 
-              <label className="flex items-center gap-3 p-3 rounded-xl border border-rose-200 bg-rose-50/40 cursor-pointer hover:bg-rose-50 transition-colors">
+              <label className="flex items-center gap-3 p-3 rounded-xl border border-amber-200 bg-amber-50/40 cursor-pointer hover:bg-amber-50 transition-colors">
                 <input
                   type="radio"
                   name="clearScope"
                   checked={clearAttendanceScope === 'ALL'}
                   onChange={() => setClearAttendanceScope('ALL')}
-                  className="text-rose-600 focus:ring-rose-500"
+                  className="text-amber-600 focus:ring-amber-500"
                 />
                 <div className="flex-1">
-                  <span className="text-xs font-bold text-rose-800 block">Clear All Records</span>
-                  <span className="text-[11px] text-rose-600">Completely purge all attendance logs across all dates</span>
+                  <span className="text-xs font-bold text-amber-900 block">All Historical Photos</span>
+                  <span className="text-[11px] text-amber-700">Clear all photos across all dates to minimize storage</span>
                 </div>
               </label>
             </div>
 
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-[11px] text-amber-800 font-medium">
-                This action will permanently delete the selected attendance records and their photos. This cannot be undone.
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+              <p className="text-[11px] text-emerald-800 font-medium">
+                <strong>Data Retention Guarantee:</strong> 100% of employee attendance logs, check-in & check-out times, work hours, GPS verification, and leave records are retained intact. Only photo blobs are purged.
               </p>
             </div>
 
@@ -6036,10 +6126,10 @@ export const AdminDashboardView: React.FC = () => {
                 type="button"
                 disabled={isClearingAttendance}
                 onClick={handleConfirmClearAttendance}
-                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
               >
-                {isClearingAttendance ? <RotateCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                <span>Confirm Clear</span>
+                {isClearingAttendance ? <RotateCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+                <span>Purge Photos & Free Storage</span>
               </button>
             </div>
           </div>

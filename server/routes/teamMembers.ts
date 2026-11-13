@@ -56,7 +56,7 @@ router.get('/', (req: Request, res: Response) => {
           SUM(CASE WHEN outcome = 'CONNECTED' OR outcome = 'DEAL_CLOSED' OR durationSec > 0 THEN 1 ELSE 0 END) as connectedCount,
           SUM(CASE WHEN outcome = 'INTERESTED' THEN 1 ELSE 0 END) as interestedCount
         FROM call_logs
-        WHERE (date = ? OR createdAt LIKE ?)
+        WHERE (date = ? OR datetime(createdAt, '+5 hours', '30 minutes') LIKE ?)
         GROUP BY employeeId, empName
       `).all(todayStr, `${todayStr}%`) as any[];
 
@@ -81,9 +81,14 @@ router.get('/', (req: Request, res: Response) => {
           COUNT(*) as completedCount,
           SUM(CASE WHEN status = 'INTERESTED' THEN 1 ELSE 0 END) as interestedCount
         FROM assigned_leads
-        WHERE status != 'PENDING' AND (updatedAt LIKE ? OR lastCallTimestamp LIKE ? OR assignedDate = ?)
+        WHERE status != 'PENDING' AND (
+          assignedDate = ? OR 
+          datetime(updatedAt, '+5 hours', '30 minutes') LIKE ? OR 
+          datetime(createdAt, '+5 hours', '30 minutes') LIKE ? OR 
+          lastCallTimestamp LIKE ?
+        )
         GROUP BY assignedToEmployeeId, empName
-      `).all(`${todayStr}%`, `${todayStr}%`, todayStr) as any[];
+      `).all(todayStr, `${todayStr}%`, `${todayStr}%`, todayStr) as any[];
 
       for (const row of leadRows) {
         const lObj = {

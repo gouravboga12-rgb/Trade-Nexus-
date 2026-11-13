@@ -1553,6 +1553,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Real-time call logs
     socket.on('call:logged', (log: CallLogItem) => {
       setCallLogs((prev) => [log, ...prev.filter((c) => c.id !== log.id)]);
+      
+      // Optimistic instant dial counter increment for matching team member
+      if (log.employeeId || log.employeeName) {
+        const callerNameLower = (log.employeeName || '').trim().toLowerCase();
+        setTeamMembers((prev) =>
+          prev.map((m) => {
+            const matchesId = log.employeeId && (m.id === log.employeeId || m.empCode === log.employeeId);
+            const matchesName = callerNameLower && m.name && m.name.trim().toLowerCase() === callerNameLower;
+            if (matchesId || matchesName) {
+              return {
+                ...m,
+                dialsToday: (m.dialsToday || 0) + 1,
+              };
+            }
+            return m;
+          })
+        );
+      }
+
       const role = (currentRoleRef.current || '').toLowerCase();
       const myId = currentUserRef.current?.id || currentUserRef.current?.employeeId || profileRef.current?.id;
       if (log.employeeId && myId && String(log.employeeId) === String(myId)) {

@@ -6,31 +6,146 @@ import { sendPushNotification } from '../services/notificationService.js';
 
 const router = Router();
 
+// GET /api/assigned-leads/rep-summary — server-side indexed SQL aggregation per employee & date
+router.get('/rep-summary', (req: Request, res: Response) => {
+  try {
+    const user = req.user;
+    const { month, period, startDate, endDate, employeeId } = req.query;
+
+    const whereConditions: string[] = [];
+    const params: any[] = [];
+
+    // Role-based scoping: Telecallers only see themselves
+    if (user && (user.role === 'telecaller' || user.role === 'employee')) {
+      whereConditions.push('(assignedToEmployeeId = ? OR assignedToEmployeeId = ? OR LOWER(assignedToEmployeeName) = LOWER(?))');
+      params.push(user.employeeId || user.id, user.empCode || '', user.name || '');
+    } else if (employeeId) {
+      whereConditions.push('(assignedToEmployeeId = ? OR LOWER(assignedToEmployeeName) = LOWER(?))');
+      params.push(String(employeeId), String(employeeId));
+    }
+
+    // Date filtering expression: evaluates assignedDate or IST-adjusted createdAt
+    const leadDateExpr = "COALESCE(assignedDate, date(createdAt, '+5 hours', '30 minutes'))";
+    const todayStr = getTodayDateIST();
+
+    if (month && /^\d{4}-\d{2}$/.test(String(month))) {
+      whereConditions.push(`strftime('%Y-%m', ${leadDateExpr}) = ?`);
+      params.push(String(month));
+    } else if (period === 'TODAY') {
+      whereConditions.push(`${leadDateExpr} = ?`);
+      params.push(todayStr);
+    } else if (period === 'YESTERDAY') {
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      whereConditions.push(`${leadDateExpr} = ?`);
+      params.push(yesterday);
+    } else if (period === 'THIS_WEEK') {
+      const d = new Date();
+      const day = d.getDay();
+      const diffToMonday = d.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(d.setDate(diffToMonday)).toISOString().slice(0, 10);
+      whereConditions.push(`${leadDateExpr} >= ?`);
+      params.push(monday);
+    } else if (period === 'THIS_MONTH') {
+      const currentMonth = todayStr.slice(0, 7);
+      whereConditions.push(`strftime('%Y-%m', ${leadDateExpr}) = ?`);
+      params.push(currentMonth);
+    } else if (startDate && endDate) {
+      whereConditions.push(`${leadDateExpr} BETWEEN ? AND ?`);
+      params.push(String(startDate), String(endDate));
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    const summaryRows = db.prepare(`
+      SELECT 
+        COALESCE(assignedToEmployeeId, '') as assignedToEmployeeId,
+        COALESCE(assignedToEmployeeName, 'Unassigned') as assignedToEmployeeName,
+        COUNT(*) as totalLeads,
+        SUM(CASE WHEN (callCount = 0 OR callCount IS NULL) AND (status != 'CONVERTED' OR status IS NULL) THEN 1 ELSE 0 END) as freshLeads,
+        SUM(CASE WHEN callCount > 0 AND (status != 'CONVERTED' OR status IS NULL) THEN 1 ELSE 0 END) as pipelineLeads,
+        SUM(CASE WHEN status = 'INTERESTED' THEN 1 ELSE 0 END) as interestedLeads,
+        SUM(CASE WHEN status = 'CONVERTED' THEN 1 ELSE 0 END) as wonLeads,
+        SUM(CASE WHEN status = 'NOT_INTERESTED' OR status = 'FAILED' THEN 1 ELSE 0 END) as rejectedLeads,
+        COALESCE(SUM(dealValue), 0) as totalDealValue
+      FROM assigned_leads
+      ${whereClause}
+      GROUP BY assignedToEmployeeId, assignedToEmployeeName
+      ORDER BY totalLeads DESC
+    `).all(...params) as any[];
+
+    return res.status(200).json(summaryRows);
+  } catch (err) {
+    return res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 // GET /api/assigned-leads/stats — aggregate counters without transferring full table
 router.get('/stats', (req: Request, res: Response) => {
   try {
     const user = req.user;
-    let whereClause = '';
+    const { month, period, startDate, endDate, employeeId } = req.query;
+
+    const whereConditions: string[] = [];
     const params: any[] = [];
+
     if (user && (user.role === 'telecaller' || user.role === 'employee')) {
-      whereClause = 'WHERE assignedToEmployeeId = ? OR assignedToEmployeeId = ? OR LOWER(assignedToEmployeeName) = LOWER(?)';
+      whereConditions.push('(assignedToEmployeeId = ? OR assignedToEmployeeId = ? OR LOWER(assignedToEmployeeName) = LOWER(?))');
       params.push(user.employeeId || user.id, user.empCode || '', user.name || '');
+    } else if (employeeId) {
+      whereConditions.push('(assignedToEmployeeId = ? OR LOWER(assignedToEmployeeName) = LOWER(?))');
+      params.push(String(employeeId), String(employeeId));
     }
+
+    const leadDateExpr = "COALESCE(assignedDate, date(createdAt, '+5 hours', '30 minutes'))";
+    const todayStr = getTodayDateIST();
+
+    if (month && /^\d{4}-\d{2}$/.test(String(month))) {
+      whereConditions.push(`strftime('%Y-%m', ${leadDateExpr}) = ?`);
+      params.push(String(month));
+    } else if (period === 'TODAY') {
+      whereConditions.push(`${leadDateExpr} = ?`);
+      params.push(todayStr);
+    } else if (period === 'YESTERDAY') {
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      whereConditions.push(`${leadDateExpr} = ?`);
+      params.push(yesterday);
+    } else if (period === 'THIS_WEEK') {
+      const d = new Date();
+      const day = d.getDay();
+      const diffToMonday = d.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(d.setDate(diffToMonday)).toISOString().slice(0, 10);
+      whereConditions.push(`${leadDateExpr} >= ?`);
+      params.push(monday);
+    } else if (period === 'THIS_MONTH') {
+      const currentMonth = todayStr.slice(0, 7);
+      whereConditions.push(`strftime('%Y-%m', ${leadDateExpr}) = ?`);
+      params.push(currentMonth);
+    } else if (startDate && endDate) {
+      whereConditions.push(`${leadDateExpr} BETWEEN ? AND ?`);
+      params.push(String(startDate), String(endDate));
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
     const counts = db.prepare(`
       SELECT 
         count(*) as total,
+        sum(CASE WHEN (callCount = 0 OR callCount IS NULL) AND (status != 'CONVERTED' OR status IS NULL) THEN 1 ELSE 0 END) as fresh,
+        sum(CASE WHEN callCount > 0 AND (status != 'CONVERTED' OR status IS NULL) THEN 1 ELSE 0 END) as pipeline,
         sum(CASE WHEN status = 'CONVERTED' THEN 1 ELSE 0 END) as converted,
         sum(CASE WHEN status = 'INTERESTED' THEN 1 ELSE 0 END) as interested,
         sum(CASE WHEN status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as inProgress,
         sum(CASE WHEN status = 'NOT_INTERESTED' THEN 1 ELSE 0 END) as notInterested,
         sum(CASE WHEN status = 'PENDING' OR status IS NULL THEN 1 ELSE 0 END) as pending,
-        sum(dealValue) as totalDealValue
+        COALESCE(sum(dealValue), 0) as totalDealValue
       FROM assigned_leads
       ${whereClause}
     `).get(...params) as any;
 
     return res.status(200).json({
       total: counts?.total || 0,
+      fresh: counts?.fresh || 0,
+      pipeline: counts?.pipeline || 0,
       converted: counts?.converted || 0,
       interested: counts?.interested || 0,
       inProgress: counts?.inProgress || 0,

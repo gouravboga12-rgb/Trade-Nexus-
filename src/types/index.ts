@@ -118,6 +118,7 @@ export interface AttendanceRecord {
   checkOut?: string;
   workHours?: string;
   method?: 'Face ID Biometric' | 'Geo-tagged';
+  photoAudited?: boolean | number;
   disputedByAdmin?: boolean;
   disputeReason?: string | null;
 }
@@ -395,6 +396,18 @@ export interface AssignedLead {
   customerAccountNumber?: string;
   customerIfscCode?: string;
   customerUpiId?: string;
+}
+
+export interface AssignedLeadsRepSummary {
+  assignedToEmployeeId: string;
+  assignedToEmployeeName: string;
+  totalLeads: number;
+  freshLeads: number;
+  pipelineLeads: number;
+  interestedLeads: number;
+  wonLeads: number;
+  rejectedLeads: number;
+  totalDealValue: number;
 }
 
 export interface LeadBatch {

@@ -178,11 +178,11 @@ export function getActiveScreenResourceKeys(role: string, tab?: string): readonl
   }
 
   if (normRole === 'team_leader') {
-    if (cleanTab === 'team' || cleanTab === 'attendance') return ['teamMembers', 'attendanceLogs', 'leaveRequests', 'teamGroups'];
+    if (cleanTab === 'team' || cleanTab === 'attendance') return ['teamMembers', 'attendanceLogs', 'leaveRequests', 'teamGroups', 'assignedLeads'];
     if (cleanTab === 'leads' || cleanTab === 'calling') return ['assignedLeads', 'callLogs', 'stats'];
     if (cleanTab === 'won') return ['paymentVerifications', 'stats'];
     // Home
-    return ['profile', 'attendanceLogs', 'teamMembers', 'teamGroups', 'stats'];
+    return ['profile', 'attendanceLogs', 'teamMembers', 'teamGroups', 'stats', 'assignedLeads'];
   }
 
   if (normRole === 'hr') {

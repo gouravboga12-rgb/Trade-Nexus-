@@ -14,6 +14,7 @@ import {
   OnboardingEmployee,
   ExitEmployee,
   AssignedLead,
+  AssignedLeadsRepSummary,
   LeadBatch,
   FaceBiometricProfile,
   OfferLetterData,
@@ -267,6 +268,11 @@ export const api = {
   },
   deleteAttendanceRecord: (id: string) => 
     request<{ success: boolean; count: number }>(`/attendance/${id}`, { method: 'DELETE' }),
+  purgeAttendancePhotos: (data: { cutoffDate?: string; month?: string; scope?: string; startDate?: string; endDate?: string; all?: boolean }) =>
+    request<{ success: boolean; purgedRecordsCount: number; message: string }>('/attendance/purge-photos', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 
   // Leaves
   getLeaves: () => request<LeaveRequest[]>('/leaves'),
@@ -438,16 +444,36 @@ export const api = {
     const qs = q.toString() ? `?${q.toString()}` : '';
     return request<AssignedLead[]>(`/assigned-leads${qs}`);
   },
-  getAssignedLeadsStats: () =>
-    request<{
+  getAssignedLeadsRepSummary: (params?: { month?: string; period?: string; startDate?: string; endDate?: string; employeeId?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.month) q.set('month', params.month);
+    if (params?.period) q.set('period', params.period);
+    if (params?.startDate) q.set('startDate', params.startDate);
+    if (params?.endDate) q.set('endDate', params.endDate);
+    if (params?.employeeId) q.set('employeeId', params.employeeId);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return request<AssignedLeadsRepSummary[]>(`/assigned-leads/rep-summary${qs}`);
+  },
+  getAssignedLeadsStats: (params?: { month?: string; period?: string; startDate?: string; endDate?: string; employeeId?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.month) q.set('month', params.month);
+    if (params?.period) q.set('period', params.period);
+    if (params?.startDate) q.set('startDate', params.startDate);
+    if (params?.endDate) q.set('endDate', params.endDate);
+    if (params?.employeeId) q.set('employeeId', params.employeeId);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return request<{
       total: number;
+      fresh?: number;
+      pipeline?: number;
       converted: number;
       interested: number;
       inProgress: number;
       notInterested: number;
       pending: number;
       totalDealValue: number;
-    }>('/assigned-leads/stats'),
+    }>(`/assigned-leads/stats${qs}`);
+  },
   createAssignedLead: (data: Omit<AssignedLead, 'id'> & { id?: string }) => 
     request<AssignedLead>('/assigned-leads', { method: 'POST', body: JSON.stringify(data) }),
   bulkImportAssignedLeads: (fileName: string, targetEmployeeId: string, targetEmployeeName: string, leads: any[], batchId?: string) => 
