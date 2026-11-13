@@ -440,11 +440,12 @@ export const AdminDashboardView: React.FC = () => {
       } else if (clearAttendanceScope === 'CUSTOM_RANGE') {
         res = await api.purgeAttendancePhotos({ startDate: clearCustomStartDate, endDate: clearCustomEndDate });
       } else if (clearAttendanceScope === 'ALL') {
-        res = await api.purgeAttendancePhotos({ all: true });
+        res = await api.purgeAttendancePhotos({ all: true, scope: 'ALL' });
       }
       setIsClearAttendanceModalOpen(false);
       await refreshResources(['attendanceLogs']);
-      triggerToast(`✓ Storage freed! ${res?.purgedCount ?? 0} photos safely cleared. Attendance data 100% retained.`);
+      const count = res?.purgedRecordsCount ?? res?.purgedCount ?? 0;
+      triggerToast(`✓ Storage freed! ${count} photos safely cleared. Attendance data 100% retained.`);
     } catch (err: any) {
       triggerToast(err?.message || 'Failed to purge photos');
     } finally {

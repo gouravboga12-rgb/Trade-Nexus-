@@ -505,6 +505,7 @@ function runMigrations() {
   addColumnIfMissing('attendance_records', 'checkInLng', 'REAL');
   addColumnIfMissing('attendance_records', 'checkInDistanceM', 'REAL');
   addColumnIfMissing('attendance_records', 'locationStatus', 'TEXT');
+  addColumnIfMissing('attendance_records', 'photoAudited', 'INTEGER DEFAULT 0');
 
   // Call logs per employee
   addColumnIfMissing('call_logs', 'employeeId', 'TEXT');

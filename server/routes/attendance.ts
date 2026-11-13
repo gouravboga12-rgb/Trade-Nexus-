@@ -658,7 +658,7 @@ router.post('/purge-photos', (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Access Denied: Only Super Admin can manage photo storage.' });
     }
 
-    const { cutoffDate, month, scope, startDate, endDate } = req.body;
+    const { cutoffDate, month, scope, startDate, endDate, all } = req.body;
     let changes = 0;
 
     if (cutoffDate) {
@@ -690,7 +690,7 @@ router.post('/purge-photos', (req: Request, res: Response) => {
           AND (checkInPhoto IS NOT NULL OR checkOutPhoto IS NOT NULL)
       `).run(startDate, endDate);
       changes = info.changes;
-    } else if (scope === 'ALL') {
+    } else if (scope === 'ALL' || all === true || all === 'true') {
       const info = db.prepare(`
         UPDATE attendance_records
         SET checkInPhoto = NULL,
@@ -709,6 +709,7 @@ router.post('/purge-photos', (req: Request, res: Response) => {
 
     return res.status(200).json({
       success: true,
+      purgedCount: changes,
       purgedRecordsCount: changes,
       message: `Successfully purged photos for ${changes} records. All attendance logs, timings, and leave balances are permanently retained.`
     });
