@@ -781,7 +781,7 @@ export const AdminDashboardView: React.FC = () => {
   const hrCount = nonAdminMembers.filter((m) => {
     const p = (m.portal || '').toLowerCase();
     const r = (m.role || '').toLowerCase();
-    return p === 'hr' || r.includes('hr');
+    return p === 'hr' || /\bhr\b/i.test(r) || r.includes('human resources') || r.includes('people operations');
   }).length;
 
   const filteredPeople = nonAdminMembers.filter((m) => {
@@ -809,7 +809,7 @@ export const AdminDashboardView: React.FC = () => {
     const portalStr = (m.portal || '').toLowerCase();
     const roleStr = (m.role || '').toLowerCase();
     const isLeader = roleStr.includes('leader') || portalStr === 'team_leader';
-    const isHr = roleStr.includes('hr') || portalStr === 'hr';
+    const isHr = portalStr === 'hr' || /\bhr\b/i.test(roleStr) || roleStr.includes('human resources') || roleStr.includes('people operations');
 
     const matchesRole =
       roleFilter === 'ALL'
@@ -2307,14 +2307,14 @@ export const AdminDashboardView: React.FC = () => {
                                     className={`text-[9px] font-black px-2 py-0.5 rounded-md border ${
                                       member.portal === 'team_leader' || (member.role || '').toLowerCase().includes('leader')
                                         ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                        : member.portal === 'hr' || (member.role || '').toLowerCase().includes('hr')
+                                        : member.portal === 'hr' || /\bhr\b/i.test(member.role || '') || (member.role || '').toLowerCase().includes('human resources') || (member.role || '').toLowerCase().includes('people operations')
                                         ? 'bg-purple-50 text-purple-700 border-purple-200'
                                         : 'bg-sky-50 text-sky-700 border-sky-200'
                                     }`}
                                   >
                                     {member.portal === 'team_leader' || (member.role || '').toLowerCase().includes('leader')
                                       ? '⭐ Team Leader'
-                                      : member.portal === 'hr' || (member.role || '').toLowerCase().includes('hr')
+                                      : member.portal === 'hr' || /\bhr\b/i.test(member.role || '') || (member.role || '').toLowerCase().includes('human resources') || (member.role || '').toLowerCase().includes('people operations')
                                       ? '👥 HR Staff'
                                       : '📞 Telecaller'}
                                   </span>
@@ -4748,7 +4748,7 @@ export const AdminDashboardView: React.FC = () => {
 
           // Build Leaderboard (excluding Admin & HR)
           const leaderboard = teamMembers
-            .filter((m) => m.portal !== 'admin' && m.empCode !== 'TNX-AD01' && !(m.role || '').toLowerCase().includes('admin') && m.portal !== 'hr' && !(m.role || '').toLowerCase().includes('hr'))
+            .filter((m) => isTelecallerOrCallingEmployee(m))
             .map((m) => {
               const mNameLower = m.name.toLowerCase();
               // Use ONLY verified payments (filtered by date range) for this rep
@@ -5817,7 +5817,7 @@ export const AdminDashboardView: React.FC = () => {
             <div>
               {(() => {
                 const isLeader = employeeToDelete.portal === 'team_leader' || (employeeToDelete.role || '').toLowerCase().includes('leader');
-                const isHr = employeeToDelete.portal === 'hr' || (employeeToDelete.role || '').toLowerCase().includes('hr');
+                const isHr = employeeToDelete.portal === 'hr' || /\bhr\b/i.test(employeeToDelete.role || '') || (employeeToDelete.role || '').toLowerCase().includes('human resources') || (employeeToDelete.role || '').toLowerCase().includes('people operations');
                 const roleLabel = isLeader ? 'Team Leader' : isHr ? 'HR Staff' : 'Employee (Telecaller)';
 
                 return (

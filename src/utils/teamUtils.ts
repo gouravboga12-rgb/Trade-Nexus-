@@ -16,15 +16,13 @@ export const isTelecallerOrCallingEmployee = (m: TeamMember): boolean => {
 
   const portal = (m.portal || '').toLowerCase().trim();
   const role = (m.role || '').toLowerCase().trim();
-  const name = (m.name || '').toLowerCase().trim();
   const empCode = (m.empCode || '').toUpperCase().trim();
 
   // 1. Exclude Admin
   if (
     portal === 'admin' || 
     empCode === 'TNX-AD01' || 
-    role.includes('admin') || 
-    name.includes('admin') ||
+    /\badmin\b/i.test(role) ||
     role.includes('executive director')
   ) {
     return false;
@@ -34,10 +32,9 @@ export const isTelecallerOrCallingEmployee = (m: TeamMember): boolean => {
   if (
     portal === 'hr' || 
     empCode.startsWith('TNX-HR') || 
-    role.includes('hr') || 
+    /\bhr\b/i.test(role) || 
     role.includes('human resources') || 
-    role.includes('people operations') || 
-    name.includes('hr')
+    role.includes('people operations')
   ) {
     return false;
   }

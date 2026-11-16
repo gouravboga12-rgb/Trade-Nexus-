@@ -21,7 +21,10 @@ export const ManageTeamMembersModal: React.FC<ManageTeamMembersModalProps> = ({
   if (!isOpen || !team) return null;
 
   const isHrMember = (m: TeamMember) =>
-    (m.portal || '').toLowerCase() === 'hr' || (m.role || '').toLowerCase().includes('hr');
+    (m.portal || '').toLowerCase() === 'hr' || 
+    /\bhr\b/i.test(m.role || '') || 
+    (m.role || '').toLowerCase().includes('human resources') || 
+    (m.role || '').toLowerCase().includes('people operations');
 
   const isMemberOfTeam = (m: TeamMember, teamName: string) => {
     if (!m.group) return false;
